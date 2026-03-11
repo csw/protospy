@@ -13,7 +13,8 @@
         "pypi.org",
         "files.pythonhosted.org",
         "astral.sh",
-        "github.com"
+        "github.com",
+        "api.github.com"
       ],
       "allowLocalBinding": true
     }
