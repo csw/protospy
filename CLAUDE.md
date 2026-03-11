@@ -41,6 +41,10 @@ uv run pytest
 
 Do not report "done" or commit until these are all clean.
 
+## CI
+
+When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
+
 ## Committing
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
