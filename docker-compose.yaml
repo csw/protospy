@@ -22,6 +22,11 @@ services:
       - "9200:9200"
     volumes:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -sf http://localhost:9200/_cluster/health
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   jaeger:
     image: ${REGISTRY:-}jaegertracing/all-in-one:${JAEGER_VERSION:-1.76.0}

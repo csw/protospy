@@ -1,0 +1,121 @@
+name: demo-ci
+
+on:
+  push:
+    paths:
+      - "demo/**"
+      - ".github/workflows/demo-ci.yml"
+  pull_request:
+    paths:
+      - "demo/**"
+      - ".github/workflows/demo-ci.yml"
+
+defaults:
+  run:
+    working-directory: demo
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv sync --frozen --extra dev
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check --output-format github .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv sync --frozen --extra dev
+      - run: uv run pyright .
+
+  test-unit:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv sync --frozen --extra dev
+      - run: uv run pytest -m "not e2e" --junit-xml=results.xml
+      - uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: Unit Tests
+          path: demo/results.xml
+          reporter: java-junit
+          use-actions-summary: true
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hoverkraft-tech/compose-action@v2.5.0
+        with:
+          compose-file: ./docker-compose.yaml
+          services: elasticsearch
+          up-flags: --wait
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv sync --frozen --extra dev
+      - name: Install Playwright browsers
+        run: uv run playwright install --with-deps chromium
+      - name: Load data
+        run: uv run python loader.py
+        env:
+          ELASTICSEARCH_URL: http://localhost:9200
+      - name: Run e2e tests
+        run: >-
+          uv run pytest -m e2e
+          --screenshot=only-on-failure
+          --video=retain-on-failure
+          --tracing=retain-on-failure
+          --output=playwright-results
+          --junit-xml=e2e-results.xml
+        env:
+          ELASTICSEARCH_URL: http://localhost:9200
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: demo/playwright-results/
+      - uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: E2E Tests
+          path: demo/e2e-results.xml
+          reporter: java-junit
+          use-actions-summary: true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./demo
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
