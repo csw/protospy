@@ -107,7 +107,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: demo/uv.lock
-      - run: uv export --frozen --no-dev --output-file requirements.txt
+      - run: uv export --frozen --no-dev --no-emit-project --output-file requirements.txt
       - run: uvx pip-audit -r requirements.txt
 
   docker-build:
