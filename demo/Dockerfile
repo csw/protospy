@@ -20,4 +20,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENTRYPOINT []
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "elasticflix.main:app", "--host", "0.0.0.0", "--port", "8000"]

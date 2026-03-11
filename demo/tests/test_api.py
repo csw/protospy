@@ -99,13 +99,13 @@ def make_mock_es(
 
 def _make_client(mock_es):
     with (
-        patch("main.AsyncElasticsearch", return_value=mock_es),
-        patch("main.FastAPIInstrumentor"),
-        patch("main.trace"),
+        patch("elasticflix.main.AsyncElasticsearch", return_value=mock_es),
+        patch("elasticflix.main.FastAPIInstrumentor"),
+        patch("elasticflix.main.trace"),
     ):
-        import main  # noqa: PLC0415
+        import elasticflix.main  # noqa: PLC0415
 
-        with TestClient(main.app) as client:
+        with TestClient(elasticflix.main.app) as client:
             yield client
 
 

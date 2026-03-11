@@ -26,7 +26,7 @@ def live_server_url() -> str:  # type: ignore[return]
             "uv",
             "run",
             "uvicorn",
-            "main:app",
+            "elasticflix.main:app",
             "--host",
             "127.0.0.1",
             "--port",
