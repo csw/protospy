@@ -1,0 +1,20 @@
+{
+  "name": "protospy",
+  "image": "mcr.microsoft.com/devcontainers/rust:1",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "mounts": [
+    "source=protospy-claude,target=/home/vscode/.claude,type=volume",
+    "source=protospy-demo-venv,target=/workspace/demo/.venv,type=volume",
+    "source=protospy-cargo-target,target=/workspace/target,type=volume"
+  ],
+  "containerEnv": {
+    "ELASTICSEARCH_URL": "http://host.docker.internal:9200",
+    "OTLP_ENDPOINT": "http://host.docker.internal:4318/v1/traces"
+  },
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && curl -LsSf https://astral.sh/uv/install.sh | sh && cd /workspace/demo && ~/.local/bin/uv python install && ~/.local/bin/uv sync",
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
+  "updateRemoteUserUID": true,
+  "remoteUser": "vscode"
+}

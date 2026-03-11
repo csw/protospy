@@ -1,0 +1,12 @@
+[
+  {
+    "label": "elasticflix: run",
+    "command": "uv run uvicorn main:app --reload",
+    "cwd": "$ZED_WORKTREE_ROOT/demo",
+  },
+  {
+    "label": "demo: pytest tests",
+    "command": "pytest",
+    "cwd": "$ZED_WORKTREE_ROOT/demo",
+  },
+]

@@ -1,0 +1,29 @@
+{% set max_genre = genres | map(attribute='doc_count') | max if genres else 1 %}
+{% set max_votes = vote_histogram | map(attribute='doc_count') | max if vote_histogram else 1 %}
+<div class="stats-grid">
+    <div>
+        <h2 class="stats-heading">Top Genres</h2>
+        <table class="stats-table">
+            <thead><tr><th>Genre</th><th>Films</th></tr></thead>
+            <tbody>
+            {% for g in genres %}
+            <tr><td>{{ g.key }}</td><td>{{ g.doc_count }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div>
+        <h2 class="stats-heading">Vote Distribution</h2>
+        {% for b in vote_histogram %}
+        {% if b.doc_count > 0 %}
+        <div class="bar-row">
+            <span class="bar-label">{{ b.key | int }}–{{ (b.key + 1) | int }}</span>
+            <div class="bar-track">
+                <div class="bar-fill" style="width: {{ (b.doc_count / max_votes * 100) | round | int }}%"></div>
+            </div>
+            <span class="bar-count">{{ b.doc_count }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,41 @@
+services:
+  demo:
+    build:
+      context: ./demo
+    ports:
+      - "8001:8000"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      - elasticsearch
+      - jaeger
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  jaeger:
+    image: ${REGISTRY:-}jaegertracing/all-in-one:${JAEGER_VERSION:-1.76.0}
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "14250:14250"
+      - "14268:14268"
+      - "14269:14269"
+      - "9411:9411"
+    environment:
+      - a=b
+      #- LOG_LEVEL=debug
+
+volumes:
+  esdata:

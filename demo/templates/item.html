@@ -1,0 +1,15 @@
+<div class="detail-panel">
+    <h2 class="detail-title">{{ movie.title }}</h2>
+    {% if movie.tagline %}<p class="detail-tagline">{{ movie.tagline }}</p>{% endif %}
+    <dl class="detail-grid">
+        {% if movie.release_date %}<dt>Released</dt><dd>{{ movie.release_date }}</dd>{% endif %}
+        {% if movie.director %}<dt>Director</dt><dd>{{ movie.director }}</dd>{% endif %}
+        {% if movie.cast %}<dt>Cast</dt><dd>{{ movie.cast[:5] | join(", ") }}</dd>{% endif %}
+        {% if movie.genres %}<dt>Genres</dt><dd>{{ movie.genres | join(", ") }}</dd>{% endif %}
+        {% if movie.vote_average %}<dt>Rating</dt><dd>★ {{ "%.1f"|format(movie.vote_average) }} ({{ movie.vote_count }} votes)</dd>{% endif %}
+        {% if movie.runtime %}<dt>Runtime</dt><dd>{{ movie.runtime | int }} min</dd>{% endif %}
+        {% if movie.budget %}<dt>Budget</dt><dd>${{ "{:,}".format(movie.budget) }}</dd>{% endif %}
+        {% if movie.revenue %}<dt>Revenue</dt><dd>${{ "{:,}".format(movie.revenue) }}</dd>{% endif %}
+    </dl>
+    {% if movie.overview %}<p class="detail-overview">{{ movie.overview }}</p>{% endif %}
+</div>

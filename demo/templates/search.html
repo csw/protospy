@@ -1,0 +1,33 @@
+{% if results %}
+{% if genres %}
+<div class="facet-bar">
+    <span class="facet-label">Genres</span>
+    {% for g in genres %}
+    <span class="facet-chip">{{ g.key }}<em>{{ g.doc_count }}</em></span>
+    {% endfor %}
+</div>
+{% endif %}
+<div class="movie-grid">
+{% for movie in results %}
+<article class="movie-card"
+    hx-get="/item/{{ movie._id }}"
+    hx-target="#detail"
+    hx-swap="innerHTML">
+    <div class="movie-card-header">
+        <span class="movie-title">{{ movie._source.title }}</span>
+        {% if movie._source.release_date %}
+        <span class="movie-year">({{ movie._source.release_date[:4] }})</span>
+        {% endif %}
+    </div>
+    <p class="movie-overview">{{ movie._source.overview }}</p>
+    <div class="movie-meta">
+        {% if movie._source.director %}<p class="movie-director"><strong>{{ movie._source.director }}</strong></p>{% endif %}
+        {% if movie._source.genres %}<p class="movie-genres">{{ movie._source.genres | join(" · ") }}</p>{% endif %}
+        {% if movie._source.vote_average %}<div class="movie-rating">★ {{ "%.1f"|format(movie._source.vote_average) }}</div>{% endif %}
+    </div>
+</article>
+{% endfor %}
+</div>
+{% else %}
+<p class="no-results">No results found.</p>
+{% endif %}
