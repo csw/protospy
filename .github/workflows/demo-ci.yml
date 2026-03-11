@@ -97,6 +97,17 @@ jobs:
           reporter: java-junit
           use-actions-summary: true
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv export --frozen --no-dev --output-file requirements.txt
+      - run: uvx pip-audit -r requirements.txt
+
   docker-build:
     runs-on: ubuntu-latest
     steps:
