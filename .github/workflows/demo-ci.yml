@@ -53,7 +53,7 @@ jobs:
           cache-dependency-glob: demo/uv.lock
       - run: uv sync --frozen --extra dev
       - name: Run unit tests
-        run: uv run pytest -v -m "not e2e" --junit-xml=unit-results.xml
+        run: uv run pytest -v -m "not e2e" --junit-xml=unit-results.xml --cov --cov-report=xml:coverage.xml --cov-report=term-missing
       - uses: hoverkraft-tech/compose-action@v2.5.0
         with:
           compose-file: ./docker-compose.yaml
@@ -75,6 +75,13 @@ jobs:
           --junit-xml=e2e-results.xml
         env:
           ELASTICSEARCH_URL: http://localhost:9200
+      - name: Coverage summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: demo/coverage.xml
+          format: markdown
+          output: both
+          fail_below_min: false
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
