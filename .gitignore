@@ -1,4 +1,4 @@
 /target
 .worktrees/
 /scratch
-/.ruff_cache
+.*_cache
