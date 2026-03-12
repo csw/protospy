@@ -40,7 +40,7 @@ This creates the `movies` index (dropping it first if it exists) and bulk-indexe
 ### 4. Start the app
 
 ```bash
-uv run uvicorn main:app --reload
+uv run uvicorn elasticflix.main:app --reload
 ```
 
 Open [http://localhost:8000](http://localhost:8000) in your browser.
@@ -76,7 +76,7 @@ All settings can be overridden via environment variables:
 ## Development
 
 ```bash
-uv sync --extra dev   # install dev dependencies (includes pytest-playwright)
+uv sync               # installs dev dependencies (includes pytest-playwright)
 
 uv run pytest         # unit tests (fast, no server required)
 uv run ruff check .   # lint
@@ -109,4 +109,10 @@ Ruff, ruff-format, pyright, and uv-lock hooks are configured in `.pre-commit-con
 ```bash
 pip install pre-commit
 pre-commit install
+```
+
+### Checking for dead code
+
+```shell
+(cd demo && uvx vulture src)
 ```
