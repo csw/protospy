@@ -17,5 +17,3 @@ tests/
 # Data (loaded separately, not baked into image)
 data/
 
-# Docs
-README.md

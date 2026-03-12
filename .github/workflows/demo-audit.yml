@@ -1,0 +1,22 @@
+name: audit
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'   # weekly, Monday 08:00 UTC
+  workflow_dispatch:        # allow manual runs from Actions UI
+
+defaults:
+  run:
+    working-directory: demo
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - run: uv export --frozen --no-dev --no-emit-project --output-file requirements.txt
+      - run: uvx pip-audit -r requirements.txt

@@ -14,7 +14,7 @@ from elasticsearch.helpers import bulk
 # --- config ---
 ES_URL = os.environ.get("ELASTICSEARCH_URL", "http://localhost:9200")
 try:
-    from config import settings
+    from elasticflix.config import settings
 
     ES_URL = settings.elasticsearch_url
     INDEX = settings.elasticsearch_index

@@ -13,9 +13,9 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-from config import settings
+from elasticflix.config import settings
 
-TEMPLATES_DIR = Path(__file__).parent / "templates"
+TEMPLATES_DIR = Path(__file__).parent / "templates"  # templates live inside the package
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
