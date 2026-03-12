@@ -50,3 +50,9 @@ testpaths = ["tests"]
 markers = [
     "e2e: end-to-end tests (require running Elasticsearch and loaded index)",
 ]
+
+[tool.vulture]
+ignore_decorators = [
+  # FastAPI
+  "@app.*",
+]
