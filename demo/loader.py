@@ -5,7 +5,6 @@ import csv
 import gzip
 import json
 import os
-import sys
 from pathlib import Path
 
 from elasticsearch import Elasticsearch
@@ -50,21 +49,6 @@ MAPPINGS = {
         }
     }
 }
-
-
-def check_data_files():
-    missing = [f for f in [MOVIES_CSV, CREDITS_CSV] if not f.exists()]
-    if missing:
-        print("Missing data files. Download from Kaggle:")
-        print()
-        print("  https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata")
-        print()
-        print("Place these files in demo/data/:")
-        print("  - tmdb_5000_movies.csv.gz")
-        print("  - tmdb_5000_credits.csv.gz")
-        print()
-        print("Then re-run: uv run python loader.py")
-        sys.exit(1)
 
 
 def parse_json_field(value, default=None):
@@ -123,8 +107,6 @@ def generate_docs(directors):
 
 
 def main():
-    check_data_files()
-
     es = Elasticsearch(ES_URL)
 
     # Delete and recreate index
