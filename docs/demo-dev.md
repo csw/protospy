@@ -8,17 +8,20 @@
 
 ```
 demo/
-├── main.py          # FastAPI app, OTel setup, all route handlers
-├── config.py        # pydantic-settings Settings singleton
-├── loader.py        # One-shot bulk indexing script (not imported by main.py)
-├── templates/       # Jinja2 HTML templates
-│   ├── base.html    # Full HTML shell (HTMX + Pico CSS from CDN)
-│   ├── index.html   # Home page (extends base.html)
-│   ├── search.html  # Results fragment (movie grid cards)
-│   ├── item.html    # Movie detail fragment
-│   └── stats.html   # Stats fragment (genre table + vote histogram)
+├── src/elasticflix/     # Python package
+│   ├── main.py          # FastAPI app, OTel setup, all route handlers
+│   ├── config.py        # pydantic-settings Settings singleton
+│   └── templates/       # Jinja2 HTML templates
+│       ├── base.html    # Full HTML shell (HTMX + Alpine.js from CDN)
+│       ├── index.html   # Home page (extends base.html)
+│       ├── search.html  # Results fragment (movie grid cards + genre facets)
+│       ├── item.html    # Movie detail fragment
+│       └── stats.html   # Stats fragment (genre table + vote histogram)
+├── loader.py            # One-shot bulk indexing script (not imported by main.py)
 ├── tests/
-│   └── test_api.py  # pytest, all ES calls mocked
+│   ├── test_api.py      # pytest, all ES calls mocked
+│   ├── test_e2e.py      # Playwright E2E tests (require running ES + data)
+│   └── conftest.py      # session-scoped uvicorn fixture for E2E
 ├── data/
 │   ├── tmdb_5000_movies.csv.gz   # not in git (see .gitignore in data/)
 │   ├── tmdb_5000_credits.csv.gz  # not in git
@@ -39,9 +42,9 @@ Each endpoint exercises a different ES query type — this variety is the whole 
 | `/suggest` | `_search` with `match_bool_prefix` (operator=and) on `title` |
 | `/stats` | `_search` with `terms` agg (genres) + `histogram` agg (vote_average) |
 
-## HTMX / REST Duality
+## UI Stack
 
-Every endpoint except `/` returns JSON by default and an HTML fragment when the `HX-Request` header is present. The pattern used throughout `main.py`:
+**HTMX** handles all server interactions — search, suggest, stats, and detail fetch. Every endpoint except `/` returns JSON by default and an HTML fragment when `HX-Request` is present:
 
 ```python
 if request.headers.get("HX-Request"):
@@ -49,11 +52,15 @@ if request.headers.get("HX-Request"):
 return JSONResponse({...})
 ```
 
-Note: Starlette's `TemplateResponse` now takes `request` as the **first** argument (not the template name). The old `TemplateResponse(name, {"request": request, ...})` form triggers a deprecation warning.
+Note: Starlette's `TemplateResponse` takes `request` as the **first** argument (not the template name).
+
+**Alpine.js** handles all local UI state — combobox keyboard navigation and dismiss, active card highlighting, and scroll-to-detail. New UI features should follow this split: server data → HTMX, client state → Alpine.
+
+The `combobox` and `pageState` Alpine components are registered in `base.html` via `Alpine.data()` inside an `alpine:init` listener, placed before the deferred Alpine CDN script.
 
 ## OTel Setup
 
-OTel is configured in the FastAPI lifespan (startup/shutdown), not at module level. Key detail: `FastAPIInstrumentor().instrument_app(app)` is called **inside** the lifespan, after `app` is created, but the `app` object itself is created at module level. `ElasticsearchInstrumentor().instrument()` is also called at startup.
+OTel is configured in the FastAPI lifespan (startup/shutdown), not at module level. Key detail: `FastAPIInstrumentor().instrument_app(app)` is called **inside** the lifespan, after `app` is created, but the `app` object itself is created at module level. The Elasticsearch client automatically uses the globally configured tracer provider.
 
 Traces are only exported when `OTLP_ENDPOINT` is set. `DEBUG=true` additionally logs spans to stdout via `ConsoleSpanExporter`.
 
@@ -86,16 +93,15 @@ The `data/` directory has its own `.gitignore` that ignores `*.csv` files (the o
 
 ## Testing
 
-Tests live in `demo/tests/test_api.py`. They use FastAPI's `TestClient` (synchronous) with the ES client mocked via `unittest.mock.AsyncMock`. The mock patches happen at `main.*` to intercept before the lifespan runs:
+Unit tests live in `demo/tests/test_api.py`. They use FastAPI's `TestClient` (synchronous) with the ES client mocked via `unittest.mock.AsyncMock`. The mock patches happen at `elasticflix.main.*`:
 
 ```python
 with (
-    patch("main.AsyncElasticsearch", return_value=mock_es),
-    patch("main.FastAPIInstrumentor"),
-    patch("main.ElasticsearchInstrumentor"),
-    patch("main.trace"),
+    patch("elasticflix.main.AsyncElasticsearch", return_value=mock_es),
+    patch("elasticflix.main.FastAPIInstrumentor"),
+    patch("elasticflix.main.trace"),
 ):
-    import main
+    from elasticflix import main
     with TestClient(main.app) as client:
         ...
 ```
@@ -112,6 +118,8 @@ meta = ApiResponseMeta(
 raise NotFoundError(message="not found", meta=meta, body={"found": False})
 ```
 
+E2E tests live in `demo/tests/test_e2e.py`. They use Playwright against a real uvicorn subprocess (started by the session-scoped fixture in `conftest.py`). They require Elasticsearch running and the movies index loaded. Run with `uv run pytest -m e2e`.
+
 ## Code Quality
 
 All checks run from `demo/`:
@@ -120,19 +128,8 @@ All checks run from `demo/`:
 uv run ruff check .        # lint
 uv run ruff format --check .  # format
 uv run pyright .           # type-check
-uv run pytest              # tests
+uv run pytest              # unit tests
+uvx vulture src            # dead code
 ```
 
-Pre-commit hooks at repo root cover ruff, ruff-format, pyright, and uv-lock. Always commit `demo/uv.lock` alongside `pyproject.toml` changes — the `uv-lock` hook will block the commit otherwise.
-
-## Known Gotcha: loader.py except syntax
-
-The `parse_json_field` function in `loader.py` had a Python 2-style `except A, B:` that ruff's pre-commit hook catches but `uv run ruff check` (run from within the venv) does not always flag as a syntax error in isolation. If this bug reappears, the fix is:
-
-```python
-# Wrong (Python 2 style — silent parse failure in some contexts)
-except json.JSONDecodeError, TypeError:
-
-# Correct
-except (json.JSONDecodeError, TypeError):
-```
+Pre-commit hooks at repo root cover ruff, ruff-format, pyright, uv-lock, and Conventional Commits. Always commit `demo/uv.lock` alongside `pyproject.toml` changes — the `uv-lock` hook will block the commit otherwise.

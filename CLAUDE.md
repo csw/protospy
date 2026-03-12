@@ -6,7 +6,7 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Project Overview
 
-`protospy` is a Rust project (Cargo edition 2024) in early skeleton stage. There is also a `demo/` subdirectory containing a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch.
+`protospy` is a Rust project (Cargo edition 2024) in early skeleton stage. There is also a `demo/` subdirectory containing a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach.
 
 ## Commands
 
@@ -21,12 +21,13 @@ cargo clippy         # lint
 
 ### Python demo (`demo/`)
 ```
-uv run python main.py   # run the demo
+uv run uvicorn elasticflix.main:app --reload   # run the demo
 uv add <package>        # add a dependency
 uv run ruff check .     # lint
 uv run ruff format .    # format
 uv run pyright .        # type check
 uv run pytest           # run tests
+uvx vulture src         # check for dead code (run from demo/)
 ```
 
 ## Code Quality Requirements
