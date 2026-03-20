@@ -2,4 +2,5 @@
 .worktrees/
 /scratch
 .*_cache
+__pycache__/
 CLAUDE.local.md

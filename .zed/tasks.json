@@ -11,5 +11,14 @@
     "label": "elasticflix: pytest tests",
     "command": "uv run pytest",
     "cwd": "$ZED_WORKTREE_ROOT/demo",
+    "env": {
+      "OTLP_ENDPOINT": "http://localhost:4318",
+      "DEBUG": "1",
+    },
+  },
+  {
+    "label": "conformance tests",
+    "command": "uv run pytest",
+    "cwd": "$ZED_WORKTREE_ROOT/conformance",
   },
 ]

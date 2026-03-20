@@ -1,34 +1,65 @@
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: e38709b2694c2988ab0c618ee63ac156e155d5c4  # frozen: 0.10.9
+    rev: e38709b2694c2988ab0c618ee63ac156e155d5c4 # frozen: 0.10.9
     hooks:
       - id: uv-lock
         args: [--project, demo]
 
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: 3db014c16a9d31997ab8c07a4d61fcce936c8f0d  # frozen: v4.4.0
+    rev: 3db014c16a9d31997ab8c07a4d61fcce936c8f0d # frozen: v4.4.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-        args: [feat, fix, docs, chore, build, test, refactor, style, perf, ci, revert]
+        args:
+          [
+            feat,
+            fix,
+            docs,
+            chore,
+            build,
+            test,
+            refactor,
+            style,
+            perf,
+            ci,
+            revert,
+          ]
 
   - repo: local
     hooks:
-      - id: ruff
-        name: ruff
+      - id: ruff-demo
+        name: ruff (demo)
         entry: bash -c 'cd demo && uv run ruff check --fix .'
         language: system
-        files: ^demo/.*\.py$
+        files: ^demo/
         pass_filenames: false
-      - id: ruff-format
-        name: ruff-format
+      - id: ruff-format-demo
+        name: ruff-format (demo)
         entry: bash -c 'cd demo && uv run ruff format .'
         language: system
-        files: ^demo/.*\.py$
+        files: ^demo/
         pass_filenames: false
-      - id: pyright
-        name: pyright
+      - id: pyright-demo
+        name: pyright (demo)
         entry: bash -c 'cd demo && uv run pyright'
         language: system
-        files: ^demo/.*\.py$
+        files: ^demo/
+        pass_filenames: false
+      - id: ruff-conformance
+        name: ruff (conformance)
+        entry: bash -c 'cd conformance && uv run ruff check --fix .'
+        language: system
+        files: ^conformance/
+        pass_filenames: false
+      - id: ruff-format-conformance
+        name: ruff-format (conformance)
+        entry: bash -c 'cd conformance && uv run ruff format .'
+        language: system
+        files: ^conformance/
+        pass_filenames: false
+      - id: pyright-conformance
+        name: pyright (conformance)
+        entry: bash -c 'cd conformance && uv run pyright'
+        language: system
+        files: ^conformance/
         pass_filenames: false
