@@ -14,6 +14,7 @@ from proxy_conformance.good_server import GoodServer
 from proxy_conformance.net import find_free_port
 from proxy_conformance.wire_server import (
     WireServer,
+    continue_and_echo,
     echo_handler,
     malformed_chunks,
     truncated_body,
@@ -128,6 +129,7 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
         malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
     )
     server.add_route("/", echo_handler())
+    server.add_route("/continue", continue_and_echo())
     server.start()
     yield server
     server.stop()

@@ -27,7 +27,7 @@ from proxy_conformance.good_server import CapturedRequest
 from proxy_conformance.net import find_free_port
 from proxy_conformance.request_logging import log_request
 
-Handler = Callable[[h11.Request, bytes, socket.socket], None]
+Handler = Callable[[h11.Request, bytes, socket.socket, h11.Connection], None]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,12 @@ def truncated_body(
     A well-behaved proxy should detect the premature close and return 502.
     """
 
-    def handler(_request: h11.Request, _body: bytes, conn: socket.socket) -> None:
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
         headers = [("content-length", str(promised_length))]
         if extra_headers:
             headers.extend(extra_headers)
@@ -72,7 +77,12 @@ def malformed_chunks(
     omit the terminal zero-length chunk entirely.
     """
 
-    def handler(_request: h11.Request, _body: bytes, conn: socket.socket) -> None:
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
         headers = [("transfer-encoding", "chunked")]
         if extra_headers:
             headers.extend(extra_headers)
@@ -92,7 +102,12 @@ def echo_handler() -> Handler:
     don't need misbehavior.
     """
 
-    def handler(_request: h11.Request, _body: bytes, conn: socket.socket) -> None:
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
         response_body = b"OK\n"
         headers = [
             ("content-length", str(len(response_body))),
@@ -101,6 +116,61 @@ def echo_handler() -> Handler:
         header_block = "".join(f"{k}: {v}\r\n" for k, v in headers)
         conn.sendall(f"HTTP/1.1 200 OK\r\n{header_block}\r\n".encode())
         conn.sendall(response_body)
+
+    return handler
+
+
+def continue_and_echo() -> Handler:
+    """100-continue handler: send 100, read body, echo in 200.
+
+    For use with requests carrying Expect: 100-continue. Sends a
+    100 Continue informational response via h11, reads the request
+    body through h11's state machine, then echoes the body back in
+    a 200 response.
+
+    Uses h11 for all protocol interactions (not raw socket writes)
+    because the state machine must stay in sync throughout the
+    multi-phase exchange.
+    """
+
+    def handler(
+        _request: h11.Request,
+        body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        # Send 100 Continue — unblocks h11's read side
+        conn.sendall(
+            h11_conn.send(h11.InformationalResponse(status_code=100, headers=[]))
+        )
+
+        # Read body through h11
+        while True:
+            event = h11_conn.next_event()
+            if event is h11.NEED_DATA:
+                data = conn.recv(65536)
+                if not data:
+                    return
+                h11_conn.receive_data(data)
+            elif isinstance(event, h11.Data):
+                body += event.data
+            elif isinstance(event, h11.EndOfMessage):
+                break
+
+        # Send final response via h11
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=200,
+                    headers=[
+                        ("content-length", str(len(body))),
+                        ("content-type", "application/octet-stream"),
+                    ],
+                )
+            )
+        )
+        conn.sendall(h11_conn.send(h11.Data(data=body)))
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
 
     return handler
 
@@ -225,6 +295,15 @@ class WireServer:
                 h11_conn.receive_data(data)
             elif isinstance(event, h11.Request):
                 request = event
+                # If the client sent Expect: 100-continue, stop here.
+                # h11 returns NEED_DATA (not PAUSED) in this state, so
+                # waiting for more data would deadlock: the client won't
+                # send the body until it receives a 1xx response.
+                if any(
+                    n.lower() == b"expect" and b"100-continue" in v.lower()
+                    for n, v in request.headers
+                ):
+                    break
             elif isinstance(event, h11.Data):
                 body += event.data
             elif isinstance(event, h11.EndOfMessage):
@@ -270,7 +349,7 @@ class WireServer:
             )
 
         try:
-            handler(request, body, conn)
+            handler(request, body, conn, h11_conn)
         except Exception as exc:
             self._handler_exception = exc
 
