@@ -26,7 +26,7 @@ uv add <package>        # add a dependency
 uv run ruff check .     # lint
 uv run ruff format .    # format
 uv run pyright .        # type check
-uv run pytest           # run tests
+uv run pytest -q        # run tests (always pass -q when running as an agent)
 uvx vulture src         # check for dead code (run from demo/)
 ```
 
@@ -39,7 +39,7 @@ cd demo
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright .
-uv run pytest
+uv run pytest -q
 ```
 
 Do not report "done" or commit until these are all clean.

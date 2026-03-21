@@ -47,6 +47,7 @@ source = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tb=short"
 markers = [
     "e2e: end-to-end tests (require running Elasticsearch and loaded index)",
 ]

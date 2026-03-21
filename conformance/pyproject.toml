@@ -30,6 +30,7 @@ module-root = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tb=short"
 
 [tool.pyright]
 pythonVersion = "3.14"
