@@ -94,15 +94,25 @@ def send_with_expect_continue(
     path: str = "/",
     body: bytes = b"request body",
     timeout: float = 5.0,
+    wait_for_100: bool = True,
 ) -> ContinueResponse:
-    """Send a POST with Expect: 100-continue, wait for 100, then send body.
+    """Send a POST with Expect: 100-continue.
 
-    Uses h11 on the client side for state machine management:
+    Uses h11 on the client side for state machine management.
+
+    When wait_for_100=True (default):
     1. Send Request with Expect: 100-continue and Content-Length
     2. Read events — expect InformationalResponse(100) or a final Response
     3. If 100: send body (Data + EndOfMessage), then read final Response
     4. If final Response directly (e.g., 417): don't send body
     5. Return ContinueResponse with got_100 flag and final response
+
+    When wait_for_100=False:
+    1. Send Request with Expect: 100-continue and Content-Length
+    2. Immediately send body (Data + EndOfMessage) without waiting
+    3. Read all response events — may include InformationalResponse before
+       the final Response, or just a final Response
+    4. Return ContinueResponse with got_100 flag and final response
     """
     conn = h11.Connection(h11.CLIENT)
 
@@ -125,43 +135,51 @@ def send_with_expect_continue(
 
         got_100 = False
 
-        # Read until we get an InformationalResponse or a final Response.
-        while True:
-            event = conn.next_event()
-            if event is h11.NEED_DATA:
-                data = sock.recv(65536)
-                conn.receive_data(data)
-            elif isinstance(event, h11.InformationalResponse):
-                got_100 = True
-                break
-            elif isinstance(event, h11.Response):
-                # Final response without 100 — don't send body.
-                response_body = b""
-                while True:
-                    evt = conn.next_event()
-                    if evt is h11.NEED_DATA:
-                        chunk = sock.recv(65536)
-                        conn.receive_data(chunk)
-                    elif isinstance(evt, h11.Data):
-                        response_body += evt.data
-                    elif isinstance(evt, h11.EndOfMessage):
-                        break
-                headers: dict[str, list[str]] = {}
-                for name, value in event.headers:
-                    headers.setdefault(name.decode().lower(), []).append(value.decode())
-                return ContinueResponse(
-                    got_100=False,
-                    final=RawResponse(
-                        status=event.status_code,
-                        headers=headers,
-                        body=response_body,
-                    ),
-                )
+        if not wait_for_100:
+            # Send body immediately without waiting for 100.
+            sock.sendall(conn.send(h11.Data(data=body)))
+            sock.sendall(conn.send(h11.EndOfMessage()))
+        else:
+            # Read until we get an InformationalResponse or a final Response.
+            while True:
+                event = conn.next_event()
+                if event is h11.NEED_DATA:
+                    data = sock.recv(65536)
+                    conn.receive_data(data)
+                elif isinstance(event, h11.InformationalResponse):
+                    got_100 = True
+                    break
+                elif isinstance(event, h11.Response):
+                    # Final response without 100 — don't send body.
+                    response_body = b""
+                    while True:
+                        evt = conn.next_event()
+                        if evt is h11.NEED_DATA:
+                            chunk = sock.recv(65536)
+                            conn.receive_data(chunk)
+                        elif isinstance(evt, h11.Data):
+                            response_body += evt.data
+                        elif isinstance(evt, h11.EndOfMessage):
+                            break
+                    headers: dict[str, list[str]] = {}
+                    for name, value in event.headers:
+                        headers.setdefault(name.decode().lower(), []).append(
+                            value.decode()
+                        )
+                    return ContinueResponse(
+                        got_100=False,
+                        final=RawResponse(
+                            status=event.status_code,
+                            headers=headers,
+                            body=response_body,
+                        ),
+                    )
 
-        # Received 100 — send body, then read final response.
-        sock.sendall(conn.send(h11.Data(data=body)))
-        sock.sendall(conn.send(h11.EndOfMessage()))
+            # Received 100 — send body, then read final response.
+            sock.sendall(conn.send(h11.Data(data=body)))
+            sock.sendall(conn.send(h11.EndOfMessage()))
 
+        # Read final response (and optional leading InformationalResponse).
         final_response: h11.Response | None = None
         final_body = b""
         while True:
@@ -169,6 +187,8 @@ def send_with_expect_continue(
             if event is h11.NEED_DATA:
                 data = sock.recv(65536)
                 conn.receive_data(data)
+            elif isinstance(event, h11.InformationalResponse):
+                got_100 = True
             elif isinstance(event, h11.Response):
                 final_response = event
             elif isinstance(event, h11.Data):
