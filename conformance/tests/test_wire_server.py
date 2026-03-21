@@ -1,4 +1,4 @@
-"""Proxy conformance tests using BadServer to simulate target misbehavior.
+"""Proxy conformance tests using WireServer to simulate target misbehavior.
 
 These tests validate how the proxy handles upstream protocol violations.
 Results are documented as findings rather than strict RFC assertions,
@@ -6,9 +6,9 @@ since proxy behavior for upstream errors varies.
 
 ## Standalone debugging
 
-To use BadServer for ad hoc testing with a real proxy:
+To use WireServer for ad hoc testing with a real proxy:
 
-    uv run bad-server -p 8515 --log
+    uv run wire-server -p 8515 --log
 
 Then configure the proxy to forward to http://127.0.0.1:8515 and send
 requests to the registered paths:
@@ -41,7 +41,7 @@ class TestTruncatedBody:
         self, proxy: ProxyUrls, client: httpx.Client, findings: Findings
     ) -> None:
         """Proxy signals an error when upstream closes mid-body."""
-        url = _test_url(f"{proxy.bad_url}/truncated", "truncated-body")
+        url = _test_url(f"{proxy.wire_url}/truncated", "truncated-body")
         result = send_expecting_error(client, url)
 
         if result.status is None:
@@ -58,7 +58,7 @@ class TestTruncatedBody:
                 level="finding",
             )
             assert result.status >= 500
-        # Handler exception is checked automatically by _check_bad_server fixture.
+        # Handler exception is checked automatically by _check_wire_server fixture.
 
 
 class TestMalformedChunks:
@@ -74,7 +74,7 @@ class TestMalformedChunks:
         self, proxy: ProxyUrls, client: httpx.Client, findings: Findings
     ) -> None:
         """Proxy signals an error when upstream sends invalid chunked framing."""
-        url = _test_url(f"{proxy.bad_url}/malformed-chunks", "malformed-chunks")
+        url = _test_url(f"{proxy.wire_url}/malformed-chunks", "malformed-chunks")
         result = send_expecting_error(client, url)
 
         if result.status is None:
@@ -91,4 +91,4 @@ class TestMalformedChunks:
                 level="finding",
             )
             assert result.status >= 500
-        # Handler exception is checked automatically by _check_bad_server fixture.
+        # Handler exception is checked automatically by _check_wire_server fixture.

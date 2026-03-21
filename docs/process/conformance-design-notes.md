@@ -7,31 +7,31 @@ Notes and decisions from the PoC review and subsequent design discussions. These
 ### Target server naming
 
 - **GoodServer** (was "echo server" in the PoC): A well-behaved HTTP server built on aiohttp. Provides multiple endpoints for different test needs: `/echo` (returns request details as JSON), `/status/{code}`, `/redirect/{code}?to={url}`, `/headers?X-Custom=value` (sends custom response headers), etc. Handles all the "server behaves correctly, we're testing the proxy" scenarios.
-- **BadServer** (was "h11 server" in the PoC): A programmable server built on h11/raw sockets that deliberately misbehaves. Truncated bodies, malformed chunks, stalls, garbage responses. Handles all the "server breaks the rules, how does the proxy cope" scenarios.
+- **WireServer** (was "h11 server" in the PoC): A programmable server built on h11/raw sockets with full wire-level visibility. Serves dual roles: protocol-transparent target for observing exactly what the proxy sends, and programmable misbehavior server for edge-case testing (truncated bodies, malformed chunks, stalls, garbage responses).
 
 ### Dual-upstream proxy model
 
 The proxy under test listens on two ports, each forwarding to a different target:
 - Port A → GoodServer (aiohttp, standard HTTP behavior)
-- Port B → BadServer (h11, programmable misbehavior)
+- Port B → WireServer (h11, programmable misbehavior)
 
 This avoids path-based dispatch and keeps the proxy config simple. Both Caddy and protospy would support this. Each target server can also run standalone for ad hoc experimentation.
 
 ### Standalone target servers
 
-Both GoodServer and BadServer should be runnable outside the test context, on fixed ports, from the command line. This supports:
+Both GoodServer and WireServer should be runnable outside the test context, on fixed ports, from the command line. This supports:
 - Ad hoc requests with curl through the proxy
 - Observation and experimentation during development
 - Running a single failing test against an externally-started proxy with a debugger
 
-GoodServer already has this. BadServer should have it too, with a default handler (or a CLI flag to select a scenario).
+GoodServer already has this. WireServer should have it too, with a default handler (or a CLI flag to select a scenario).
 
 ### External proxy mode for debugging
 
 CLI options for running tests against a separately-started proxy:
 - `--proxy-url http://localhost:XXXX` — skip proxy lifecycle, use this URL
 - `--good-target-port N` — fix the GoodServer port
-- `--bad-target-port N` — fix the BadServer port
+- `--wire-target-port N` — fix the WireServer port
 
 When `--proxy-url` is provided, the proxy fixture becomes a passthrough. The user is responsible for starting the proxy and configuring it to forward to the target server ports.
 
@@ -92,7 +92,7 @@ The `proxy_url` fixture currently has a conditional branch for Caddy. Before add
 
 ### What's needed but deferred
 
-- 100-continue handling (needs BadServer with delayed 100 support)
+- 100-continue handling (needs WireServer with delayed 100 support)
 - Trailers
 - Response header passthrough testing (needs configurable response headers on the GoodServer)
 - De facto standards: X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host

@@ -1,4 +1,4 @@
-"""Shared request logging for echo and bad server."""
+"""Shared request logging for GoodServer and WireServer."""
 
 from __future__ import annotations
 

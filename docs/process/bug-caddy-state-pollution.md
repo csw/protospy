@@ -22,14 +22,14 @@ calibrated from a full-suite run rather than an isolated one.
 ## Root Cause
 
 All integration fixtures — `proxy` (Caddy process), `good_server` (aiohttp),
-and `bad_server` — are `scope="session"`. A single Caddy instance and a single
+and `wire_server` — are `scope="session"`. A single Caddy instance and a single
 pair of upstream servers serve every test in the session. Caddy accumulates
 connection-pool state as the session progresses.
 
 **Default test collection order** (alphabetical by file):
 
 1. `test_assertions.py` — no Caddy
-2. `test_bad_server.py` — requests via `bad_url` only
+2. `test_wire_server.py` — requests via `wire_url` only
 3. `test_basic_proxy.py` — six well-formed requests via `good_url`
 4. `test_chunked_errors.py` — incomplete chunked POST via `good_url`
 5. `test_good_server.py` — no Caddy
@@ -51,7 +51,7 @@ with one or more keep-alive connections to `good_server` in its connection pool.
   connection causes it to detect or react to the premature `SHUT_WR` before
   the upstream responds, and it returns 502.
 
-The `bad_server` tests (which use the separate `bad_url` port and a separate
+The `wire_server` tests (which use the separate `wire_url` port and a separate
 Caddy server block) are not directly involved. The warming agent is
 `test_basic_proxy.py`.
 

@@ -29,8 +29,8 @@ def _wait_for_port(
 def start_caddy(
     good_upstream: str,
     good_proxy_port: int,
-    bad_upstream: str,
-    bad_proxy_port: int,
+    wire_upstream: str,
+    wire_proxy_port: int,
     tmp_dir: Path,
 ) -> subprocess.Popen[bytes]:
     """Start a Caddy reverse proxy subprocess with two upstreams.
@@ -46,8 +46,8 @@ def start_caddy(
     reverse_proxy {good_upstream}
 }}
 
-:{bad_proxy_port} {{
-    reverse_proxy {bad_upstream}
+:{wire_proxy_port} {{
+    reverse_proxy {wire_upstream}
 }}
 """
 
@@ -60,7 +60,7 @@ def start_caddy(
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, bad_proxy_port):
+    for port in (good_proxy_port, wire_proxy_port):
         try:
             _wait_for_port(port)
         except TimeoutError:
@@ -76,8 +76,8 @@ def start_caddy(
 def start_haproxy(
     good_upstream: str,
     good_proxy_port: int,
-    bad_upstream: str,
-    bad_proxy_port: int,
+    wire_upstream: str,
+    wire_proxy_port: int,
     tmp_dir: Path,
 ) -> subprocess.Popen[bytes]:
     """Start an HAProxy reverse proxy subprocess with two frontends.
@@ -86,7 +86,7 @@ def start_haproxy(
     """
     # HAProxy backend server directives take host:port, not full URLs.
     good_hostport = urllib.parse.urlparse(good_upstream).netloc
-    bad_hostport = urllib.parse.urlparse(bad_upstream).netloc
+    wire_hostport = urllib.parse.urlparse(wire_upstream).netloc
 
     config_content = f"""\
 global
@@ -107,13 +107,13 @@ frontend good_frontend
 backend good_backend
     server upstream {good_hostport}
 
-frontend bad_frontend
-    bind :{bad_proxy_port}
+frontend wire_frontend
+    bind :{wire_proxy_port}
     http-request add-header Via "1.1 haproxy"
-    default_backend bad_backend
+    default_backend wire_backend
 
-backend bad_backend
-    server upstream {bad_hostport}
+backend wire_backend
+    server upstream {wire_hostport}
 """
 
     config_file = tmp_dir / "haproxy.cfg"
@@ -125,7 +125,7 @@ backend bad_backend
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, bad_proxy_port):
+    for port in (good_proxy_port, wire_proxy_port):
         try:
             _wait_for_port(port)
         except TimeoutError:

@@ -19,7 +19,7 @@ dev = [
 
 [project.scripts]
 good-server = "proxy_conformance.good_server:_cli"
-bad-server  = "proxy_conformance.bad_server:_cli"
+wire-server = "proxy_conformance.wire_server:_cli"
 
 [build-system]
 requires = ["uv_build>=0.6.6,<1"]

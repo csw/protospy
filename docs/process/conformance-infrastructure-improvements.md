@@ -20,11 +20,11 @@ Change `RawResponse.headers` from `dict[str, str]` to `dict[str, list[str]]`. Up
 
 ### A3. Consolidate `_find_free_port`
 
-Currently defined in good_server.py, bad_server.py, and conftest.py. Move to a shared module (e.g., `proxy_conformance.net`) and import from there.
+Currently defined in good_server.py, wire_server.py, and conftest.py. Move to a shared module (e.g., `proxy_conformance.net`) and import from there.
 
-### A4. Public method for BadServer handler exceptions
+### A4. Public method for WireServer handler exceptions
 
-The `_check_bad_server` fixture in conftest.py accesses `bad_server._handler_exception` directly. Add a public method like `raise_if_handler_failed()` on BadServer and call that from the fixture instead.
+The `_check_wire_server` fixture in conftest.py accesses `wire_server._handler_exception` directly. Add a public method like `raise_if_handler_failed()` on WireServer and call that from the fixture instead.
 
 ---
 
@@ -137,7 +137,7 @@ The test runner reads `--proxy` from the pytest config and resolves expectations
 
 #### D3. Migrate existing error tests
 
-Update test_bad_server.py and test_chunked_errors.py to use the new mechanisms instead of ad hoc try/except.
+Update test_wire_server.py and test_chunked_errors.py to use the new mechanisms instead of ad hoc try/except.
 
 ---
 
@@ -160,7 +160,7 @@ This is lightweight — a list that gets printed at the end. The goal is making 
 
 ### Migration
 
-Update test_bad_server.py and test_chunked_errors.py to use `findings.record()` instead of `print()`.
+Update test_wire_server.py and test_chunked_errors.py to use `findings.record()` instead of `print()`.
 
 ---
 
@@ -172,7 +172,7 @@ Update test_bad_server.py and test_chunked_errors.py to use `findings.record()` 
 
 Append a `_test={case.id}` query parameter to request URLs. Example: the `via-header-added` test sends to `/echo?_test=via-header-added` instead of `/echo`.
 
-This is the least intrusive approach — neither GoodServer nor BadServer need any changes. The `_test` parameter rides along in the URL, appears in captured request paths (since `path` includes the query string), and is visible in proxy logs, tcpdump, and Wireshark. The underscore prefix distinguishes it from "real" query parameters an endpoint might use (e.g., `/headers?Cache-Control=no-cache&_test=hop-by-hop`).
+This is the least intrusive approach — neither GoodServer nor WireServer need any changes. The `_test` parameter rides along in the URL, appears in captured request paths (since `path` includes the query string), and is visible in proxy logs, tcpdump, and Wireshark. The underscore prefix distinguishes it from "real" query parameters an endpoint might use (e.g., `/headers?Cache-Control=no-cache&_test=hop-by-hop`).
 
 ### Implementation
 

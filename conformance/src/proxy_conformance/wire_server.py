@@ -1,11 +1,11 @@
-"""BadServer: a programmable h11 target server for proxy conformance testing.
+"""WireServer: a programmable h11 target server for proxy conformance testing.
 
 Runs a raw TCP listener backed by h11 for request parsing. Each
 registered path is served by a handler: a callable that receives the
 parsed request, the raw body, and the socket, and is responsible for
 writing the response (or deliberately misbehaving).
 
-Unlike GoodServer, BadServer uses a static path router — handlers
+Unlike GoodServer, WireServer uses a static path router — handlers
 are registered at startup, making the server equally useful for
 automated tests and for ad hoc debugging (start it, hit known URLs).
 """
@@ -123,11 +123,11 @@ def delayed_100(_delay_seconds: float) -> Handler:
 
 
 @dataclass
-class BadServer:
+class WireServer:
     """A programmable HTTP server for proxy edge-case testing.
 
     Usage:
-        server = BadServer()
+        server = WireServer()
         server.add_route("/truncated", truncated_body(...))
         server.start()
         # ... make requests through the proxy to server.url ...
@@ -159,7 +159,7 @@ class BadServer:
         self._thread = threading.Thread(target=self._run, args=(started,), daemon=True)
         self._thread.start()
         if not started.wait(timeout=5):
-            raise RuntimeError("Bad server failed to start within 5 seconds")
+            raise RuntimeError("Wire server failed to start within 5 seconds")
 
     def stop(self) -> None:
         """Stop the accept loop and wait for the background thread to exit."""
@@ -266,7 +266,7 @@ class BadServer:
         self.requests.put(captured)
         if self.log_requests:
             log_request(
-                captured.method, captured.path, len(captured.body), label="bad-server"
+                captured.method, captured.path, len(captured.body), label="wire-server"
             )
 
         try:
@@ -286,7 +286,7 @@ def main(
         bool, typer.Option("-l", "--log", help="Log requests to stderr.")
     ] = False,
 ) -> None:
-    server = BadServer(port=port, log_requests=log)
+    server = WireServer(port=port, log_requests=log)
     server.add_route(
         "/truncated",
         truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
@@ -297,7 +297,7 @@ def main(
     )
     server.add_route("/", echo_handler())
     server.start()
-    print(f"Bad server listening on {server.url}", flush=True)
+    print(f"Wire server listening on {server.url}", flush=True)
     print("Routes:", flush=True)
     for path in server._routes:
         print(f"  {path}", flush=True)
