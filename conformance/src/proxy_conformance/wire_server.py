@@ -175,6 +175,66 @@ def continue_and_echo() -> Handler:
     return handler
 
 
+def ignore_and_respond() -> Handler:
+    """100-continue handler: ignore Expect, send final response directly.
+
+    For use with requests carrying Expect: 100-continue. Skips the 100
+    Continue and sends a 200 OK immediately without reading the request
+    body. Models an upstream that doesn't support Expect or chooses to
+    ignore it.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        response_body = b"OK\n"
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=200,
+                    headers=[
+                        ("content-length", str(len(response_body))),
+                        ("content-type", "text/plain"),
+                    ],
+                )
+            )
+        )
+        conn.sendall(h11_conn.send(h11.Data(data=response_body)))
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
+
+    return handler
+
+
+def reject_expect() -> Handler:
+    """100-continue handler: reject with 417 Expectation Failed.
+
+    For use with requests carrying Expect: 100-continue. Sends 417
+    immediately without reading the body or sending 100, signalling
+    that this server does not honour the Expect header.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=417,
+                    headers=[("content-length", "0")],
+                )
+            )
+        )
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
+
+    return handler
+
+
 def delayed_100(_delay_seconds: float) -> Handler:
     """Stub: delayed 100-continue response handler.
 

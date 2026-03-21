@@ -16,7 +16,9 @@ from proxy_conformance.wire_server import (
     WireServer,
     continue_and_echo,
     echo_handler,
+    ignore_and_respond,
     malformed_chunks,
+    reject_expect,
     truncated_body,
 )
 
@@ -130,6 +132,8 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     )
     server.add_route("/", echo_handler())
     server.add_route("/continue", continue_and_echo())
+    server.add_route("/continue/skip-100", ignore_and_respond())
+    server.add_route("/continue/reject", reject_expect())
     server.start()
     yield server
     server.stop()
