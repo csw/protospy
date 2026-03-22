@@ -38,10 +38,15 @@ class HeaderExpectation:
 
 @dataclass
 class TargetExpectation:
-    """What the target server should observe in the forwarded request."""
+    """What the target server should observe in the forwarded request.
+
+    Method, path, and body are checked automatically by assert_proxy_test_case
+    using the RequestSpec as the source of truth. Fields here are for
+    additional assertions (headers) or overrides (body, no_request).
+    """
 
     headers: HeaderExpectation = field(default_factory=HeaderExpectation)
-    body: bytes | None = None  # None = don't check
+    body: bytes | None = None  # Override expected body (default: from RequestSpec)
     no_request: bool = False
 
 
@@ -262,13 +267,39 @@ def assert_proxy_test_case(
             pass
     else:
         captured = good_server.last_request()
-        assert_headers(captured.headers, effective_target.headers, context="target")
 
-        if effective_target.body is not None:
-            assert captured.body == effective_target.body, (
-                f"[{case.id}] Target body mismatch: "
-                f"expected {effective_target.body!r}, got {captured.body!r}"
-            )
+        # Method must always match the request spec.
+        assert captured.method == case.request.method, (
+            f"[{case.id}] Target method mismatch: "
+            f"expected {case.request.method!r}, "
+            f"got {captured.method!r}"
+        )
+
+        # Path: the captured path includes the _test= query param
+        # appended by _test_url, so check it starts with the
+        # request path.
+        assert captured.path.startswith(case.request.path), (
+            f"[{case.id}] Target path mismatch: "
+            f"expected prefix {case.request.path!r}, "
+            f"got {captured.path!r}"
+        )
+
+        assert_headers(
+            captured.headers,
+            effective_target.headers,
+            context="target",
+        )
+
+        # Body: use TargetExpectation.body if set, otherwise
+        # derive from RequestSpec (None body → expect empty).
+        expected_body = effective_target.body
+        if expected_body is None:
+            expected_body = case.request.body or b""
+        assert captured.body == expected_body, (
+            f"[{case.id}] Target body mismatch: "
+            f"expected {expected_body!r}, "
+            f"got {captured.body!r}"
+        )
 
 
 def apply_quirk(proxy_name: str, quirks: dict[str, ProxyQuirk]) -> ProxyQuirk | None:

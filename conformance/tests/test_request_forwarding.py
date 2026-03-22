@@ -12,7 +12,6 @@ import pytest
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import send_raw_request_line
 from proxy_conformance.types import (
-    ClientExpectation,
     HeaderExpectation,
     ProxyTestCase,
     RequestSpec,
@@ -24,83 +23,70 @@ from .conftest import Findings, ProxyUrls, _test_url
 
 REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
     # Category 1: Request forwarding fundamentals
+    #
+    # Target-side method, path, and body are verified automatically by
+    # assert_proxy_test_case using the RequestSpec as source of truth.
+    # TargetExpectation is only needed for additional header assertions.
+    #
     # 1.1: HTTP methods preserved (RFC 9110 §9)
     ProxyTestCase(
         id="method-preserved-GET",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards GET request method unchanged",
+        description="Proxy forwards GET method unchanged",
         request=RequestSpec(method="GET", path="/echo"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
         id="method-preserved-POST",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards POST request method unchanged with body",
-        request=RequestSpec(
-            method="POST",
-            path="/echo",
-            body=b"test",
-        ),
-        expect_at_client=ClientExpectation(status=200),
+        description="Proxy forwards POST method unchanged",
+        request=RequestSpec(method="POST", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-PUT",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards PUT request method unchanged with body",
-        request=RequestSpec(
-            method="PUT",
-            path="/echo",
-            body=b"test",
-        ),
-        expect_at_client=ClientExpectation(status=200),
+        description="Proxy forwards PUT method unchanged",
+        request=RequestSpec(method="PUT", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-PATCH",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards PATCH request method unchanged with body",
-        request=RequestSpec(
-            method="PATCH",
-            path="/echo",
-            body=b"test",
-        ),
-        expect_at_client=ClientExpectation(status=200),
+        description="Proxy forwards PATCH method unchanged",
+        request=RequestSpec(method="PATCH", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-DELETE",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards DELETE request method unchanged",
+        description="Proxy forwards DELETE method unchanged",
         request=RequestSpec(method="DELETE", path="/echo"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
         id="method-preserved-OPTIONS",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards OPTIONS request method unchanged",
+        description="Proxy forwards OPTIONS method unchanged",
         request=RequestSpec(method="OPTIONS", path="/echo"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
         id="method-preserved-HEAD",
         spec_ref="RFC 9110 §9",
-        description="Proxy forwards HEAD request method unchanged",
+        description="Proxy forwards HEAD method unchanged",
         request=RequestSpec(method="HEAD", path="/echo"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.2: Path preserved (RFC 9112 §3.2)
     ProxyTestCase(
         id="path-preserved",
         spec_ref="RFC 9112 §3.2",
-        description="Proxy forwards request path with nested segments unchanged",
+        description="Proxy forwards nested path segments unchanged",
         request=RequestSpec(method="GET", path="/echo/some/nested/path"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.3: Query string preserved (RFC 9112 §3.2)
     ProxyTestCase(
         id="query-string-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy forwards query string parameters unchanged",
-        request=RequestSpec(method="GET", path="/echo/qs-test?q=hello&page=2"),
-        expect_at_client=ClientExpectation(status=200),
+        request=RequestSpec(
+            method="GET",
+            path="/echo/qs-test?q=hello&page=2",
+        ),
     ),
     # 1.4: Percent-encoding preserved (RFC 9112 §3.2)
     ProxyTestCase(
@@ -111,7 +97,6 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
             method="GET",
             path="/echo/path%20with%20spaces",
         ),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.5: Request headers forwarded (RFC 9110 §7)
     ProxyTestCase(
@@ -134,22 +119,17 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
                 },
             ),
         ),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.6: Request body with Content-Length (RFC 9112 §6.2)
     ProxyTestCase(
         id="request-body-content-length",
         spec_ref="RFC 9112 §6.2",
-        description="Proxy forwards POST request body with Content-Length header",
+        description="Proxy forwards POST body with Content-Length",
         request=RequestSpec(
             method="POST",
             path="/echo",
             body=b'{"key": "value"}',
         ),
-        expect_at_target=TargetExpectation(
-            body=b'{"key": "value"}',
-        ),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.7: Request body chunked (RFC 9112 §7.1)
     ProxyTestCase(
@@ -161,18 +141,13 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
             path="/echo",
             body=b"chunked body content",
         ),
-        expect_at_target=TargetExpectation(
-            body=b"chunked body content",
-        ),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 1.8: Empty body not fabricated (RFC 9110 §9.3.1)
     ProxyTestCase(
         id="empty-body-not-fabricated",
         spec_ref="RFC 9110 §9.3.1",
-        description="Proxy forwards GET with no body without fabricating one",
+        description="Proxy does not fabricate a body for GET",
         request=RequestSpec(method="GET", path="/echo"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # Category 14: URI handling
     # 14.1: Double slashes preserved (RFC 9112 §3.2)
@@ -181,23 +156,15 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         spec_ref="RFC 9112 §3.2",
         description="Proxy preserves double slashes in request path",
         request=RequestSpec(method="GET", path="/echo//double//slashes"),
-        expect_at_client=ClientExpectation(status=200),
     ),
-    # 14.2: Dot segments preserved (RFC 9112 §3.2)
-    ProxyTestCase(
-        id="dot-segments-preserved",
-        spec_ref="RFC 9112 §3.2",
-        description="Proxy preserves dot segments (.) in request path",
-        request=RequestSpec(method="GET", path="/echo/./dot/segments"),
-        expect_at_client=ClientExpectation(status=200),
-    ),
+    # 14.2: Dot segments — tested via raw socket in TestDotSegments below
+    # (httpx normalizes ./.. before sending, so ProxyTestCase can't test it)
     # 14.3: Empty query preserved (RFC 9112 §3.2)
     ProxyTestCase(
         id="empty-query-preserved",
         spec_ref="RFC 9112 §3.2",
-        description="Proxy preserves query string with no parameters",
+        description="Proxy preserves query string with parameters",
         request=RequestSpec(method="GET", path="/echo/empty-query?x=1"),
-        expect_at_client=ClientExpectation(status=200),
     ),
     # 14.4 (fragment) is in TestFragmentHandling below
 ]
@@ -220,6 +187,58 @@ def test_request_forwarding(
     assert_proxy_test_case(response, good_server, case, proxy_name=proxy_name)
 
 
+class TestDotSegments:
+    """Test 14.2: dot segments in request path (RFC 9112 §3.2).
+
+    httpx normalizes dot segments before sending, so this test uses
+    raw sockets to bypass client-side normalization.
+    """
+
+    def test_dot_segments_in_path(
+        self,
+        proxy: ProxyUrls,
+        good_server: GoodServer,
+        findings: Findings,
+        proxy_name: str,
+    ) -> None:
+        """Proxy should preserve dot segments in path."""
+        result = send_raw_request_line(
+            host=proxy.good_host,
+            port=proxy.good_port,
+            request_line=("GET /echo/./dot/segments HTTP/1.1"),
+        )
+        if result is None:
+            findings.record(
+                "dot-segments",
+                f"[{proxy_name}] Proxy closed connection for dot segments in path",
+                level="finding",
+            )
+            return
+
+        assert result.status == 200
+
+        try:
+            captured = good_server.last_request(timeout=1.0)
+            if captured.path.startswith("/echo/./dot/segments"):
+                findings.record(
+                    "dot-segments",
+                    f"[{proxy_name}] Proxy preserved dot segments in path",
+                    level="info",
+                )
+            else:
+                findings.record(
+                    "dot-segments",
+                    f"[{proxy_name}] Proxy normalized dot segments: {captured.path!r}",
+                    level="finding",
+                )
+        except Exception:
+            findings.record(
+                "dot-segments",
+                f"[{proxy_name}] Target received no request",
+                level="finding",
+            )
+
+
 class TestFragmentHandling:
     """Test 14.4: fragment in request-target (RFC 9112 §3.2)."""
 
@@ -232,7 +251,7 @@ class TestFragmentHandling:
         result = send_raw_request_line(
             host=proxy.good_host,
             port=proxy.good_port,
-            request_line="GET /echo/fragment-test#section HTTP/1.1",
+            request_line=("GET /echo/fragment-test#section HTTP/1.1"),
         )
         if result is None:
             findings.record(
