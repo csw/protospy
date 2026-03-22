@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import queue
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Literal
 
 import httpx
 import pytest
+
+from proxy_conformance.good_server import GoodServer
 
 
 @dataclass
@@ -234,7 +236,7 @@ def assert_client_response(
 
 def assert_proxy_test_case(
     response: httpx.Response,
-    good_server: Any,
+    good_server: GoodServer,
     case: ProxyTestCase,
     proxy_name: str = "",
 ) -> None:
