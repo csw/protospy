@@ -134,13 +134,12 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy removes the TE header from the forwarded request; "
-            "TE is a hop-by-hop header. NOTE: httpx may restrict setting TE "
-            "as a user header, so this test may be skipped or adjusted depending "
-            "on httpx restrictions."
+            "TE is a hop-by-hop header"
         ),
         request=RequestSpec(
             method="GET",
             path="/echo",
+            headers={"TE": "trailers"},
         ),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
@@ -148,20 +147,30 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             ),
         ),
         expect_at_client=ClientExpectation(status=200),
+        proxy_quirks={
+            "caddy": ProxyQuirk(
+                disposition="override",
+                reason=(
+                    "Caddy does not strip the TE header from "
+                    "forwarded requests (RFC 9110 §7.6.1 "
+                    "requires removal)"
+                ),
+                target=TargetExpectation(),
+            ),
+        },
     ),
     ProxyTestCase(
         id="proxy-authorization-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
-            "Proxy removes the Proxy-Authorization header from the forwarded "
-            "request; Proxy-Authorization is a hop-by-hop header consumed "
-            "between client and proxy for proxy authentication. NOTE: httpx may "
-            "restrict setting Proxy-Authorization as a regular header; this test "
-            "may need adjustment based on httpx behavior."
+            "Proxy removes the Proxy-Authorization header from the "
+            "forwarded request; Proxy-Authorization is a hop-by-hop "
+            "header consumed between client and proxy"
         ),
         request=RequestSpec(
             method="GET",
             path="/echo",
+            headers={"Proxy-Authorization": "Basic dGVzdDp0ZXN0"},
         ),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(

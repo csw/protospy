@@ -207,5 +207,6 @@ def test_header_value_whitespace_preserved(
     captured = good_server.last_request()
     spaced = captured.header_joined("x-spaced")
     assert spaced is not None
-    assert "value" in spaced and "spaces" in spaced
-    good_server.clear()
+    assert spaced == "value  with   spaces", (
+        f"Whitespace not preserved: expected 'value  with   spaces', got {spaced!r}"
+    )

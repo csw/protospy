@@ -65,14 +65,20 @@ RESPONSE_FORWARDING_TESTS = [
         spec_ref="RFC 9112 §6.2",
         description="Proxy forwards response body with Content-Length",
         request=RequestSpec(method="GET", path="/body/content-length?size=1000"),
-        expect_at_client=ClientExpectation(status=200),
+        expect_at_client=ClientExpectation(
+            status=200,
+            body=b"x" * 1000,
+        ),
     ),
     ProxyTestCase(
         id="2.7-response-body-chunked",
         spec_ref="RFC 9112 §7.1",
         description="Proxy forwards chunked response body",
         request=RequestSpec(method="GET", path="/body/chunked?size=1000"),
-        expect_at_client=ClientExpectation(status=200),
+        expect_at_client=ClientExpectation(
+            status=200,
+            body=b"x" * 1000,
+        ),
     ),
 ]
 
