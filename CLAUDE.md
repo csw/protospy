@@ -67,6 +67,8 @@ When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` befo
 
 **Before committing any Python changes under `demo/` or `conformance/`, run the full quality check sequence** (ruff check, ruff format, pyright, pytest -q) and confirm all pass. This applies even to trivial changes like type annotations. See [Code Quality Requirements](#code-quality-requirements).
 
+**Any code path not covered by the test suite must be executed manually before committing.** For example, if you change a CLI `main()` function, start the server and confirm it runs. Do not rely on linting or type-checking alone as a substitute for actually running the code.
+
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```

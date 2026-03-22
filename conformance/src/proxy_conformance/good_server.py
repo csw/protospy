@@ -289,17 +289,9 @@ def main(
     server.start()
     print(f"Good server listening on {server.url}", flush=True)
     print("Endpoints:", flush=True)
-    for path in [
-        "/echo",
-        "/echo/{anything}",
-        "/status/{code}",
-        "/redirect/{code}?to={url}",
-        "/headers?Name=value",
-        "/body/chunked?size={n}",
-        "/body/content-length?size={n}",
-        "/chunked-with-trailers?Trailer-Name=value",
-    ]:
-        print(f"  {path}", flush=True)
+    if server._runner:
+        for resource in server._runner.app.router.resources():
+            print(f"  {resource.canonical}", flush=True)
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
