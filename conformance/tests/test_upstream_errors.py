@@ -78,6 +78,9 @@ def test_upstream_malformed_response(
             f"[{proxy_name}] Proxy returned {result.status} for malformed upstream",
             level="finding",
         )
+        assert result.status >= 500, (
+            f"Expected 5xx for malformed upstream, got {result.status}"
+        )
 
 
 def test_upstream_drops_after_headers(
@@ -108,6 +111,9 @@ def test_upstream_drops_after_headers(
             "when upstream dropped after headers",
             level="finding",
         )
+        assert result.status >= 500, (
+            f"Expected 5xx when upstream dropped after headers, got {result.status}"
+        )
 
 
 def test_upstream_drops_before_response(
@@ -137,6 +143,9 @@ def test_upstream_drops_before_response(
             f"[{proxy_name}] Proxy returned {result.status} "
             "when upstream dropped before responding",
             level="finding",
+        )
+        assert result.status >= 500, (
+            f"Expected 5xx when upstream dropped before responding, got {result.status}"
         )
 
 

@@ -37,16 +37,21 @@ The proxy must remove hop-by-hop headers from forwarded messages in both directi
 
 - `Connection` and any headers it names
 - `Keep-Alive`
-- `TE`
 - `Trailer`
 - `Transfer-Encoding` (between hops — may re-frame)
 - `Proxy-Authenticate`
-- `Proxy-Authorization`
 - `Upgrade` (except when acting on the upgrade)
+
+Two headers listed in §7.6.1 have exceptions elsewhere in the RFC that explicitly permit forwarding:
+
+- `TE`: §10.1.4 allows forwarding `TE: trailers`
+- `Proxy-Authorization`: §11.7.1 allows relaying credentials to the next proxy
+
+Neither Caddy nor HAProxy strips these — the tests record observed behavior as findings rather than asserting removal.
 
 The proxy must also not forward headers listed in the `Connection` header's value (e.g., `Connection: X-Custom` means strip `X-Custom`).
 
-**Specs:** RFC 9110 §7.6.1
+**Specs:** RFC 9110 §7.6.1, §10.1.4, §11.7.1
 
 ### 4. Via header
 
@@ -217,7 +222,7 @@ These HTTP features are not relevant for a transparent observation proxy:
 - **TRACE method**: Proxies are supposed to handle TRACE specially, but it's widely disabled and irrelevant here.
 - **Content negotiation**: The proxy doesn't interpret or act on Accept/Accept-* headers.
 - **Caching behavior**: No caching. Cache headers are passthrough only (category 11).
-- **Proxy authentication**: The proxy itself doesn't authenticate clients or upstreams. Proxy-Authenticate and Proxy-Authorization are stripped as hop-by-hop headers (category 3).
+- **Proxy authentication**: The proxy itself doesn't authenticate clients or upstreams. Proxy-Authenticate and Proxy-Authorization are hop-by-hop headers (category 3), though the RFC permits forwarding Proxy-Authorization (§11.7.1).
 - **103 Early Hints**: Deferred (see category 16).
 
 ## Detailed requirements
@@ -362,18 +367,18 @@ _Note: Tests 2.2–2.7 use GoodServer endpoints for configurable responses (e.g.
 **Target expectation:** Keep-Alive absent
 **Client expectation:** 200
 
-#### 3.4 — TE stripped from forwarded request
-**Spec:** RFC 9110 §10.1.4
-**Description:** TE is hop-by-hop and must not be forwarded.
+#### 3.4 — TE header handling (findings-based)
+**Spec:** RFC 9110 §7.6.1, §10.1.4
+**Description:** §7.6.1 lists TE as hop-by-hop, but §10.1.4 explicitly permits forwarding `TE: trailers`. Neither Caddy nor HAProxy strips it. This test records whether the proxy strips or forwards the TE header — both behaviors are RFC-compliant.
 **Request:** GET / with `TE: trailers`
-**Target expectation:** TE absent
+**Target expectation:** TE may be present (forwarded) or absent (stripped)
 **Client expectation:** 200
 
-#### 3.5 — Proxy-Authorization stripped from forwarded request
-**Spec:** RFC 9110 §11.7.1
-**Description:** Proxy-Authorization is consumed by the proxy and not forwarded.
+#### 3.5 — Proxy-Authorization handling (findings-based)
+**Spec:** RFC 9110 §7.6.1, §11.7.1
+**Description:** §7.6.1 lists Proxy-Authorization as hop-by-hop, but §11.7.1 permits relaying credentials to the next proxy. Neither Caddy nor HAProxy strips it. This test records whether the proxy strips or forwards the header — both behaviors are RFC-compliant.
 **Request:** GET / with `Proxy-Authorization: Basic dGVzdDp0ZXN0`
-**Target expectation:** Proxy-Authorization absent
+**Target expectation:** Proxy-Authorization may be present (forwarded) or absent (stripped)
 **Client expectation:** 200
 
 #### 3.6 — Hop-by-hop headers stripped from forwarded response

@@ -93,6 +93,9 @@ class TestUpstreamIgnoresExpect:
         )
 
         assert result.final.status == 200
+        assert result.final.body == b"OK\n", (
+            f"Expected upstream response body b'OK\\n', got {result.final.body!r}"
+        )
 
         if result.got_100:
             findings.record(

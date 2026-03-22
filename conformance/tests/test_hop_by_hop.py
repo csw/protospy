@@ -21,7 +21,7 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import ProxyUrls, _test_url
+from .conftest import Findings, ProxyUrls, _test_url
 
 HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
@@ -129,56 +129,13 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             ),
         },
     ),
-    ProxyTestCase(
-        id="te-stripped",
-        spec_ref="RFC 9110 §7.6.1",
-        description=(
-            "Proxy removes the TE header from the forwarded request; "
-            "TE is a hop-by-hop header"
-        ),
-        request=RequestSpec(
-            method="GET",
-            path="/echo",
-            headers={"TE": "trailers"},
-        ),
-        expect_at_target=TargetExpectation(
-            headers=HeaderExpectation(
-                absent=["te"],
-            ),
-        ),
-        expect_at_client=ClientExpectation(status=200),
-        proxy_quirks={
-            "caddy": ProxyQuirk(
-                disposition="override",
-                reason=(
-                    "Caddy does not strip the TE header from "
-                    "forwarded requests (RFC 9110 §7.6.1 "
-                    "requires removal)"
-                ),
-                target=TargetExpectation(),
-            ),
-        },
-    ),
-    ProxyTestCase(
-        id="proxy-authorization-stripped",
-        spec_ref="RFC 9110 §7.6.1",
-        description=(
-            "Proxy removes the Proxy-Authorization header from the "
-            "forwarded request; Proxy-Authorization is a hop-by-hop "
-            "header consumed between client and proxy"
-        ),
-        request=RequestSpec(
-            method="GET",
-            path="/echo",
-            headers={"Proxy-Authorization": "Basic dGVzdDp0ZXN0"},
-        ),
-        expect_at_target=TargetExpectation(
-            headers=HeaderExpectation(
-                absent=["proxy-authorization"],
-            ),
-        ),
-        expect_at_client=ClientExpectation(status=200),
-    ),
+    # TE and Proxy-Authorization are omitted from the hard-assertion list.
+    # RFC 9110 §7.6.1 lists both as hop-by-hop, but other sections explicitly
+    # permit forwarding:
+    #   - TE: §10.1.4 "A proxy MAY forward a TE … with a value of 'trailers'"
+    #   - Proxy-Authorization: §11.7.1 "A proxy MAY relay the credentials …
+    #     to the next proxy"
+    # Neither Caddy nor HAProxy strips them.  See findings-based tests below.
     ProxyTestCase(
         id="response-hop-by-hop-stripped",
         spec_ref="RFC 9110 §7.6.1",
@@ -259,3 +216,84 @@ def test_hop_by_hop(
     )
 
     assert_proxy_test_case(response, good_server, case, proxy_name=proxy_name)
+
+
+# ---------------------------------------------------------------------------
+# Findings-based: headers that §7.6.1 calls hop-by-hop but other sections
+# explicitly permit forwarding.
+# ---------------------------------------------------------------------------
+
+
+def test_te_header_handling(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """TE header forwarding behaviour (RFC 9110 §7.6.1 vs §10.1.4).
+
+    §7.6.1 lists TE as hop-by-hop, but §10.1.4 says a proxy MAY forward
+    TE with a value of "trailers".  Neither Caddy nor HAProxy strips it.
+    """
+    response = client.get(
+        _test_url(f"{proxy.good_url}/echo", "te-header-handling"),
+        headers={"TE": "trailers"},
+    )
+    assert response.status_code == 200
+
+    captured = good_server.last_request()
+    te_values = captured.header_values("te")
+    if te_values:
+        findings.record(
+            "te-header-handling",
+            f"[{proxy_name}] Proxy forwarded TE: trailers "
+            "(permitted by RFC 9110 §10.1.4)",
+            level="info",
+        )
+    else:
+        findings.record(
+            "te-header-handling",
+            f"[{proxy_name}] Proxy stripped TE header (strict §7.6.1 removal)",
+            level="info",
+        )
+
+
+def test_proxy_authorization_handling(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy-Authorization forwarding behaviour (RFC 9110 §7.6.1 vs §11.7.1).
+
+    §7.6.1 lists Proxy-Authorization as hop-by-hop, but §11.7.1 says a
+    proxy MAY relay credentials to the next proxy.  Neither Caddy nor
+    HAProxy strips it.
+    """
+    response = client.get(
+        _test_url(
+            f"{proxy.good_url}/echo",
+            "proxy-authorization-handling",
+        ),
+        headers={"Proxy-Authorization": "Basic dGVzdDp0ZXN0"},
+    )
+    assert response.status_code == 200
+
+    captured = good_server.last_request()
+    pa_values = captured.header_values("proxy-authorization")
+    if pa_values:
+        findings.record(
+            "proxy-authorization-handling",
+            f"[{proxy_name}] Proxy forwarded Proxy-Authorization "
+            "(permitted by RFC 9110 §11.7.1)",
+            level="info",
+        )
+    else:
+        findings.record(
+            "proxy-authorization-handling",
+            f"[{proxy_name}] Proxy stripped Proxy-Authorization "
+            "(strict §7.6.1 removal)",
+            level="info",
+        )
