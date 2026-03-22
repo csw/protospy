@@ -148,15 +148,16 @@ def assert_headers(
         )
 
 
-def normalize_httpx_headers(headers: object) -> dict[str, list[str]]:
+def normalize_httpx_headers(
+    headers: httpx.Headers | dict[str, str | list[str]],
+) -> dict[str, list[str]]:
     """Convert httpx.Headers to the dict[str, list[str]] format.
 
-    Accepts anything with a multi_items() method (httpx.Headers)
-    or a regular dict.
+    Accepts httpx.Headers or a regular dict.
     """
     result: dict[str, list[str]] = {}
-    if hasattr(headers, "multi_items"):
-        for name, value in headers.multi_items():  # type: ignore[union-attr]
+    if isinstance(headers, httpx.Headers):
+        for name, value in headers.multi_items():
             result.setdefault(name.lower(), []).append(value)
     elif isinstance(headers, dict):
         for name, value in headers.items():

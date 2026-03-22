@@ -127,7 +127,7 @@ def test_send_expecting_error_returns_response() -> None:
     mock_resp = MagicMock()
     mock_resp.status_code = 502
     mock_resp.content = b"bad gateway"
-    mock_resp.headers.multi_items.return_value = [("content-type", "text/plain")]
+    mock_resp.headers = httpx.Headers([("content-type", "text/plain")])
     client.request.return_value = mock_resp
 
     result = send_expecting_error(client, "http://localhost/test")
