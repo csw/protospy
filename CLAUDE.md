@@ -30,12 +30,26 @@ uv run pytest -q        # run tests (always pass -q when running as an agent)
 uvx vulture src         # check for dead code (run from demo/)
 ```
 
+### Python conformance suite (`conformance/`)
+```
+cd conformance
+uv run pytest -q                   # run tests (default: --proxy caddy)
+uv run pytest -q --proxy haproxy   # run against HAProxy
+uv run ruff check .                # lint
+uv run ruff format .               # format
+uv run pyright .                   # type check
+```
+
+## Python Style
+
+All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
+
 ## Code Quality Requirements
 
-Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `demo/`:
+Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `demo/` or `conformance/`:
 
 ```bash
-cd demo
+cd <package>       # demo/ or conformance/
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright .
