@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import socket
 import subprocess
 import time
@@ -26,6 +27,27 @@ def _wait_for_port(
     raise TimeoutError(msg)
 
 
+def _parse_duration_ns(duration: str) -> int:
+    """Convert a Go-style duration string (e.g. '30s', '1m') to nanoseconds."""
+    multipliers = {
+        "ns": 1,
+        "us": 1_000,
+        "ms": 1_000_000,
+        "s": 1_000_000_000,
+        "m": 60_000_000_000,
+        "h": 3_600_000_000_000,
+    }
+    for suffix, mult in multipliers.items():
+        if duration.endswith(suffix):
+            return int(duration[: -len(suffix)]) * mult
+    raise ValueError(f"Unknown duration: {duration!r}")
+
+
+def _dial(url: str) -> str:
+    """Extract host:port from a URL for use as a Caddy dial address."""
+    return urllib.parse.urlparse(url).netloc
+
+
 def start_caddy(
     good_upstream: str,
     good_proxy_port: int,
@@ -37,55 +59,80 @@ def start_caddy(
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
 ) -> subprocess.Popen[bytes]:
-    """Start a Caddy reverse proxy subprocess with two upstreams and a dead upstream.
+    """Start a Caddy reverse proxy subprocess configured via JSON API.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
-    # Build the wire reverse_proxy block — optionally with a transport sub-block.
-    transport_lines: list[str] = []
-    if dial_timeout != "30s":
-        transport_lines.append(f"            dial_timeout {dial_timeout}")
+    transport: dict[str, object] = {
+        "protocol": "http",
+        "dial_timeout": _parse_duration_ns(dial_timeout),
+    }
     if response_header_timeout:
-        transport_lines.append(
-            f"            response_header_timeout {response_header_timeout}"
+        transport["response_header_timeout"] = _parse_duration_ns(
+            response_header_timeout
         )
-    if transport_lines:
-        transport_block = (
-            "        transport http {\n" + "\n".join(transport_lines) + "\n        }"
-        )
-        wire_proxy_block = (
-            f"    reverse_proxy {wire_upstream} {{\n{transport_block}\n    }}"
-        )
-    else:
-        wire_proxy_block = f"    reverse_proxy {wire_upstream}"
 
-    caddyfile_content = f"""\
-{{
-    admin off
-}}
+    config: dict[str, object] = {
+        "admin": {"disabled": True},
+        "apps": {
+            "http": {
+                "servers": {
+                    "good": {
+                        "listen": [f":{good_proxy_port}"],
+                        "routes": [
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "reverse_proxy",
+                                        # Trust the loopback so that an existing
+                                        # X-Forwarded-For from the test client is
+                                        # preserved and appended to, not replaced.
+                                        "trusted_proxies": ["127.0.0.1/32"],
+                                        "upstreams": [{"dial": _dial(good_upstream)}],
+                                    }
+                                ]
+                            }
+                        ],
+                    },
+                    "wire": {
+                        "listen": [f":{wire_proxy_port}"],
+                        "routes": [
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "reverse_proxy",
+                                        "transport": transport,
+                                        "upstreams": [{"dial": _dial(wire_upstream)}],
+                                    }
+                                ]
+                            }
+                        ],
+                    },
+                    "dead": {
+                        "listen": [f":{dead_proxy_port}"],
+                        "routes": [
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "reverse_proxy",
+                                        "upstreams": [
+                                            {"dial": (f"127.0.0.1:{dead_target_port}")}
+                                        ],
+                                    }
+                                ]
+                            }
+                        ],
+                    },
+                }
+            }
+        },
+    }
 
-:{good_proxy_port} {{
-    reverse_proxy {good_upstream} {{
-        # Trust the loopback so that an existing X-Forwarded-For from the
-        # test client is preserved and appended to, not replaced.
-        trusted_proxies 127.0.0.1/32
-    }}
-}}
-
-:{wire_proxy_port} {{
-{wire_proxy_block}
-}}
-
-:{dead_proxy_port} {{
-    reverse_proxy 127.0.0.1:{dead_target_port}
-}}
-"""
-
-    caddyfile = tmp_dir / "Caddyfile"
-    caddyfile.write_text(caddyfile_content)
+    config_file = tmp_dir / "caddy.json"
+    config_file.write_text(json.dumps(config))
 
     proc = subprocess.Popen(
-        ["caddy", "run", "--config", str(caddyfile), "--adapter", "caddyfile"],
+        ["caddy", "run", "--config", str(config_file)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
