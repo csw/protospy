@@ -248,7 +248,7 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "httpx" },
     { name = "pyright" },
@@ -259,17 +259,10 @@ dev = [
     { name = "ruff" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "ruff" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "elasticsearch", extras = ["async"], specifier = ">=9,<10" },
     { name = "fastapi", specifier = ">=0,<1" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0,<1" },
     { name = "jinja2", specifier = ">=3,<4" },
     { name = "opentelemetry-api", specifier = ">=1,<2" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1,<2" },
@@ -277,20 +270,18 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0,<1" },
     { name = "opentelemetry-sdk", specifier = ">=1,<2" },
     { name = "pydantic-settings", specifier = ">=2,<3" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1,<2" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9,<10" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1,<2" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7,<8" },
-    { name = "pytest-playwright", marker = "extra == 'dev'", specifier = ">=0,<1" },
     { name = "python-multipart", specifier = ">=0,<1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0,<1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0,<1" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx", specifier = ">=0,<1" },
     { name = "pyright", specifier = ">=1,<2" },
+    { name = "pytest", specifier = ">=9,<10" },
+    { name = "pytest-asyncio", specifier = ">=1,<2" },
+    { name = "pytest-cov", specifier = ">=7,<8" },
+    { name = "pytest-playwright", specifier = ">=0,<1" },
     { name = "ruff", specifier = ">=0,<1" },
 ]
 

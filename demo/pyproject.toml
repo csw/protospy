@@ -18,20 +18,14 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1,<2",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=9,<10",
-    "pytest-asyncio>=1,<2",
-    "pytest-playwright>=0,<1",
-    "httpx>=0,<1",
-    "ruff>=0,<1",
-    "pyright>=1,<2",
-    "pytest-cov>=7,<8",
-]
-
 [dependency-groups]
 dev = [
+    "httpx>=0,<1",
     "pyright>=1,<2",
+    "pytest>=9,<10",
+    "pytest-asyncio>=1,<2",
+    "pytest-cov>=7,<8",
+    "pytest-playwright>=0,<1",
     "ruff>=0,<1",
 ]
 
