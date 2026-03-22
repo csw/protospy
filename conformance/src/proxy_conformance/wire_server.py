@@ -16,6 +16,7 @@ import queue
 import signal
 import socket
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Annotated
@@ -231,6 +232,117 @@ def reject_expect() -> Handler:
             )
         )
         conn.sendall(h11_conn.send(h11.EndOfMessage()))
+
+    return handler
+
+
+def silent_close() -> Handler:
+    """Accept and parse the request, then close without sending any response.
+
+    For test 9.4: upstream drops before responding.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        conn.close()
+
+    return handler
+
+
+def garbage_response(data: bytes = b"NOT HTTP\r\n\r\n") -> Handler:
+    """Send raw non-HTTP bytes after receiving the request.
+
+    For test 9.2: upstream sends malformed response.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        conn.sendall(data)
+
+    return handler
+
+
+def stall_before_response(seconds: float) -> Handler:
+    """Read request, sleep, then close without responding.
+
+    For test 10.2: upstream stalls before sending any response.
+    The proxy timeout fires during the stall, so no response is ever sent.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        time.sleep(seconds)
+
+    return handler
+
+
+def stall_mid_body(
+    content_length: int, body_prefix: bytes, stall_seconds: float
+) -> Handler:
+    """Send response headers and a partial body, then stall before closing.
+
+    For test 10.3: upstream stalls mid-body.
+    Sends a Content-Length response but only sends `body_prefix` bytes before stalling.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=200,
+                    headers=[
+                        ("content-length", str(content_length)),
+                        ("content-type", "application/octet-stream"),
+                    ],
+                )
+            )
+        )
+        conn.sendall(body_prefix)
+        time.sleep(stall_seconds)
+
+    return handler
+
+
+def missing_final_chunk(valid_chunks: list[bytes] | None = None) -> Handler:
+    """Send valid chunked response data but omit the terminal zero-length chunk.
+
+    For test 7.4: upstream sends chunked data without the final terminator.
+    Closes the connection after the chunks without sending 0\\r\\n\\r\\n.
+    """
+    if valid_chunks is None:
+        valid_chunks = [b"hello world"]
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        # Send Transfer-Encoding: chunked response header manually (raw bytes)
+        # because h11 would want to send EndOfMessage with the 0-chunk
+        header = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+        conn.sendall(header)
+        for chunk in valid_chunks:
+            size_line = f"{len(chunk):x}\r\n".encode()
+            conn.sendall(size_line + chunk + b"\r\n")
+        # Deliberately omit the final "0\r\n\r\n"
 
     return handler
 

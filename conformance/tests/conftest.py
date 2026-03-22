@@ -16,9 +16,14 @@ from proxy_conformance.wire_server import (
     WireServer,
     continue_and_echo,
     echo_handler,
+    garbage_response,
     ignore_and_respond,
     malformed_chunks,
+    missing_final_chunk,
     reject_expect,
+    silent_close,
+    stall_before_response,
+    stall_mid_body,
     truncated_body,
 )
 
@@ -41,6 +46,9 @@ class ProxyUrls:
     good_port: int
     wire_host: str
     wire_port: int
+    dead_url: str
+    dead_host: str
+    dead_port: int
 
 
 FindingLevel = Literal["info", "finding"]
@@ -134,6 +142,14 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     server.add_route("/continue", continue_and_echo())
     server.add_route("/continue/skip-100", ignore_and_respond())
     server.add_route("/continue/reject", reject_expect())
+    server.add_route("/silent", silent_close())
+    server.add_route("/garbage", garbage_response())
+    server.add_route("/stall/before-response", stall_before_response(3.0))
+    server.add_route(
+        "/stall/mid-body",
+        stall_mid_body(content_length=1000, body_prefix=b"X" * 100, stall_seconds=3.0),
+    )
+    server.add_route("/missing-final-chunk", missing_final_chunk([b"hello", b"world"]))
     server.start()
     yield server
     server.stop()
@@ -167,6 +183,9 @@ def proxy(
             good_port=port,
             wire_host=host,
             wire_port=port,
+            dead_url="",
+            dead_host="",
+            dead_port=0,
         )
         return
 
@@ -175,12 +194,16 @@ def proxy(
     if proxy_type == "caddy":
         good_port = find_free_port()
         wire_port = find_free_port()
+        dead_proxy_port = find_free_port()
+        dead_target_port = find_free_port()
         caddyfile_dir = tmp_path_factory.mktemp("caddy")
         proc = start_caddy(
             good_server.url,
             good_port,
             wire_server.url,
             wire_port,
+            dead_target_port=dead_target_port,
+            dead_proxy_port=dead_proxy_port,
             tmp_dir=caddyfile_dir,
         )
         try:
@@ -191,6 +214,9 @@ def proxy(
                 good_port=good_port,
                 wire_host="127.0.0.1",
                 wire_port=wire_port,
+                dead_url=f"http://127.0.0.1:{dead_proxy_port}",
+                dead_host="127.0.0.1",
+                dead_port=dead_proxy_port,
             )
         finally:
             proc.terminate()
@@ -198,9 +224,17 @@ def proxy(
     elif proxy_type == "haproxy":
         good_port = find_free_port()
         wire_port = find_free_port()
+        dead_proxy_port = find_free_port()
+        dead_target_port = find_free_port()
         haproxy_dir = tmp_path_factory.mktemp("haproxy")
         proc = start_haproxy(
-            good_server.url, good_port, wire_server.url, wire_port, tmp_dir=haproxy_dir
+            good_server.url,
+            good_port,
+            wire_server.url,
+            wire_port,
+            dead_target_port=dead_target_port,
+            dead_proxy_port=dead_proxy_port,
+            tmp_dir=haproxy_dir,
         )
         try:
             yield ProxyUrls(
@@ -210,6 +244,9 @@ def proxy(
                 good_port=good_port,
                 wire_host="127.0.0.1",
                 wire_port=wire_port,
+                dead_url=f"http://127.0.0.1:{dead_proxy_port}",
+                dead_host="127.0.0.1",
+                dead_port=dead_proxy_port,
             )
         finally:
             proc.terminate()

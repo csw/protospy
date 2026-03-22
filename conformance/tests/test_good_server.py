@@ -265,3 +265,47 @@ class TestUnknownPath:
     def test_bare_hello(self, server: GoodServer, client: httpx.Client) -> None:
         resp = client.get(f"{server.url}/hello")
         assert resp.status_code == 404
+
+
+class TestHeadersMultiValue:
+    """/headers supports duplicate query keys as multi-value response headers."""
+
+    def test_multi_value_set_cookie(
+        self, server: GoodServer, client: httpx.Client
+    ) -> None:
+        resp = client.get(
+            f"{server.url}/headers?Set-Cookie=a%3D1&Set-Cookie=b%3D2",
+        )
+        assert resp.status_code == 200
+        assert len(resp.headers.get_list("set-cookie")) == 2
+
+
+class TestBodyGzipEndpoint:
+    """/body/gzip?size={n} responds with a gzip-compressed body."""
+
+    def test_gzip_response(self, server: GoodServer, client: httpx.Client) -> None:
+        # httpx transparently decompresses Content-Encoding: gzip, so we
+        # verify the response is gzip via the header and that the decompressed
+        # content has the expected size.
+        resp = client.get(f"{server.url}/body/gzip?size=100")
+        assert resp.status_code == 200
+        assert resp.headers.get("content-encoding") == "gzip"
+        # httpx decompressed the body for us; verify the decompressed size
+        assert len(resp.content) == 100
+
+    def test_captures_request(self, server: GoodServer, client: httpx.Client) -> None:
+        client.get(f"{server.url}/body/gzip?size=10")
+        captured = server.last_request()
+        assert captured.path == "/body/gzip?size=10"
+
+
+class TestHeadWithContentLength:
+    """HEAD /body/content-length?size={n} returns Content-Length with empty body."""
+
+    def test_head_content_length(
+        self, server: GoodServer, client: httpx.Client
+    ) -> None:
+        resp = client.head(f"{server.url}/body/content-length?size=5000")
+        assert resp.status_code == 200
+        assert int(resp.headers["content-length"]) == 5000
+        assert len(resp.content) == 0

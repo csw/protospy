@@ -31,12 +31,21 @@ def start_caddy(
     good_proxy_port: int,
     wire_upstream: str,
     wire_proxy_port: int,
+    dead_target_port: int,
+    dead_proxy_port: int,
     tmp_dir: Path,
+    dial_timeout: str = "30s",
 ) -> subprocess.Popen[bytes]:
-    """Start a Caddy reverse proxy subprocess with two upstreams.
+    """Start a Caddy reverse proxy subprocess with two upstreams and a dead upstream.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
+    wire_block_extra = ""
+    if dial_timeout != "30s":
+        wire_block_extra = (
+            f"\n    transport http {{\n        dial_timeout {dial_timeout}\n    }}"
+        )
+
     caddyfile_content = f"""\
 {{
     admin off
@@ -47,7 +56,11 @@ def start_caddy(
 }}
 
 :{wire_proxy_port} {{
-    reverse_proxy {wire_upstream}
+    reverse_proxy {wire_upstream}{wire_block_extra}
+}}
+
+:{dead_proxy_port} {{
+    reverse_proxy 127.0.0.1:{dead_target_port}
 }}
 """
 
@@ -60,7 +73,7 @@ def start_caddy(
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, wire_proxy_port):
+    for port in (good_proxy_port, wire_proxy_port, dead_proxy_port):
         try:
             _wait_for_port(port)
         except TimeoutError:
@@ -78,9 +91,13 @@ def start_haproxy(
     good_proxy_port: int,
     wire_upstream: str,
     wire_proxy_port: int,
+    dead_target_port: int,
+    dead_proxy_port: int,
     tmp_dir: Path,
+    connect_timeout: str = "5s",
+    server_timeout: str = "30s",
 ) -> subprocess.Popen[bytes]:
-    """Start an HAProxy reverse proxy subprocess with two frontends.
+    """Start an HAProxy reverse proxy subprocess with two frontends and a dead upstream.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
@@ -94,9 +111,9 @@ global
 
 defaults
     mode http
-    timeout connect 5s
+    timeout connect {connect_timeout}
     timeout client 30s
-    timeout server 30s
+    timeout server {server_timeout}
     option forwardfor
 
 frontend good_frontend
@@ -114,6 +131,14 @@ frontend wire_frontend
 
 backend wire_backend
     server upstream {wire_hostport}
+
+frontend dead_frontend
+    bind :{dead_proxy_port}
+    http-request add-header Via "1.1 haproxy"
+    default_backend dead_backend
+
+backend dead_backend
+    server upstream 127.0.0.1:{dead_target_port}
 """
 
     config_file = tmp_dir / "haproxy.cfg"
@@ -125,7 +150,7 @@ backend wire_backend
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, wire_proxy_port):
+    for port in (good_proxy_port, wire_proxy_port, dead_proxy_port):
         try:
             _wait_for_port(port)
         except TimeoutError:

@@ -370,6 +370,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "h11" },
     { name = "httpx" },
+    { name = "multidict" },
     { name = "pytest" },
     { name = "typer" },
 ]
@@ -385,6 +386,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3,<4" },
     { name = "h11", specifier = ">=0,<1" },
     { name = "httpx", specifier = ">=0,<1" },
+    { name = "multidict", specifier = ">=6,<7" },
     { name = "pytest", specifier = ">=9,<10" },
     { name = "typer", specifier = ">=0,<1" },
 ]

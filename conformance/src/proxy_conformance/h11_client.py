@@ -216,6 +216,80 @@ def send_with_expect_continue(
         sock.close()
 
 
+def _read_response(sock: socket.socket, conn: h11.Connection) -> RawResponse | None:
+    """Read bytes from the socket until a complete response is available.
+
+    Returns the parsed RawResponse, or None if the connection closed with
+    no data.
+    """
+    response_bytes = b""
+    while True:
+        try:
+            data = sock.recv(4096)
+        except OSError:
+            break
+        if not data:
+            break
+        response_bytes += data
+
+    if not response_bytes:
+        return None
+
+    return _parse_raw_response(response_bytes)
+
+
+def send_invalid_chunk_size(
+    host: str,
+    port: int,
+    path: str = "/",
+    timeout: float = 5.0,
+) -> RawResponse | None:
+    """Send a chunked POST with a non-hex chunk size field (ZZZZ\\r\\n).
+
+    Bypasses h11 validation by writing raw bytes after the headers.
+    Returns the proxy's response, or None if the connection was closed.
+    """
+    conn = h11.Connection(our_role=h11.CLIENT)
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.settimeout(timeout)
+        # Send valid request headers
+        sock.sendall(
+            conn.send(
+                h11.Request(
+                    method="POST",
+                    target=path,
+                    headers=[
+                        ("host", host),
+                        ("transfer-encoding", "chunked"),
+                    ],
+                )
+            )
+        )
+        # Send invalid chunk size field directly (bypasses h11)
+        sock.sendall(b"ZZZZ\r\nhello\r\n0\r\n\r\n")
+        return _read_response(sock, conn)
+
+
+def send_raw_request_line(
+    host: str,
+    port: int,
+    request_line: str,
+    timeout: float = 5.0,
+) -> RawResponse | None:
+    """Send an arbitrary request line, bypassing h11's URL validation.
+
+    Useful for testing requests with fragments (GET /path#frag HTTP/1.1).
+    Sends the request line + minimal Host header, then reads the response.
+    Returns None if the connection was closed without a response.
+    """
+    raw = (f"{request_line}\r\nHost: {host}\r\n\r\n").encode()
+    conn = h11.Connection(our_role=h11.CLIENT)
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.settimeout(timeout)
+        sock.sendall(raw)
+        return _read_response(sock, conn)
+
+
 def _parse_raw_response(data: bytes) -> RawResponse:
     """Parse a raw HTTP/1.1 response into status, headers, and body.
 

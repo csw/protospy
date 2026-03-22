@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import gzip
 import queue
 import signal
 import threading
@@ -26,6 +27,7 @@ from typing import Annotated, cast
 
 import typer
 from aiohttp import web
+from multidict import CIMultiDict
 
 from proxy_conformance.net import find_free_port
 from proxy_conformance.request_logging import log_request
@@ -146,6 +148,7 @@ class GoodServer:
         r.add_route("*", "/headers", self._handle_headers)
         r.add_route("*", "/body/chunked", self._handle_body_chunked)
         r.add_route("*", "/body/content-length", self._handle_body_content_length)
+        r.add_route("*", "/body/gzip", self._handle_body_gzip)
         r.add_route("*", "/chunked-with-trailers", self._handle_chunked_with_trailers)
         r.add_route("*", r"/{path_info:.*}", self._handle_not_found)
         self._runner = web.AppRunner(app)
@@ -212,8 +215,10 @@ class GoodServer:
     async def _handle_headers(self, request: web.Request) -> web.Response:
         """Respond with 200 and query parameters as response headers."""
         await self._capture(request)
-        headers = {k: v for k, v in request.rel_url.query.items()}
-        return web.Response(status=200, headers=headers)
+        multi: CIMultiDict[str] = CIMultiDict()
+        for k, v in request.rel_url.query.items():
+            multi.add(k, v)
+        return web.Response(status=200, headers=multi)
 
     async def _handle_body_chunked(self, request: web.Request) -> web.StreamResponse:
         """Respond with a chunked body of the requested size."""
@@ -230,6 +235,17 @@ class GoodServer:
         await self._capture(request)
         size = int(request.rel_url.query.get("size", "0"))
         return web.Response(body=b"x" * size, content_type="application/octet-stream")
+
+    async def _handle_body_gzip(self, request: web.Request) -> web.Response:
+        """Respond with a gzip-compressed body of the requested size."""
+        await self._capture(request)
+        size = int(request.rel_url.query.get("size", "0"))
+        compressed = gzip.compress(b"x" * size)
+        return web.Response(
+            body=compressed,
+            content_type="application/octet-stream",
+            headers={"Content-Encoding": "gzip"},
+        )
 
     async def _handle_chunked_with_trailers(
         self, request: web.Request
