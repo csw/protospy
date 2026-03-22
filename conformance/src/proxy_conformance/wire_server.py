@@ -535,6 +535,39 @@ class WireServer:
 # ---------------------------------------------------------------------------
 
 
+def register_default_routes(server: WireServer) -> None:
+    """Register the standard set of routes used by the test suite and the CLI.
+
+    Keeping this in one place ensures that ``python -m proxy_conformance.wire_server``
+    and the pytest fixtures serve identical endpoints.
+    """
+    server.add_route(
+        "/truncated",
+        truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
+    )
+    server.add_route(
+        "/truncated-empty",
+        truncated_body(promised_length=1000, actual_bytes=b""),
+    )
+    server.add_route(
+        "/malformed-chunks",
+        malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
+    )
+    server.add_route("/", echo_handler())
+    server.add_route("/echo", echo_handler())
+    server.add_route("/continue", continue_and_echo())
+    server.add_route("/continue/skip-100", ignore_and_respond())
+    server.add_route("/continue/reject", reject_expect())
+    server.add_route("/silent", silent_close())
+    server.add_route("/garbage", garbage_response())
+    server.add_route("/stall/before-response", stall_before_response(3.0))
+    server.add_route(
+        "/stall/mid-body",
+        stall_mid_body(content_length=1000, body_prefix=b"X" * 100, stall_seconds=3.0),
+    )
+    server.add_route("/missing-final-chunk", missing_final_chunk([b"hello", b"world"]))
+
+
 def main(
     port: Annotated[int, typer.Option("-p", help="Port to listen on.")] = 8515,
     log: Annotated[
@@ -542,15 +575,7 @@ def main(
     ] = False,
 ) -> None:
     server = WireServer(port=port, log_requests=log)
-    server.add_route(
-        "/truncated",
-        truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
-    )
-    server.add_route(
-        "/malformed-chunks",
-        malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
-    )
-    server.add_route("/", echo_handler())
+    register_default_routes(server)
     server.start()
     print(f"Wire server listening on {server.url}", flush=True)
     print("Routes:", flush=True)

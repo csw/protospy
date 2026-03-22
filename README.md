@@ -3,8 +3,9 @@
 This will be a Rust monitoring proxy for development use, to give a live view of HTTP traffic between services with OpenTelemetry integration.
 
 It currently contains:
- - a Python demo application, ElasticFlix (see [its README.md](demo/README.md)), in `demo/`, which searches a movie database in Elasticsearch
- - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger
+ - a Python demo application, ElasticFlix (see [its README.md](demo/README.md)), in `demo/`, which searches a movie database in Elasticsearch.
+ - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
+ - an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
 
 ## Development
 

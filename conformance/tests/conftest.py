@@ -15,20 +15,7 @@ import pytest
 
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.net import find_free_port
-from proxy_conformance.wire_server import (
-    WireServer,
-    continue_and_echo,
-    echo_handler,
-    garbage_response,
-    ignore_and_respond,
-    malformed_chunks,
-    missing_final_chunk,
-    reject_expect,
-    silent_close,
-    stall_before_response,
-    stall_mid_body,
-    truncated_body,
-)
+from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import ProxyEntry, start_caddy, start_haproxy
 
@@ -185,30 +172,7 @@ def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
 def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     port = request.config.getoption("--wire-target-port")
     server = WireServer() if port is None else WireServer(port=port)
-    server.add_route(
-        "/truncated",
-        truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
-    )
-    server.add_route(
-        "/truncated-empty",
-        truncated_body(promised_length=1000, actual_bytes=b""),
-    )
-    server.add_route(
-        "/malformed-chunks",
-        malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
-    )
-    server.add_route("/", echo_handler())
-    server.add_route("/continue", continue_and_echo())
-    server.add_route("/continue/skip-100", ignore_and_respond())
-    server.add_route("/continue/reject", reject_expect())
-    server.add_route("/silent", silent_close())
-    server.add_route("/garbage", garbage_response())
-    server.add_route("/stall/before-response", stall_before_response(3.0))
-    server.add_route(
-        "/stall/mid-body",
-        stall_mid_body(content_length=1000, body_prefix=b"X" * 100, stall_seconds=3.0),
-    )
-    server.add_route("/missing-final-chunk", missing_final_chunk([b"hello", b"world"]))
+    register_default_routes(server)
     server.start()
     yield server
     server.stop()
