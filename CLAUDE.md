@@ -52,7 +52,7 @@ Before reporting a unit of work as complete (whether you are the primary agent o
 ```bash
 cd <package>       # demo/ or conformance/
 uv run ruff check .
-uv run ruff format --check .
+uv run ruff format .
 uv run pyright .
 uv run pytest -q
 ```
@@ -64,6 +64,8 @@ Do not report "done" or commit until these are all clean.
 When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
 
 ## Committing
+
+**Before committing any Python changes under `demo/` or `conformance/`, run the full quality check sequence** (ruff check, ruff format, pyright, pytest -q) and confirm all pass. This applies even to trivial changes like type annotations. See [Code Quality Requirements](#code-quality-requirements).
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
