@@ -33,8 +33,9 @@ uvx vulture src         # check for dead code (run from demo/)
 ### Python conformance suite (`conformance/`)
 ```
 cd conformance
-uv run pytest -q                   # run tests (default: --proxy caddy)
-uv run pytest -q --proxy haproxy   # run against HAProxy
+uv run pytest -q                   # run tests (default: both caddy and haproxy)
+uv run pytest -q --proxy caddy     # run against Caddy only
+uv run pytest -q --proxy haproxy   # run against HAProxy only
 uv run pytest -q --findings        # show proxy behavioral findings
 uv run ruff check .                # lint
 uv run ruff format .               # format

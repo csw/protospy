@@ -31,12 +31,11 @@ from .proxies import ProxyEntry, start_caddy, start_haproxy
 
 @pytest.fixture(scope="module")
 def timeout_proxy(
-    request: pytest.FixtureRequest,
+    proxy_type: str,
     wire_server: WireServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """Proxy configured with short upstream timeouts. Wire-only (no GoodServer)."""
-    proxy_type = str(request.config.getoption("--proxy"))
     good = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
     wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
     dead = ProxyEntry(

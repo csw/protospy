@@ -133,8 +133,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     parser.addoption(
         "--proxy",
-        default="caddy",
-        help="Proxy under test (default: caddy)",
+        default="caddy,haproxy",
+        help=(
+            "Proxy(ies) under test, comma-separated "
+            "(default: caddy,haproxy). "
+            "Use 'all' for all supported proxies."
+        ),
     )
     parser.addoption(
         "--proxy-url",
@@ -157,6 +161,41 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Fix the WireServer port (default: random). Useful with --proxy-url.",
     )
+
+
+_ALL_PROXIES = ["caddy", "haproxy"]
+
+
+def _get_proxy_list(config: pytest.Config) -> list[str]:
+    raw = str(config.getoption("--proxy"))
+    if raw == "all":
+        return list(_ALL_PROXIES)
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """Parametrize tests over the requested proxy list.
+
+    Any test requesting the ``proxy_type`` fixture (directly, or
+    indirectly via ``proxy``, ``proxy_name``, or ``timeout_proxy``)
+    will be run once per proxy in the ``--proxy`` list.
+    """
+    needs = {"proxy", "proxy_name", "proxy_type", "timeout_proxy"}
+    if not needs & set(metafunc.fixturenames):
+        return
+    proxy_list = _get_proxy_list(metafunc.config)
+    metafunc.parametrize(
+        "proxy_type",
+        proxy_list,
+        indirect=True,
+        scope="module",
+    )
+
+
+@pytest.fixture(scope="module")
+def proxy_type(request: pytest.FixtureRequest) -> str:
+    """The proxy type for the current parametrized run."""
+    return str(request.param)
 
 
 @pytest.fixture(scope="session")
@@ -233,21 +272,20 @@ def _start_proxy(
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
+    proxy_type: str,
     good_server: GoodServer,
     wire_server: WireServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """ProxyUrls for the proxy under test.
 
-    Proxy choice is set by --proxy (default: caddy). Pass --proxy-url to
-    skip lifecycle management and use an externally-started proxy instead.
+    Proxy choice comes from the ``proxy_type`` fixture (parametrized
+    via ``--proxy``).  Pass ``--proxy-url`` to skip lifecycle management
+    and use an externally-started proxy instead.
     """
     proxy_url = request.config.getoption("--proxy-url")
 
     if proxy_url is not None:
-        # External proxy mode: no lifecycle management. The caller is
-        # responsible for starting the proxy and configuring it to forward
-        # to good_server.url and wire_server.url.
         parsed = urllib.parse.urlparse(proxy_url)
         host = parsed.hostname or "127.0.0.1"
         port = parsed.port or 80
@@ -264,7 +302,6 @@ def proxy(
         )
         return
 
-    proxy_type = str(request.config.getoption("--proxy"))
     tmp = tmp_path_factory.mktemp(proxy_type)
     proc, urls = _start_proxy(proxy_type, good_server.url, wire_server.url, tmp)
     try:
@@ -274,10 +311,10 @@ def proxy(
         proc.wait(timeout=5)
 
 
-@pytest.fixture(scope="session")
-def proxy_name(request: pytest.FixtureRequest) -> str:
-    """The name of the proxy under test (from --proxy)."""
-    return str(request.config.getoption("--proxy"))
+@pytest.fixture(scope="module")
+def proxy_name(proxy_type: str) -> str:
+    """The name of the proxy under test."""
+    return proxy_type
 
 
 @pytest.fixture(scope="session")
