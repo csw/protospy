@@ -54,6 +54,8 @@ def timeout_proxy(
             tmp_dir=tmp,
             dial_timeout="1s",
             response_header_timeout="2s",
+            idle_timeout="1s",
+            read_timeout="2s",
         )
     else:
         proc = start_haproxy(
@@ -66,6 +68,7 @@ def timeout_proxy(
             tmp_dir=tmp,
             connect_timeout="1s",
             server_timeout="2s",
+            client_timeout="2s",
         )
     try:
         yield ProxyUrls(
@@ -183,7 +186,7 @@ def test_client_body_stall(
         )
         sock.sendall(request_headers.encode())
         # Stall: do not send the body. Wait for the proxy to act.
-        sock.settimeout(8.0)
+        sock.settimeout(4.0)
         response_bytes = b""
         try:
             while True:
@@ -250,7 +253,7 @@ def test_idle_connection_timeout(
                 break
 
         # Now idle — wait to see if the proxy closes the connection
-        sock.settimeout(8.0)
+        sock.settimeout(4.0)
         try:
             extra = sock.recv(4096)
             if not extra:

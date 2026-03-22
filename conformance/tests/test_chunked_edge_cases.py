@@ -23,6 +23,7 @@ import httpx
 
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import (
+    _read_complete_response,
     send_incomplete_chunked_request,
     send_invalid_chunk_size,
 )
@@ -91,16 +92,7 @@ def _send_chunked_with_trailers(
                 )
             )
         )
-        response_bytes = b""
-        sock.settimeout(5.0)
-        while True:
-            try:
-                data = sock.recv(4096)
-            except OSError:
-                break
-            if not data:
-                break
-            response_bytes += data
+        response_bytes = _read_complete_response(sock)
     return response_bytes
 
 

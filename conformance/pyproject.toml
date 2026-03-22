@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0,<1",
     "multidict>=6,<7",
     "pytest>=9,<10",
+    "pytest-xdist>=3,<4",
     "typer>=0,<1",
 ]
 
@@ -31,7 +32,7 @@ module-root = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short"
+addopts = "--tb=short -n auto --dist loadfile"
 
 [tool.pyright]
 pythonVersion = "3.14"

@@ -48,6 +48,35 @@ def _dial(url: str) -> str:
     return urllib.parse.urlparse(url).netloc
 
 
+def _wire_server_config(
+    port: int,
+    upstream: str,
+    transport: dict[str, object],
+    idle_timeout: str,
+    read_timeout: str,
+) -> dict[str, object]:
+    """Build the Caddy JSON server block for the wire upstream."""
+    server: dict[str, object] = {
+        "listen": [f":{port}"],
+        "routes": [
+            {
+                "handle": [
+                    {
+                        "handler": "reverse_proxy",
+                        "transport": transport,
+                        "upstreams": [{"dial": _dial(upstream)}],
+                    }
+                ]
+            }
+        ],
+    }
+    if idle_timeout:
+        server["idle_timeout"] = _parse_duration_ns(idle_timeout)
+    if read_timeout:
+        server["read_timeout"] = _parse_duration_ns(read_timeout)
+    return server
+
+
 def start_caddy(
     good_upstream: str,
     good_proxy_port: int,
@@ -58,6 +87,8 @@ def start_caddy(
     tmp_dir: Path,
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
+    idle_timeout: str = "",
+    read_timeout: str = "",
 ) -> subprocess.Popen[bytes]:
     """Start a Caddy reverse proxy subprocess configured via JSON API.
 
@@ -94,20 +125,13 @@ def start_caddy(
                             }
                         ],
                     },
-                    "wire": {
-                        "listen": [f":{wire_proxy_port}"],
-                        "routes": [
-                            {
-                                "handle": [
-                                    {
-                                        "handler": "reverse_proxy",
-                                        "transport": transport,
-                                        "upstreams": [{"dial": _dial(wire_upstream)}],
-                                    }
-                                ]
-                            }
-                        ],
-                    },
+                    "wire": _wire_server_config(
+                        wire_proxy_port,
+                        wire_upstream,
+                        transport,
+                        idle_timeout,
+                        read_timeout,
+                    ),
                     "dead": {
                         "listen": [f":{dead_proxy_port}"],
                         "routes": [
@@ -160,6 +184,7 @@ def start_haproxy(
     tmp_dir: Path,
     connect_timeout: str = "5s",
     server_timeout: str = "30s",
+    client_timeout: str = "30s",
 ) -> subprocess.Popen[bytes]:
     """Start an HAProxy reverse proxy subprocess with two frontends and a dead upstream.
 
@@ -176,7 +201,7 @@ global
 defaults
     mode http
     timeout connect {connect_timeout}
-    timeout client 30s
+    timeout client {client_timeout}
     timeout server {server_timeout}
     option forwardfor
 

@@ -216,21 +216,145 @@ def send_with_expect_continue(
         sock.close()
 
 
-def _read_response(sock: socket.socket, conn: h11.Connection) -> RawResponse | None:
+def _read_complete_response(sock: socket.socket) -> bytes:
+    """Read exactly one complete HTTP/1.1 response from the socket.
+
+    Parses response framing (Content-Length or Transfer-Encoding: chunked)
+    to detect the end of the response body without waiting for the server
+    to close the connection. Falls back to reading until EOF when neither
+    framing mechanism is present (HTTP/1.0-style or Connection: close).
+
+    Returns the raw bytes of the complete response (headers + body), which
+    may be empty if the connection was closed before any data arrived.
+    """
+    buf = b""
+
+    # --- Phase 1: read until we have the full header block ---
+    while b"\r\n\r\n" not in buf:
+        try:
+            chunk = sock.recv(4096)
+        except OSError:
+            return buf
+        if not chunk:
+            return buf
+        buf += chunk
+
+    header_end = buf.index(b"\r\n\r\n")
+    header_section = buf[:header_end].decode("latin-1")
+    body_start = buf[header_end + 4 :]
+
+    # Parse headers to determine body framing.
+    lines = header_section.split("\r\n")
+    headers: dict[str, str] = {}
+    for line in lines[1:]:
+        name, _, value = line.partition(":")
+        headers[name.strip().lower()] = value.strip()
+
+    # Check for Transfer-Encoding: chunked.
+    te = headers.get("transfer-encoding", "")
+    if "chunked" in te.lower():
+        return buf[: header_end + 4] + _read_chunked_body(sock, body_start)
+
+    # Check for Content-Length.
+    cl_raw = headers.get("content-length")
+    if cl_raw is not None:
+        try:
+            content_length = int(cl_raw)
+        except ValueError:
+            content_length = 0
+        body = body_start
+        while len(body) < content_length:
+            try:
+                chunk = sock.recv(4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            body += chunk
+        return buf[: header_end + 4] + body[:content_length]
+
+    # No framing info — fall back to reading until EOF.
+    body = body_start
+    while True:
+        try:
+            chunk = sock.recv(4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        body += chunk
+    return buf[: header_end + 4] + body
+
+
+def _read_chunked_body(sock: socket.socket, initial: bytes) -> bytes:
+    """Read a chunked response body, returning the raw chunk-encoded bytes.
+
+    Reads until the zero-length terminating chunk (``0\\r\\n\\r\\n``) is
+    seen or the connection closes.
+    """
+    buf = initial
+    while True:
+        # Try to parse the next chunk-size line from buf.
+        crlf = buf.find(b"\r\n")
+        if crlf == -1:
+            # Need more data to find the chunk-size line.
+            try:
+                chunk = sock.recv(4096)
+            except OSError:
+                return buf
+            if not chunk:
+                return buf
+            buf += chunk
+            continue
+
+        size_field = buf[:crlf].split(b";")[0].strip()
+        try:
+            chunk_size = int(size_field, 16)
+        except ValueError:
+            # Unparseable chunk size — return what we have.
+            return buf
+
+        # We need: size line + CRLF + chunk_size bytes + CRLF.
+        chunk_end = crlf + 2 + chunk_size + 2
+        while len(buf) < chunk_end:
+            try:
+                data = sock.recv(4096)
+            except OSError:
+                return buf
+            if not data:
+                return buf
+            buf += data
+
+        if chunk_size == 0:
+            # Zero-length chunk — read optional trailers until \r\n\r\n.
+            trailer_end = buf.find(b"\r\n\r\n", crlf + 2)
+            while trailer_end == -1:
+                try:
+                    data = sock.recv(4096)
+                except OSError:
+                    return buf
+                if not data:
+                    return buf
+                buf += data
+                trailer_end = buf.find(b"\r\n\r\n", crlf + 2)
+            return buf[: trailer_end + 4]
+
+        # Advance past this chunk.
+        buf = buf[crlf + 2 + chunk_size + 2 :]
+
+
+def _read_response(sock: socket.socket) -> RawResponse | None:
     """Read bytes from the socket until a complete response is available.
+
+    Uses HTTP/1.1 response framing (Content-Length or Transfer-Encoding:
+    chunked) to stop reading as soon as the full response body has arrived,
+    without waiting for the server to close the connection. Falls back to
+    EOF-based reading when no framing header is present.
 
     Returns the parsed RawResponse, or None if the connection closed with
     no data.
     """
-    response_bytes = b""
-    while True:
-        try:
-            data = sock.recv(4096)
-        except OSError:
-            break
-        if not data:
-            break
-        response_bytes += data
+    response_bytes = _read_complete_response(sock)
 
     if not response_bytes:
         return None
@@ -267,7 +391,7 @@ def send_invalid_chunk_size(
         )
         # Send invalid chunk size field directly (bypasses h11)
         sock.sendall(b"ZZZZ\r\nhello\r\n0\r\n\r\n")
-        return _read_response(sock, conn)
+        return _read_response(sock)
 
 
 def send_raw_request_line(
@@ -283,11 +407,10 @@ def send_raw_request_line(
     Returns None if the connection was closed without a response.
     """
     raw = (f"{request_line}\r\nHost: {host}\r\n\r\n").encode()
-    conn = h11.Connection(our_role=h11.CLIENT)
     with socket.create_connection((host, port), timeout=timeout) as sock:
         sock.settimeout(timeout)
         sock.sendall(raw)
-        return _read_response(sock, conn)
+        return _read_response(sock)
 
 
 def _parse_raw_response(data: bytes) -> RawResponse:

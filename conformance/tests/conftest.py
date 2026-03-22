@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import urllib.parse
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -53,6 +54,9 @@ class ProxyUrls:
 
 FindingLevel = Literal["info", "finding"]
 
+# Section name used to forward findings from xdist workers to the controller.
+_FINDINGS_SECTION = "proxy_findings"
+
 
 class Findings:
     def __init__(self) -> None:
@@ -64,10 +68,49 @@ class Findings:
 
 _session_findings = Findings()
 
+# Collected by the controller from worker report sections (xdist mode).
+_controller_entries: list[tuple[str, str, FindingLevel]] = []
+
 
 @pytest.fixture(scope="session")
 def findings() -> Findings:
     return _session_findings
+
+
+def pytest_runtest_makereport(
+    item: pytest.Item,
+    call: pytest.CallInfo[None],  # type: ignore[type-arg]
+) -> pytest.TestReport | None:
+    """Attach any findings recorded during a test to the report.
+
+    This runs in the worker process (or the main process when not using
+    xdist). xdist serialises report sections and forwards them to the
+    controller, so the controller can aggregate findings from all workers.
+    """
+    # Only attach findings on the call phase to avoid duplicates.
+    if call.when != "call":
+        return None
+
+    entries = _session_findings._entries
+    if not entries:
+        return None
+
+    report = pytest.TestReport.from_item_and_call(item, call)
+    payload = json.dumps(entries)
+    report.sections.append((_FINDINGS_SECTION, payload))
+    # Clear so the next test starts fresh within this worker session.
+    _session_findings._entries = []
+    return report
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Collect findings sections forwarded by xdist workers (controller side)."""
+    if report.when != "call":
+        return
+    for title, payload in report.sections:
+        if title == _FINDINGS_SECTION:
+            entries: list[tuple[str, str, FindingLevel]] = json.loads(payload)
+            _controller_entries.extend(entries)
 
 
 def pytest_terminal_summary(
@@ -75,7 +118,11 @@ def pytest_terminal_summary(
     exitstatus: int,
     config: pytest.Config,
 ) -> None:
-    entries = _session_findings._entries
+    if not config.getoption("--findings"):
+        return
+    # In xdist mode the controller process collects entries via
+    # pytest_runtest_logreport; in plain mode the session findings are local.
+    entries = _controller_entries or _session_findings._entries
     if not entries:
         return
     terminalreporter.write_sep("=", "proxy behavioral findings")
@@ -89,6 +136,12 @@ def pytest_terminal_summary(
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--findings",
+        action="store_true",
+        default=False,
+        help="Show proxy behavioral findings in terminal summary.",
+    )
     parser.addoption(
         "--proxy",
         default="caddy",
