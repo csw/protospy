@@ -35,16 +35,29 @@ def start_caddy(
     dead_proxy_port: int,
     tmp_dir: Path,
     dial_timeout: str = "30s",
+    response_header_timeout: str = "",
 ) -> subprocess.Popen[bytes]:
     """Start a Caddy reverse proxy subprocess with two upstreams and a dead upstream.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
-    wire_block_extra = ""
+    # Build the wire reverse_proxy block — optionally with a transport sub-block.
+    transport_lines: list[str] = []
     if dial_timeout != "30s":
-        wire_block_extra = (
-            f"\n    transport http {{\n        dial_timeout {dial_timeout}\n    }}"
+        transport_lines.append(f"            dial_timeout {dial_timeout}")
+    if response_header_timeout:
+        transport_lines.append(
+            f"            response_header_timeout {response_header_timeout}"
         )
+    if transport_lines:
+        transport_block = (
+            "        transport http {\n" + "\n".join(transport_lines) + "\n        }"
+        )
+        wire_proxy_block = (
+            f"    reverse_proxy {wire_upstream} {{\n{transport_block}\n    }}"
+        )
+    else:
+        wire_proxy_block = f"    reverse_proxy {wire_upstream}"
 
     caddyfile_content = f"""\
 {{
@@ -60,7 +73,7 @@ def start_caddy(
 }}
 
 :{wire_proxy_port} {{
-    reverse_proxy {wire_upstream}{wire_block_extra}
+{wire_proxy_block}
 }}
 
 :{dead_proxy_port} {{

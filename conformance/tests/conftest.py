@@ -135,6 +135,10 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
         truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
     )
     server.add_route(
+        "/truncated-empty",
+        truncated_body(promised_length=1000, actual_bytes=b""),
+    )
+    server.add_route(
         "/malformed-chunks",
         malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
     )

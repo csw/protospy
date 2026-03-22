@@ -450,6 +450,10 @@ class WireServer:
                 break  # server socket closed by stop()
             try:
                 self._handle_connection(conn)
+            except OSError:
+                # Ignore connection-level errors (reset, broken pipe, etc.)
+                # so that a single dropped connection does not kill the thread.
+                pass
             finally:
                 conn.close()
 
