@@ -32,7 +32,7 @@ module-root = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short -n auto --dist loadfile"
+addopts = "--tb=short -n auto --dist loadgroup"
 
 [tool.pyright]
 pythonVersion = "3.14"

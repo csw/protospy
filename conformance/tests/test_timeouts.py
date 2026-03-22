@@ -16,7 +16,9 @@ in this test setup.
 from __future__ import annotations
 
 import socket
+import subprocess
 from collections.abc import Generator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -28,6 +30,55 @@ from proxy_conformance.wire_server import WireServer
 from .conftest import Findings, ProxyUrls, _make_proxy_urls, _test_url
 from .proxies import ProxyEntry, start_caddy, start_haproxy
 
+_TIMEOUT_START_RETRIES = 3
+
+
+def _start_timeout_proxy(
+    proxy_type: str,
+    wire_url: str,
+    tmp: Path,
+) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
+    """Start a timeout-configured proxy, retrying on port conflicts."""
+    last_exc: RuntimeError | None = None
+    for attempt in range(_TIMEOUT_START_RETRIES):
+        good = ProxyEntry(listen_port=find_free_port(), upstream=wire_url)
+        wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_url)
+        dead = ProxyEntry(
+            listen_port=find_free_port(),
+            upstream=f"http://127.0.0.1:{find_free_port()}",
+        )
+        try:
+            if proxy_type == "caddy":
+                proc = start_caddy(
+                    good,
+                    wire,
+                    dead,
+                    tmp_dir=tmp,
+                    dial_timeout="1s",
+                    response_header_timeout="2s",
+                    idle_timeout="1s",
+                    read_timeout="2s",
+                )
+            else:
+                proc = start_haproxy(
+                    good,
+                    wire,
+                    dead,
+                    tmp_dir=tmp,
+                    connect_timeout="1s",
+                    server_timeout="2s",
+                    client_timeout="2s",
+                )
+            return proc, _make_proxy_urls(good, wire, dead)
+        except RuntimeError as exc:
+            last_exc = exc
+            if attempt < _TIMEOUT_START_RETRIES - 1:
+                tmp = tmp.parent / f"{tmp.name}_r{attempt}"
+                tmp.mkdir(exist_ok=True)
+
+    assert last_exc is not None
+    raise last_exc
+
 
 @pytest.fixture(scope="module")
 def timeout_proxy(
@@ -36,36 +87,10 @@ def timeout_proxy(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """Proxy configured with short upstream timeouts. Wire-only (no GoodServer)."""
-    good = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
-    wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
-    dead = ProxyEntry(
-        listen_port=find_free_port(),
-        upstream=f"http://127.0.0.1:{find_free_port()}",
-    )
     tmp = tmp_path_factory.mktemp("timeout-proxy")
-    if proxy_type == "caddy":
-        proc = start_caddy(
-            good,
-            wire,
-            dead,
-            tmp_dir=tmp,
-            dial_timeout="1s",
-            response_header_timeout="2s",
-            idle_timeout="1s",
-            read_timeout="2s",
-        )
-    else:
-        proc = start_haproxy(
-            good,
-            wire,
-            dead,
-            tmp_dir=tmp,
-            connect_timeout="1s",
-            server_timeout="2s",
-            client_timeout="2s",
-        )
+    proc, urls = _start_timeout_proxy(proxy_type, wire_server.url, tmp)
     try:
-        yield _make_proxy_urls(good, wire, dead)
+        yield urls
     finally:
         proc.terminate()
         proc.wait(timeout=5)

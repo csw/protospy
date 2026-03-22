@@ -192,6 +192,30 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     )
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Assign xdist_group markers so ``--dist loadgroup`` keeps tests
+    sharing a module-scoped proxy fixture on the same worker.
+
+    Group key: ``<module>:<proxy_type>`` (e.g. ``test_hop_by_hop:caddy``).
+    Tests without proxy parametrization get grouped by module only.
+    """
+    for item in items:
+        # Extract proxy_type from parametrize markers
+        proxy = None
+        for marker in item.iter_markers("parametrize"):
+            if marker.args and marker.args[0] == "proxy_type":
+                # The parameter values are in callspec
+                break
+        # Access the resolved param from the callspec
+        callspec = getattr(item, "callspec", None)
+        if callspec and "proxy_type" in callspec.params:
+            proxy = callspec.params["proxy_type"]
+        mod = getattr(item, "module", None)
+        module = mod.__name__ if mod is not None else item.nodeid
+        group = f"{module}:{proxy}" if proxy else module
+        item.add_marker(pytest.mark.xdist_group(group))
+
+
 @pytest.fixture(scope="module")
 def proxy_type(request: pytest.FixtureRequest) -> str:
     """The proxy type for the current parametrized run."""
@@ -236,6 +260,9 @@ def _make_proxy_urls(
     )
 
 
+_START_RETRIES = 3
+
+
 def _start_proxy(
     proxy_type: str,
     good_upstream: str,
@@ -244,29 +271,46 @@ def _start_proxy(
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Allocate ports, start proxy with default timeouts, return (proc, urls).
 
+    Retries up to ``_START_RETRIES`` times on port conflicts (the
+    TOCTOU gap between ``find_free_port`` and ``bind`` is inherent
+    when many workers start proxies concurrently).
+
     For non-default timeouts call start_caddy / start_haproxy directly.
     Raises ValueError for unknown proxy types.
     """
-    good = ProxyEntry(listen_port=find_free_port(), upstream=good_upstream)
-    wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_upstream)
-    dead = ProxyEntry(
-        listen_port=find_free_port(),
-        upstream=f"http://127.0.0.1:{find_free_port()}",
-    )
-
-    if proxy_type == "caddy":
-        proc = start_caddy(good, wire, dead, tmp_dir=tmp_dir)
-    elif proxy_type == "haproxy":
-        proc = start_haproxy(good, wire, dead, tmp_dir=tmp_dir)
-    else:
+    if proxy_type not in ("caddy", "haproxy"):
         msg = (
             f"Unknown proxy type: {proxy_type!r}. "
             "Supported: caddy, haproxy. "
-            "To add a new proxy, extend the proxy fixture in conftest.py."
+            "To add a new proxy, extend the proxy fixture "
+            "in conftest.py."
         )
         raise ValueError(msg)
 
-    return proc, _make_proxy_urls(good, wire, dead)
+    last_exc: RuntimeError | None = None
+    for attempt in range(_START_RETRIES):
+        good = ProxyEntry(listen_port=find_free_port(), upstream=good_upstream)
+        wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_upstream)
+        dead = ProxyEntry(
+            listen_port=find_free_port(),
+            upstream=f"http://127.0.0.1:{find_free_port()}",
+        )
+        try:
+            if proxy_type == "caddy":
+                proc = start_caddy(good, wire, dead, tmp_dir=tmp_dir)
+            else:
+                proc = start_haproxy(good, wire, dead, tmp_dir=tmp_dir)
+            return proc, _make_proxy_urls(good, wire, dead)
+        except RuntimeError as exc:
+            last_exc = exc
+            if attempt < _START_RETRIES - 1:
+                # Re-create tmp subdir for the next attempt so config
+                # file paths don't collide.
+                tmp_dir = tmp_dir.parent / f"{tmp_dir.name}_r{attempt}"
+                tmp_dir.mkdir(exist_ok=True)
+
+    assert last_exc is not None
+    raise last_exc
 
 
 @pytest.fixture(scope="module")
