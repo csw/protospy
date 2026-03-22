@@ -16,8 +16,8 @@ import httpx
 
 from proxy_conformance.types import send_expecting_error
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyUrls
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
 
 
 def test_upstream_unreachable(
@@ -31,7 +31,7 @@ def test_upstream_unreachable(
     Uses the dead proxy endpoint which forwards to a port with nothing bound.
     RFC 7231 §6.6.3 recommends 502 Bad Gateway.
     """
-    url = _test_url(proxy.dead_url, "upstream-unreachable")
+    url = tagged_url(proxy.dead_url, "upstream-unreachable")
     result = send_expecting_error(client, url)
 
     if result.status is None:
@@ -63,7 +63,7 @@ def test_upstream_malformed_response(
     WireServer /garbage sends raw non-HTTP bytes ("NOT HTTP\\r\\n\\r\\n").
     A conforming proxy should return 502.
     """
-    url = _test_url(f"{proxy.wire_url}/garbage", "upstream-malformed-response")
+    url = tagged_url(f"{proxy.wire_url}/garbage", "upstream-malformed-response")
     result = send_expecting_error(client, url)
 
     if result.status is None:
@@ -95,7 +95,9 @@ def test_upstream_drops_after_headers(
     WireServer /truncated-empty sends Content-Length: 1000 headers but
     closes the connection without sending any body bytes. Findings-based.
     """
-    url = _test_url(f"{proxy.wire_url}/truncated-empty", "upstream-drops-after-headers")
+    url = tagged_url(
+        f"{proxy.wire_url}/truncated-empty", "upstream-drops-after-headers"
+    )
     result = send_expecting_error(client, url)
 
     if result.status is None:
@@ -128,7 +130,7 @@ def test_upstream_drops_before_response(
     WireServer /silent accepts the request then closes the connection
     immediately without sending headers or body. Findings-based.
     """
-    url = _test_url(f"{proxy.wire_url}/silent", "upstream-drops-before-response")
+    url = tagged_url(f"{proxy.wire_url}/silent", "upstream-drops-before-response")
     result = send_expecting_error(client, url)
 
     if result.status is None:
@@ -162,7 +164,7 @@ def test_upstream_content_length_mismatch(
     WireServer /truncated promises 1000 bytes but sends only 500.
     RFC 9112 §6.3 considers this an incomplete message; proxy should return 502.
     """
-    url = _test_url(f"{proxy.wire_url}/truncated", "truncated-body")
+    url = tagged_url(f"{proxy.wire_url}/truncated", "truncated-body")
     result = send_expecting_error(client, url)
 
     if result.status is None:

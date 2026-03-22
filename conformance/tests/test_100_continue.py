@@ -11,8 +11,8 @@ import urllib.parse
 from proxy_conformance.h11_client import send_with_expect_continue
 from proxy_conformance.wire_server import WireServer
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyUrls
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
 
 
 class TestContinueIntegration:
@@ -50,7 +50,7 @@ class TestBasic100Continue:
         result = send_with_expect_continue(
             host=proxy.wire_host,
             port=proxy.wire_port,
-            path=_test_url("/continue", "basic-100-continue"),
+            path=tagged_url("/continue", "basic-100-continue"),
             body=b"the request body",
         )
 
@@ -89,7 +89,7 @@ class TestUpstreamIgnoresExpect:
         result = send_with_expect_continue(
             host=proxy.wire_host,
             port=proxy.wire_port,
-            path=_test_url("/continue/skip-100", "upstream-ignores-expect"),
+            path=tagged_url("/continue/skip-100", "upstream-ignores-expect"),
             body=b"the request body",
         )
 
@@ -130,7 +130,7 @@ class TestUpstreamRejectsExpect:
         result = send_with_expect_continue(
             host=proxy.wire_host,
             port=proxy.wire_port,
-            path=_test_url("/continue/reject", "upstream-rejects-expect"),
+            path=tagged_url("/continue/reject", "upstream-rejects-expect"),
             body=b"the request body",
         )
 
@@ -169,7 +169,7 @@ class TestClientSendsBodyEarly:
         result = send_with_expect_continue(
             host=proxy.wire_host,
             port=proxy.wire_port,
-            path=_test_url("/continue", "client-sends-body-early"),
+            path=tagged_url("/continue", "client-sends-body-early"),
             body=body,
             wait_for_100=False,
         )

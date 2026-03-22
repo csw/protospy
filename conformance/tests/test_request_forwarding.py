@@ -19,8 +19,8 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyUrls
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
 
 REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
     # Category 1: Request forwarding fundamentals
@@ -181,7 +181,7 @@ def test_request_forwarding(
 ) -> None:
     response = client.request(
         case.request.method,
-        _test_url(f"{proxy.good_url}{case.request.path}", case.id),
+        tagged_url(f"{proxy.good_url}{case.request.path}", case.id),
         headers=case.request.headers,
         content=case.request.body,
     )

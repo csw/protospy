@@ -250,6 +250,17 @@ backend dead_backend
 
 
 # ---------------------------------------------------------------------------
+# Test URL helpers
+# ---------------------------------------------------------------------------
+
+
+def tagged_url(url: str, test_id: str) -> str:
+    """Append _test=<test_id> query parameter to a URL or path."""
+    sep = "&" if "?" in url else "?"
+    return f"{url}{sep}_test={test_id}"
+
+
+# ---------------------------------------------------------------------------
 # Proxy coordinate types and startup helpers
 # ---------------------------------------------------------------------------
 

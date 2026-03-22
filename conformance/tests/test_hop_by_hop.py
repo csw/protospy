@@ -21,8 +21,8 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyUrls
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
 
 HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
@@ -211,7 +211,7 @@ def test_hop_by_hop(
 ) -> None:
     response = client.request(
         case.request.method,
-        _test_url(f"{proxy.good_url}{case.request.path}", case.id),
+        tagged_url(f"{proxy.good_url}{case.request.path}", case.id),
         headers=case.request.headers,
         content=case.request.body,
     )
@@ -238,7 +238,7 @@ def test_te_header_handling(
     TE with a value of "trailers".  Neither Caddy nor HAProxy strips it.
     """
     response = client.get(
-        _test_url(f"{proxy.good_url}/echo", "te-header-handling"),
+        tagged_url(f"{proxy.good_url}/echo", "te-header-handling"),
         headers={"TE": "trailers"},
     )
     assert response.status_code == 200
@@ -274,7 +274,7 @@ def test_proxy_authorization_handling(
     HAProxy strips it.
     """
     response = client.get(
-        _test_url(
+        tagged_url(
             f"{proxy.good_url}/echo",
             "proxy-authorization-handling",
         ),

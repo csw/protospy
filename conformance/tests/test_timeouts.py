@@ -27,8 +27,15 @@ from proxy_conformance.net import find_free_port
 from proxy_conformance.types import send_expecting_error
 from proxy_conformance.wire_server import WireServer
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyEntry, ProxyUrls, make_proxy_urls, start_caddy, start_haproxy
+from .conftest import Findings
+from .proxies import (
+    ProxyEntry,
+    ProxyUrls,
+    make_proxy_urls,
+    start_caddy,
+    start_haproxy,
+    tagged_url,
+)
 
 _TIMEOUT_START_RETRIES = 3
 
@@ -115,7 +122,7 @@ def test_upstream_response_timeout(
     configured with a 2s upstream timeout (response_header_timeout for Caddy,
     server_timeout for HAProxy). The proxy should return 504 or 502.
     """
-    url = _test_url(
+    url = tagged_url(
         f"{timeout_proxy.wire_url}/stall/before-response",
         "upstream-response-timeout",
     )
@@ -148,7 +155,7 @@ def test_upstream_body_stall(
     WireServer /stall/mid-body sends headers + 100 bytes then stalls 3s.
     Proxy should either return 502 or close the connection after its timeout.
     """
-    url = _test_url(
+    url = tagged_url(
         f"{timeout_proxy.wire_url}/stall/mid-body",
         "upstream-body-stall",
     )
@@ -187,7 +194,7 @@ def test_client_body_stall(
     try:
         # Send request headers with Content-Length but deliberately no body.
         request_headers = (
-            f"POST {_test_url('/echo', 'client-body-stall')} HTTP/1.1\r\n"
+            f"POST {tagged_url('/echo', 'client-body-stall')} HTTP/1.1\r\n"
             f"Host: {host}:{port}\r\n"
             f"Content-Length: 100\r\n"
             f"Content-Type: application/octet-stream\r\n"
@@ -240,7 +247,7 @@ def test_idle_connection_timeout(
 
     sock = socket.create_connection((host, port), timeout=5.0)
     try:
-        path = _test_url("/", "idle-connection-timeout")
+        path = tagged_url("/", "idle-connection-timeout")
         request = (
             f"GET {path} HTTP/1.1\r\n"
             f"Host: {host}:{port}\r\n"

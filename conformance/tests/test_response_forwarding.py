@@ -12,8 +12,7 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import _test_url
-from .proxies import ProxyUrls
+from .proxies import ProxyUrls, tagged_url
 
 RESPONSE_FORWARDING_TESTS = [
     ProxyTestCase(
@@ -98,7 +97,7 @@ def test_response_forwarding(
 ) -> None:
     response = client.request(
         case.request.method,
-        _test_url(f"{proxy.good_url}{case.request.path}", case.id),
+        tagged_url(f"{proxy.good_url}{case.request.path}", case.id),
         headers=case.request.headers,
         content=case.request.body,
         follow_redirects=False,  # important for 2.2

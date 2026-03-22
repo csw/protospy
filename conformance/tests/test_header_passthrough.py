@@ -15,8 +15,10 @@ import pytest
 
 from proxy_conformance.good_server import GoodServer
 
-from .conftest import _test_url  # noqa: E402
-from .proxies import ProxyUrls
+from .proxies import (
+    ProxyUrls,
+    tagged_url,  # noqa: E402
+)
 
 # Category 11: Cache header passthrough
 
@@ -45,7 +47,7 @@ def test_cache_response_header_passthrough(
 ) -> None:
     """Cache response headers pass through upstream to client unchanged (§11.1)."""
     encoded_value = urllib.parse.quote(header_value, safe="")
-    url = _test_url(
+    url = tagged_url(
         f"{proxy.good_url}/headers?{header_name}={encoded_value}",
         "cache-response-headers",
     )
@@ -69,7 +71,7 @@ def test_cache_request_headers_forwarded(
 ) -> None:
     """Cache request headers pass through client to upstream unchanged (§11.2)."""
     response = client.get(
-        _test_url(f"{proxy.good_url}/echo", "cache-request-headers"),
+        tagged_url(f"{proxy.good_url}/echo", "cache-request-headers"),
         headers={
             "If-None-Match": '"abc123"',
             "Cache-Control": "no-cache",
@@ -104,7 +106,7 @@ def test_content_response_header_passthrough(
 ) -> None:
     """Content response headers pass through upstream to client unchanged (§12.1)."""
     encoded_value = urllib.parse.quote(header_value, safe="=;")
-    url = _test_url(
+    url = tagged_url(
         f"{proxy.good_url}/headers?{header_name}={encoded_value}",
         "content-response-headers",
     )
@@ -129,7 +131,7 @@ def test_content_encoding_not_altered(
     Uses iter_raw() to read the wire bytes before httpx's transparent
     content-decoding, so we can verify the body is still valid gzip.
     """
-    url = _test_url(
+    url = tagged_url(
         f"{proxy.good_url}/body/gzip?size=100",
         "content-encoding-not-altered",
     )
@@ -157,7 +159,7 @@ def test_multiple_values_forwarded(
     """Multiple values for the same request header are both forwarded (§13.1)."""
     # Use list of tuples to send duplicate headers
     response = client.get(
-        _test_url(f"{proxy.good_url}/echo", "multiple-values-same-header"),
+        tagged_url(f"{proxy.good_url}/echo", "multiple-values-same-header"),
         headers=[("Accept", "text/html"), ("Accept", "application/json")],
     )
     assert response.status_code == 200
@@ -176,7 +178,7 @@ def test_set_cookie_preserved_separately(
     client: httpx.Client,
 ) -> None:
     """Multiple Set-Cookie headers are not collapsed (§13.2)."""
-    url = _test_url(
+    url = tagged_url(
         (
             f"{proxy.good_url}/headers"
             f"?Set-Cookie={urllib.parse.quote('a=1', safe='')}"
@@ -201,7 +203,7 @@ def test_header_value_whitespace_preserved(
 ) -> None:
     """Header values with internal whitespace are preserved (§13.3)."""
     response = client.get(
-        _test_url(f"{proxy.good_url}/echo", "header-value-whitespace"),
+        tagged_url(f"{proxy.good_url}/echo", "header-value-whitespace"),
         headers={"X-Spaced": "value  with   spaces"},
     )
     assert response.status_code == 200

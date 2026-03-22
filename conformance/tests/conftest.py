@@ -15,13 +15,6 @@ from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
 
-
-def _test_url(url: str, test_id: str) -> str:
-    """Append _test=<test_id> query parameter to a URL or path."""
-    sep = "&" if "?" in url else "?"
-    return f"{url}{sep}_test={test_id}"
-
-
 FindingLevel = Literal["info", "finding"]
 
 # Section name used to forward findings from xdist workers to the controller.

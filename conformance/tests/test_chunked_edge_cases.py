@@ -34,8 +34,8 @@ from proxy_conformance.types import (
     send_expecting_error,
 )
 
-from .conftest import Findings, _test_url
-from .proxies import ProxyUrls
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
 
 # Per-proxy behavioral quirks for the missing-final-chunk-request test (§7.3).
 #
@@ -109,7 +109,7 @@ def test_request_trailers_forwarded(
     """
     host = proxy.good_host
     port = proxy.good_port
-    path = _test_url("/echo", "request-trailers")
+    path = tagged_url("/echo", "request-trailers")
 
     _send_chunked_with_trailers(
         host, port, path, b"hello", [("x-custom-trailer", "trailer-value")]
@@ -151,7 +151,7 @@ def test_response_trailers_forwarded(
     httpx does not expose HTTP/1.1 trailers, so we only verify the response
     arrived without error.
     """
-    url = _test_url(
+    url = tagged_url(
         f"{proxy.good_url}/chunked-with-trailers?X-Custom-Trailer=trailer-value",
         "response-trailers",
     )
@@ -188,7 +188,7 @@ def test_missing_final_chunk_request(
     result = send_incomplete_chunked_request(
         host=proxy.good_host,
         port=proxy.good_port,
-        path=_test_url("/chunked-error-test", "incomplete-chunked-request"),
+        path=tagged_url("/chunked-error-test", "incomplete-chunked-request"),
         chunk_data=b"this body is deliberately incomplete",
     )
 
@@ -245,7 +245,7 @@ def test_missing_final_chunk_response(
     WireServer /missing-final-chunk sends valid chunk data but closes the
     connection without sending the terminal 0-length chunk. Findings-based.
     """
-    url = _test_url(
+    url = tagged_url(
         f"{proxy.wire_url}/missing-final-chunk", "missing-final-chunk-response"
     )
     result = send_expecting_error(client, url)
@@ -279,7 +279,7 @@ def test_invalid_chunk_size_request(
     result = send_invalid_chunk_size(
         host=proxy.good_host,
         port=proxy.good_port,
-        path=_test_url("/echo", "invalid-chunk-size-request"),
+        path=tagged_url("/echo", "invalid-chunk-size-request"),
     )
 
     if result is None:
@@ -309,7 +309,7 @@ def test_invalid_chunk_size_response(
 
     Absorbed from test_wire_server.py (TestMalformedChunks).
     """
-    url = _test_url(f"{proxy.wire_url}/malformed-chunks", "malformed-chunks")
+    url = tagged_url(f"{proxy.wire_url}/malformed-chunks", "malformed-chunks")
     result = send_expecting_error(client, url)
 
     if result.status is None:
@@ -341,7 +341,7 @@ def test_trailer_announce_header(
     """
     host = proxy.good_host
     port = proxy.good_port
-    path = _test_url("/echo", "trailer-announce-header")
+    path = tagged_url("/echo", "trailer-announce-header")
 
     _send_chunked_with_trailers(
         host, port, path, b"data", [("x-my-trailer", "my-value")], announce=True
