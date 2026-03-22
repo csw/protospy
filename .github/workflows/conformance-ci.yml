@@ -54,13 +54,8 @@ jobs:
       - run: uv sync --frozen
       - name: Install Caddy
         run: |
-          sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
-          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-            | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-            | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-          sudo apt-get update
-          sudo apt-get install -y caddy
+          curl -fsSL https://github.com/caddyserver/caddy/releases/download/v2.11.2/caddy_2.11.2_linux_amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin caddy
       - name: Install HAProxy
         run: sudo apt-get install -y haproxy
       - name: Run conformance tests
