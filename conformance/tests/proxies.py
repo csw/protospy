@@ -7,7 +7,16 @@ import socket
 import subprocess
 import time
 import urllib.parse
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass
+class ProxyEntry:
+    """A proxy frontend+backend pair: listen port and upstream target."""
+
+    listen_port: int  # port the proxy binds to (exposed to test clients)
+    upstream: str  # upstream target URL (http://host:port)
 
 
 def _wait_for_port(
@@ -49,22 +58,21 @@ def _dial(url: str) -> str:
 
 
 def _wire_server_config(
-    port: int,
-    upstream: str,
+    entry: ProxyEntry,
     transport: dict[str, object],
     idle_timeout: str,
     read_timeout: str,
 ) -> dict[str, object]:
     """Build the Caddy JSON server block for the wire upstream."""
     server: dict[str, object] = {
-        "listen": [f":{port}"],
+        "listen": [f":{entry.listen_port}"],
         "routes": [
             {
                 "handle": [
                     {
                         "handler": "reverse_proxy",
                         "transport": transport,
-                        "upstreams": [{"dial": _dial(upstream)}],
+                        "upstreams": [{"dial": _dial(entry.upstream)}],
                     }
                 ]
             }
@@ -78,12 +86,9 @@ def _wire_server_config(
 
 
 def start_caddy(
-    good_upstream: str,
-    good_proxy_port: int,
-    wire_upstream: str,
-    wire_proxy_port: int,
-    dead_target_port: int,
-    dead_proxy_port: int,
+    good: ProxyEntry,
+    wire: ProxyEntry,
+    dead: ProxyEntry,
     tmp_dir: Path,
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
@@ -109,7 +114,7 @@ def start_caddy(
             "http": {
                 "servers": {
                     "good": {
-                        "listen": [f":{good_proxy_port}"],
+                        "listen": [f":{good.listen_port}"],
                         "routes": [
                             {
                                 "handle": [
@@ -119,29 +124,23 @@ def start_caddy(
                                         # X-Forwarded-For from the test client is
                                         # preserved and appended to, not replaced.
                                         "trusted_proxies": ["127.0.0.1/32"],
-                                        "upstreams": [{"dial": _dial(good_upstream)}],
+                                        "upstreams": [{"dial": _dial(good.upstream)}],
                                     }
                                 ]
                             }
                         ],
                     },
                     "wire": _wire_server_config(
-                        wire_proxy_port,
-                        wire_upstream,
-                        transport,
-                        idle_timeout,
-                        read_timeout,
+                        wire, transport, idle_timeout, read_timeout
                     ),
                     "dead": {
-                        "listen": [f":{dead_proxy_port}"],
+                        "listen": [f":{dead.listen_port}"],
                         "routes": [
                             {
                                 "handle": [
                                     {
                                         "handler": "reverse_proxy",
-                                        "upstreams": [
-                                            {"dial": (f"127.0.0.1:{dead_target_port}")}
-                                        ],
+                                        "upstreams": [{"dial": _dial(dead.upstream)}],
                                     }
                                 ]
                             }
@@ -161,7 +160,7 @@ def start_caddy(
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, wire_proxy_port, dead_proxy_port):
+    for port in (good.listen_port, wire.listen_port, dead.listen_port):
         try:
             _wait_for_port(port)
         except TimeoutError:
@@ -175,12 +174,9 @@ def start_caddy(
 
 
 def start_haproxy(
-    good_upstream: str,
-    good_proxy_port: int,
-    wire_upstream: str,
-    wire_proxy_port: int,
-    dead_target_port: int,
-    dead_proxy_port: int,
+    good: ProxyEntry,
+    wire: ProxyEntry,
+    dead: ProxyEntry,
     tmp_dir: Path,
     connect_timeout: str = "5s",
     server_timeout: str = "30s",
@@ -190,10 +186,6 @@ def start_haproxy(
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
-    # HAProxy backend server directives take host:port, not full URLs.
-    good_hostport = urllib.parse.urlparse(good_upstream).netloc
-    wire_hostport = urllib.parse.urlparse(wire_upstream).netloc
-
     config_content = f"""\
 global
     maxconn 256
@@ -206,31 +198,31 @@ defaults
     option forwardfor
 
 frontend good_frontend
-    bind :{good_proxy_port}
+    bind :{good.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend good_backend
 
 backend good_backend
-    server upstream {good_hostport}
+    server upstream {_dial(good.upstream)}
 
 frontend wire_frontend
-    bind :{wire_proxy_port}
+    bind :{wire.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend wire_backend
 
 backend wire_backend
-    server upstream {wire_hostport}
+    server upstream {_dial(wire.upstream)}
 
 frontend dead_frontend
-    bind :{dead_proxy_port}
+    bind :{dead.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend dead_backend
 
 backend dead_backend
-    server upstream 127.0.0.1:{dead_target_port}
+    server upstream {_dial(dead.upstream)}
 """
 
     config_file = tmp_dir / "haproxy.cfg"
@@ -242,7 +234,7 @@ backend dead_backend
         stderr=subprocess.PIPE,
     )
 
-    for port in (good_proxy_port, wire_proxy_port, dead_proxy_port):
+    for port in (good.listen_port, wire.listen_port, dead.listen_port):
         try:
             _wait_for_port(port)
         except TimeoutError:

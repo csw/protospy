@@ -25,8 +25,8 @@ from proxy_conformance.net import find_free_port
 from proxy_conformance.types import send_expecting_error
 from proxy_conformance.wire_server import WireServer
 
-from .conftest import Findings, ProxyUrls, _test_url
-from .proxies import start_caddy, start_haproxy
+from .conftest import Findings, ProxyUrls, _make_proxy_urls, _test_url
+from .proxies import ProxyEntry, start_caddy, start_haproxy
 
 
 @pytest.fixture(scope="module")
@@ -37,20 +37,18 @@ def timeout_proxy(
 ) -> Generator[ProxyUrls]:
     """Proxy configured with short upstream timeouts. Wire-only (no GoodServer)."""
     proxy_type = str(request.config.getoption("--proxy"))
-    # Two separate proxy ports required — good and wire can't share a port.
-    good_port = find_free_port()
-    wire_port = find_free_port()
-    dead_proxy_port = find_free_port()
-    dead_target_port = find_free_port()
+    good = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
+    wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_server.url)
+    dead = ProxyEntry(
+        listen_port=find_free_port(),
+        upstream=f"http://127.0.0.1:{find_free_port()}",
+    )
     tmp = tmp_path_factory.mktemp("timeout-proxy")
     if proxy_type == "caddy":
         proc = start_caddy(
-            wire_server.url,
-            good_port,
-            wire_server.url,
-            wire_port,
-            dead_target_port=dead_target_port,
-            dead_proxy_port=dead_proxy_port,
+            good,
+            wire,
+            dead,
             tmp_dir=tmp,
             dial_timeout="1s",
             response_header_timeout="2s",
@@ -59,29 +57,16 @@ def timeout_proxy(
         )
     else:
         proc = start_haproxy(
-            wire_server.url,
-            good_port,
-            wire_server.url,
-            wire_port,
-            dead_target_port=dead_target_port,
-            dead_proxy_port=dead_proxy_port,
+            good,
+            wire,
+            dead,
             tmp_dir=tmp,
             connect_timeout="1s",
             server_timeout="2s",
             client_timeout="2s",
         )
     try:
-        yield ProxyUrls(
-            good_url=f"http://127.0.0.1:{good_port}",
-            wire_url=f"http://127.0.0.1:{wire_port}",
-            good_host="127.0.0.1",
-            good_port=good_port,
-            wire_host="127.0.0.1",
-            wire_port=wire_port,
-            dead_url=f"http://127.0.0.1:{dead_proxy_port}",
-            dead_host="127.0.0.1",
-            dead_port=dead_proxy_port,
-        )
+        yield _make_proxy_urls(good, wire, dead)
     finally:
         proc.terminate()
         proc.wait(timeout=5)

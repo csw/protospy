@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import urllib.parse
 from collections.abc import Generator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import httpx
@@ -28,7 +30,7 @@ from proxy_conformance.wire_server import (
     truncated_body,
 )
 
-from .proxies import start_caddy, start_haproxy
+from .proxies import ProxyEntry, start_caddy, start_haproxy
 
 
 def _test_url(url: str, test_id: str) -> str:
@@ -212,6 +214,58 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     server.stop()
 
 
+def _make_proxy_urls(
+    good: ProxyEntry,
+    wire: ProxyEntry,
+    dead: ProxyEntry,
+) -> ProxyUrls:
+    """Build a ProxyUrls for a locally-started proxy on loopback."""
+    return ProxyUrls(
+        good_url=f"http://127.0.0.1:{good.listen_port}",
+        wire_url=f"http://127.0.0.1:{wire.listen_port}",
+        good_host="127.0.0.1",
+        good_port=good.listen_port,
+        wire_host="127.0.0.1",
+        wire_port=wire.listen_port,
+        dead_url=f"http://127.0.0.1:{dead.listen_port}",
+        dead_host="127.0.0.1",
+        dead_port=dead.listen_port,
+    )
+
+
+def _start_proxy(
+    proxy_type: str,
+    good_upstream: str,
+    wire_upstream: str,
+    tmp_dir: Path,
+) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
+    """Allocate ports, start proxy with default timeouts, return (proc, urls).
+
+    For non-default timeouts call start_caddy / start_haproxy directly.
+    Raises ValueError for unknown proxy types.
+    """
+    good = ProxyEntry(listen_port=find_free_port(), upstream=good_upstream)
+    wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_upstream)
+    dead = ProxyEntry(
+        listen_port=find_free_port(),
+        upstream=f"http://127.0.0.1:{find_free_port()}",
+    )
+
+    if proxy_type == "caddy":
+        proc = start_caddy(good, wire, dead, tmp_dir=tmp_dir)
+    elif proxy_type == "haproxy":
+        proc = start_haproxy(good, wire, dead, tmp_dir=tmp_dir)
+    else:
+        msg = (
+            f"Unknown proxy type: {proxy_type!r}. "
+            "Supported: caddy, haproxy. "
+            "To add a new proxy, extend the proxy fixture in conftest.py."
+        )
+        raise ValueError(msg)
+
+    return proc, _make_proxy_urls(good, wire, dead)
+
+
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
@@ -246,75 +300,14 @@ def proxy(
         )
         return
 
-    proxy_type = request.config.getoption("--proxy")
-
-    if proxy_type == "caddy":
-        good_port = find_free_port()
-        wire_port = find_free_port()
-        dead_proxy_port = find_free_port()
-        dead_target_port = find_free_port()
-        caddyfile_dir = tmp_path_factory.mktemp("caddy")
-        proc = start_caddy(
-            good_server.url,
-            good_port,
-            wire_server.url,
-            wire_port,
-            dead_target_port=dead_target_port,
-            dead_proxy_port=dead_proxy_port,
-            tmp_dir=caddyfile_dir,
-        )
-        try:
-            yield ProxyUrls(
-                good_url=f"http://127.0.0.1:{good_port}",
-                wire_url=f"http://127.0.0.1:{wire_port}",
-                good_host="127.0.0.1",
-                good_port=good_port,
-                wire_host="127.0.0.1",
-                wire_port=wire_port,
-                dead_url=f"http://127.0.0.1:{dead_proxy_port}",
-                dead_host="127.0.0.1",
-                dead_port=dead_proxy_port,
-            )
-        finally:
-            proc.terminate()
-            proc.wait(timeout=5)
-    elif proxy_type == "haproxy":
-        good_port = find_free_port()
-        wire_port = find_free_port()
-        dead_proxy_port = find_free_port()
-        dead_target_port = find_free_port()
-        haproxy_dir = tmp_path_factory.mktemp("haproxy")
-        proc = start_haproxy(
-            good_server.url,
-            good_port,
-            wire_server.url,
-            wire_port,
-            dead_target_port=dead_target_port,
-            dead_proxy_port=dead_proxy_port,
-            tmp_dir=haproxy_dir,
-        )
-        try:
-            yield ProxyUrls(
-                good_url=f"http://127.0.0.1:{good_port}",
-                wire_url=f"http://127.0.0.1:{wire_port}",
-                good_host="127.0.0.1",
-                good_port=good_port,
-                wire_host="127.0.0.1",
-                wire_port=wire_port,
-                dead_url=f"http://127.0.0.1:{dead_proxy_port}",
-                dead_host="127.0.0.1",
-                dead_port=dead_proxy_port,
-            )
-        finally:
-            proc.terminate()
-            proc.wait(timeout=5)
-    else:
-        msg = (
-            f"Unknown proxy type: {proxy_type!r}. "
-            "Supported: caddy, haproxy. "
-            "To add a new proxy, extend the proxy fixture in conftest.py."
-        )
-        raise ValueError(msg)
+    proxy_type = str(request.config.getoption("--proxy"))
+    tmp = tmp_path_factory.mktemp(proxy_type)
+    proc, urls = _start_proxy(proxy_type, good_server.url, wire_server.url, tmp)
+    try:
+        yield urls
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
 
 
 @pytest.fixture(scope="session")
