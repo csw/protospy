@@ -11,7 +11,8 @@ import urllib.parse
 from proxy_conformance.h11_client import send_with_expect_continue
 from proxy_conformance.wire_server import WireServer
 
-from .conftest import Findings, ProxyUrls, _test_url
+from .conftest import Findings, _test_url
+from .proxies import ProxyUrls
 
 
 class TestContinueIntegration:

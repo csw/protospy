@@ -3,42 +3,23 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import urllib.parse
 from collections.abc import Generator
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 import httpx
 import pytest
 
 from proxy_conformance.good_server import GoodServer
-from proxy_conformance.net import find_free_port
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
-from .proxies import ProxyEntry, start_caddy, start_haproxy
+from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
 
 
 def _test_url(url: str, test_id: str) -> str:
     """Append _test=<test_id> query parameter to a URL or path."""
     sep = "&" if "?" in url else "?"
     return f"{url}{sep}_test={test_id}"
-
-
-@dataclass
-class ProxyUrls:
-    """URLs for the two proxy upstreams under test."""
-
-    good_url: str
-    wire_url: str
-    good_host: str
-    good_port: int
-    wire_host: str
-    wire_port: int
-    dead_url: str
-    dead_host: str
-    dead_port: int
 
 
 FindingLevel = Literal["info", "finding"]
@@ -163,13 +144,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-_ALL_PROXIES = ["caddy", "haproxy"]
-
-
 def _get_proxy_list(config: pytest.Config) -> list[str]:
     raw = str(config.getoption("--proxy"))
     if raw == "all":
-        return list(_ALL_PROXIES)
+        return list(ALL_PROXIES)
     return [p.strip() for p in raw.split(",") if p.strip()]
 
 
@@ -241,78 +219,6 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     server.stop()
 
 
-def _make_proxy_urls(
-    good: ProxyEntry,
-    wire: ProxyEntry,
-    dead: ProxyEntry,
-) -> ProxyUrls:
-    """Build a ProxyUrls for a locally-started proxy on loopback."""
-    return ProxyUrls(
-        good_url=f"http://127.0.0.1:{good.listen_port}",
-        wire_url=f"http://127.0.0.1:{wire.listen_port}",
-        good_host="127.0.0.1",
-        good_port=good.listen_port,
-        wire_host="127.0.0.1",
-        wire_port=wire.listen_port,
-        dead_url=f"http://127.0.0.1:{dead.listen_port}",
-        dead_host="127.0.0.1",
-        dead_port=dead.listen_port,
-    )
-
-
-_START_RETRIES = 3
-
-
-def _start_proxy(
-    proxy_type: str,
-    good_upstream: str,
-    wire_upstream: str,
-    tmp_dir: Path,
-) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
-    """Allocate ports, start proxy with default timeouts, return (proc, urls).
-
-    Retries up to ``_START_RETRIES`` times on port conflicts (the
-    TOCTOU gap between ``find_free_port`` and ``bind`` is inherent
-    when many workers start proxies concurrently).
-
-    For non-default timeouts call start_caddy / start_haproxy directly.
-    Raises ValueError for unknown proxy types.
-    """
-    if proxy_type not in ("caddy", "haproxy"):
-        msg = (
-            f"Unknown proxy type: {proxy_type!r}. "
-            "Supported: caddy, haproxy. "
-            "To add a new proxy, extend the proxy fixture "
-            "in conftest.py."
-        )
-        raise ValueError(msg)
-
-    last_exc: RuntimeError | None = None
-    for attempt in range(_START_RETRIES):
-        good = ProxyEntry(listen_port=find_free_port(), upstream=good_upstream)
-        wire = ProxyEntry(listen_port=find_free_port(), upstream=wire_upstream)
-        dead = ProxyEntry(
-            listen_port=find_free_port(),
-            upstream=f"http://127.0.0.1:{find_free_port()}",
-        )
-        try:
-            if proxy_type == "caddy":
-                proc = start_caddy(good, wire, dead, tmp_dir=tmp_dir)
-            else:
-                proc = start_haproxy(good, wire, dead, tmp_dir=tmp_dir)
-            return proc, _make_proxy_urls(good, wire, dead)
-        except RuntimeError as exc:
-            last_exc = exc
-            if attempt < _START_RETRIES - 1:
-                # Re-create tmp subdir for the next attempt so config
-                # file paths don't collide.
-                tmp_dir = tmp_dir.parent / f"{tmp_dir.name}_r{attempt}"
-                tmp_dir.mkdir(exist_ok=True)
-
-    assert last_exc is not None
-    raise last_exc
-
-
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
@@ -347,7 +253,7 @@ def proxy(
         return
 
     tmp = tmp_path_factory.mktemp(proxy_type)
-    proc, urls = _start_proxy(proxy_type, good_server.url, wire_server.url, tmp)
+    proc, urls = start_proxy(proxy_type, good_server.url, wire_server.url, tmp)
     try:
         yield urls
     finally:

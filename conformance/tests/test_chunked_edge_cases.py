@@ -34,7 +34,8 @@ from proxy_conformance.types import (
     send_expecting_error,
 )
 
-from .conftest import Findings, ProxyUrls, _test_url
+from .conftest import Findings, _test_url
+from .proxies import ProxyUrls
 
 # Per-proxy behavioral quirks for the missing-final-chunk-request test (§7.3).
 #

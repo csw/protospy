@@ -16,7 +16,8 @@ import httpx
 
 from proxy_conformance.types import send_expecting_error
 
-from .conftest import Findings, ProxyUrls, _test_url
+from .conftest import Findings, _test_url
+from .proxies import ProxyUrls
 
 
 def test_upstream_unreachable(

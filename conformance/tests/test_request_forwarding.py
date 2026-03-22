@@ -19,7 +19,8 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import Findings, ProxyUrls, _test_url
+from .conftest import Findings, _test_url
+from .proxies import ProxyUrls
 
 REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
     # Category 1: Request forwarding fundamentals

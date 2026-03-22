@@ -15,7 +15,8 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
-from .conftest import ProxyUrls, _test_url
+from .conftest import _test_url
+from .proxies import ProxyUrls
 
 VIA_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(

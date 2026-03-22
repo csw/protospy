@@ -27,8 +27,8 @@ from proxy_conformance.net import find_free_port
 from proxy_conformance.types import send_expecting_error
 from proxy_conformance.wire_server import WireServer
 
-from .conftest import Findings, ProxyUrls, _make_proxy_urls, _test_url
-from .proxies import ProxyEntry, start_caddy, start_haproxy
+from .conftest import Findings, _test_url
+from .proxies import ProxyEntry, ProxyUrls, make_proxy_urls, start_caddy, start_haproxy
 
 _TIMEOUT_START_RETRIES = 3
 
@@ -69,7 +69,7 @@ def _start_timeout_proxy(
                     server_timeout="2s",
                     client_timeout="2s",
                 )
-            return proc, _make_proxy_urls(good, wire, dead)
+            return proc, make_proxy_urls(good, wire, dead)
         except RuntimeError as exc:
             last_exc = exc
             if attempt < _TIMEOUT_START_RETRIES - 1:

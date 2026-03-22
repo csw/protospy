@@ -15,7 +15,8 @@ import pytest
 
 from proxy_conformance.good_server import GoodServer
 
-from .conftest import ProxyUrls, _test_url  # noqa: E402
+from .conftest import _test_url  # noqa: E402
+from .proxies import ProxyUrls
 
 # Category 11: Cache header passthrough
 
