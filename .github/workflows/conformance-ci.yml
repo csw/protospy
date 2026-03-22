@@ -1,0 +1,80 @@
+name: conformance-ci
+
+on:
+  push:
+    paths:
+      - "conformance/**"
+      - ".github/workflows/conformance-ci.yml"
+  pull_request:
+    paths:
+      - "conformance/**"
+      - ".github/workflows/conformance-ci.yml"
+
+defaults:
+  run:
+    working-directory: conformance
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen --extra dev
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check --output-format github .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen --extra dev
+      - run: uv run pyright .
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen
+      - name: Install Caddy
+        run: |
+          sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+            | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+            | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+          sudo apt-get update
+          sudo apt-get install -y caddy
+      - name: Install HAProxy
+        run: sudo apt-get install -y haproxy
+      - name: Run conformance tests
+        run: uv run pytest -q --junit-xml=results.xml
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: conformance-results
+          path: conformance/results.xml
+      - uses: dorny/test-reporter@v2.6.0
+        if: always()
+        with:
+          name: Conformance Tests
+          path: conformance/results.xml
+          reporter: java-junit
+          use-actions-summary: true
