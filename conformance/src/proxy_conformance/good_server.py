@@ -138,7 +138,7 @@ class GoodServer:
         self._loop.run_forever()
 
     async def _start_app(self, started: threading.Event) -> None:
-        app = web.Application()
+        app = web.Application(client_max_size=10 * 1024 * 1024)  # 10 MB
         r = app.router
         r.add_route("*", "/echo", self._handle_echo)
         r.add_route("*", r"/echo/{path_info:.*}", self._handle_echo)

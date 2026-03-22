@@ -52,7 +52,11 @@ def start_caddy(
 }}
 
 :{good_proxy_port} {{
-    reverse_proxy {good_upstream}
+    reverse_proxy {good_upstream} {{
+        # Trust the loopback so that an existing X-Forwarded-For from the
+        # test client is preserved and appended to, not replaced.
+        trusted_proxies 127.0.0.1/32
+    }}
 }}
 
 :{wire_proxy_port} {{
@@ -119,6 +123,7 @@ defaults
 frontend good_frontend
     bind :{good_proxy_port}
     http-request add-header Via "1.1 haproxy"
+    http-response add-header Via "1.1 haproxy"
     default_backend good_backend
 
 backend good_backend
@@ -127,6 +132,7 @@ backend good_backend
 frontend wire_frontend
     bind :{wire_proxy_port}
     http-request add-header Via "1.1 haproxy"
+    http-response add-header Via "1.1 haproxy"
     default_backend wire_backend
 
 backend wire_backend
@@ -135,6 +141,7 @@ backend wire_backend
 frontend dead_frontend
     bind :{dead_proxy_port}
     http-request add-header Via "1.1 haproxy"
+    http-response add-header Via "1.1 haproxy"
     default_backend dead_backend
 
 backend dead_backend
