@@ -91,9 +91,12 @@ class GoodServer:
     def stop(self) -> None:
         """Stop the server and wait for the background thread to exit."""
         if self._loop and self._runner:
-            # Run cleanup first and wait for it to finish.
+            # Run cleanup and cancel any lingering tasks before stopping the
+            # loop.  runner.cleanup() alone leaves aiohttp-internal tasks
+            # pending, which causes "Task was destroyed but it is pending!"
+            # warnings at GC time.
             future = asyncio.run_coroutine_threadsafe(
-                self._runner.cleanup(),
+                self._cleanup_all(),
                 self._loop,
             )
             future.result(timeout=5)
@@ -102,6 +105,14 @@ class GoodServer:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._thread:
             self._thread.join(timeout=5)
+
+    async def _cleanup_all(self) -> None:
+        if self._runner:
+            await self._runner.cleanup()
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     def last_request(self, timeout: float = 2.0) -> CapturedRequest:
         """Retrieve the next captured request. Blocks until available.
