@@ -23,7 +23,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: conformance/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - name: Format check
         run: uv run ruff format --check .
       - name: Lint
@@ -37,7 +37,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: conformance/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - run: uv run pyright .
 
   test:
