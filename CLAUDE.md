@@ -42,6 +42,10 @@ uv run ruff format .               # format
 uv run pyright .                   # type check
 ```
 
+### GitHub
+
+Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`.
+
 ## Python Style
 
 All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
@@ -59,6 +63,10 @@ uv run pytest -q
 ```
 
 Do not report "done" or commit until these are all clean.
+
+## Writing Tests
+
+When writing or maintaining tests, read `docs/agents/testing.md`.
 
 ## CI
 
