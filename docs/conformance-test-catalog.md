@@ -193,17 +193,18 @@ Request target must be preserved exactly:
 
 **Specs:** RFC 9112 §3.2 (request target), RFC 9110 §7.1
 
-### 15. Connection upgrades — PLACEHOLDER, FUTURE
+### 15. Connection upgrades
 
-WebSocket upgrades (101 Switching Protocols) and h2c (HTTP/2 cleartext) upgrades. The proxy must detect the upgrade, relay the 101 response, and switch to tunneling the raw TCP connection.
+WebSocket upgrades (101 Switching Protocols). The proxy must detect the upgrade, relay the 101 response, and switch to tunneling the raw TCP connection.
 
-**Not in initial implementation.** Placeholder for future work. When implemented, will need tests for:
-- Successful WebSocket upgrade
-- Failed upgrade (server rejects)
-- Data flow after upgrade (bidirectional tunneling)
-- h2c upgrade mechanism
+Tests cover:
+- Successful WebSocket upgrade through the proxy
+- Failed upgrade (server rejects with non-101 status)
+- Bidirectional data flow after upgrade (text and binary)
 
-**Specs:** RFC 9110 §7.8 (Upgrade), RFC 6455 (WebSockets), RFC 9113 §3.2 (h2c)
+h2c (HTTP/2 cleartext) upgrades are out of scope — not relevant for a development observation proxy.
+
+**Specs:** RFC 9110 §7.8 (Upgrade), RFC 6455 (WebSockets)
 
 ### 16. Informational responses (1xx) other than 100
 
@@ -802,9 +803,28 @@ Since protospy is non-caching, these headers must pass through unmodified in bot
 
 ---
 
-### 15. Connection upgrades — PLACEHOLDER
+### 15. Connection upgrades
 
-_Detailed requirements deferred. See category description above._
+#### 15.1 — Successful WebSocket upgrade
+**Spec:** RFC 6455, RFC 9110 §7.8
+**Description:** Proxy relays the WebSocket upgrade handshake (101 Switching Protocols) and tunnels the resulting connection. Client sends a message through the proxy to a WebSocket echo server and receives it back.
+**Request:** WebSocket connect to /ws/echo, send text message
+**Target expectation:** WebSocket upgrade accepted, message echoed
+**Client expectation:** Echoed message matches sent message
+
+#### 15.2 — Failed WebSocket upgrade
+**Spec:** RFC 6455, RFC 9110 §7.8
+**Description:** When the upstream rejects a WebSocket upgrade (returns non-101 status), the proxy forwards the rejection to the client rather than generating its own error.
+**Request:** GET /ws/reject (with or without Upgrade headers)
+**Target expectation:** Returns 403
+**Client expectation:** Receives 403 (not 502 or 504)
+
+#### 15.3 — Bidirectional data flow after upgrade
+**Spec:** RFC 6455
+**Description:** After a successful WebSocket upgrade, the proxy tunnels data bidirectionally. Multiple text and binary messages are sent and echoed to verify sustained tunneling.
+**Request:** WebSocket connect to /ws/echo, send multiple text and binary messages
+**Target expectation:** All messages echoed
+**Client expectation:** All echoed messages match sent messages
 
 ---
 

@@ -10,6 +10,8 @@ and routes to endpoint-specific handlers based on the path:
 - /body/chunked?size={n} — chunked body of n bytes
 - /body/content-length?size={n} — Content-Length-framed body of n bytes
 - /chunked-with-trailers?Trailer-Name=value — chunked response with trailers
+- /ws/echo — WebSocket echo endpoint (text and binary)
+- /ws/reject — rejects WebSocket upgrade with HTTP 403
 
 Unknown paths return 404. All endpoints capture requests out-of-band.
 """
@@ -25,6 +27,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Annotated, cast
 
+import aiohttp
 import typer
 from aiohttp import web
 from multidict import CIMultiDict
@@ -150,6 +153,8 @@ class GoodServer:
         r.add_route("*", "/body/content-length", self._handle_body_content_length)
         r.add_route("*", "/body/gzip", self._handle_body_gzip)
         r.add_route("*", "/chunked-with-trailers", self._handle_chunked_with_trailers)
+        r.add_route("GET", "/ws/echo", self._handle_ws_echo)
+        r.add_route("GET", "/ws/reject", self._handle_ws_reject)
         r.add_route("*", r"/{path_info:.*}", self._handle_not_found)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
@@ -273,6 +278,21 @@ class GoodServer:
         # Mark eof as sent so aiohttp does not write a second terminator.
         resp._eof_sent = True  # noqa: SLF001
         return resp
+
+    async def _handle_ws_echo(self, request: web.Request) -> web.WebSocketResponse:
+        """Accept a WebSocket upgrade and echo every message back."""
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                await ws.send_str(msg.data)
+            elif msg.type == aiohttp.WSMsgType.BINARY:
+                await ws.send_bytes(msg.data)
+        return ws
+
+    async def _handle_ws_reject(self, request: web.Request) -> web.Response:
+        """Reject a WebSocket upgrade with HTTP 403."""
+        return web.Response(status=403, text="WebSocket upgrade rejected")
 
     async def _handle_not_found(self, request: web.Request) -> web.Response:
         """Return 404 for any unrecognised path."""
