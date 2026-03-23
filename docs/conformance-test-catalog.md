@@ -21,6 +21,8 @@ Protospy is a transparent observation proxy — it does not cache, modify bodies
 
 ### 1. Request forwarding fundamentals
 
+Tests: [test_request_forwarding.py](../conformance/tests/test_request_forwarding.py)
+
 Baseline correctness: method, path, query string, headers, and body arrive at the upstream intact. This is the foundation — every other category builds on it.
 
 Key concerns: path and query string preserved exactly, percent-encoding not double-encoded or decoded, request headers forwarded without mutation (except hop-by-hop), body forwarded with correct framing.
@@ -29,11 +31,15 @@ Key concerns: path and query string preserved exactly, percent-encoding not doub
 
 ### 2. Response forwarding fundamentals
 
+Tests: [test_response_forwarding.py](../conformance/tests/test_response_forwarding.py)
+
 Status code, headers, and body arrive at the client intact. Covers all status code classes (2xx, 3xx, 4xx, 5xx) and verifies the proxy doesn't mangle responses.
 
 **Specs:** RFC 9110 §15 (status codes), RFC 9112 §4 (status line)
 
 ### 3. Hop-by-hop header handling
+
+Tests: [test_hop_by_hop.py](../conformance/tests/test_hop_by_hop.py)
 
 The proxy must remove hop-by-hop headers from forwarded messages in both directions. These are:
 
@@ -57,11 +63,15 @@ The proxy must also not forward headers listed in the `Connection` header's valu
 
 ### 4. Via header
 
+Tests: [test_via_header.py](../conformance/tests/test_via_header.py)
+
 The proxy must append a Via entry to forwarded requests and forwarded responses. Must preserve existing Via entries (append, not replace). The entry includes the protocol version and a proxy identifier.
 
 **Specs:** RFC 9110 §7.6.3
 
 ### 5. Forwarding identification headers
+
+Tests: [test_forwarding_headers.py](../conformance/tests/test_forwarding_headers.py)
 
 De facto standard headers that identify the original client and request context:
 
@@ -73,6 +83,8 @@ De facto standard headers that identify the original client and request context:
 **Specs:** RFC 7239 (Forwarded); MDN references for de facto standards: [X-Forwarded-For](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For), [X-Forwarded-Proto](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), [X-Forwarded-Host](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Host), [Forwarded](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded)
 
 ### 6. Body framing
+
+Tests: [test_body_framing.py](../conformance/tests/test_body_framing.py)
 
 Correct handling of different body framing mechanisms:
 
@@ -87,6 +99,8 @@ Correct handling of different body framing mechanisms:
 
 ### 7. Chunked encoding edge cases
 
+Tests: [test_chunked_edge_cases.py](../conformance/tests/test_chunked_edge_cases.py)
+
 Beyond basic chunked forwarding, specific edge cases:
 
 - Trailer fields in chunked messages (request and response) — proxy must pass through. This is important for gRPC and similar protocols that use trailers.
@@ -100,6 +114,8 @@ Beyond basic chunked forwarding, specific edge cases:
 **Infrastructure requirement — proxy-specific expectations:** Some error-handling behaviors will differ between proxies due to legitimate implementation choices (e.g., whether the proxy buffers or streams the request body before forwarding). The test infrastructure must support per-proxy expected values or the ability to skip specific tests for specific proxies. This should be a general capability, not special-cased per test. Options include: a `proxy_overrides` field on test cases that maps proxy names to alternate expectations, or a marker/skip mechanism keyed on the `--proxy` option.
 
 ### 8. 100-continue
+
+Tests: [test_100_continue.py](../conformance/tests/test_100_continue.py)
 
 The `Expect: 100-continue` mechanism:
 
@@ -119,6 +135,8 @@ Edge cases:
 
 ### 9. Error responses
 
+Tests: [test_upstream_errors.py](../conformance/tests/test_upstream_errors.py)
+
 Proxy-generated error responses when something goes wrong:
 
 - **502 Bad Gateway**: upstream unreachable (connection refused), upstream sends malformed response, upstream drops connection mid-response, upstream sends truncated body (Content-Length mismatch)
@@ -130,6 +148,8 @@ Important: the proxy should provide meaningful error responses, not silently dro
 **Specs:** RFC 9110 §15.6.3 (502), §15.6.5 (504)
 
 ### 10. Timeouts
+
+Tests: [test_timeouts.py](../conformance/tests/test_timeouts.py)
 
 Timeout behaviors the proxy must implement. These are important for correctness and influence test suite design (timeout tests are inherently timing-sensitive).
 
@@ -145,6 +165,8 @@ Testing considerations: timeout tests need a target server (h11-based) that deli
 **Specs:** RFC 9110 §15.6.5 (504), §15.5.9 (408)
 
 ### 11. Cache header passthrough
+
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
 
 Since protospy is non-caching, all cache-related headers must pass through unmodified in both directions:
 
@@ -162,6 +184,8 @@ The test is simply "these headers are not mangled."
 
 ### 12. Content header passthrough
 
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
+
 Content-related end-to-end headers pass through unmodified:
 
 - `Content-Type`
@@ -176,6 +200,8 @@ The proxy must not alter these. Transfer-Encoding is hop-by-hop and handled in c
 
 ### 13. Header preservation details
 
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
+
 Subtle correctness requirements around header handling:
 
 - Multiple values for the same header name must be preserved (not collapsed into one or dropped)
@@ -185,6 +211,8 @@ Subtle correctness requirements around header handling:
 **Specs:** RFC 9110 §5.3 (field order), RFC 9112 §5 (field syntax)
 
 ### 14. URI handling
+
+Tests: [test_request_forwarding.py](../conformance/tests/test_request_forwarding.py)
 
 Request target must be preserved exactly:
 
@@ -196,6 +224,8 @@ Request target must be preserved exactly:
 **Specs:** RFC 9112 §3.2 (request target), RFC 9110 §7.1
 
 ### 15. Connection upgrades
+
+Tests: [test_connection_upgrades.py](../conformance/tests/test_connection_upgrades.py)
 
 WebSocket upgrades (101 Switching Protocols). The proxy must detect the upgrade, relay the 101 response, and switch to tunneling the raw TCP connection.
 
@@ -217,6 +247,8 @@ h2c upgrades via the HTTP/1.1 Upgrade mechanism (RFC 9113 §3.2) are not tested 
 **Specs:** RFC 9110 §15.2, RFC 8297 (103)
 
 ### 17. gRPC proxying (HTTP/2)
+
+Tests: [test_grpc.py](../conformance/tests/test_grpc.py)
 
 gRPC uses HTTP/2 (h2c in cleartext scenarios) for transport. The proxy must support h2c to the upstream, forward HTTP/2 frames correctly, and preserve gRPC-specific semantics including trailers (which carry gRPC status), streaming, and deadline propagation.
 
@@ -907,6 +939,8 @@ _Low priority. Include if straightforward to test._
 
 ## 18. HTTP/1.1 → HTTP/2 bridging
 
+Tests: [test_h2_bridging.py](../conformance/tests/test_h2_bridging.py)
+
 When a proxy receives an HTTP/1.1 request and forwards it to an h2c upstream, it must translate protocol-specific framing: the `Host` header becomes `:authority`, `Transfer-Encoding: chunked` must be stripped (HTTP/2 handles framing at the protocol layer), and the request method and path become `:method` and `:path` pseudo-headers.
 
 **Scope:** H1.1 client → proxy → h2c upstream only.
@@ -933,6 +967,8 @@ When a proxy receives an HTTP/1.1 request and forwards it to an h2c upstream, it
 **Client expectation:** 200 OK
 
 ## 19. Streaming response behavior
+
+Tests: [test_streaming.py](../conformance/tests/test_streaming.py)
 
 Verifies that the proxy forwards response chunks incrementally as they arrive from upstream rather than buffering the full response, and that it propagates client disconnects to the upstream connection.
 
