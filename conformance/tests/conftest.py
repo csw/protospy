@@ -12,6 +12,7 @@ import pytest
 
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.grpc_server import GrpcServer
+from proxy_conformance.h2c_server import H2cServer
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
@@ -221,6 +222,14 @@ def grpc_server() -> Generator[GrpcServer]:
     server.stop()
 
 
+@pytest.fixture(scope="session")
+def h2c_server() -> Generator[H2cServer]:
+    server = H2cServer()
+    server.start()
+    yield server
+    server.stop()
+
+
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
@@ -228,6 +237,7 @@ def proxy(
     good_server: GoodServer,
     wire_server: WireServer,
     grpc_server: GrpcServer,
+    h2c_server: H2cServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """ProxyUrls for the proxy under test.
@@ -262,6 +272,7 @@ def proxy(
         wire_server.url,
         tmp,
         grpc_upstream=grpc_server.url,
+        h2c_upstream=h2c_server.url,
     )
     try:
         yield urls
@@ -287,6 +298,12 @@ def client() -> Generator[httpx.Client]:
 def _clear_good_requests(good_server: GoodServer) -> None:
     """Drain any leftover requests between tests."""
     good_server.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_h2c_requests(h2c_server: H2cServer) -> None:
+    """Drain any leftover H2c captured requests between tests."""
+    h2c_server.clear()
 
 
 @pytest.fixture(autouse=True)

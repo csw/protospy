@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aiohttp>=3,<4",
     "grpcio>=1.78,<2",
+    "h2>=4,<5",
     "h11>=0,<1",
     "httpx>=0,<1",
     "multidict>=6,<7",
@@ -26,6 +27,7 @@ dev = [
 [project.scripts]
 good-server = "proxy_conformance.good_server:_cli"
 grpc-server = "proxy_conformance.grpc_server:_cli"
+h2c-server = "proxy_conformance.h2c_server:_cli"
 wire-server = "proxy_conformance.wire_server:_cli"
 
 [build-system]

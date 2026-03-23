@@ -94,6 +94,7 @@ def start_caddy(
     tmp_dir: Path,
     *,
     grpc: ProxyEntry | None = None,
+    h2c: ProxyEntry | None = None,
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
     idle_timeout: str = "",
@@ -163,6 +164,24 @@ def start_caddy(
                 }
             ],
         }
+    if h2c is not None:
+        servers["h2c"] = {
+            "listen": [f":{h2c.listen_port}"],
+            "routes": [
+                {
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            "transport": {
+                                "protocol": "http",
+                                "versions": ["h2c"],
+                            },
+                            "upstreams": [{"dial": _dial(h2c.upstream)}],
+                        }
+                    ]
+                }
+            ],
+        }
 
     config: dict[str, object] = {
         "admin": {"disabled": True},
@@ -181,6 +200,8 @@ def start_caddy(
     ports = [good.listen_port, wire.listen_port, dead.listen_port]
     if grpc is not None:
         ports.append(grpc.listen_port)
+    if h2c is not None:
+        ports.append(h2c.listen_port)
     for port in ports:
         try:
             _wait_for_port(port)
@@ -201,6 +222,7 @@ def start_haproxy(
     tmp_dir: Path,
     *,
     grpc: ProxyEntry | None = None,
+    h2c: ProxyEntry | None = None,
     connect_timeout: str = "5s",
     server_timeout: str = "30s",
     client_timeout: str = "30s",
@@ -256,6 +278,17 @@ frontend grpc_frontend
 backend grpc_backend
     server upstream {_dial(grpc.upstream)} proto h2
 """
+    if h2c is not None:
+        config_content += f"""
+frontend h2c_frontend
+    bind :{h2c.listen_port}
+    http-request add-header Via "1.1 haproxy"
+    http-response add-header Via "1.1 haproxy"
+    default_backend h2c_backend
+
+backend h2c_backend
+    server upstream {_dial(h2c.upstream)} proto h2
+"""
 
     config_file = tmp_dir / "haproxy.cfg"
     config_file.write_text(config_content)
@@ -269,6 +302,8 @@ backend grpc_backend
     ports = [good.listen_port, wire.listen_port, dead.listen_port]
     if grpc is not None:
         ports.append(grpc.listen_port)
+    if h2c is not None:
+        ports.append(h2c.listen_port)
     for port in ports:
         try:
             _wait_for_port(port)
@@ -315,6 +350,9 @@ class ProxyUrls:
     dead_port: int
     grpc_host: str = ""
     grpc_port: int = 0
+    h2c_url: str = ""
+    h2c_host: str = ""
+    h2c_port: int = 0
 
 
 def make_proxy_urls(
@@ -322,6 +360,7 @@ def make_proxy_urls(
     wire: ProxyEntry,
     dead: ProxyEntry,
     grpc: ProxyEntry | None = None,
+    h2c: ProxyEntry | None = None,
 ) -> ProxyUrls:
     """Build a ProxyUrls for a locally-started proxy on loopback."""
     urls = ProxyUrls(
@@ -338,6 +377,10 @@ def make_proxy_urls(
     if grpc is not None:
         urls.grpc_host = "127.0.0.1"
         urls.grpc_port = grpc.listen_port
+    if h2c is not None:
+        urls.h2c_url = f"http://127.0.0.1:{h2c.listen_port}"
+        urls.h2c_host = "127.0.0.1"
+        urls.h2c_port = h2c.listen_port
     return urls
 
 
@@ -350,6 +393,7 @@ def start_proxy(
     wire_upstream: str,
     tmp_dir: Path,
     grpc_upstream: str = "",
+    h2c_upstream: str = "",
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Allocate ports, start proxy with default timeouts, return (proc, urls).
 
@@ -386,6 +430,14 @@ def start_proxy(
             if grpc_upstream
             else None
         )
+        h2c_entry = (
+            ProxyEntry(
+                listen_port=find_free_port(),
+                upstream=h2c_upstream,
+            )
+            if h2c_upstream
+            else None
+        )
         try:
             if proxy_type == "caddy":
                 proc = start_caddy(
@@ -394,6 +446,7 @@ def start_proxy(
                     dead,
                     tmp_dir=tmp_dir,
                     grpc=grpc_entry,
+                    h2c=h2c_entry,
                 )
             else:
                 proc = start_haproxy(
@@ -402,12 +455,14 @@ def start_proxy(
                     dead,
                     tmp_dir=tmp_dir,
                     grpc=grpc_entry,
+                    h2c=h2c_entry,
                 )
             return proc, make_proxy_urls(
                 good,
                 wire,
                 dead,
                 grpc=grpc_entry,
+                h2c=h2c_entry,
             )
         except RuntimeError as exc:
             last_exc = exc

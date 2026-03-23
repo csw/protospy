@@ -898,3 +898,32 @@ _Low priority. Include if straightforward to test._
 **Request:** UnaryEcho RPC with 0.5s timeout, upstream sleeps 3s
 **Target expectation:** May or may not receive the RPC (depends on proxy timeout handling)
 **Client expectation:** Receives DEADLINE_EXCEEDED
+
+---
+
+## 18. HTTP/1.1 → HTTP/2 bridging
+
+When a proxy receives an HTTP/1.1 request and forwards it to an h2c upstream, it must translate protocol-specific framing: the `Host` header becomes `:authority`, `Transfer-Encoding: chunked` must be stripped (HTTP/2 handles framing at the protocol layer), and the request method and path become `:method` and `:path` pseudo-headers.
+
+**Scope:** H1.1 client → proxy → h2c upstream only.
+
+#### 18.1 — Host translated to :authority
+**Spec:** RFC 7540 §8.1.2.3
+**Description:** When bridging an HTTP/1.1 request to an HTTP/2 upstream, the proxy sets the `:authority` pseudo-header from the incoming `Host` header.
+**Request:** GET / with `Host: example.com`
+**Target expectation:** `:authority` pseudo-header is `example.com` on the h2c upstream
+**Client expectation:** 200 OK
+
+#### 18.2 — Transfer-Encoding stripped on h2c upstream
+**Spec:** RFC 7540 §8.1.2.2
+**Description:** HTTP/2 does not use `Transfer-Encoding` for framing. When bridging a chunked HTTP/1.1 request to an h2c upstream, the proxy must strip the `Transfer-Encoding` header. The body itself must arrive intact.
+**Request:** POST / with chunked body
+**Target expectation:** Body arrives at the correct length; `transfer-encoding` header is absent on the upstream
+**Client expectation:** 200 OK
+
+#### 18.3 — Method and path preserved as pseudo-headers
+**Spec:** RFC 7540 §8.1.2.3
+**Description:** The HTTP/1.1 request method and path are forwarded as `:method` and `:path` pseudo-headers in the HTTP/2 request.
+**Request:** POST /foo/bar with a small body
+**Target expectation:** `:method` is `POST`, `:path` is `/foo/bar` on the h2c upstream
+**Client expectation:** 200 OK
