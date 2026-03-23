@@ -89,6 +89,7 @@ class ProxyTestCase:
     spec_ref: str
     description: str
     request: RequestSpec
+    catalog_ids: list[str] = field(default_factory=list)
     expect_at_target: TargetExpectation = field(default_factory=TargetExpectation)
     expect_at_client: ClientExpectation = field(default_factory=ClientExpectation)
     proxy_quirks: dict[str, ProxyQuirk] = field(default_factory=dict)

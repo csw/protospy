@@ -29,6 +29,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
             "Proxy adds X-Forwarded-For header containing the client IP "
             "when none is present in the request"
         ),
+        catalog_ids=["5.1"],
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
@@ -44,6 +45,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
             "Proxy appends client IP to existing X-Forwarded-For header, "
             "preserving the original value"
         ),
+        catalog_ids=["5.2"],
         request=RequestSpec(
             method="GET",
             path="/echo",
@@ -63,6 +65,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
             "Proxy adds X-Forwarded-Proto header with the original request scheme "
             "(http in this test)"
         ),
+        catalog_ids=["5.3"],
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
@@ -87,6 +90,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         description=(
             "Proxy adds X-Forwarded-Host header with the original request host"
         ),
+        catalog_ids=["5.4"],
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(

@@ -33,6 +33,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             "Connection is a hop-by-hop header that applies only to the "
             "client-proxy connection"
         ),
+        catalog_ids=["3.1"],
         request=RequestSpec(
             method="GET",
             path="/echo",
@@ -65,6 +66,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             "Connection: X-Custom-Hop tells the proxy that X-Custom-Hop is "
             "hop-by-hop and must not be forwarded"
         ),
+        catalog_ids=["3.2"],
         request=RequestSpec(
             method="GET",
             path="/echo",
@@ -107,6 +109,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             "Keep-Alive is a hop-by-hop header that applies only to the "
             "client-proxy connection"
         ),
+        catalog_ids=["3.3"],
         request=RequestSpec(
             method="GET",
             path="/echo",
@@ -145,6 +148,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             "the target returns Connection and Keep-Alive headers via /headers "
             "endpoint, and the proxy should strip them before returning to client"
         ),
+        catalog_ids=["3.6"],
         request=RequestSpec(
             method="GET",
             path="/headers?Connection=keep-alive&Keep-Alive=timeout%3D5",
@@ -176,6 +180,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
             "headers like X-Connection-Info and Authorization are end-to-end "
             "and must be forwarded intact"
         ),
+        catalog_ids=["3.7"],
         request=RequestSpec(
             method="GET",
             path="/echo",

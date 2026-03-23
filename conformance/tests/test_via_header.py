@@ -22,6 +22,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         id="via-added-to-request",
         spec_ref="RFC 9110 §7.6.3",
         description="Proxy adds Via header to forwarded request (no upstream Via)",
+        catalog_ids=["4.1"],
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(contains={"via": "1.1"}),
@@ -34,6 +35,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         description=(
             "Proxy appends Via header to forwarded request (upstream Via present)"
         ),
+        catalog_ids=["4.2"],
         request=RequestSpec(
             method="GET", path="/echo", headers={"Via": "1.0 upstream-proxy"}
         ),
@@ -46,6 +48,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         id="via-added-to-response",
         spec_ref="RFC 9110 §7.6.3",
         description="Proxy adds Via header to response (no upstream Via in response)",
+        catalog_ids=["4.3"],
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(),
         expect_at_client=ClientExpectation(
@@ -59,6 +62,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         description=(
             "Proxy appends Via header to response (upstream Via present in response)"
         ),
+        catalog_ids=["4.4"],
         request=RequestSpec(method="GET", path="/headers?Via=1.1+backend"),
         expect_at_target=TargetExpectation(),
         expect_at_client=ClientExpectation(

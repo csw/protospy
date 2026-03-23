@@ -34,42 +34,49 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="method-preserved-GET",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards GET method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="GET", path="/echo"),
     ),
     ProxyTestCase(
         id="method-preserved-POST",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards POST method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="POST", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-PUT",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards PUT method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="PUT", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-PATCH",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards PATCH method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="PATCH", path="/echo", body=b"test"),
     ),
     ProxyTestCase(
         id="method-preserved-DELETE",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards DELETE method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="DELETE", path="/echo"),
     ),
     ProxyTestCase(
         id="method-preserved-OPTIONS",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards OPTIONS method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="OPTIONS", path="/echo"),
     ),
     ProxyTestCase(
         id="method-preserved-HEAD",
         spec_ref="RFC 9110 §9",
         description="Proxy forwards HEAD method unchanged",
+        catalog_ids=["1.1"],
         request=RequestSpec(method="HEAD", path="/echo"),
     ),
     # 1.2: Path preserved (RFC 9112 §3.2)
@@ -77,6 +84,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="path-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy forwards nested path segments unchanged",
+        catalog_ids=["1.2"],
         request=RequestSpec(method="GET", path="/echo/some/nested/path"),
     ),
     # 1.3: Query string preserved (RFC 9112 §3.2)
@@ -84,6 +92,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="query-string-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy forwards query string parameters unchanged",
+        catalog_ids=["1.3"],
         request=RequestSpec(
             method="GET",
             path="/echo/qs-test?q=hello&page=2",
@@ -94,6 +103,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="percent-encoding-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy preserves percent-encoded characters in path",
+        catalog_ids=["1.4"],
         request=RequestSpec(
             method="GET",
             path="/echo/path%20with%20spaces",
@@ -104,6 +114,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="request-headers-forwarded",
         spec_ref="RFC 9110 §7",
         description="Proxy forwards custom request headers to target",
+        catalog_ids=["1.5"],
         request=RequestSpec(
             method="GET",
             path="/echo",
@@ -126,6 +137,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="request-body-content-length",
         spec_ref="RFC 9112 §6.2",
         description="Proxy forwards POST body with Content-Length",
+        catalog_ids=["1.6"],
         request=RequestSpec(
             method="POST",
             path="/echo",
@@ -137,6 +149,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="request-body-chunked",
         spec_ref="RFC 9112 §7.1",
         description="Proxy forwards chunked request body",
+        catalog_ids=["1.7"],
         request=RequestSpec(
             method="POST",
             path="/echo",
@@ -148,6 +161,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="empty-body-not-fabricated",
         spec_ref="RFC 9110 §9.3.1",
         description="Proxy does not fabricate a body for GET",
+        catalog_ids=["1.8"],
         request=RequestSpec(method="GET", path="/echo"),
     ),
     # Category 14: URI handling
@@ -156,6 +170,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="double-slashes-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy preserves double slashes in request path",
+        catalog_ids=["14.1"],
         request=RequestSpec(method="GET", path="/echo//double//slashes"),
     ),
     # 14.2: Dot segments — tested via raw socket in TestDotSegments below
@@ -165,6 +180,7 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         id="empty-query-preserved",
         spec_ref="RFC 9112 §3.2",
         description="Proxy preserves query string with parameters",
+        catalog_ids=["14.3"],
         request=RequestSpec(method="GET", path="/echo/empty-query?x=1"),
     ),
     # 14.4 (fragment) is in TestFragmentHandling below

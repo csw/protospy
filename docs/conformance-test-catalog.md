@@ -1,6 +1,8 @@
 # Conformance Test Catalog
 
-Test coverage for the protospy HTTP 1.1 reverse proxy conformance suite. This document identifies what the suite must cover, organized by category, and will be expanded with individual test requirements for each category.
+Test coverage for the protospy HTTP 1.1 reverse proxy conformance suite. This document identifies what the suite must cover, organized by category, with individual test requirements for each category.
+
+Some behaviors overlap, such that a single test verifies requirements from multiple categories. This will be noted in both test files.
 
 ## Scope
 
@@ -241,6 +243,8 @@ These HTTP features are not relevant for a transparent observation proxy:
 - **103 Early Hints**: Out of scope (see category 16).
 
 ## Detailed requirements
+
+These catalog requirements will be noted in the test files, e.g. `catalog_ids=["5.3"]` or "§7.5" in doc comments.
 
 ### 1. Request forwarding fundamentals
 
