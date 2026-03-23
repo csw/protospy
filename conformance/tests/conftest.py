@@ -92,7 +92,7 @@ def pytest_terminal_summary(
         return
     terminalreporter.write_sep("=", "proxy behavioral findings")
     for level in ("finding", "info"):
-        level_entries = [(tid, msg) for tid, msg, lvl in entries if lvl == level]
+        level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
         if not level_entries:
             continue
         terminalreporter.write_line(f"\n[{level}]")

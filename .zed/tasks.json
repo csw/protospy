@@ -18,7 +18,7 @@
   },
   {
     "label": "conformance tests",
-    "command": "uv run pytest",
+    "command": "uv run pytest --findings",
     "cwd": "$ZED_WORKTREE_ROOT/conformance",
   },
 ]
