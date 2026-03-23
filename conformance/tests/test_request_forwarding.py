@@ -12,10 +12,13 @@ import pytest
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import send_raw_request_line
 from proxy_conformance.types import (
+    ClientExpectation,
     HeaderExpectation,
+    ProxyQuirk,
     ProxyTestCase,
     RequestSpec,
     TargetExpectation,
+    apply_quirk,
     assert_proxy_test_case,
 )
 
@@ -256,6 +259,16 @@ class TestDotSegments:
             )
 
 
+# §14.4: HAProxy returns 400 for fragments in request line.
+_FRAGMENT_QUIRKS: dict[str, ProxyQuirk] = {
+    "haproxy": ProxyQuirk(
+        disposition="override",
+        reason="HAProxy rejects fragments in request-target with 400",
+        client=ClientExpectation(status=400),
+    ),
+}
+
+
 class TestFragmentHandling:
     """Test 14.4: fragment in request-target (RFC 9112 §3.2)."""
 
@@ -263,22 +276,46 @@ class TestFragmentHandling:
         self,
         proxy: ProxyUrls,
         findings: Findings,
+        proxy_name: str,
     ) -> None:
-        """Proxy behavior when request line contains a fragment."""
+        """Proxy strips fragment and forwards request (§14.4).
+
+        RFC 9112 §3.2 says fragments must not be sent in the
+        request-target. Default: proxy strips the fragment and
+        forwards the request (200). HAProxy rejects with 400.
+        """
+        quirk = apply_quirk(proxy_name, _FRAGMENT_QUIRKS)
+
         result = send_raw_request_line(
             host=proxy.good_host,
             port=proxy.good_port,
-            request_line=("GET /echo/fragment-test#section HTTP/1.1"),
+            request_line="GET /echo/fragment-test#section HTTP/1.1",
         )
-        if result is None:
+
+        if quirk and quirk.client is not None:
+            assert isinstance(quirk.client, ClientExpectation)
+            assert result is not None, "Expected error response, got connection drop"
+            if quirk.client.status is not None:
+                assert result.status == quirk.client.status, (
+                    f"Expected {quirk.client.status}, got {result.status}"
+                )
             findings.record(
                 "fragment-request",
-                "Proxy closed connection for fragment in request line",
+                f"[{proxy_name}] Proxy returned {result.status} "
+                "for fragment in request line "
+                "(RFC 9112 §3.2 says fragment must not be sent)",
                 level="finding",
             )
         else:
+            # Default: strip fragment, forward request
+            assert result is not None, (
+                "Proxy closed connection for fragment in request "
+                "line (expected 200 with fragment stripped)"
+            )
+            assert result.status == 200, f"Expected 200, got {result.status}"
             findings.record(
                 "fragment-request",
-                f"Proxy returned {result.status} for fragment in request line",
-                level="finding",
+                f"[{proxy_name}] Proxy returned {result.status} "
+                "for fragment in request line",
+                level="info",
             )

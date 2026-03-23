@@ -17,6 +17,8 @@ Protospy is a transparent observation proxy — it does not cache, modify bodies
 
 **Caddy support as a priority heuristic**: If a behavior is too esoteric for Caddy to support, it's unlikely to be a priority for protospy. Behaviors that Caddy handles correctly can be validated against Caddy as a reference proxy.
 
+**Assertion policy**: Every test must assert for every proxy. See [conformance-tests.md](conformance-tests.md) for the full policy on assertions, findings, and quirks.
+
 ## Categories
 
 ### 1. Request forwarding fundamentals
