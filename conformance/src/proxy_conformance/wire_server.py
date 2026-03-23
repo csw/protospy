@@ -347,6 +347,47 @@ def missing_final_chunk(valid_chunks: list[bytes] | None = None) -> Handler:
     return handler
 
 
+def gated_chunks(
+    chunks: list[bytes],
+    gates: list[threading.Event],
+    upstream_closed: threading.Event | None = None,
+) -> Handler:
+    """Return a handler that sends chunks gated by threading.Events.
+
+    Sends ``Transfer-Encoding: chunked`` headers, then for each chunk:
+    sends the chunk in proper chunked framing, then waits on
+    ``gates[i]`` (with a 10 s safety timeout) before continuing.
+    After all chunks, sends the terminal zero-length chunk.
+
+    If a send raises an ``OSError`` (e.g. ``BrokenPipeError`` or
+    ``ConnectionResetError`` when the proxy closes the upstream socket
+    after the client disconnects), sets ``upstream_closed`` if
+    provided.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        try:
+            conn.sendall(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n")
+            for i, chunk in enumerate(chunks):
+                conn.sendall(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
+                if i < len(gates):
+                    assert gates[i].wait(timeout=10.0), "Timed out waiting for gate"
+            conn.sendall(b"0\r\n\r\n")
+        except OSError:
+            if upstream_closed is not None:
+                upstream_closed.set()
+
+    return handler
+
+
 def delayed_100(_delay_seconds: float) -> Handler:
     """Stub: delayed 100-continue response handler.
 

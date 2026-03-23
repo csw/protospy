@@ -927,3 +927,23 @@ When a proxy receives an HTTP/1.1 request and forwards it to an h2c upstream, it
 **Request:** POST /foo/bar with a small body
 **Target expectation:** `:method` is `POST`, `:path` is `/foo/bar` on the h2c upstream
 **Client expectation:** 200 OK
+
+## 19. Streaming response behavior
+
+Verifies that the proxy forwards response chunks incrementally as they arrive from upstream rather than buffering the full response, and that it propagates client disconnects to the upstream connection.
+
+Tests use a deterministic gating mechanism: the upstream handler sends a chunk then blocks on a `threading.Event`; the client sets the event after receiving the chunk, unblocking the handler. A buffering proxy causes the client read to time out because the response never completes (the handler waits for a gate only the client can set, and the client never gets any data to trigger the gate).
+
+#### 19.1 — Proxy does not buffer chunked streaming responses
+**Spec:** RFC 9112 §7.1 (chunked transfer encoding), RFC 9110 §7.6.1 (hop-by-hop)
+**Description:** A proxy must forward each chunk to the client as soon as it is received from upstream. Buffering the full response before forwarding breaks streaming use cases (SSE, long downloads, chunked APIs).
+**Request:** GET to an upstream that sends 3 chunks sequentially, each gated on the client acknowledging the previous chunk
+**Target expectation:** Each chunk is forwarded promptly; the client receives chunk N before chunk N+1 is sent
+**Client expectation:** 200 OK; body matches concatenation of all chunks
+
+#### 19.2 — Client disconnect closes upstream connection
+**Spec:** RFC 9110 §9.6 (tear-down)
+**Description:** When the client disconnects while reading a streaming response, the proxy must close the upstream connection rather than leaking it.
+**Request:** GET to a gated streaming upstream; client reads the first chunk and disconnects
+**Target expectation:** The upstream connection is closed (next upstream send fails with OSError)
+**Client expectation:** Connection closed mid-stream
