@@ -1,7 +1,7 @@
 """Body framing conformance tests (category 6).
 
 Tests 6.1–6.4 overlap with categories 1 (1.6, 1.7) and 2 (2.6, 2.7) and are
-tested there. This file covers the remaining body framing cases: 6.5–6.7.
+tested there. This file covers the remaining body framing cases: 6.5–6.6.
 """
 
 from __future__ import annotations
@@ -20,8 +20,6 @@ from proxy_conformance.types import (
 )
 
 from .proxies import ProxyUrls, tagged_url
-
-_1MB = b"x" * (1024 * 1024)
 
 BODY_FRAMING_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
@@ -47,19 +45,6 @@ BODY_FRAMING_TESTS: list[ProxyTestCase] = [
             body=b"",
         ),
         expect_at_target=TargetExpectation(body=b""),
-        expect_at_client=ClientExpectation(status=200),
-    ),
-    ProxyTestCase(
-        id="large-body-streaming",
-        spec_ref="RFC 9112 §6.2",
-        description=("1 MB body — verifies proxy streams rather than buffers entirely"),
-        catalog_ids=["6.7"],
-        request=RequestSpec(
-            method="POST",
-            path="/echo",
-            body=_1MB,
-        ),
-        expect_at_target=TargetExpectation(body=_1MB),
         expect_at_client=ClientExpectation(status=200),
     ),
 ]

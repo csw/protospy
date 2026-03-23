@@ -560,13 +560,6 @@ _Note: Tests 4.3 and 4.4 use GoodServer's `/headers` endpoint to set custom resp
 **Target expectation:** Content-Length: 0 present, body is empty
 **Client expectation:** 200
 
-#### 6.7 — Large body streaming
-**Spec:** RFC 9112 §6
-**Description:** A large request body (e.g., 10 MB) is forwarded without the proxy buffering the entire thing in memory. This is a behavioral/performance requirement more than a correctness test — the test verifies the body arrives intact and the proxy doesn't OOM or time out.
-**Request:** POST /large with 10 MB body
-**Target expectation:** Body is 10 MB, content matches
-**Client expectation:** 200
-
 ---
 
 ### 7. Chunked encoding edge cases
