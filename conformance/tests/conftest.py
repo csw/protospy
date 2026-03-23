@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.parse
 from collections.abc import Generator
 from typing import Literal
@@ -98,6 +99,30 @@ def pytest_terminal_summary(
         terminalreporter.write_line(f"\n[{level}]")
         for test_id, message in level_entries:
             terminalreporter.write_line(f"  {test_id}: {message}")
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Write findings to the GitHub Actions step summary when running in CI."""
+    # In xdist mode each worker also fires this hook.  Only the controller
+    # (or the main process when not using xdist) should write the summary.
+    if hasattr(session.config, "workerinput"):
+        return
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    entries = _controller_entries or _session_findings._entries
+    if not entries:
+        return
+    lines: list[str] = ["\n## Proxy Behavioral Findings\n"]
+    for level in ("finding", "info"):
+        level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
+        if not level_entries:
+            continue
+        lines.append(f"\n**{level}**\n\n")
+        for test_id, message in level_entries:
+            lines.append(f"- `{test_id}`: {message}\n")
+    with open(summary_path, "a") as f:
+        f.writelines(lines)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
