@@ -51,3 +51,8 @@ ignore_decorators = [
   # FastAPI
   "@app.*",
 ]
+
+# NOTE: pyright config lives in pyrightconfig.json, not here.
+# pyrightconfig.json takes precedence over [tool.pyright] when present,
+# and is required so that the pyright LSP operates relative to this
+# subdirectory rather than the repo root.

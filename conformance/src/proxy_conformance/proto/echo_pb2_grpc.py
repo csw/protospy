@@ -5,7 +5,7 @@ import warnings
 
 from . import echo_pb2 as echo__pb2
 
-GRPC_GENERATED_VERSION = '1.71.2'
+GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in echo_pb2_grpc.py depends on'
+        + ' but the generated code in echo_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -112,7 +112,7 @@ class Echo(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(  # type: ignore[attr-defined]
+        return grpc.experimental.unary_unary(
             request,
             target,
             '/conformance.Echo/UnaryEcho',
@@ -139,7 +139,7 @@ class Echo(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(  # type: ignore[attr-defined]
+        return grpc.experimental.unary_stream(
             request,
             target,
             '/conformance.Echo/ServerStream',
@@ -166,7 +166,7 @@ class Echo(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(  # type: ignore[attr-defined]
+        return grpc.experimental.stream_stream(
             request_iterator,
             target,
             '/conformance.Echo/BidiStream',

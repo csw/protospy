@@ -5,11 +5,11 @@ description = "HTTP reverse proxy conformance test suite"
 requires-python = ">=3.14"
 dependencies = [
     "aiohttp>=3,<4",
-    "grpcio>=1,<2",
+    "grpcio>=1.78,<2",
     "h11>=0,<1",
     "httpx>=0,<1",
     "multidict>=6,<7",
-    "protobuf>=5,<6",
+    "protobuf>=6,<7",
     "pytest>=9,<10",
     "pytest-xdist>=3,<4",
     "typer>=0,<1",
@@ -18,7 +18,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "grpcio-tools>=1,<2",
+    "grpcio-tools>=1.78,<2",
     "pyright>=1,<2",
     "ruff>=0,<1",
 ]
@@ -39,9 +39,10 @@ module-root = "src"
 testpaths = ["tests"]
 addopts = "--tb=short -n auto --dist loadgroup"
 
-[tool.pyright]
-pythonVersion = "3.14"
-exclude = ["src/proxy_conformance/proto/echo_pb2*"]
+# NOTE: pyright config lives in pyrightconfig.json, not here.
+# pyrightconfig.json takes precedence over [tool.pyright] when present,
+# and is required so that the pyright LSP operates relative to this
+# subdirectory rather than the repo root.
 
 [tool.ruff]
 exclude = ["src/proxy_conformance/proto/echo_pb2*"]
