@@ -210,7 +210,7 @@ h2c upgrades via the HTTP/1.1 Upgrade mechanism (RFC 9113 §3.2) are not tested 
 
 - **101 Switching Protocols**: Covered under Connection upgrades (category 15).
 - **102 Processing** (WebDAV): Rarely used. Low priority. Forward if received.
-- **103 Early Hints**: More complex than it appears — involves protocol version compatibility issues (safe over HTTP/2 but problematic over HTTP/1.1). Caddy does not currently forward 103 from upstream. **Deferred** until Caddy or another reference proxy supports it.
+- **103 Early Hints**: **Out of scope.** 103 is mainly used by CDNs (Cloudflare, Shopify) to send cached `Link` preload headers while the origin is still responding. Adoption outside CDN edge networks is minimal, and proxy support for forwarding upstream 103 responses is poor — Caddy and Nginx don't relay them, HAProxy can generate but not reliably forward them. Not a realistic development-proxy scenario.
 
 **Specs:** RFC 9110 §15.2, RFC 8297 (103)
 
@@ -238,7 +238,7 @@ These HTTP features are not relevant for a transparent observation proxy:
 - **Content negotiation**: The proxy doesn't interpret or act on Accept/Accept-* headers.
 - **Caching behavior**: No caching. Cache headers are passthrough only (category 11).
 - **Proxy authentication**: The proxy itself doesn't authenticate clients or upstreams. Proxy-Authenticate and Proxy-Authorization are hop-by-hop headers (category 3), though the RFC permits forwarding Proxy-Authorization (§11.7.1).
-- **103 Early Hints**: Deferred (see category 16).
+- **103 Early Hints**: Out of scope (see category 16).
 
 ## Detailed requirements
 
