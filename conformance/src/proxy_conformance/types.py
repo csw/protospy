@@ -166,7 +166,7 @@ def normalize_httpx_headers(
     if isinstance(headers, httpx.Headers):
         for name, value in headers.multi_items():
             result.setdefault(name.lower(), []).append(value)
-    elif isinstance(headers, dict):
+    else:
         for name, value in headers.items():
             key = name.lower()
             if isinstance(value, list):
