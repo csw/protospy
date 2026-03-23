@@ -92,6 +92,8 @@ def start_caddy(
     wire: ProxyEntry,
     dead: ProxyEntry,
     tmp_dir: Path,
+    *,
+    grpc: ProxyEntry | None = None,
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
     idle_timeout: str = "",
@@ -110,47 +112,61 @@ def start_caddy(
             response_header_timeout
         )
 
+    servers: dict[str, object] = {
+        "good": {
+            "listen": [f":{good.listen_port}"],
+            "routes": [
+                {
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            # Trust the loopback so that an existing
+                            # X-Forwarded-For from the test client is
+                            # preserved and appended to, not replaced.
+                            "trusted_proxies": ["127.0.0.1/32"],
+                            "upstreams": [{"dial": _dial(good.upstream)}],
+                        }
+                    ]
+                }
+            ],
+        },
+        "wire": _wire_server_config(wire, transport, idle_timeout, read_timeout),
+        "dead": {
+            "listen": [f":{dead.listen_port}"],
+            "routes": [
+                {
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            "upstreams": [{"dial": _dial(dead.upstream)}],
+                        }
+                    ]
+                }
+            ],
+        },
+    }
+    if grpc is not None:
+        servers["grpc"] = {
+            "listen": [f":{grpc.listen_port}"],
+            "routes": [
+                {
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            "transport": {
+                                "protocol": "http",
+                                "versions": ["h2c"],
+                            },
+                            "upstreams": [{"dial": _dial(grpc.upstream)}],
+                        }
+                    ]
+                }
+            ],
+        }
+
     config: dict[str, object] = {
         "admin": {"disabled": True},
-        "apps": {
-            "http": {
-                "servers": {
-                    "good": {
-                        "listen": [f":{good.listen_port}"],
-                        "routes": [
-                            {
-                                "handle": [
-                                    {
-                                        "handler": "reverse_proxy",
-                                        # Trust the loopback so that an existing
-                                        # X-Forwarded-For from the test client is
-                                        # preserved and appended to, not replaced.
-                                        "trusted_proxies": ["127.0.0.1/32"],
-                                        "upstreams": [{"dial": _dial(good.upstream)}],
-                                    }
-                                ]
-                            }
-                        ],
-                    },
-                    "wire": _wire_server_config(
-                        wire, transport, idle_timeout, read_timeout
-                    ),
-                    "dead": {
-                        "listen": [f":{dead.listen_port}"],
-                        "routes": [
-                            {
-                                "handle": [
-                                    {
-                                        "handler": "reverse_proxy",
-                                        "upstreams": [{"dial": _dial(dead.upstream)}],
-                                    }
-                                ]
-                            }
-                        ],
-                    },
-                }
-            }
-        },
+        "apps": {"http": {"servers": servers}},
     }
 
     config_file = tmp_dir / "caddy.json"
@@ -162,7 +178,10 @@ def start_caddy(
         stderr=subprocess.PIPE,
     )
 
-    for port in (good.listen_port, wire.listen_port, dead.listen_port):
+    ports = [good.listen_port, wire.listen_port, dead.listen_port]
+    if grpc is not None:
+        ports.append(grpc.listen_port)
+    for port in ports:
         try:
             _wait_for_port(port)
         except TimeoutError:
@@ -180,11 +199,13 @@ def start_haproxy(
     wire: ProxyEntry,
     dead: ProxyEntry,
     tmp_dir: Path,
+    *,
+    grpc: ProxyEntry | None = None,
     connect_timeout: str = "5s",
     server_timeout: str = "30s",
     client_timeout: str = "30s",
 ) -> subprocess.Popen[bytes]:
-    """Start an HAProxy reverse proxy subprocess with two frontends and a dead upstream.
+    """Start an HAProxy reverse proxy subprocess.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     """
@@ -226,6 +247,15 @@ frontend dead_frontend
 backend dead_backend
     server upstream {_dial(dead.upstream)}
 """
+    if grpc is not None:
+        config_content += f"""
+frontend grpc_frontend
+    bind :{grpc.listen_port} proto h2
+    default_backend grpc_backend
+
+backend grpc_backend
+    server upstream {_dial(grpc.upstream)} proto h2
+"""
 
     config_file = tmp_dir / "haproxy.cfg"
     config_file.write_text(config_content)
@@ -236,7 +266,10 @@ backend dead_backend
         stderr=subprocess.PIPE,
     )
 
-    for port in (good.listen_port, wire.listen_port, dead.listen_port):
+    ports = [good.listen_port, wire.listen_port, dead.listen_port]
+    if grpc is not None:
+        ports.append(grpc.listen_port)
+    for port in ports:
         try:
             _wait_for_port(port)
         except TimeoutError:
@@ -269,7 +302,7 @@ ALL_PROXIES = ["caddy", "haproxy"]
 
 @dataclass
 class ProxyUrls:
-    """Client-facing URLs and addresses for the three proxy channels under test."""
+    """Client-facing URLs and addresses for proxy channels under test."""
 
     good_url: str
     wire_url: str
@@ -280,15 +313,18 @@ class ProxyUrls:
     dead_url: str
     dead_host: str
     dead_port: int
+    grpc_host: str = ""
+    grpc_port: int = 0
 
 
 def make_proxy_urls(
     good: ProxyEntry,
     wire: ProxyEntry,
     dead: ProxyEntry,
+    grpc: ProxyEntry | None = None,
 ) -> ProxyUrls:
     """Build a ProxyUrls for a locally-started proxy on loopback."""
-    return ProxyUrls(
+    urls = ProxyUrls(
         good_url=f"http://127.0.0.1:{good.listen_port}",
         wire_url=f"http://127.0.0.1:{wire.listen_port}",
         good_host="127.0.0.1",
@@ -299,6 +335,10 @@ def make_proxy_urls(
         dead_host="127.0.0.1",
         dead_port=dead.listen_port,
     )
+    if grpc is not None:
+        urls.grpc_host = "127.0.0.1"
+        urls.grpc_port = grpc.listen_port
+    return urls
 
 
 _START_RETRIES = 3
@@ -309,6 +349,7 @@ def start_proxy(
     good_upstream: str,
     wire_upstream: str,
     tmp_dir: Path,
+    grpc_upstream: str = "",
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Allocate ports, start proxy with default timeouts, return (proc, urls).
 
@@ -337,12 +378,37 @@ def start_proxy(
             listen_port=find_free_port(),
             upstream=f"http://127.0.0.1:{find_free_port()}",
         )
+        grpc_entry = (
+            ProxyEntry(
+                listen_port=find_free_port(),
+                upstream=grpc_upstream,
+            )
+            if grpc_upstream
+            else None
+        )
         try:
             if proxy_type == "caddy":
-                proc = start_caddy(good, wire, dead, tmp_dir=tmp_dir)
+                proc = start_caddy(
+                    good,
+                    wire,
+                    dead,
+                    tmp_dir=tmp_dir,
+                    grpc=grpc_entry,
+                )
             else:
-                proc = start_haproxy(good, wire, dead, tmp_dir=tmp_dir)
-            return proc, make_proxy_urls(good, wire, dead)
+                proc = start_haproxy(
+                    good,
+                    wire,
+                    dead,
+                    tmp_dir=tmp_dir,
+                    grpc=grpc_entry,
+                )
+            return proc, make_proxy_urls(
+                good,
+                wire,
+                dead,
+                grpc=grpc_entry,
+            )
         except RuntimeError as exc:
             last_exc = exc
             if attempt < _START_RETRIES - 1:

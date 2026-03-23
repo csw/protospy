@@ -1,0 +1,24 @@
+syntax = "proto3";
+package conformance;
+
+service Echo {
+  rpc UnaryEcho(EchoRequest) returns (EchoResponse);
+  rpc ServerStream(StreamRequest) returns (stream EchoResponse);
+  rpc BidiStream(stream EchoRequest) returns (stream EchoResponse);
+}
+
+message EchoRequest {
+  string message = 1;
+  bytes payload = 2;
+}
+
+message EchoResponse {
+  string message = 1;
+  bytes payload = 2;
+  int32 sequence = 3;
+}
+
+message StreamRequest {
+  string message = 1;
+  int32 count = 2;
+}

@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from proxy_conformance.good_server import GoodServer
+from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
@@ -212,12 +213,21 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
     server.stop()
 
 
+@pytest.fixture(scope="session")
+def grpc_server() -> Generator[GrpcServer]:
+    server = GrpcServer()
+    server.start()
+    yield server
+    server.stop()
+
+
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
     proxy_type: str,
     good_server: GoodServer,
     wire_server: WireServer,
+    grpc_server: GrpcServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """ProxyUrls for the proxy under test.
@@ -246,7 +256,13 @@ def proxy(
         return
 
     tmp = tmp_path_factory.mktemp(proxy_type)
-    proc, urls = start_proxy(proxy_type, good_server.url, wire_server.url, tmp)
+    proc, urls = start_proxy(
+        proxy_type,
+        good_server.url,
+        wire_server.url,
+        tmp,
+        grpc_upstream=grpc_server.url,
+    )
     try:
         yield urls
     finally:

@@ -202,7 +202,7 @@ Tests cover:
 - Failed upgrade (server rejects with non-101 status)
 - Bidirectional data flow after upgrade (text and binary)
 
-h2c (HTTP/2 cleartext) upgrades are out of scope — not relevant for a development observation proxy.
+h2c upgrades via the HTTP/1.1 Upgrade mechanism (RFC 9113 §3.2) are not tested separately — gRPC over h2c is covered in category 17.
 
 **Specs:** RFC 9110 §7.8 (Upgrade), RFC 6455 (WebSockets)
 
@@ -213,6 +213,20 @@ h2c (HTTP/2 cleartext) upgrades are out of scope — not relevant for a developm
 - **103 Early Hints**: More complex than it appears — involves protocol version compatibility issues (safe over HTTP/2 but problematic over HTTP/1.1). Caddy does not currently forward 103 from upstream. **Deferred** until Caddy or another reference proxy supports it.
 
 **Specs:** RFC 9110 §15.2, RFC 8297 (103)
+
+### 17. gRPC proxying (HTTP/2)
+
+gRPC uses HTTP/2 (h2c in cleartext scenarios) for transport. The proxy must support h2c to the upstream, forward HTTP/2 frames correctly, and preserve gRPC-specific semantics including trailers (which carry gRPC status), streaming, and deadline propagation.
+
+Tests cover:
+- Unary RPC through the proxy
+- Server streaming (multiple response messages)
+- Bidirectional streaming (full-duplex message flow)
+- gRPC error propagation via HTTP/2 trailers
+- Large messages spanning multiple HTTP/2 DATA frames
+- Deadline/timeout forwarding
+
+**Specs:** gRPC over HTTP/2 Protocol, RFC 9113 (HTTP/2), RFC 9110 §7.8 (Upgrade)
 
 ## Out of scope
 
@@ -838,3 +852,49 @@ Since protospy is non-caching, these headers must pass through unmodified in bot
 **Client expectation:** 102 received before 200
 
 _Low priority. Include if straightforward to test._
+
+---
+
+### 17. gRPC proxying (HTTP/2)
+
+#### 17.1 — Unary echo
+**Spec:** gRPC over HTTP/2
+**Description:** A unary gRPC call (single request, single response) is proxied correctly. The proxy forwards the HTTP/2 HEADERS and DATA frames, and the gRPC response including trailers arrives intact.
+**Request:** UnaryEcho RPC with text message
+**Target expectation:** Receives the RPC, echoes message back
+**Client expectation:** Receives echoed message with grpc-status OK
+
+#### 17.2 — Server streaming
+**Spec:** gRPC over HTTP/2
+**Description:** A server-streaming RPC sends multiple response messages. The proxy forwards each HTTP/2 DATA frame as it arrives.
+**Request:** ServerStream RPC with count=10
+**Target expectation:** Yields 10 responses with incrementing sequence
+**Client expectation:** Receives all 10 messages in order with correct sequences
+
+#### 17.3 — Bidirectional streaming
+**Spec:** gRPC over HTTP/2
+**Description:** A bidirectional streaming RPC sends and receives messages concurrently. The proxy tunnels the full-duplex HTTP/2 stream.
+**Request:** BidiStream RPC, send 5 messages
+**Target expectation:** Echoes each message as received
+**Client expectation:** Receives 5 echoed responses matching sent messages
+
+#### 17.4 — gRPC error propagation
+**Spec:** gRPC over HTTP/2
+**Description:** When the gRPC server returns an error status (via HTTP/2 trailers), the proxy forwards the trailers intact so the client receives the correct gRPC status code and message.
+**Request:** UnaryEcho RPC with sentinel message triggering INVALID_ARGUMENT
+**Target expectation:** Aborts with INVALID_ARGUMENT status
+**Client expectation:** Receives INVALID_ARGUMENT with error message
+
+#### 17.5 — Large message
+**Spec:** gRPC over HTTP/2
+**Description:** A gRPC message large enough to span multiple HTTP/2 DATA frames (~1 MB) is forwarded correctly without truncation or corruption.
+**Request:** UnaryEcho RPC with 1 MB payload
+**Target expectation:** Receives full payload, echoes it back
+**Client expectation:** Receives identical 1 MB payload
+
+#### 17.6 — Deadline/timeout forwarding
+**Spec:** gRPC over HTTP/2
+**Description:** gRPC deadline metadata (grpc-timeout header) is forwarded through the proxy. A short deadline with a slow upstream results in DEADLINE_EXCEEDED at the client. Findings-based — proxy behavior varies.
+**Request:** UnaryEcho RPC with 0.5s timeout, upstream sleeps 3s
+**Target expectation:** May or may not receive the RPC (depends on proxy timeout handling)
+**Client expectation:** Receives DEADLINE_EXCEEDED
