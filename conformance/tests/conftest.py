@@ -2,45 +2,26 @@
 
 from __future__ import annotations
 
+import json
+import os
 import urllib.parse
 from collections.abc import Generator
-from dataclasses import dataclass
 from typing import Literal
 
 import httpx
 import pytest
 
-from proxy_conformance.bad_server import (
-    BadServer,
-    echo_handler,
-    malformed_chunks,
-    truncated_body,
-)
 from proxy_conformance.good_server import GoodServer
-from proxy_conformance.net import find_free_port
+from proxy_conformance.grpc_server import GrpcServer
+from proxy_conformance.h2c_server import H2cServer
+from proxy_conformance.wire_server import WireServer, register_default_routes
 
-from .proxies import start_caddy, start_haproxy
-
-
-def _test_url(url: str, test_id: str) -> str:
-    """Append _test=<test_id> query parameter to a URL or path."""
-    sep = "&" if "?" in url else "?"
-    return f"{url}{sep}_test={test_id}"
-
-
-@dataclass
-class ProxyUrls:
-    """URLs for the two proxy upstreams under test."""
-
-    good_url: str
-    bad_url: str
-    good_host: str
-    good_port: int
-    bad_host: str
-    bad_port: int
-
+from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
 
 FindingLevel = Literal["info", "finding"]
+
+# Section name used to forward findings from xdist workers to the controller.
+_FINDINGS_SECTION = "proxy_findings"
 
 
 class Findings:
@@ -53,10 +34,49 @@ class Findings:
 
 _session_findings = Findings()
 
+# Collected by the controller from worker report sections (xdist mode).
+_controller_entries: list[tuple[str, str, FindingLevel]] = []
+
 
 @pytest.fixture(scope="session")
 def findings() -> Findings:
     return _session_findings
+
+
+def pytest_runtest_makereport(
+    item: pytest.Item,
+    call: pytest.CallInfo[None],  # type: ignore[type-arg]
+) -> pytest.TestReport | None:
+    """Attach any findings recorded during a test to the report.
+
+    This runs in the worker process (or the main process when not using
+    xdist). xdist serialises report sections and forwards them to the
+    controller, so the controller can aggregate findings from all workers.
+    """
+    # Only attach findings on the call phase to avoid duplicates.
+    if call.when != "call":
+        return None
+
+    entries = _session_findings._entries
+    if not entries:
+        return None
+
+    report = pytest.TestReport.from_item_and_call(item, call)
+    payload = json.dumps(entries)
+    report.sections.append((_FINDINGS_SECTION, payload))
+    # Clear so the next test starts fresh within this worker session.
+    _session_findings._entries = []
+    return report
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Collect findings sections forwarded by xdist workers (controller side)."""
+    if report.when != "call":
+        return
+    for title, payload in report.sections:
+        if title == _FINDINGS_SECTION:
+            entries: list[tuple[str, str, FindingLevel]] = json.loads(payload)
+            _controller_entries.extend(entries)
 
 
 def pytest_terminal_summary(
@@ -64,24 +84,62 @@ def pytest_terminal_summary(
     exitstatus: int,
     config: pytest.Config,
 ) -> None:
-    entries = _session_findings._entries
+    if not config.getoption("--findings"):
+        return
+    # In xdist mode the controller process collects entries via
+    # pytest_runtest_logreport; in plain mode the session findings are local.
+    entries = _controller_entries or _session_findings._entries
     if not entries:
         return
     terminalreporter.write_sep("=", "proxy behavioral findings")
     for level in ("finding", "info"):
-        level_entries = [(tid, msg) for tid, msg, lvl in entries if lvl == level]
+        level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
         if not level_entries:
             continue
-        terminalreporter.write_line(f"\n[{level}]")
+        terminalreporter.write_line(f"\n[{level.capitalize()}:]")
         for test_id, message in level_entries:
             terminalreporter.write_line(f"  {test_id}: {message}")
 
 
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Write findings to the GitHub Actions step summary when running in CI."""
+    # In xdist mode each worker also fires this hook.  Only the controller
+    # (or the main process when not using xdist) should write the summary.
+    if hasattr(session.config, "workerinput"):
+        return
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    entries = _controller_entries or _session_findings._entries
+    if not entries:
+        return
+    lines: list[str] = ["\n## Proxy Behavioral Findings\n"]
+    for level in ("finding", "info"):
+        level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
+        if not level_entries:
+            continue
+        lines.append(f"\n**{level.capitalize()}:**\n\n")
+        for test_id, message in level_entries:
+            lines.append(f"- `{test_id}`: {message}\n")
+    with open(summary_path, "a") as f:
+        f.writelines(lines)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
+        "--findings",
+        action="store_true",
+        default=False,
+        help="Show proxy behavioral findings in terminal summary.",
+    )
+    parser.addoption(
         "--proxy",
-        default="caddy",
-        help="Proxy under test (default: caddy)",
+        default="caddy,haproxy",
+        help=(
+            "Proxy(ies) under test, comma-separated "
+            "(default: caddy,haproxy). "
+            "Use 'all' for all supported proxies."
+        ),
     )
     parser.addoption(
         "--proxy-url",
@@ -89,7 +147,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Skip proxy lifecycle and use this URL directly. "
             "The caller is responsible for configuring the proxy to forward "
-            "to the target server ports (see --good-target-port, --bad-target-port)."
+            "to the target server ports (see --good-target-port, --wire-target-port)."
         ),
     )
     parser.addoption(
@@ -99,11 +157,67 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Fix the GoodServer port (default: random). Useful with --proxy-url.",
     )
     parser.addoption(
-        "--bad-target-port",
+        "--wire-target-port",
         type=int,
         default=None,
-        help="Fix the BadServer port (default: random). Useful with --proxy-url.",
+        help="Fix the WireServer port (default: random). Useful with --proxy-url.",
     )
+
+
+def _get_proxy_list(config: pytest.Config) -> list[str]:
+    raw = str(config.getoption("--proxy"))
+    if raw == "all":
+        return list(ALL_PROXIES)
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """Parametrize tests over the requested proxy list.
+
+    Any test requesting the ``proxy_type`` fixture (directly, or
+    indirectly via ``proxy``, ``proxy_name``, or ``timeout_proxy``)
+    will be run once per proxy in the ``--proxy`` list.
+    """
+    needs = {"proxy", "proxy_name", "proxy_type", "timeout_proxy"}
+    if not needs & set(metafunc.fixturenames):
+        return
+    proxy_list = _get_proxy_list(metafunc.config)
+    metafunc.parametrize(
+        "proxy_type",
+        proxy_list,
+        indirect=True,
+        scope="module",
+    )
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Assign xdist_group markers so ``--dist loadgroup`` keeps tests
+    sharing a module-scoped proxy fixture on the same worker.
+
+    Group key: ``<module>:<proxy_type>`` (e.g. ``test_hop_by_hop:caddy``).
+    Tests without proxy parametrization get grouped by module only.
+    """
+    for item in items:
+        # Extract proxy_type from parametrize markers
+        proxy = None
+        for marker in item.iter_markers("parametrize"):
+            if marker.args and marker.args[0] == "proxy_type":
+                # The parameter values are in callspec
+                break
+        # Access the resolved param from the callspec
+        callspec = getattr(item, "callspec", None)
+        if callspec and "proxy_type" in callspec.params:
+            proxy = callspec.params["proxy_type"]
+        mod = getattr(item, "module", None)
+        module = mod.__name__ if mod is not None else item.nodeid
+        group = f"{module}:{proxy}" if proxy else module
+        item.add_marker(pytest.mark.xdist_group(group))
+
+
+@pytest.fixture(scope="module")
+def proxy_type(request: pytest.FixtureRequest) -> str:
+    """The proxy type for the current parametrized run."""
+    return str(request.param)
 
 
 @pytest.fixture(scope="session")
@@ -116,18 +230,26 @@ def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
 
 
 @pytest.fixture(scope="session")
-def bad_server(request: pytest.FixtureRequest) -> Generator[BadServer]:
-    port = request.config.getoption("--bad-target-port")
-    server = BadServer() if port is None else BadServer(port=port)
-    server.add_route(
-        "/truncated",
-        truncated_body(promised_length=1000, actual_bytes=b"X" * 500),
-    )
-    server.add_route(
-        "/malformed-chunks",
-        malformed_chunks(chunks=[b"ZZZZ\r\nhello\r\n"]),
-    )
-    server.add_route("/", echo_handler())
+def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
+    port = request.config.getoption("--wire-target-port")
+    server = WireServer() if port is None else WireServer(port=port)
+    register_default_routes(server)
+    server.start()
+    yield server
+    server.stop()
+
+
+@pytest.fixture(scope="session")
+def grpc_server() -> Generator[GrpcServer]:
+    server = GrpcServer()
+    server.start()
+    yield server
+    server.stop()
+
+
+@pytest.fixture(scope="session")
+def h2c_server() -> Generator[H2cServer]:
+    server = H2cServer()
     server.start()
     yield server
     server.stop()
@@ -136,87 +258,58 @@ def bad_server(request: pytest.FixtureRequest) -> Generator[BadServer]:
 @pytest.fixture(scope="module")
 def proxy(
     request: pytest.FixtureRequest,
+    proxy_type: str,
     good_server: GoodServer,
-    bad_server: BadServer,
+    wire_server: WireServer,
+    grpc_server: GrpcServer,
+    h2c_server: H2cServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
     """ProxyUrls for the proxy under test.
 
-    Proxy choice is set by --proxy (default: caddy). Pass --proxy-url to
-    skip lifecycle management and use an externally-started proxy instead.
+    Proxy choice comes from the ``proxy_type`` fixture (parametrized
+    via ``--proxy``).  Pass ``--proxy-url`` to skip lifecycle management
+    and use an externally-started proxy instead.
     """
     proxy_url = request.config.getoption("--proxy-url")
 
     if proxy_url is not None:
-        # External proxy mode: no lifecycle management. The caller is
-        # responsible for starting the proxy and configuring it to forward
-        # to good_server.url and bad_server.url.
         parsed = urllib.parse.urlparse(proxy_url)
         host = parsed.hostname or "127.0.0.1"
         port = parsed.port or 80
         yield ProxyUrls(
             good_url=proxy_url,
-            bad_url=proxy_url,
+            wire_url=proxy_url,
             good_host=host,
             good_port=port,
-            bad_host=host,
-            bad_port=port,
+            wire_host=host,
+            wire_port=port,
+            dead_url="",
+            dead_host="",
+            dead_port=0,
         )
         return
 
-    proxy_type = request.config.getoption("--proxy")
-
-    if proxy_type == "caddy":
-        good_port = find_free_port()
-        bad_port = find_free_port()
-        caddyfile_dir = tmp_path_factory.mktemp("caddy")
-        proc = start_caddy(
-            good_server.url, good_port, bad_server.url, bad_port, tmp_dir=caddyfile_dir
-        )
-        try:
-            yield ProxyUrls(
-                good_url=f"http://127.0.0.1:{good_port}",
-                bad_url=f"http://127.0.0.1:{bad_port}",
-                good_host="127.0.0.1",
-                good_port=good_port,
-                bad_host="127.0.0.1",
-                bad_port=bad_port,
-            )
-        finally:
-            proc.terminate()
-            proc.wait(timeout=5)
-    elif proxy_type == "haproxy":
-        good_port = find_free_port()
-        bad_port = find_free_port()
-        haproxy_dir = tmp_path_factory.mktemp("haproxy")
-        proc = start_haproxy(
-            good_server.url, good_port, bad_server.url, bad_port, tmp_dir=haproxy_dir
-        )
-        try:
-            yield ProxyUrls(
-                good_url=f"http://127.0.0.1:{good_port}",
-                bad_url=f"http://127.0.0.1:{bad_port}",
-                good_host="127.0.0.1",
-                good_port=good_port,
-                bad_host="127.0.0.1",
-                bad_port=bad_port,
-            )
-        finally:
-            proc.terminate()
-            proc.wait(timeout=5)
-    else:
-        msg = (
-            f"Unknown proxy type: {proxy_type!r}. "
-            "Supported: caddy, haproxy. "
-            "To add a new proxy, extend the proxy fixture in conftest.py."
-        )
-        raise ValueError(msg)
+    tmp = tmp_path_factory.mktemp(proxy_type)
+    proc, urls = start_proxy(
+        proxy_type,
+        good_server.url,
+        wire_server.url,
+        tmp,
+        grpc_upstream=grpc_server.url,
+        h2c_upstream=h2c_server.url,
+    )
+    try:
+        yield urls
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
 
 
-@pytest.fixture(scope="session")
-def proxy_name(request: pytest.FixtureRequest) -> str:
-    """The name of the proxy under test (from --proxy)."""
-    return str(request.config.getoption("--proxy"))
+@pytest.fixture(scope="module")
+def proxy_name(proxy_type: str) -> str:
+    """The name of the proxy under test."""
+    return proxy_type
 
 
 @pytest.fixture(scope="session")
@@ -233,9 +326,15 @@ def _clear_good_requests(good_server: GoodServer) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _check_bad_server(bad_server: BadServer) -> Generator[None]:
-    """Clear the bad server queue and verify no handler exception after each test."""
-    bad_server.clear()
-    bad_server._handler_exception = None
+def _clear_h2c_requests(h2c_server: H2cServer) -> None:
+    """Drain any leftover H2c captured requests between tests."""
+    h2c_server.clear()
+
+
+@pytest.fixture(autouse=True)
+def _check_wire_server(wire_server: WireServer) -> Generator[None]:
+    """Clear the wire server queue and verify no handler exception after each test."""
+    wire_server.clear()
+    wire_server._handler_exception = None
     yield
-    bad_server.raise_if_handler_failed()
+    wire_server.raise_if_handler_failed()

@@ -18,20 +18,14 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1,<2",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=9,<10",
-    "pytest-asyncio>=1,<2",
-    "pytest-playwright>=0,<1",
-    "httpx>=0,<1",
-    "ruff>=0,<1",
-    "pyright>=1,<2",
-    "pytest-cov>=7,<8",
-]
-
 [dependency-groups]
 dev = [
+    "httpx>=0,<1",
     "pyright>=1,<2",
+    "pytest>=9,<10",
+    "pytest-asyncio>=1,<2",
+    "pytest-cov>=7,<8",
+    "pytest-playwright>=0,<1",
     "ruff>=0,<1",
 ]
 
@@ -47,6 +41,7 @@ source = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tb=short"
 markers = [
     "e2e: end-to-end tests (require running Elasticsearch and loaded index)",
 ]
@@ -56,3 +51,8 @@ ignore_decorators = [
   # FastAPI
   "@app.*",
 ]
+
+# NOTE: pyright config lives in pyrightconfig.json, not here.
+# pyrightconfig.json takes precedence over [tool.pyright] when present,
+# and is required so that the pyright LSP operates relative to this
+# subdirectory rather than the repo root.

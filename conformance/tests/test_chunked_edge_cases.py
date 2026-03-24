@@ -1,0 +1,522 @@
+"""Chunked transfer encoding edge-case conformance tests (category 7).
+
+§7.1: Request trailers are forwarded to the target.
+§7.2: Response trailers are forwarded to the client.
+§7.3: Missing final chunk in request triggers proxy error.
+§7.4: Missing final chunk in response — streaming proxy drops connection.
+§7.5: Invalid chunk size in request — proxy returns error.
+§7.6: Invalid chunk size in response — proxy returns error.
+§7.7: Trailer announcement header (Trailer:) is forwarded.
+
+Absorbs all tests from test_chunked_errors.py and the chunked-related
+tests from test_wire_server.py (TestMalformedChunks).
+"""
+
+from __future__ import annotations
+
+import queue
+import socket
+import urllib.parse
+
+import h11
+import httpx
+import pytest
+
+from proxy_conformance.good_server import GoodServer
+from proxy_conformance.h11_client import (
+    RawResponse,
+    _read_complete_response,
+    send_incomplete_chunked_request,
+    send_invalid_chunk_size,
+)
+from proxy_conformance.types import (
+    ClientExpectation,
+    ConnectionDrop,
+    HeaderExpectation,
+    ProxyQuirk,
+    TargetExpectation,
+    apply_quirk,
+    assert_probe_result,
+    assert_probe_target,
+    send_expecting_error,
+)
+
+from .conftest import Findings
+from .proxies import ProxyUrls, tagged_url
+
+# §7.1: Both Caddy and HAProxy strip request trailers.
+_REQUEST_TRAILERS_QUIRKS: dict[str, ProxyQuirk] = {
+    "caddy": ProxyQuirk(
+        disposition="override",
+        reason="Caddy strips request trailers",
+        target=TargetExpectation(
+            headers=HeaderExpectation(
+                absent=["x-custom-trailer"],
+            ),
+        ),
+    ),
+    "haproxy": ProxyQuirk(
+        disposition="override",
+        reason="HAProxy strips request trailers",
+        target=TargetExpectation(
+            headers=HeaderExpectation(
+                absent=["x-custom-trailer"],
+            ),
+        ),
+    ),
+}
+
+# §7.3: RFC 9112 §7.1 expects 400. Neither Caddy nor HAProxy returns 400.
+#
+# - Caddy: returns 200 or 502 non-deterministically due to a race condition
+#   between context cancellation (client SHUT_WR) and upstream EOF.
+#   See docs/process/findings-caddy-pool-state-behavior.md
+#
+# - HAProxy: usually drops the connection (strict chunked parser), but
+#   occasionally forwards to backend under load (race between chunked
+#   body validation and TCP FIN receipt).
+_INCOMPLETE_CHUNK_QUIRKS: dict[str, ProxyQuirk] = {
+    "caddy": ProxyQuirk(
+        disposition="xfail",
+        reason=(
+            "Race condition: returns 200 or 502, not 400 "
+            "(reverseproxy.go:653 context.Canceled short-circuit). "
+            "See docs/process/findings-caddy-pool-state-behavior.md"
+        ),
+    ),
+    "haproxy": ProxyQuirk(
+        disposition="override",
+        reason=(
+            "Non-deterministic: usually drops connection (strict chunked "
+            "parser), but occasionally forwards to backend under load "
+            "(race between chunked body validation and TCP FIN receipt)"
+        ),
+        client=[ConnectionDrop(), ClientExpectation(status_in={200, 404})],
+    ),
+}
+
+# §7.5: Caddy returns 502 instead of 400 for invalid chunk size.
+# HAProxy non-deterministically returns 400 or drops the connection.
+_INVALID_CHUNK_SIZE_REQUEST_QUIRKS: dict[str, ProxyQuirk] = {
+    "caddy": ProxyQuirk(
+        disposition="override",
+        reason="Returns 502 instead of 400 for invalid chunk size",
+        client=ClientExpectation(status=502),
+        target=TargetExpectation(no_request=True),
+    ),
+    "haproxy": ProxyQuirk(
+        disposition="override",
+        reason=(
+            "Non-deterministic: returns 400 or drops connection "
+            "(race between chunked parser and TCP close)"
+        ),
+        client=[ClientExpectation(status=400), ConnectionDrop()],
+        target=TargetExpectation(no_request=True),
+    ),
+}
+
+
+def _describe_status(status: int | None) -> str:
+    """Format a status code for findings output."""
+    return f"status {status}" if status is not None else "connection drop"
+
+
+def _probe_finding(
+    findings: Findings,
+    test_id: str,
+    proxy_name: str,
+    message: str,
+    *,
+    quirk: ProxyQuirk | None = None,
+) -> None:
+    """Record a probe finding, using quirk.reason as context when present.
+
+    Quirk active → "finding" level, reason appended in parentheses.
+    No quirk → "info" level, message only.
+    """
+    if quirk:
+        findings.record(
+            test_id,
+            f"[{proxy_name}] {message} ({quirk.reason})",
+            level="finding",
+        )
+    else:
+        findings.record(
+            test_id,
+            f"[{proxy_name}] {message}",
+            level="info",
+        )
+
+
+def _send_chunked_with_trailers(
+    host: str,
+    port: int,
+    path: str,
+    body: bytes,
+    trailers: list[tuple[str, str]],
+    announce: bool = True,
+) -> bytes:
+    """Send a chunked POST with trailers via h11. Returns raw response bytes."""
+    conn = h11.Connection(our_role=h11.CLIENT)
+    request_headers: list[tuple[str, str]] = [
+        ("host", f"{host}:{port}"),
+        ("transfer-encoding", "chunked"),
+    ]
+    if announce:
+        request_headers.append(("trailer", ", ".join(name for name, _ in trailers)))
+
+    with socket.create_connection((host, port), timeout=5.0) as sock:
+        sock.sendall(
+            conn.send(h11.Request(method="POST", target=path, headers=request_headers))
+        )
+        sock.sendall(conn.send(h11.Data(data=body)))
+        sock.sendall(
+            conn.send(
+                h11.EndOfMessage(
+                    headers=[(name, value) for name, value in trailers],
+                )
+            )
+        )
+        response_bytes = _read_complete_response(sock)
+    return response_bytes
+
+
+def _assert_raw_response(
+    result: RawResponse | None,
+    expected: ClientExpectation
+    | ConnectionDrop
+    | list[ClientExpectation | ConnectionDrop],
+    test_id: str = "",
+) -> None:
+    """Assert a RawResponse matches expected outcomes.
+
+    Like assert_probe_result but for h11 client results (RawResponse | None)
+    rather than ProbeResult.
+    """
+    from proxy_conformance.types import ProbeResult
+
+    probe = ProbeResult(
+        status=result.status if result else None,
+        body=result.body if result else b"",
+        headers=result.headers if result else {},
+    )
+    assert_probe_result(probe, expected, test_id=test_id)
+
+
+def test_request_trailers_forwarded(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy forwards request trailers to the target (§7.1).
+
+    RFC 9110 §6.5.1 allows request trailers. Default expectation: trailers
+    are forwarded. Both Caddy and HAProxy strip them (override quirk).
+    """
+    quirk = apply_quirk(proxy_name, _REQUEST_TRAILERS_QUIRKS)
+
+    host = proxy.good_host
+    port = proxy.good_port
+    path = tagged_url("/echo", "request-trailers")
+
+    _send_chunked_with_trailers(
+        host,
+        port,
+        path,
+        b"hello",
+        [("x-custom-trailer", "trailer-value")],
+    )
+
+    # Default target expectation: trailer is forwarded.
+    default_target = TargetExpectation(
+        headers=HeaderExpectation(
+            present={"x-custom-trailer": "trailer-value"},
+        ),
+    )
+    effective_target = quirk.target if quirk and quirk.target else default_target
+    assert_probe_target(
+        good_server,
+        effective_target,
+        test_id="request-trailers",
+        timeout=1.0,
+    )
+
+    _probe_finding(
+        findings,
+        "request-trailers",
+        proxy_name,
+        "Proxy handled request trailers",
+        quirk=quirk,
+    )
+
+
+def test_response_trailers_forwarded(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy forwards response trailers to the client (§7.2).
+
+    httpx does not expose HTTP/1.1 trailers, so we verify the response
+    arrived without error. The response itself is asserted.
+    """
+    url = tagged_url(
+        f"{proxy.good_url}/chunked-with-trailers?X-Custom-Trailer=trailer-value",
+        "response-trailers",
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+
+    findings.record(
+        "response-trailers",
+        f"[{proxy_name}] Response with trailers received, "
+        f"status={response.status_code}",
+        level="info",
+    )
+    good_server.clear()
+
+
+def test_missing_final_chunk_request(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy handles chunked request missing terminal zero-length chunk (§7.3).
+
+    RFC 9112 §7.1 expects 400. Neither Caddy nor HAProxy returns 400 —
+    see _INCOMPLETE_CHUNK_QUIRKS for documented deviations.
+    """
+    result = send_incomplete_chunked_request(
+        host=proxy.good_host,
+        port=proxy.good_port,
+        path=tagged_url("/chunked-error-test", "incomplete-chunked-request"),
+        chunk_data=b"this body is deliberately incomplete",
+    )
+
+    quirk = apply_quirk(proxy_name, _INCOMPLETE_CHUNK_QUIRKS)
+
+    # Client-side assertion
+    effective_client = (
+        quirk.client if quirk and quirk.client else ClientExpectation(status=400)
+    )
+    _assert_raw_response(result, effective_client, test_id="incomplete-chunked-request")
+
+    # Target-side: check whether proxy forwarded the incomplete body.
+    # For non-deterministic quirks (HAProxy race), target arrival
+    # depends on which outcome occurred, so we just observe.
+    # For the default (400 rejection), no request should reach target.
+    try:
+        captured = good_server.last_request(timeout=0.5)
+        if not quirk:
+            pytest.fail(
+                "Expected no request at target after 400 rejection, "
+                f"but target received {captured.method} "
+                f"{captured.path}"
+            )
+        findings.record(
+            "incomplete-chunked-request",
+            f"Target received {captured.method} {captured.path} "
+            f"with {len(captured.body)} bytes "
+            "(proxy forwarded incomplete body)",
+            level="finding",
+        )
+    except queue.Empty:
+        pass
+
+    actual = _describe_status(result.status if result else None)
+    _probe_finding(
+        findings,
+        "incomplete-chunked-request",
+        proxy_name,
+        f"Proxy responded with {actual} for incomplete chunked request",
+        quirk=quirk,
+    )
+
+
+def test_missing_final_chunk_response(
+    proxy: ProxyUrls,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy drops connection for response missing terminal chunk (§7.4).
+
+    WireServer /missing-final-chunk sends valid chunk data but closes
+    without the terminal 0-length chunk. A streaming proxy has already
+    started forwarding, so the only correct signal is closing the
+    connection.
+    """
+    url = tagged_url(
+        f"{proxy.wire_url}/missing-final-chunk",
+        "missing-final-chunk-response",
+    )
+    result = send_expecting_error(client, url)
+
+    assert_probe_result(
+        result,
+        ConnectionDrop(),
+        test_id="missing-final-chunk-response",
+    )
+
+    _probe_finding(
+        findings,
+        "missing-final-chunk-response",
+        proxy_name,
+        "Proxy dropped connection for missing final chunk",
+    )
+
+
+def test_invalid_chunk_size_request(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy returns error for request with invalid hex chunk size (§7.5).
+
+    RFC 9112 §7.1 requires chunk-size to be hex digits. Default: 400.
+    Caddy returns 502 (override quirk).
+    """
+    quirk = apply_quirk(proxy_name, _INVALID_CHUNK_SIZE_REQUEST_QUIRKS)
+
+    result = send_invalid_chunk_size(
+        host=proxy.good_host,
+        port=proxy.good_port,
+        path=tagged_url("/echo", "invalid-chunk-size-request"),
+    )
+
+    # Client-side assertion
+    effective_client = (
+        quirk.client if quirk and quirk.client else ClientExpectation(status=400)
+    )
+    _assert_raw_response(result, effective_client, test_id="invalid-chunk-size-request")
+
+    # Target-side assertion: default is no request forwarded
+    effective_target = (
+        quirk.target if quirk and quirk.target else TargetExpectation(no_request=True)
+    )
+    assert_probe_target(
+        good_server,
+        effective_target,
+        test_id="invalid-chunk-size-request",
+    )
+
+    actual = _describe_status(result.status if result else None)
+    _probe_finding(
+        findings,
+        "invalid-chunk-size-request",
+        proxy_name,
+        f"Proxy returned {actual} for invalid chunk size",
+        quirk=quirk,
+    )
+
+
+def test_invalid_chunk_size_response(
+    proxy: ProxyUrls,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy signals error for upstream invalid chunked framing (§7.6).
+
+    A streaming proxy may have started forwarding before detecting the
+    invalid framing. Both connection drop and 5xx are acceptable.
+    """
+    url = tagged_url(f"{proxy.wire_url}/malformed-chunks", "malformed-chunks")
+    result = send_expecting_error(client, url)
+
+    assert_probe_result(
+        result,
+        [ClientExpectation(status_in={502}), ConnectionDrop()],
+        test_id="malformed-chunks",
+    )
+
+    _probe_finding(
+        findings,
+        "malformed-chunks",
+        proxy_name,
+        f"Proxy responded with {_describe_status(result.status)} "
+        "for malformed chunked framing",
+    )
+
+
+def test_trailer_announce_header(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy forwards the Trailer announcement header (§7.7).
+
+    The Trailer header announces which headers will follow the body.
+    Both Caddy and HAProxy forward this header.
+    """
+    host = proxy.good_host
+    port = proxy.good_port
+    path = tagged_url("/echo", "trailer-announce-header")
+
+    _send_chunked_with_trailers(
+        host,
+        port,
+        path,
+        b"data",
+        [("x-my-trailer", "my-value")],
+        announce=True,
+    )
+
+    captured = good_server.last_request(timeout=1.0)
+    trailer_header = captured.header_values("trailer")
+
+    assert trailer_header, "Expected Trailer announcement header to be forwarded"
+
+    findings.record(
+        "trailer-announce-header",
+        f"[{proxy_name}] Proxy forwarded Trailer announcement: {trailer_header}",
+        level="info",
+    )
+
+
+class TestH11ClientIntegration:
+    """Verify the h11 client helper works at all.
+
+    Sends an incomplete request directly to the echo server to confirm
+    socket-level mechanics — separate from proxy behavior.
+    Absorbed from test_chunked_errors.py.
+    """
+
+    def test_direct_to_good_server(
+        self, good_server: GoodServer, findings: Findings
+    ) -> None:
+        """Echo server receives partial data when client drops early."""
+        parsed = urllib.parse.urlparse(good_server.url)
+        assert parsed.hostname is not None
+        assert parsed.port is not None
+
+        result = send_incomplete_chunked_request(
+            host=parsed.hostname,
+            port=parsed.port,
+            path="/direct-test",
+            chunk_data=b"hello",
+        )
+
+        if result is not None:
+            findings.record(
+                "h11-direct",
+                f"Echo server responded with status {result.status}",
+                level="info",
+            )
+        else:
+            findings.record(
+                "h11-direct",
+                "Echo server closed connection with no response",
+                level="info",
+            )
+
+        try:
+            good_server.last_request(timeout=0.5)
+        except queue.Empty:
+            pass

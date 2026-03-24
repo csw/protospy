@@ -23,7 +23,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: demo/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - name: Format check
         run: uv run ruff format --check .
       - name: Lint
@@ -37,7 +37,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: demo/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - run: uv run pyright .
 
   test:
@@ -51,7 +51,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: demo/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --group dev
       - name: Run unit tests
         run: uv run pytest -v -m "not e2e" --junit-xml=unit-results.xml --cov --cov-report=xml:coverage.xml --cov=src
       - uses: hoverkraft-tech/compose-action@v2.5.0

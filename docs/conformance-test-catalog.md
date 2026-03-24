@@ -1,6 +1,8 @@
 # Conformance Test Catalog
 
-Test coverage for the protospy HTTP 1.1 reverse proxy conformance suite. This document identifies what the suite must cover, organized by category, and will be expanded with individual test requirements for each category.
+Test coverage for the protospy HTTP 1.1 reverse proxy conformance suite. This document identifies what the suite must cover, organized by category, with individual test requirements for each category.
+
+Some behaviors overlap, such that a single test verifies requirements from multiple categories. This will be noted in both test files.
 
 ## Scope
 
@@ -15,9 +17,13 @@ Protospy is a transparent observation proxy — it does not cache, modify bodies
 
 **Caddy support as a priority heuristic**: If a behavior is too esoteric for Caddy to support, it's unlikely to be a priority for protospy. Behaviors that Caddy handles correctly can be validated against Caddy as a reference proxy.
 
+**Assertion policy**: Every test must assert for every proxy. See [conformance-tests.md](conformance-tests.md) for the full policy on assertions, findings, and quirks.
+
 ## Categories
 
 ### 1. Request forwarding fundamentals
+
+Tests: [test_request_forwarding.py](../conformance/tests/test_request_forwarding.py)
 
 Baseline correctness: method, path, query string, headers, and body arrive at the upstream intact. This is the foundation — every other category builds on it.
 
@@ -27,34 +33,47 @@ Key concerns: path and query string preserved exactly, percent-encoding not doub
 
 ### 2. Response forwarding fundamentals
 
+Tests: [test_response_forwarding.py](../conformance/tests/test_response_forwarding.py)
+
 Status code, headers, and body arrive at the client intact. Covers all status code classes (2xx, 3xx, 4xx, 5xx) and verifies the proxy doesn't mangle responses.
 
 **Specs:** RFC 9110 §15 (status codes), RFC 9112 §4 (status line)
 
 ### 3. Hop-by-hop header handling
 
+Tests: [test_hop_by_hop.py](../conformance/tests/test_hop_by_hop.py)
+
 The proxy must remove hop-by-hop headers from forwarded messages in both directions. These are:
 
 - `Connection` and any headers it names
 - `Keep-Alive`
-- `TE`
 - `Trailer`
 - `Transfer-Encoding` (between hops — may re-frame)
 - `Proxy-Authenticate`
-- `Proxy-Authorization`
 - `Upgrade` (except when acting on the upgrade)
+
+Two headers listed in §7.6.1 have exceptions elsewhere in the RFC that explicitly permit forwarding:
+
+- `TE`: §10.1.4 allows forwarding `TE: trailers`
+- `Proxy-Authorization`: §11.7.1 allows relaying credentials to the next proxy
+
+Neither Caddy nor HAProxy strips these — the tests record observed behavior as findings rather than asserting removal.
 
 The proxy must also not forward headers listed in the `Connection` header's value (e.g., `Connection: X-Custom` means strip `X-Custom`).
 
-**Specs:** RFC 9110 §7.6.1
+**Specs:** RFC 9110 §7.6.1, §10.1.4, §11.7.1
 
 ### 4. Via header
+
+Tests: [test_via_header.py](../conformance/tests/test_via_header.py)
 
 The proxy must append a Via entry to forwarded requests and forwarded responses. Must preserve existing Via entries (append, not replace). The entry includes the protocol version and a proxy identifier.
 
 **Specs:** RFC 9110 §7.6.3
 
 ### 5. Forwarding identification headers
+
+Tests: [test_forwarding_headers.py](../conformance/tests/test_forwarding_headers.py)
 
 De facto standard headers that identify the original client and request context:
 
@@ -66,6 +85,8 @@ De facto standard headers that identify the original client and request context:
 **Specs:** RFC 7239 (Forwarded); MDN references for de facto standards: [X-Forwarded-For](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For), [X-Forwarded-Proto](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto), [X-Forwarded-Host](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Host), [Forwarded](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded)
 
 ### 6. Body framing
+
+Tests: [test_body_framing.py](../conformance/tests/test_body_framing.py)
 
 Correct handling of different body framing mechanisms:
 
@@ -80,6 +101,8 @@ Correct handling of different body framing mechanisms:
 
 ### 7. Chunked encoding edge cases
 
+Tests: [test_chunked_edge_cases.py](../conformance/tests/test_chunked_edge_cases.py)
+
 Beyond basic chunked forwarding, specific edge cases:
 
 - Trailer fields in chunked messages (request and response) — proxy must pass through. This is important for gRPC and similar protocols that use trailers.
@@ -93,6 +116,8 @@ Beyond basic chunked forwarding, specific edge cases:
 **Infrastructure requirement — proxy-specific expectations:** Some error-handling behaviors will differ between proxies due to legitimate implementation choices (e.g., whether the proxy buffers or streams the request body before forwarding). The test infrastructure must support per-proxy expected values or the ability to skip specific tests for specific proxies. This should be a general capability, not special-cased per test. Options include: a `proxy_overrides` field on test cases that maps proxy names to alternate expectations, or a marker/skip mechanism keyed on the `--proxy` option.
 
 ### 8. 100-continue
+
+Tests: [test_100_continue.py](../conformance/tests/test_100_continue.py)
 
 The `Expect: 100-continue` mechanism:
 
@@ -112,6 +137,8 @@ Edge cases:
 
 ### 9. Error responses
 
+Tests: [test_upstream_errors.py](../conformance/tests/test_upstream_errors.py)
+
 Proxy-generated error responses when something goes wrong:
 
 - **502 Bad Gateway**: upstream unreachable (connection refused), upstream sends malformed response, upstream drops connection mid-response, upstream sends truncated body (Content-Length mismatch)
@@ -123,6 +150,8 @@ Important: the proxy should provide meaningful error responses, not silently dro
 **Specs:** RFC 9110 §15.6.3 (502), §15.6.5 (504)
 
 ### 10. Timeouts
+
+Tests: [test_timeouts.py](../conformance/tests/test_timeouts.py)
 
 Timeout behaviors the proxy must implement. These are important for correctness and influence test suite design (timeout tests are inherently timing-sensitive).
 
@@ -138,6 +167,8 @@ Testing considerations: timeout tests need a target server (h11-based) that deli
 **Specs:** RFC 9110 §15.6.5 (504), §15.5.9 (408)
 
 ### 11. Cache header passthrough
+
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
 
 Since protospy is non-caching, all cache-related headers must pass through unmodified in both directions:
 
@@ -155,6 +186,8 @@ The test is simply "these headers are not mangled."
 
 ### 12. Content header passthrough
 
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
+
 Content-related end-to-end headers pass through unmodified:
 
 - `Content-Type`
@@ -169,6 +202,8 @@ The proxy must not alter these. Transfer-Encoding is hop-by-hop and handled in c
 
 ### 13. Header preservation details
 
+Tests: [test_header_passthrough.py](../conformance/tests/test_header_passthrough.py)
+
 Subtle correctness requirements around header handling:
 
 - Multiple values for the same header name must be preserved (not collapsed into one or dropped)
@@ -179,6 +214,8 @@ Subtle correctness requirements around header handling:
 
 ### 14. URI handling
 
+Tests: [test_request_forwarding.py](../conformance/tests/test_request_forwarding.py)
+
 Request target must be preserved exactly:
 
 - Path preserved (no normalization, no decoding of percent-encoding)
@@ -188,25 +225,44 @@ Request target must be preserved exactly:
 
 **Specs:** RFC 9112 §3.2 (request target), RFC 9110 §7.1
 
-### 15. Connection upgrades — PLACEHOLDER, FUTURE
+### 15. Connection upgrades
 
-WebSocket upgrades (101 Switching Protocols) and h2c (HTTP/2 cleartext) upgrades. The proxy must detect the upgrade, relay the 101 response, and switch to tunneling the raw TCP connection.
+Tests: [test_connection_upgrades.py](../conformance/tests/test_connection_upgrades.py)
 
-**Not in initial implementation.** Placeholder for future work. When implemented, will need tests for:
-- Successful WebSocket upgrade
-- Failed upgrade (server rejects)
-- Data flow after upgrade (bidirectional tunneling)
-- h2c upgrade mechanism
+WebSocket upgrades (101 Switching Protocols). The proxy must detect the upgrade, relay the 101 response, and switch to tunneling the raw TCP connection.
 
-**Specs:** RFC 9110 §7.8 (Upgrade), RFC 6455 (WebSockets), RFC 9113 §3.2 (h2c)
+Tests cover:
+- Successful WebSocket upgrade through the proxy
+- Failed upgrade (server rejects with non-101 status)
+- Bidirectional data flow after upgrade (text and binary)
+
+h2c upgrades via the HTTP/1.1 Upgrade mechanism (RFC 9113 §3.2) are not tested separately — gRPC over h2c is covered in category 17.
+
+**Specs:** RFC 9110 §7.8 (Upgrade), RFC 6455 (WebSockets)
 
 ### 16. Informational responses (1xx) other than 100
 
 - **101 Switching Protocols**: Covered under Connection upgrades (category 15).
 - **102 Processing** (WebDAV): Rarely used. Low priority. Forward if received.
-- **103 Early Hints**: More complex than it appears — involves protocol version compatibility issues (safe over HTTP/2 but problematic over HTTP/1.1). Caddy does not currently forward 103 from upstream. **Deferred** until Caddy or another reference proxy supports it.
+- **103 Early Hints**: **Out of scope.** 103 is mainly used by CDNs (Cloudflare, Shopify) to send cached `Link` preload headers while the origin is still responding. Adoption outside CDN edge networks is minimal, and proxy support for forwarding upstream 103 responses is poor — Caddy and Nginx don't relay them, HAProxy can generate but not reliably forward them. Not a realistic development-proxy scenario.
 
 **Specs:** RFC 9110 §15.2, RFC 8297 (103)
+
+### 17. gRPC proxying (HTTP/2)
+
+Tests: [test_grpc.py](../conformance/tests/test_grpc.py)
+
+gRPC uses HTTP/2 (h2c in cleartext scenarios) for transport. The proxy must support h2c to the upstream, forward HTTP/2 frames correctly, and preserve gRPC-specific semantics including trailers (which carry gRPC status), streaming, and deadline propagation.
+
+Tests cover:
+- Unary RPC through the proxy
+- Server streaming (multiple response messages)
+- Bidirectional streaming (full-duplex message flow)
+- gRPC error propagation via HTTP/2 trailers
+- Large messages spanning multiple HTTP/2 DATA frames
+- Deadline/timeout forwarding
+
+**Specs:** gRPC over HTTP/2 Protocol, RFC 9113 (HTTP/2), RFC 9110 §7.8 (Upgrade)
 
 ## Out of scope
 
@@ -217,10 +273,12 @@ These HTTP features are not relevant for a transparent observation proxy:
 - **TRACE method**: Proxies are supposed to handle TRACE specially, but it's widely disabled and irrelevant here.
 - **Content negotiation**: The proxy doesn't interpret or act on Accept/Accept-* headers.
 - **Caching behavior**: No caching. Cache headers are passthrough only (category 11).
-- **Proxy authentication**: The proxy itself doesn't authenticate clients or upstreams. Proxy-Authenticate and Proxy-Authorization are stripped as hop-by-hop headers (category 3).
-- **103 Early Hints**: Deferred (see category 16).
+- **Proxy authentication**: The proxy itself doesn't authenticate clients or upstreams. Proxy-Authenticate and Proxy-Authorization are hop-by-hop headers (category 3), though the RFC permits forwarding Proxy-Authorization (§11.7.1).
+- **103 Early Hints**: Out of scope (see category 16).
 
 ## Detailed requirements
+
+These catalog requirements will be noted in the test files, e.g. `catalog_ids=["5.3"]` or "§7.5" in doc comments.
 
 ### 1. Request forwarding fundamentals
 
@@ -362,18 +420,18 @@ _Note: Tests 2.2–2.7 use GoodServer endpoints for configurable responses (e.g.
 **Target expectation:** Keep-Alive absent
 **Client expectation:** 200
 
-#### 3.4 — TE stripped from forwarded request
-**Spec:** RFC 9110 §10.1.4
-**Description:** TE is hop-by-hop and must not be forwarded.
+#### 3.4 — TE header handling (findings-based)
+**Spec:** RFC 9110 §7.6.1, §10.1.4
+**Description:** §7.6.1 lists TE as hop-by-hop, but §10.1.4 explicitly permits forwarding `TE: trailers`. Neither Caddy nor HAProxy strips it. This test records whether the proxy strips or forwards the TE header — both behaviors are RFC-compliant.
 **Request:** GET / with `TE: trailers`
-**Target expectation:** TE absent
+**Target expectation:** TE may be present (forwarded) or absent (stripped)
 **Client expectation:** 200
 
-#### 3.5 — Proxy-Authorization stripped from forwarded request
-**Spec:** RFC 9110 §11.7.1
-**Description:** Proxy-Authorization is consumed by the proxy and not forwarded.
+#### 3.5 — Proxy-Authorization handling (findings-based)
+**Spec:** RFC 9110 §7.6.1, §11.7.1
+**Description:** §7.6.1 lists Proxy-Authorization as hop-by-hop, but §11.7.1 permits relaying credentials to the next proxy. Neither Caddy nor HAProxy strips it. This test records whether the proxy strips or forwards the header — both behaviors are RFC-compliant.
 **Request:** GET / with `Proxy-Authorization: Basic dGVzdDp0ZXN0`
-**Target expectation:** Proxy-Authorization absent
+**Target expectation:** Proxy-Authorization may be present (forwarded) or absent (stripped)
 **Client expectation:** 200
 
 #### 3.6 — Hop-by-hop headers stripped from forwarded response
@@ -502,13 +560,6 @@ _Note: Tests 4.3 and 4.4 use GoodServer's `/headers` endpoint to set custom resp
 **Description:** A request or response with Content-Length: 0 is forwarded correctly — the proxy treats it as an explicit empty body, not as "no body."
 **Request:** POST / with Content-Length: 0 and empty body
 **Target expectation:** Content-Length: 0 present, body is empty
-**Client expectation:** 200
-
-#### 6.7 — Large body streaming
-**Spec:** RFC 9112 §6
-**Description:** A large request body (e.g., 10 MB) is forwarded without the proxy buffering the entire thing in memory. This is a behavioral/performance requirement more than a correctness test — the test verifies the body arrives intact and the proxy doesn't OOM or time out.
-**Request:** POST /large with 10 MB body
-**Target expectation:** Body is 10 MB, content matches
 **Client expectation:** 200
 
 ---
@@ -797,9 +848,28 @@ Since protospy is non-caching, these headers must pass through unmodified in bot
 
 ---
 
-### 15. Connection upgrades — PLACEHOLDER
+### 15. Connection upgrades
 
-_Detailed requirements deferred. See category description above._
+#### 15.1 — Successful WebSocket upgrade
+**Spec:** RFC 6455, RFC 9110 §7.8
+**Description:** Proxy relays the WebSocket upgrade handshake (101 Switching Protocols) and tunnels the resulting connection. Client sends a message through the proxy to a WebSocket echo server and receives it back.
+**Request:** WebSocket connect to /ws/echo, send text message
+**Target expectation:** WebSocket upgrade accepted, message echoed
+**Client expectation:** Echoed message matches sent message
+
+#### 15.2 — Failed WebSocket upgrade
+**Spec:** RFC 6455, RFC 9110 §7.8
+**Description:** When the upstream rejects a WebSocket upgrade (returns non-101 status), the proxy forwards the rejection to the client rather than generating its own error.
+**Request:** GET /ws/reject (with or without Upgrade headers)
+**Target expectation:** Returns 403
+**Client expectation:** Receives 403 (not 502 or 504)
+
+#### 15.3 — Bidirectional data flow after upgrade
+**Spec:** RFC 6455
+**Description:** After a successful WebSocket upgrade, the proxy tunnels data bidirectionally. Multiple text and binary messages are sent and echoed to verify sustained tunneling.
+**Request:** WebSocket connect to /ws/echo, send multiple text and binary messages
+**Target expectation:** All messages echoed
+**Client expectation:** All echoed messages match sent messages
 
 ---
 
@@ -813,3 +883,102 @@ _Detailed requirements deferred. See category description above._
 **Client expectation:** 102 received before 200
 
 _Low priority. Include if straightforward to test._
+
+---
+
+### 17. gRPC proxying (HTTP/2)
+
+#### 17.1 — Unary echo
+**Spec:** gRPC over HTTP/2
+**Description:** A unary gRPC call (single request, single response) is proxied correctly. The proxy forwards the HTTP/2 HEADERS and DATA frames, and the gRPC response including trailers arrives intact.
+**Request:** UnaryEcho RPC with text message
+**Target expectation:** Receives the RPC, echoes message back
+**Client expectation:** Receives echoed message with grpc-status OK
+
+#### 17.2 — Server streaming
+**Spec:** gRPC over HTTP/2
+**Description:** A server-streaming RPC sends multiple response messages. The proxy forwards each HTTP/2 DATA frame as it arrives.
+**Request:** ServerStream RPC with count=10
+**Target expectation:** Yields 10 responses with incrementing sequence
+**Client expectation:** Receives all 10 messages in order with correct sequences
+
+#### 17.3 — Bidirectional streaming
+**Spec:** gRPC over HTTP/2
+**Description:** A bidirectional streaming RPC sends and receives messages concurrently. The proxy tunnels the full-duplex HTTP/2 stream.
+**Request:** BidiStream RPC, send 5 messages
+**Target expectation:** Echoes each message as received
+**Client expectation:** Receives 5 echoed responses matching sent messages
+
+#### 17.4 — gRPC error propagation
+**Spec:** gRPC over HTTP/2
+**Description:** When the gRPC server returns an error status (via HTTP/2 trailers), the proxy forwards the trailers intact so the client receives the correct gRPC status code and message.
+**Request:** UnaryEcho RPC with sentinel message triggering INVALID_ARGUMENT
+**Target expectation:** Aborts with INVALID_ARGUMENT status
+**Client expectation:** Receives INVALID_ARGUMENT with error message
+
+#### 17.5 — Large message
+**Spec:** gRPC over HTTP/2
+**Description:** A gRPC message large enough to span multiple HTTP/2 DATA frames (~1 MB) is forwarded correctly without truncation or corruption.
+**Request:** UnaryEcho RPC with 1 MB payload
+**Target expectation:** Receives full payload, echoes it back
+**Client expectation:** Receives identical 1 MB payload
+
+#### 17.6 — Deadline/timeout forwarding
+**Spec:** gRPC over HTTP/2
+**Description:** gRPC deadline metadata (grpc-timeout header) is forwarded through the proxy. A short deadline with a slow upstream results in DEADLINE_EXCEEDED at the client. Findings-based — proxy behavior varies.
+**Request:** UnaryEcho RPC with 0.5s timeout, upstream sleeps 3s
+**Target expectation:** May or may not receive the RPC (depends on proxy timeout handling)
+**Client expectation:** Receives DEADLINE_EXCEEDED
+
+---
+
+## 18. HTTP/1.1 → HTTP/2 bridging
+
+Tests: [test_h2_bridging.py](../conformance/tests/test_h2_bridging.py)
+
+When a proxy receives an HTTP/1.1 request and forwards it to an h2c upstream, it must translate protocol-specific framing: the `Host` header becomes `:authority`, `Transfer-Encoding: chunked` must be stripped (HTTP/2 handles framing at the protocol layer), and the request method and path become `:method` and `:path` pseudo-headers.
+
+**Scope:** H1.1 client → proxy → h2c upstream only.
+
+#### 18.1 — Host translated to :authority
+**Spec:** RFC 7540 §8.1.2.3
+**Description:** When bridging an HTTP/1.1 request to an HTTP/2 upstream, the proxy sets the `:authority` pseudo-header from the incoming `Host` header.
+**Request:** GET / with `Host: example.com`
+**Target expectation:** `:authority` pseudo-header is `example.com` on the h2c upstream
+**Client expectation:** 200 OK
+
+#### 18.2 — Transfer-Encoding stripped on h2c upstream
+**Spec:** RFC 7540 §8.1.2.2
+**Description:** HTTP/2 does not use `Transfer-Encoding` for framing. When bridging a chunked HTTP/1.1 request to an h2c upstream, the proxy must strip the `Transfer-Encoding` header. The body itself must arrive intact.
+**Request:** POST / with chunked body
+**Target expectation:** Body arrives at the correct length; `transfer-encoding` header is absent on the upstream
+**Client expectation:** 200 OK
+
+#### 18.3 — Method and path preserved as pseudo-headers
+**Spec:** RFC 7540 §8.1.2.3
+**Description:** The HTTP/1.1 request method and path are forwarded as `:method` and `:path` pseudo-headers in the HTTP/2 request.
+**Request:** POST /foo/bar with a small body
+**Target expectation:** `:method` is `POST`, `:path` is `/foo/bar` on the h2c upstream
+**Client expectation:** 200 OK
+
+## 19. Streaming response behavior
+
+Tests: [test_streaming.py](../conformance/tests/test_streaming.py)
+
+Verifies that the proxy forwards response chunks incrementally as they arrive from upstream rather than buffering the full response, and that it propagates client disconnects to the upstream connection.
+
+Tests use a deterministic gating mechanism: the upstream handler sends a chunk then blocks on a `threading.Event`; the client sets the event after receiving the chunk, unblocking the handler. A buffering proxy causes the client read to time out because the response never completes (the handler waits for a gate only the client can set, and the client never gets any data to trigger the gate).
+
+#### 19.1 — Proxy does not buffer chunked streaming responses
+**Spec:** RFC 9112 §7.1 (chunked transfer encoding), RFC 9110 §7.6.1 (hop-by-hop)
+**Description:** A proxy must forward each chunk to the client as soon as it is received from upstream. Buffering the full response before forwarding breaks streaming use cases (SSE, long downloads, chunked APIs).
+**Request:** GET to an upstream that sends 3 chunks sequentially, each gated on the client acknowledging the previous chunk
+**Target expectation:** Each chunk is forwarded promptly; the client receives chunk N before chunk N+1 is sent
+**Client expectation:** 200 OK; body matches concatenation of all chunks
+
+#### 19.2 — Client disconnect closes upstream connection
+**Spec:** RFC 9110 §9.6 (tear-down)
+**Description:** When the client disconnects while reading a streaming response, the proxy must close the upstream connection rather than leaking it.
+**Request:** GET to a gated streaming upstream; client reads the first chunk and disconnects
+**Target expectation:** The upstream connection is closed (next upstream send fails with OSError)
+**Client expectation:** Connection closed mid-stream

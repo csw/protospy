@@ -127,7 +127,7 @@ def test_send_expecting_error_returns_response() -> None:
     mock_resp = MagicMock()
     mock_resp.status_code = 502
     mock_resp.content = b"bad gateway"
-    mock_resp.headers.multi_items.return_value = [("content-type", "text/plain")]
+    mock_resp.headers = httpx.Headers([("content-type", "text/plain")])
     client.request.return_value = mock_resp
 
     result = send_expecting_error(client, "http://localhost/test")
@@ -166,6 +166,20 @@ def _make_case(**quirks: ProxyQuirk) -> ProxyTestCase:
     )
 
 
+def _mock_captured(
+    method: str = "GET",
+    path: str = "/",
+    body: bytes = b"",
+) -> MagicMock:
+    """Build a mock CapturedRequest with the given attributes."""
+    captured = MagicMock()
+    captured.method = method
+    captured.path = path
+    captured.headers = {}
+    captured.body = body
+    return captured
+
+
 def test_proxy_quirk_override_client() -> None:
     """disposition='override' with client replaces the client expectation."""
     case = _make_case(
@@ -177,7 +191,7 @@ def test_proxy_quirk_override_client() -> None:
     )
     response = _mock_response(status_code=502)
     good_server = MagicMock()
-    good_server.last_request.return_value = MagicMock(headers={}, body=b"")
+    good_server.last_request.return_value = _mock_captured()
 
     # Should pass: response is 502, caddy quirk overrides expectation to 502
     assert_proxy_test_case(response, good_server, case, proxy_name="caddy")
@@ -194,7 +208,7 @@ def test_proxy_quirk_override_target() -> None:
     )
     response = _mock_response(status_code=200)
     good_server = MagicMock()
-    good_server.last_request.return_value = MagicMock(headers={}, body=b"")
+    good_server.last_request.return_value = _mock_captured()
 
     assert_proxy_test_case(response, good_server, case, proxy_name="haproxy")
 
@@ -210,7 +224,7 @@ def test_proxy_quirk_falls_back_to_default() -> None:
     )
     response = _mock_response(status_code=200)  # default expects 200
     good_server = MagicMock()
-    good_server.last_request.return_value = MagicMock(headers={}, body=b"")
+    good_server.last_request.return_value = _mock_captured()
 
     # Should pass: no quirk for "protospy", default expects 200
     assert_proxy_test_case(response, good_server, case, proxy_name="protospy")

@@ -1,13 +1,24 @@
-"""Test case dataclasses and assertion helpers for proxy conformance tests."""
+"""Test case dataclasses and assertion helpers for proxy conformance tests.
+
+Assertion policy: every test must assert for every proxy. Default expectations
+reflect RFC-correct / protospy-desired behavior. Reference proxies that deviate
+use ProxyQuirk overrides — the override is still asserted, validating that the
+proxy behaves as documented. Findings record the delta from RFC alongside
+assertions; they are observational annotations, not replacements.
+
+See docs/conformance-tests.md for the full policy.
+"""
 
 from __future__ import annotations
 
 import queue
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Literal
 
 import httpx
 import pytest
+
+from proxy_conformance.good_server import CapturedRequest, GoodServer
 
 
 @dataclass
@@ -38,10 +49,15 @@ class HeaderExpectation:
 
 @dataclass
 class TargetExpectation:
-    """What the target server should observe in the forwarded request."""
+    """What the target server should observe in the forwarded request.
+
+    Method, path, and body are checked automatically by assert_proxy_test_case
+    using the RequestSpec as the source of truth. Fields here are for
+    additional assertions (headers) or overrides (body, no_request).
+    """
 
     headers: HeaderExpectation = field(default_factory=HeaderExpectation)
-    body: bytes | None = None  # None = don't check
+    body: bytes | None = None  # Override expected body (default: from RequestSpec)
     no_request: bool = False
 
 
@@ -57,6 +73,17 @@ class ClientExpectation:
 
 
 @dataclass
+class ConnectionDrop:
+    """Expected outcome: proxy closes connection without responding."""
+
+    pass
+
+
+type Outcome = ClientExpectation | ConnectionDrop
+"""A single expected test outcome: either an HTTP response or a connection drop."""
+
+
+@dataclass
 class ProxyQuirk:
     """How a specific proxy deviates from RFC-correct expectations.
 
@@ -66,11 +93,13 @@ class ProxyQuirk:
     - "xfail": proxy behavior is wrong per RFC, and we know it. Marks the test
       as expected-failure via pytest.xfail(reason).
     - "skip": test cannot run for this proxy. Calls pytest.skip(reason).
+
+    See docs/conformance-tests.md for the full assertion policy.
     """
 
     disposition: Literal["override", "xfail", "skip"]
     reason: str
-    client: ClientExpectation | None = None
+    client: Outcome | list[Outcome] | None = None
     target: TargetExpectation | None = None
 
 
@@ -82,6 +111,7 @@ class ProxyTestCase:
     spec_ref: str
     description: str
     request: RequestSpec
+    catalog_ids: list[str] = field(default_factory=list)
     expect_at_target: TargetExpectation = field(default_factory=TargetExpectation)
     expect_at_client: ClientExpectation = field(default_factory=ClientExpectation)
     proxy_quirks: dict[str, ProxyQuirk] = field(default_factory=dict)
@@ -148,17 +178,18 @@ def assert_headers(
         )
 
 
-def normalize_httpx_headers(headers: object) -> dict[str, list[str]]:
+def normalize_httpx_headers(
+    headers: httpx.Headers | dict[str, str | list[str]],
+) -> dict[str, list[str]]:
     """Convert httpx.Headers to the dict[str, list[str]] format.
 
-    Accepts anything with a multi_items() method (httpx.Headers)
-    or a regular dict.
+    Accepts httpx.Headers or a regular dict.
     """
     result: dict[str, list[str]] = {}
-    if hasattr(headers, "multi_items"):
-        for name, value in headers.multi_items():  # type: ignore[union-attr]
+    if isinstance(headers, httpx.Headers):
+        for name, value in headers.multi_items():
             result.setdefault(name.lower(), []).append(value)
-    elif isinstance(headers, dict):
+    else:
         for name, value in headers.items():
             key = name.lower()
             if isinstance(value, list):
@@ -191,6 +222,56 @@ def send_expecting_error(
         )
     except httpx.RemoteProtocolError:
         return ProbeResult(status=None, body=b"", headers={})
+
+
+def _matches_outcome(result: ProbeResult, outcome: Outcome) -> bool:
+    """Check if a probe result matches a single expected outcome."""
+    if isinstance(outcome, ConnectionDrop):
+        return result.status is None
+    # ClientExpectation
+    if result.status is None:
+        return False
+    if outcome.status_in is not None:
+        return result.status in outcome.status_in
+    if outcome.status is not None:
+        return result.status == outcome.status
+    return True
+
+
+def assert_probe_result(
+    result: ProbeResult,
+    expected: Outcome | list[Outcome],
+    *,
+    test_id: str = "",
+) -> None:
+    """Assert that a probe result matches one of the expected outcomes.
+
+    If expected is a single Outcome, the result must match it.
+    If expected is a list, the result must match at least one entry.
+
+    Each Outcome is either:
+    - ConnectionDrop: matches if result.status is None
+    - ClientExpectation: matches if result.status satisfies status/status_in
+    """
+    prefix = f"[{test_id}] " if test_id else ""
+    outcomes = expected if isinstance(expected, list) else [expected]
+
+    for outcome in outcomes:
+        if _matches_outcome(result, outcome):
+            return
+
+    # Build a readable failure message
+    actual = "connection drop" if result.status is None else f"status {result.status}"
+    expected_parts: list[str] = []
+    for outcome in outcomes:
+        if isinstance(outcome, ConnectionDrop):
+            expected_parts.append("connection drop")
+        elif outcome.status_in is not None:
+            expected_parts.append(f"status in {sorted(outcome.status_in)}")
+        elif outcome.status is not None:
+            expected_parts.append(f"status {outcome.status}")
+    expected_desc = " or ".join(expected_parts) or "unknown"
+    pytest.fail(f"{prefix}Got {actual}, expected {expected_desc}")
 
 
 def assert_client_response(
@@ -228,7 +309,7 @@ def assert_client_response(
 
 def assert_proxy_test_case(
     response: httpx.Response,
-    good_server: Any,
+    good_server: GoodServer,
     case: ProxyTestCase,
     proxy_name: str = "",
 ) -> None:
@@ -248,6 +329,13 @@ def assert_proxy_test_case(
             pytest.xfail(quirk.reason)
         else:  # override
             if quirk.client is not None:
+                if not isinstance(quirk.client, ClientExpectation):
+                    msg = (
+                        f"ProxyTestCase quirk for {proxy_name!r} uses "
+                        f"ConnectionDrop or list, but assert_proxy_test_case "
+                        f"requires a single ClientExpectation"
+                    )
+                    raise TypeError(msg)
                 effective_client = quirk.client
             if quirk.target is not None:
                 effective_target = quirk.target
@@ -261,13 +349,84 @@ def assert_proxy_test_case(
             pass
     else:
         captured = good_server.last_request()
-        assert_headers(captured.headers, effective_target.headers, context="target")
 
-        if effective_target.body is not None:
-            assert captured.body == effective_target.body, (
-                f"[{case.id}] Target body mismatch: "
-                f"expected {effective_target.body!r}, got {captured.body!r}"
-            )
+        # Method must always match the request spec.
+        assert captured.method == case.request.method, (
+            f"[{case.id}] Target method mismatch: "
+            f"expected {case.request.method!r}, "
+            f"got {captured.method!r}"
+        )
+
+        # Path: the captured path includes the _test= query param
+        # appended by _test_url, so check it starts with the
+        # request path.
+        assert captured.path.startswith(case.request.path), (
+            f"[{case.id}] Target path mismatch: "
+            f"expected prefix {case.request.path!r}, "
+            f"got {captured.path!r}"
+        )
+
+        assert_headers(
+            captured.headers,
+            effective_target.headers,
+            context="target",
+        )
+
+        # Body: use TargetExpectation.body if set, otherwise
+        # derive from RequestSpec (None body → expect empty).
+        expected_body = effective_target.body
+        if expected_body is None:
+            expected_body = case.request.body or b""
+        assert captured.body == expected_body, (
+            f"[{case.id}] Target body mismatch: "
+            f"expected {expected_body!r}, "
+            f"got {captured.body!r}"
+        )
+
+
+def assert_probe_target(
+    good_server: GoodServer,
+    expected: TargetExpectation,
+    *,
+    test_id: str = "",
+    timeout: float = 0.5,
+) -> CapturedRequest | None:
+    """Assert target-side expectations for a probe test.
+
+    Checks whether a request arrived at the target and validates headers
+    and body against the expectation. Returns the captured request if one
+    arrived, or None if no_request was expected and confirmed.
+
+    Raises AssertionError if the expectation is violated.
+    """
+    prefix = f"[{test_id}] " if test_id else ""
+
+    if expected.no_request:
+        try:
+            good_server.requests.get(timeout=timeout)
+            pytest.fail(f"{prefix}Expected no request at target, but one arrived")
+        except queue.Empty:
+            return None
+
+    try:
+        captured = good_server.last_request(timeout=timeout)
+    except queue.Empty:
+        pytest.fail(f"{prefix}Expected request at target, but none arrived")
+        raise  # unreachable; helps pyright see captured is bound
+
+    assert_headers(
+        captured.headers,
+        expected.headers,
+        context=f"{prefix}target" if prefix else "target",
+    )
+
+    if expected.body is not None:
+        assert captured.body == expected.body, (
+            f"{prefix}Target body mismatch: "
+            f"expected {expected.body!r}, got {captured.body!r}"
+        )
+
+    return captured
 
 
 def apply_quirk(proxy_name: str, quirks: dict[str, ProxyQuirk]) -> ProxyQuirk | None:

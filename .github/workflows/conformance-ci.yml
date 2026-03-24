@@ -1,0 +1,78 @@
+name: conformance-ci
+
+on:
+  push:
+    paths:
+      - "conformance/**"
+      - ".github/workflows/conformance-ci.yml"
+  pull_request:
+    paths:
+      - "conformance/**"
+      - ".github/workflows/conformance-ci.yml"
+
+defaults:
+  run:
+    working-directory: conformance
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen --group dev
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check --output-format github .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen --group dev
+      - run: uv run pyright .
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    env:
+      CADDY_VERSION: "2.11.2"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen
+      - name: Install Caddy
+        run: |
+          ARCH=$(dpkg --print-architecture)
+          curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${ARCH}.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin caddy
+      - name: Install HAProxy
+        run: sudo apt-get install -y haproxy
+      - name: Run conformance tests
+        run: uv run pytest -q --findings --junit-xml=results.xml
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: conformance-results
+          path: conformance/results.xml
+      - uses: dorny/test-reporter@v2.6.0
+        if: always()
+        with:
+          name: Conformance Tests
+          path: conformance/results.xml
+          reporter: java-junit
+          use-actions-summary: true

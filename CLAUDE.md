@@ -6,7 +6,13 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Project Overview
 
-`protospy` is a Rust project (Cargo edition 2024) in early skeleton stage. There is also a `demo/` subdirectory containing a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach.
+`protospy` consists of several components: the root protospy project and several secondary components in subdirectories. The root, `protospy`, is a Rust HTTP monitoring proxy, not yet implemented, which will function as a transparent reverse proxy for development purposes, allowing a user to interactively monitor traffic. It uses Cargo edition 2024 and is only a skeleton.
+
+Other sub-components:
+ - `conformance/` contains an HTTP reverse proxy conformance test suite in Python to validate protospy's behavior, with well-known proxies as references. See `docs/conformance-tests.md` for general information and `docs/conformance-test-catalog.md` for the catalog of tested behaviors. Tests are in `conformance/tests/`, infrastructure is in `conformance/src/proxy_conformance/`.
+ - `demo/` contains a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch, to provide realistic traffic for protospy. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach. 
+
+Python code uses Python 3.14+ and `uv`. Each Python component is an independent project with its own virtualenv.
 
 ## Commands
 
@@ -26,29 +32,65 @@ uv add <package>        # add a dependency
 uv run ruff check .     # lint
 uv run ruff format .    # format
 uv run pyright .        # type check
-uv run pytest           # run tests
+uv run pytest -q        # run tests (always pass -q when running as an agent)
 uvx vulture src         # check for dead code (run from demo/)
 ```
 
+### Python conformance suite (`conformance/`)
+```
+cd conformance
+uv run pytest -q                   # run tests (default: both caddy and haproxy)
+uv run pytest -q --proxy caddy     # run against Caddy only
+uv run pytest -q --proxy haproxy   # run against HAProxy only
+uv run pytest -q --findings        # show proxy behavioral findings
+uv run ruff check .                # lint
+uv run ruff format .               # format
+uv run pyright .                   # type check
+```
+
+Run all commands using Python, directly or indirectly, with `uv run` from the appropriate project subdirectory (`demo/` or `conformance/`).
+
+### GitHub
+
+Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`.
+
+## Documentation
+
+When in doubt about how to use a tool or library, refer to its documentation (via Context7 or the web), especially if you try what seems obvious and it doesn't work. Use the docs before trying to experimentally determine the behavior or studying its source.
+
+## Python Style
+
+All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
+
+Ruff formats multi-exception `except` clauses without parentheses: `except A, B:` rather than `except (A, B):`. This is valid Python 3.14 syntax (the comma produces a tuple expression) and is ruff's preferred style. Do not add parentheses to fight the formatter.
+
 ## Code Quality Requirements
 
-Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `demo/`:
+Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `demo/` or `conformance/`:
 
 ```bash
-cd demo
+cd <package>       # demo/ or conformance/
 uv run ruff check .
-uv run ruff format --check .
+uv run ruff format .
 uv run pyright .
-uv run pytest
+uv run pytest -q
 ```
 
 Do not report "done" or commit until these are all clean.
+
+## Writing Tests
+
+When writing or maintaining tests, read `docs/agents/testing.md`.
 
 ## CI
 
 When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
 
 ## Committing
+
+**Before committing any Python changes under `demo/` or `conformance/`, run the full quality check sequence** (ruff check, ruff format, pyright, pytest -q) and confirm all pass. This applies even to trivial changes like type annotations. See [Code Quality Requirements](#code-quality-requirements).
+
+**Any code path not covered by the test suite must be executed manually before committing.** For example, if you change a CLI `main()` function, start the server and confirm it runs. Do not rely on linting or type-checking alone as a substitute for actually running the code.
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 

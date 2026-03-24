@@ -10,6 +10,8 @@ and routes to endpoint-specific handlers based on the path:
 - /body/chunked?size={n} — chunked body of n bytes
 - /body/content-length?size={n} — Content-Length-framed body of n bytes
 - /chunked-with-trailers?Trailer-Name=value — chunked response with trailers
+- /ws/echo — WebSocket echo endpoint (text and binary)
+- /ws/reject — rejects WebSocket upgrade with HTTP 403
 
 Unknown paths return 404. All endpoints capture requests out-of-band.
 """
@@ -18,14 +20,17 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import gzip
 import queue
 import signal
 import threading
 from dataclasses import dataclass, field
 from typing import Annotated, cast
 
+import aiohttp
 import typer
 from aiohttp import web
+from multidict import CIMultiDict
 
 from proxy_conformance.net import find_free_port
 from proxy_conformance.request_logging import log_request
@@ -91,9 +96,12 @@ class GoodServer:
     def stop(self) -> None:
         """Stop the server and wait for the background thread to exit."""
         if self._loop and self._runner:
-            # Run cleanup first and wait for it to finish.
+            # Run cleanup and cancel any lingering tasks before stopping the
+            # loop.  runner.cleanup() alone leaves aiohttp-internal tasks
+            # pending, which causes "Task was destroyed but it is pending!"
+            # warnings at GC time.
             future = asyncio.run_coroutine_threadsafe(
-                self._runner.cleanup(),
+                self._cleanup_all(),
                 self._loop,
             )
             future.result(timeout=5)
@@ -102,6 +110,14 @@ class GoodServer:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._thread:
             self._thread.join(timeout=5)
+
+    async def _cleanup_all(self) -> None:
+        if self._runner:
+            await self._runner.cleanup()
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     def last_request(self, timeout: float = 2.0) -> CapturedRequest:
         """Retrieve the next captured request. Blocks until available.
@@ -125,7 +141,7 @@ class GoodServer:
         self._loop.run_forever()
 
     async def _start_app(self, started: threading.Event) -> None:
-        app = web.Application()
+        app = web.Application(client_max_size=10 * 1024 * 1024)  # 10 MB
         r = app.router
         r.add_route("*", "/echo", self._handle_echo)
         r.add_route("*", r"/echo/{path_info:.*}", self._handle_echo)
@@ -135,7 +151,10 @@ class GoodServer:
         r.add_route("*", "/headers", self._handle_headers)
         r.add_route("*", "/body/chunked", self._handle_body_chunked)
         r.add_route("*", "/body/content-length", self._handle_body_content_length)
+        r.add_route("*", "/body/gzip", self._handle_body_gzip)
         r.add_route("*", "/chunked-with-trailers", self._handle_chunked_with_trailers)
+        r.add_route("GET", "/ws/echo", self._handle_ws_echo)
+        r.add_route("GET", "/ws/reject", self._handle_ws_reject)
         r.add_route("*", r"/{path_info:.*}", self._handle_not_found)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
@@ -201,8 +220,10 @@ class GoodServer:
     async def _handle_headers(self, request: web.Request) -> web.Response:
         """Respond with 200 and query parameters as response headers."""
         await self._capture(request)
-        headers = {k: v for k, v in request.rel_url.query.items()}
-        return web.Response(status=200, headers=headers)
+        multi: CIMultiDict[str] = CIMultiDict()
+        for k, v in request.rel_url.query.items():
+            multi.add(k, v)
+        return web.Response(status=200, headers=multi)
 
     async def _handle_body_chunked(self, request: web.Request) -> web.StreamResponse:
         """Respond with a chunked body of the requested size."""
@@ -219,6 +240,17 @@ class GoodServer:
         await self._capture(request)
         size = int(request.rel_url.query.get("size", "0"))
         return web.Response(body=b"x" * size, content_type="application/octet-stream")
+
+    async def _handle_body_gzip(self, request: web.Request) -> web.Response:
+        """Respond with a gzip-compressed body of the requested size."""
+        await self._capture(request)
+        size = int(request.rel_url.query.get("size", "0"))
+        compressed = gzip.compress(b"x" * size)
+        return web.Response(
+            body=compressed,
+            content_type="application/octet-stream",
+            headers={"Content-Encoding": "gzip"},
+        )
 
     async def _handle_chunked_with_trailers(
         self, request: web.Request
@@ -247,6 +279,21 @@ class GoodServer:
         resp._eof_sent = True  # noqa: SLF001
         return resp
 
+    async def _handle_ws_echo(self, request: web.Request) -> web.WebSocketResponse:
+        """Accept a WebSocket upgrade and echo every message back."""
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                await ws.send_str(msg.data)
+            elif msg.type == aiohttp.WSMsgType.BINARY:
+                await ws.send_bytes(msg.data)
+        return ws
+
+    async def _handle_ws_reject(self, request: web.Request) -> web.Response:
+        """Reject a WebSocket upgrade with HTTP 403."""
+        return web.Response(status=403, text="WebSocket upgrade rejected")
+
     async def _handle_not_found(self, request: web.Request) -> web.Response:
         """Return 404 for any unrecognised path."""
         return web.Response(status=404)
@@ -262,17 +309,9 @@ def main(
     server.start()
     print(f"Good server listening on {server.url}", flush=True)
     print("Endpoints:", flush=True)
-    for path in [
-        "/echo",
-        "/echo/{anything}",
-        "/status/{code}",
-        "/redirect/{code}?to={url}",
-        "/headers?Name=value",
-        "/body/chunked?size={n}",
-        "/body/content-length?size={n}",
-        "/chunked-with-trailers?Trailer-Name=value",
-    ]:
-        print(f"  {path}", flush=True)
+    if server._runner:
+        for resource in server._runner.app.router.resources():
+            print(f"  {resource.canonical}", flush=True)
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
