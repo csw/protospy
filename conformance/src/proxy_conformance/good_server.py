@@ -54,6 +54,16 @@ class CapturedRequest:
         values = self.header_values(name)
         return ", ".join(values) if values else None
 
+    def debug_str(self) -> str:
+        """Return a string representation suitable for debug output."""
+
+        header_lines = (
+            f"{header}: {val}"
+            for (header, vals) in self.headers.items()
+            for val in vals
+        )
+        return f"{self.method} {self.path}\n" + "\n".join(header_lines) + "\n"
+
 
 @dataclass
 class GoodServer:

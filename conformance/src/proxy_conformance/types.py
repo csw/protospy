@@ -11,6 +11,7 @@ See docs/conformance-tests.md for the full policy.
 
 from __future__ import annotations
 
+import logging
 import queue
 from dataclasses import dataclass, field
 from typing import Literal
@@ -18,7 +19,10 @@ from typing import Literal
 import httpx
 import pytest
 
+from proxy_conformance import httpx_util
 from proxy_conformance.good_server import CapturedRequest, GoodServer
+
+log = logging.getLogger("conformance")
 
 
 @dataclass
@@ -280,6 +284,7 @@ def assert_client_response(
     case_id: str = "",
 ) -> None:
     """Assert that a client response satisfies a ClientExpectation."""
+
     prefix = f"[{case_id}] " if case_id else ""
 
     if expected.status_in is not None:
@@ -339,6 +344,16 @@ def assert_proxy_test_case(
                 effective_client = quirk.client
             if quirk.target is not None:
                 effective_target = quirk.target
+
+    if log.getEffectiveLevel() <= logging.DEBUG:
+        # print request and response
+        log.debug(
+            "HTTP headers:\n"
+            + httpx_util.dump_request(response.request)
+            + "\n"
+            + httpx_util.dump_response(response)
+        )
+
     assert_client_response(response, effective_client, case_id=case.id)
 
     if effective_target.no_request:
@@ -349,6 +364,10 @@ def assert_proxy_test_case(
             pass
     else:
         captured = good_server.last_request()
+
+        if log.getEffectiveLevel() <= logging.DEBUG:
+            # print request and response
+            log.debug("Request at target:\n" + captured.debug_str())
 
         # Method must always match the request spec.
         assert captured.method == case.request.method, (
