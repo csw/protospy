@@ -96,7 +96,7 @@ def pytest_terminal_summary(
         level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
         if not level_entries:
             continue
-        terminalreporter.write_line(f"\n[{level}]")
+        terminalreporter.write_line(f"\n[{level.capitalize()}:]")
         for test_id, message in level_entries:
             terminalreporter.write_line(f"  {test_id}: {message}")
 
@@ -118,7 +118,7 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
         level_entries = sorted((tid, msg) for tid, msg, lvl in entries if lvl == level)
         if not level_entries:
             continue
-        lines.append(f"\n**{level}**\n\n")
+        lines.append(f"\n**{level.capitalize()}:**\n\n")
         for test_id, message in level_entries:
             lines.append(f"- `{test_id}`: {message}\n")
     with open(summary_path, "a") as f:

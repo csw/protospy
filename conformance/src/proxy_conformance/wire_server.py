@@ -231,13 +231,7 @@ def reject_expect() -> Handler:
                 )
             )
         )
-        try:
-            conn.sendall(h11_conn.send(h11.EndOfMessage()))
-        except ConnectionResetError, BrokenPipeError:
-            # The proxy may close the upstream connection immediately after
-            # receiving the complete 417 response.  The response was already
-            # fully transmitted, so this error is harmless.
-            pass
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
 
     return handler
 
@@ -573,6 +567,11 @@ class WireServer:
 
         try:
             handler(request, body, conn, h11_conn)
+        except ConnectionResetError, BrokenPipeError:
+            # The proxy closed the upstream connection after receiving the
+            # complete response.  The request was already fully read before
+            # the handler was called, so this is always harmless.
+            pass
         except Exception as exc:
             self._handler_exception = exc
 
