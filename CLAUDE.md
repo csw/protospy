@@ -6,7 +6,13 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Project Overview
 
-`protospy` is a Rust project (Cargo edition 2024) in early skeleton stage. There is also a `demo/` subdirectory containing a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach.
+`protospy` consists of several components: the root protospy project and several secondary components in subdirectories. The root, `protospy`, is a Rust HTTP monitoring proxy, not yet implemented, which will function as a transparent reverse proxy for development purposes, allowing a user to interactively monitor traffic. It uses Cargo edition 2024 and is only a skeleton.
+
+Other sub-components:
+ - `conformance/` contains an HTTP reverse proxy conformance test suite in Python to validate protospy's behavior, with well-known proxies as references. See `docs/conformance-tests.md` for general information and `docs/conformance-test-catalog.md` for the catalog of tested behaviors. Tests are in `conformance/tests/`, infrastructure is in `conformance/src/proxy_conformance/`.
+ - `demo/` contains a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch, to provide realistic traffic for protospy. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach. 
+
+Python code uses Python 3.14+ and `uv`. Each Python component is an independent project with its own virtualenv.
 
 ## Commands
 
@@ -42,13 +48,21 @@ uv run ruff format .               # format
 uv run pyright .                   # type check
 ```
 
+Run all commands using Python, directly or indirectly, with `uv run` from the appropriate project subdirectory (`demo/` or `conformance/`).
+
 ### GitHub
 
 Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`.
 
+## Documentation
+
+When in doubt about how to use a tool or library, refer to its documentation (via Context7 or the web), especially if you try what seems obvious and it doesn't work. Use the docs before trying to experimentally determine the behavior or studying its source.
+
 ## Python Style
 
 All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
+
+Ruff formats multi-exception `except` clauses without parentheses: `except A, B:` rather than `except (A, B):`. This is valid Python 3.14 syntax (the comma produces a tuple expression) and is ruff's preferred style. Do not add parentheses to fight the formatter.
 
 ## Code Quality Requirements
 
