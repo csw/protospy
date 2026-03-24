@@ -20,7 +20,10 @@ struct Args {
 pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = Args::parse();
     let addr = SocketAddr::from(([127, 0, 0, 1], args.port));
-    let server = server::Server { addr };
+    let server = server::Server {
+        addr,
+        target: args.target.clone(),
+    };
     let server_rc = Arc::new(server);
     let res = server_rc.run().await;
     Ok(res.map_err(Box::new)?)

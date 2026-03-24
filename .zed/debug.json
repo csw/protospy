@@ -1,0 +1,20 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Debug: protospy",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    "build": {
+      "command": "cargo",
+      "args": ["build"],
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/debug/protospy",
+    "args": ["--target", "localhost:9200", "--port", "3000"],
+    "sourceLanguages": ["rust"],
+    "env": { "ENV": "development" },
+    "cwd": "$ZED_WORKTREE_ROOT",
+  },
+]
