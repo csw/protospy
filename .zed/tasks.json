@@ -1,5 +1,9 @@
 [
   {
+    "label": "protospy",
+    "command": "cargo run -- --port 3000 --target localhost:9200",
+  },
+  {
     "label": "elasticflix: run",
     "command": "uv run uvicorn elasticflix.main:app --reload",
     "cwd": "$ZED_WORKTREE_ROOT/demo",
