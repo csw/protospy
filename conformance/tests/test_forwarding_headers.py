@@ -23,7 +23,7 @@ from .proxies import ProxyUrls, tagged_url
 
 FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
-        id="x-forwarded-for-added",
+        id="5.1-x-forwarded-for-added",
         spec_ref="MDN: X-Forwarded-For",
         description=(
             "Proxy adds X-Forwarded-For header containing the client IP "
@@ -39,7 +39,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
-        id="x-forwarded-for-appended",
+        id="5.2-x-forwarded-for-appended",
         spec_ref="MDN: X-Forwarded-For",
         description=(
             "Proxy appends client IP to existing X-Forwarded-For header, "
@@ -59,7 +59,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
-        id="x-forwarded-proto-added",
+        id="5.3-x-forwarded-proto-added",
         spec_ref="MDN: X-Forwarded-Proto",
         description=(
             "Proxy adds X-Forwarded-Proto header with the original request scheme "
@@ -85,7 +85,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         },
     ),
     ProxyTestCase(
-        id="x-forwarded-host-added",
+        id="5.4-x-forwarded-host-added",
         spec_ref="MDN: X-Forwarded-Host",
         description=(
             "Proxy adds X-Forwarded-Host header with the original request host"

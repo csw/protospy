@@ -26,7 +26,7 @@ from .proxies import ProxyUrls, tagged_url
 
 HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
-        id="connection-header-stripped",
+        id="3.1-connection-header-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy removes the Connection header from the forwarded request; "
@@ -59,7 +59,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
         },
     ),
     ProxyTestCase(
-        id="connection-named-headers-stripped",
+        id="3.2-connection-named-headers-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy removes headers named in the Connection header value; "
@@ -102,7 +102,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
         },
     ),
     ProxyTestCase(
-        id="keep-alive-stripped",
+        id="3.3-keep-alive-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy removes the Keep-Alive header from the forwarded request; "
@@ -141,7 +141,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
     #     to the next proxy"
     # Neither Caddy nor HAProxy strips them.  See findings-based tests below.
     ProxyTestCase(
-        id="response-hop-by-hop-stripped",
+        id="3.6-response-hop-by-hop-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy removes hop-by-hop headers from the forwarded response; "
@@ -173,7 +173,7 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
         },
     ),
     ProxyTestCase(
-        id="end-to-end-headers-not-stripped",
+        id="3.7-end-to-end-headers-not-stripped",
         spec_ref="RFC 9110 §7.6.1",
         description=(
             "Proxy preserves end-to-end headers (not in the hop-by-hop list); "

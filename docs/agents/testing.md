@@ -8,6 +8,8 @@ The conformance test suite needs to be able to run against a pre-existing protos
 
 The conformance tests themselves need to be in sync with the definitions in `../conformance-test-catalog.md`, and cite the specification (RFC or de facto) defining the behavior they test. When a test covers behaviors from several categories, e.g. `test_request_forwarding.py`'s tests covering 6.1-6.4 as well, this must be noted in the file where the tests would otherwise be.
 
+Table-driven test cases using `ProxyTestCase` have IDs. These should have a prefix of the first catalog ID or range governing them, followed by a descriptive slug, like `5.1-x-forwarded-for-added`.
+
 ## Test assertions
 
 Make sure that a test verifies the behavior being tested. For instance, it is not sufficient to check for a success response if the purpose of the test is to verify some property of a request arriving at the target server.

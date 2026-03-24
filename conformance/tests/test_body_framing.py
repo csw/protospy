@@ -23,7 +23,7 @@ from .proxies import ProxyUrls, tagged_url
 
 BODY_FRAMING_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
-        id="head-response-content-length",
+        id="6.5-head-response-content-length",
         spec_ref="RFC 9110 §9.3.2",
         description="HEAD response includes Content-Length header but no body",
         catalog_ids=["6.5"],
@@ -35,7 +35,7 @@ BODY_FRAMING_TESTS: list[ProxyTestCase] = [
         ),
     ),
     ProxyTestCase(
-        id="content-length-zero",
+        id="6.6-content-length-zero",
         spec_ref="RFC 9112 §6.2",
         description="POST with empty body and Content-Length: 0",
         catalog_ids=["6.6"],

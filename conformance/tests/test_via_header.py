@@ -19,7 +19,7 @@ from .proxies import ProxyUrls, tagged_url
 
 VIA_TESTS: list[ProxyTestCase] = [
     ProxyTestCase(
-        id="via-added-to-request",
+        id="4.1-via-added-to-request",
         spec_ref="RFC 9110 §7.6.3",
         description="Proxy adds Via header to forwarded request (no upstream Via)",
         catalog_ids=["4.1"],
@@ -30,7 +30,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
-        id="via-appended-to-request",
+        id="4.2-via-appended-to-request",
         spec_ref="RFC 9110 §7.6.3",
         description=(
             "Proxy appends Via header to forwarded request (upstream Via present)"
@@ -45,7 +45,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         expect_at_client=ClientExpectation(status=200),
     ),
     ProxyTestCase(
-        id="via-added-to-response",
+        id="4.3-via-added-to-response",
         spec_ref="RFC 9110 §7.6.3",
         description="Proxy adds Via header to response (no upstream Via in response)",
         catalog_ids=["4.3"],
@@ -57,7 +57,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         ),
     ),
     ProxyTestCase(
-        id="via-appended-to-response",
+        id="4.4-via-appended-to-response",
         spec_ref="RFC 9110 §7.6.3",
         description=(
             "Proxy appends Via header to response (upstream Via present in response)"
