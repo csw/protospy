@@ -231,7 +231,13 @@ def reject_expect() -> Handler:
                 )
             )
         )
-        conn.sendall(h11_conn.send(h11.EndOfMessage()))
+        try:
+            conn.sendall(h11_conn.send(h11.EndOfMessage()))
+        except ConnectionResetError, BrokenPipeError:
+            # The proxy may close the upstream connection immediately after
+            # receiving the complete 417 response.  The response was already
+            # fully transmitted, so this error is harmless.
+            pass
 
     return handler
 
