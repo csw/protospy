@@ -332,6 +332,57 @@ backend h2c_backend
 # ---------------------------------------------------------------------------
 
 
+def start_protospy(
+    config: ProxyConfig,
+) -> subprocess.Popen[bytes]:
+    """Start a protospy reverse proxy subprocess via cargo run.
+
+    Returns the Popen handle. The caller is responsible for terminating it.
+    """
+    # Build --proxy arguments for each upstream
+    proxy_args: list[str] = []
+
+    # Extract host:port from upstream URLs and build proxy config arguments
+    def add_proxy_arg(name: str, entry: ProxyEntry) -> None:
+        dial = _dial(entry.upstream)
+        proxy_args.append(f"--proxy=name={name},port={entry.listen_port},target={dial}")
+
+    add_proxy_arg("good", config.good)
+    add_proxy_arg("wire", config.wire)
+    add_proxy_arg("dead", config.dead)
+    if config.grpc is not None:
+        add_proxy_arg("grpc", config.grpc)
+    if config.h2c is not None:
+        add_proxy_arg("h2c", config.h2c)
+
+    # Run protospy from the workspace root
+    proc = subprocess.Popen(
+        ["cargo", "run", "--"] + proxy_args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd="/Users/csw/src/protospy",
+    )
+
+    # Wait for all ports to be available
+    ports = [config.good.listen_port, config.wire.listen_port, config.dead.listen_port]
+    if config.grpc is not None:
+        ports.append(config.grpc.listen_port)
+    if config.h2c is not None:
+        ports.append(config.h2c.listen_port)
+
+    for port in ports:
+        try:
+            _wait_for_port(port)
+        except TimeoutError:
+            proc.terminate()
+            proc.wait(timeout=5)
+            stderr = proc.stderr.read() if proc.stderr else b""
+            msg = f"Protospy failed to start: {stderr.decode(errors='replace')}"
+            raise RuntimeError(msg) from None
+
+    return proc
+
+
 def tagged_url(url: str, test_id: str) -> str:
     """Append _test=<test_id> query parameter to a URL or path."""
     sep = "&" if "?" in url else "?"
@@ -342,7 +393,7 @@ def tagged_url(url: str, test_id: str) -> str:
 # Proxy coordinate types and startup helpers
 # ---------------------------------------------------------------------------
 
-ALL_PROXIES = ["caddy", "haproxy"]
+ALL_PROXIES = ["caddy", "haproxy", "protospy"]
 
 
 @dataclass
@@ -459,8 +510,10 @@ def start_proxy(
             )
             if proxy_type == "caddy":
                 proc = start_caddy(proxy_config)
-            else:
+            elif proxy_type == "haproxy":
                 proc = start_haproxy(proxy_config)
+            else:  # protospy
+                proc = start_protospy(proxy_config)
             return proc, make_proxy_urls(
                 good,
                 wire,

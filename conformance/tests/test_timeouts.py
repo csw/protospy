@@ -120,7 +120,13 @@ def timeout_proxy(
     wire_server: WireServer,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[ProxyUrls]:
-    """Proxy configured with short upstream timeouts. Wire-only."""
+    """Proxy configured with short upstream timeouts. Wire-only.
+
+    Skipped for proxy types that don't support timeout configuration.
+    """
+    if proxy_type == "protospy":
+        pytest.skip("Timeout configuration not yet supported for protospy")
+
     tmp = tmp_path_factory.mktemp("timeout-proxy")
     proc, urls = _start_timeout_proxy(proxy_type, wire_server.url, tmp)
     try:
