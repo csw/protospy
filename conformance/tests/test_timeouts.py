@@ -36,6 +36,7 @@ from proxy_conformance.wire_server import WireServer
 
 from .conftest import Findings
 from .proxies import (
+    ProxyConfig,
     ProxyEntry,
     ProxyUrls,
     make_proxy_urls,
@@ -81,12 +82,15 @@ def _start_timeout_proxy(
             upstream=f"http://127.0.0.1:{find_free_port()}",
         )
         try:
+            config = ProxyConfig(
+                good=good,
+                wire=wire,
+                dead=dead,
+                tmp_dir=tmp,
+            )
             if proxy_type == "caddy":
                 proc = start_caddy(
-                    good,
-                    wire,
-                    dead,
-                    tmp_dir=tmp,
+                    config,
                     dial_timeout="1s",
                     response_header_timeout="2s",
                     idle_timeout="1s",
@@ -94,10 +98,7 @@ def _start_timeout_proxy(
                 )
             else:
                 proc = start_haproxy(
-                    good,
-                    wire,
-                    dead,
-                    tmp_dir=tmp,
+                    config,
                     connect_timeout="1s",
                     server_timeout="2s",
                     client_timeout="2s",

@@ -21,6 +21,22 @@ class ProxyEntry:
     upstream: str  # upstream target URL (http://host:port)
 
 
+@dataclass
+class ProxyConfig:
+    """Common configuration for starting a proxy subprocess.
+
+    Used by both Caddy and HAProxy to specify upstream targets and temp directory.
+    Proxy-specific timeout parameters are passed separately to each start function.
+    """
+
+    good: ProxyEntry
+    wire: ProxyEntry
+    dead: ProxyEntry
+    tmp_dir: Path
+    grpc: ProxyEntry | None = None
+    h2c: ProxyEntry | None = None
+
+
 def _wait_for_port(
     port: int,
     host: str = "127.0.0.1",
@@ -88,13 +104,8 @@ def _wire_server_config(
 
 
 def start_caddy(
-    good: ProxyEntry,
-    wire: ProxyEntry,
-    dead: ProxyEntry,
-    tmp_dir: Path,
+    config: ProxyConfig,
     *,
-    grpc: ProxyEntry | None = None,
-    h2c: ProxyEntry | None = None,
     dial_timeout: str = "30s",
     response_header_timeout: str = "",
     idle_timeout: str = "",
@@ -115,7 +126,7 @@ def start_caddy(
 
     servers: dict[str, object] = {
         "good": {
-            "listen": [f":{good.listen_port}"],
+            "listen": [f":{config.good.listen_port}"],
             "routes": [
                 {
                     "handle": [
@@ -125,30 +136,30 @@ def start_caddy(
                             # X-Forwarded-For from the test client is
                             # preserved and appended to, not replaced.
                             "trusted_proxies": ["127.0.0.1/32"],
-                            "upstreams": [{"dial": _dial(good.upstream)}],
+                            "upstreams": [{"dial": _dial(config.good.upstream)}],
                         }
                     ]
                 }
             ],
         },
-        "wire": _wire_server_config(wire, transport, idle_timeout, read_timeout),
+        "wire": _wire_server_config(config.wire, transport, idle_timeout, read_timeout),
         "dead": {
-            "listen": [f":{dead.listen_port}"],
+            "listen": [f":{config.dead.listen_port}"],
             "routes": [
                 {
                     "handle": [
                         {
                             "handler": "reverse_proxy",
-                            "upstreams": [{"dial": _dial(dead.upstream)}],
+                            "upstreams": [{"dial": _dial(config.dead.upstream)}],
                         }
                     ]
                 }
             ],
         },
     }
-    if grpc is not None:
+    if config.grpc is not None:
         servers["grpc"] = {
-            "listen": [f":{grpc.listen_port}"],
+            "listen": [f":{config.grpc.listen_port}"],
             "routes": [
                 {
                     "handle": [
@@ -158,15 +169,15 @@ def start_caddy(
                                 "protocol": "http",
                                 "versions": ["h2c"],
                             },
-                            "upstreams": [{"dial": _dial(grpc.upstream)}],
+                            "upstreams": [{"dial": _dial(config.grpc.upstream)}],
                         }
                     ]
                 }
             ],
         }
-    if h2c is not None:
+    if config.h2c is not None:
         servers["h2c"] = {
-            "listen": [f":{h2c.listen_port}"],
+            "listen": [f":{config.h2c.listen_port}"],
             "routes": [
                 {
                     "handle": [
@@ -176,20 +187,20 @@ def start_caddy(
                                 "protocol": "http",
                                 "versions": ["h2c"],
                             },
-                            "upstreams": [{"dial": _dial(h2c.upstream)}],
+                            "upstreams": [{"dial": _dial(config.h2c.upstream)}],
                         }
                     ]
                 }
             ],
         }
 
-    config: dict[str, object] = {
+    caddy_config: dict[str, object] = {
         "admin": {"disabled": True},
         "apps": {"http": {"servers": servers}},
     }
 
-    config_file = tmp_dir / "caddy.json"
-    config_file.write_text(json.dumps(config))
+    config_file = config.tmp_dir / "caddy.json"
+    config_file.write_text(json.dumps(caddy_config))
 
     proc = subprocess.Popen(
         ["caddy", "run", "--config", str(config_file)],
@@ -197,11 +208,11 @@ def start_caddy(
         stderr=subprocess.PIPE,
     )
 
-    ports = [good.listen_port, wire.listen_port, dead.listen_port]
-    if grpc is not None:
-        ports.append(grpc.listen_port)
-    if h2c is not None:
-        ports.append(h2c.listen_port)
+    ports = [config.good.listen_port, config.wire.listen_port, config.dead.listen_port]
+    if config.grpc is not None:
+        ports.append(config.grpc.listen_port)
+    if config.h2c is not None:
+        ports.append(config.h2c.listen_port)
     for port in ports:
         try:
             _wait_for_port(port)
@@ -216,13 +227,8 @@ def start_caddy(
 
 
 def start_haproxy(
-    good: ProxyEntry,
-    wire: ProxyEntry,
-    dead: ProxyEntry,
-    tmp_dir: Path,
+    config: ProxyConfig,
     *,
-    grpc: ProxyEntry | None = None,
-    h2c: ProxyEntry | None = None,
     connect_timeout: str = "5s",
     server_timeout: str = "30s",
     client_timeout: str = "30s",
@@ -243,54 +249,54 @@ defaults
     option forwardfor
 
 frontend good_frontend
-    bind :{good.listen_port}
+    bind :{config.good.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend good_backend
 
 backend good_backend
-    server upstream {_dial(good.upstream)}
+    server upstream {_dial(config.good.upstream)}
 
 frontend wire_frontend
-    bind :{wire.listen_port}
+    bind :{config.wire.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend wire_backend
 
 backend wire_backend
-    server upstream {_dial(wire.upstream)}
+    server upstream {_dial(config.wire.upstream)}
 
 frontend dead_frontend
-    bind :{dead.listen_port}
+    bind :{config.dead.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend dead_backend
 
 backend dead_backend
-    server upstream {_dial(dead.upstream)}
+    server upstream {_dial(config.dead.upstream)}
 """
-    if grpc is not None:
+    if config.grpc is not None:
         config_content += f"""
 frontend grpc_frontend
-    bind :{grpc.listen_port} proto h2
+    bind :{config.grpc.listen_port} proto h2
     default_backend grpc_backend
 
 backend grpc_backend
-    server upstream {_dial(grpc.upstream)} proto h2
+    server upstream {_dial(config.grpc.upstream)} proto h2
 """
-    if h2c is not None:
+    if config.h2c is not None:
         config_content += f"""
 frontend h2c_frontend
-    bind :{h2c.listen_port}
+    bind :{config.h2c.listen_port}
     http-request add-header Via "1.1 haproxy"
     http-response add-header Via "1.1 haproxy"
     default_backend h2c_backend
 
 backend h2c_backend
-    server upstream {_dial(h2c.upstream)} proto h2
+    server upstream {_dial(config.h2c.upstream)} proto h2
 """
 
-    config_file = tmp_dir / "haproxy.cfg"
+    config_file = config.tmp_dir / "haproxy.cfg"
     config_file.write_text(config_content)
 
     proc = subprocess.Popen(
@@ -299,11 +305,15 @@ backend h2c_backend
         stderr=subprocess.PIPE,
     )
 
-    ports = [good.listen_port, wire.listen_port, dead.listen_port]
-    if grpc is not None:
-        ports.append(grpc.listen_port)
-    if h2c is not None:
-        ports.append(h2c.listen_port)
+    ports = [
+        config.good.listen_port,
+        config.wire.listen_port,
+        config.dead.listen_port,
+    ]
+    if config.grpc is not None:
+        ports.append(config.grpc.listen_port)
+    if config.h2c is not None:
+        ports.append(config.h2c.listen_port)
     for port in ports:
         try:
             _wait_for_port(port)
@@ -439,24 +449,18 @@ def start_proxy(
             else None
         )
         try:
+            proxy_config = ProxyConfig(
+                good=good,
+                wire=wire,
+                dead=dead,
+                tmp_dir=tmp_dir,
+                grpc=grpc_entry,
+                h2c=h2c_entry,
+            )
             if proxy_type == "caddy":
-                proc = start_caddy(
-                    good,
-                    wire,
-                    dead,
-                    tmp_dir=tmp_dir,
-                    grpc=grpc_entry,
-                    h2c=h2c_entry,
-                )
+                proc = start_caddy(proxy_config)
             else:
-                proc = start_haproxy(
-                    good,
-                    wire,
-                    dead,
-                    tmp_dir=tmp_dir,
-                    grpc=grpc_entry,
-                    h2c=h2c_entry,
-                )
+                proc = start_haproxy(proxy_config)
             return proc, make_proxy_urls(
                 good,
                 wire,
