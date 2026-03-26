@@ -20,6 +20,7 @@ impl Server {
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         // We create a TcpListener and bind it
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
+        eprintln!("Listening on {}", self.addr);
 
         // We start a loop to continuously accept incoming connections
         loop {

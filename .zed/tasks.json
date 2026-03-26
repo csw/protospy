@@ -1,7 +1,7 @@
 [
   {
     "label": "protospy",
-    "command": "cargo run -- --port 3000 --target localhost:9200",
+    "command": "cargo run -- --proxy name=es,port=3000,target=localhost:9200",
   },
   {
     "label": "elasticflix: run",
