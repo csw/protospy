@@ -77,6 +77,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .join_next()
         .await
         .unwrap()
+        .unwrap()
         .map(|_| ())
         .map_err(Box::new)?)
 }
