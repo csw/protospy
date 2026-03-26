@@ -338,6 +338,14 @@ These catalog requirements will be noted in the test files, e.g. `catalog_ids=["
 **Target expectation:** No body received; Content-Length absent or zero
 **Client expectation:** 200
 
+#### 1.9 — Host header set to upstream authority
+**Spec:** RFC 9110 §7.6.3
+**Description:** The proxy MUST send a `Host` header matching the upstream server's authority (host:port), not the client's original `Host` value.
+**Request:** GET /echo with `Host: test-host.example.com`
+**Target expectation:** `host` header equals `{good_server.host}:{good_server.port}`
+**Client expectation:** 200
+**Note:** Checked via `CustomTargetExpectation` callback since the upstream port is assigned at runtime. HAProxy preserves the original Host by default (RFC deviation).
+
 ---
 
 ### 2. Response forwarding fundamentals

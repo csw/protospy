@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from proxy_conformance.good_server import GoodServer
+from proxy_conformance.good_server import CapturedRequest, GoodServer
 from proxy_conformance.h11_client import send_raw_request_line
 from proxy_conformance.types import (
     ClientExpectation,
@@ -24,6 +24,27 @@ from proxy_conformance.types import (
 
 from .conftest import Findings
 from .proxies import ProxyUrls, tagged_url
+
+
+def _host_is_upstream_authority(captured: CapturedRequest, server: GoodServer) -> bool:
+    """Check proxy set Host to upstream server's authority (RFC 9110 §7.6.3)."""
+    return captured.header_joined("host") == f"{server.host}:{server.port}"
+
+
+# §1.9: Both Caddy and HAProxy preserve original Host (RFC 9110 §7.6.3 deviation)
+_HOST_HEADER_QUIRKS: dict[str, ProxyQuirk] = {
+    proxy: ProxyQuirk(
+        disposition="override",
+        reason=(
+            f"{proxy.title()} preserves original Host by default"
+            " (RFC 9110 §7.6.3 deviation)"
+        ),
+        target=TargetExpectation(
+            headers=HeaderExpectation(present={"host": "test-host.example.com"}),
+        ),
+    )
+    for proxy in ("caddy", "haproxy")
+}
 
 REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
     # Category 1: Request forwarding fundamentals
@@ -166,6 +187,24 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         description="Proxy does not fabricate a body for GET",
         catalog_ids=["1.8"],
         request=RequestSpec(method="GET", path="/echo"),
+    ),
+    # 1.9: Host header set to upstream authority (RFC 9110 §7.6.3)
+    ProxyTestCase(
+        id="1.9-host-upstream-authority",
+        spec_ref="RFC 9110 §7.6.3",
+        description=(
+            "Proxy sets Host to upstream server authority, not client's original value"
+        ),
+        catalog_ids=["1.9"],
+        request=RequestSpec(
+            method="GET",
+            path="/echo",
+            headers={"Host": "test-host.example.com"},
+        ),
+        expect_at_target=TargetExpectation(
+            custom=[_host_is_upstream_authority],
+        ),
+        proxy_quirks=_HOST_HEADER_QUIRKS,
     ),
     # Category 14: URI handling
     # 14.1: Double slashes preserved (RFC 9112 §3.2)

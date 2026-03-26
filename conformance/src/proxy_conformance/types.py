@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import queue
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -23,6 +24,8 @@ from proxy_conformance import httpx_util
 from proxy_conformance.good_server import CapturedRequest, GoodServer
 
 log = logging.getLogger("conformance")
+
+type CustomTargetExpectation = Callable[[CapturedRequest, GoodServer], bool]
 
 
 @dataclass
@@ -63,6 +66,7 @@ class TargetExpectation:
     headers: HeaderExpectation = field(default_factory=HeaderExpectation)
     body: bytes | None = None  # Override expected body (default: from RequestSpec)
     no_request: bool = False
+    custom: list[CustomTargetExpectation] = field(default_factory=list)
 
 
 @dataclass
@@ -401,6 +405,11 @@ def assert_proxy_test_case(
             f"expected {expected_body!r}, "
             f"got {captured.body!r}"
         )
+
+        for cb in effective_target.custom:
+            assert cb(captured, good_server), (
+                f"[{case.id}] Custom expectation {cb.__name__!r} failed"
+            )
 
 
 def assert_probe_target(
