@@ -2,8 +2,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use http_body_util::Empty;
-use hyper::body::Bytes;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -67,7 +65,7 @@ impl Server {
             target_h.insert(hyper::header::HOST, authority.parse().unwrap());
         }
         // TODO: propagate body
-        let target_req = target_req_builder.body(Empty::<Bytes>::new())?;
+        let target_req = target_req_builder.body(req.into_body())?;
 
         let client_stream = TcpStream::connect(&self.target).await.unwrap();
         let io = TokioIo::new(client_stream);
