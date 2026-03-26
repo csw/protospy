@@ -33,7 +33,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
-                contains={"x-forwarded-for": "127.0.0.1"},
+                present={"x-forwarded-for": "127.0.0.1"},
             ),
         ),
         expect_at_client=ClientExpectation(status=200),
@@ -53,7 +53,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         ),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
-                contains={"x-forwarded-for": "10.0.0.1"},
+                contains={"x-forwarded-for": "10.0.0.1, 127.0.0.1"},
             ),
         ),
         expect_at_client=ClientExpectation(status=200),
@@ -69,7 +69,7 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
         request=RequestSpec(method="GET", path="/echo"),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
-                contains={"x-forwarded-proto": "http"},
+                present={"x-forwarded-proto": "http"},
             ),
         ),
         expect_at_client=ClientExpectation(status=200),
@@ -91,10 +91,14 @@ FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
             "Proxy adds X-Forwarded-Host header with the original request host"
         ),
         catalog_ids=["5.4"],
-        request=RequestSpec(method="GET", path="/echo"),
+        request=RequestSpec(
+            method="GET",
+            path="/echo",
+            headers={"Host": "test-proxy-client.example.com"},
+        ),
         expect_at_target=TargetExpectation(
             headers=HeaderExpectation(
-                contains={"x-forwarded-host": "127.0.0.1"},
+                present={"x-forwarded-host": "test-proxy-client.example.com"},
             ),
         ),
         expect_at_client=ClientExpectation(status=200),
