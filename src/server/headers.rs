@@ -2,6 +2,11 @@ use http::{HeaderMap, HeaderValue, Request};
 
 use super::conn::ConnInfo;
 
+const KEEP_ALIVE: &str = "Keep-Alive";
+const X_FORWARDED_FOR: &str = "X-Forwarded-For";
+const X_FORWARDED_HOST: &str = "X-Forwarded-Host";
+const X_FORWARDED_PROTO: &str = "X-Forwarded-Proto";
+
 pub fn build<T>(
     proxy: &super::Server,
     req: &Request<T>,
@@ -11,14 +16,16 @@ pub fn build<T>(
     res_h.clone_from(req.headers());
     res_h.insert(hyper::header::HOST, proxy.target.parse().unwrap());
 
+    res_h.remove(KEEP_ALIVE);
+
     if let Some(host_val) = req.headers().get(hyper::header::HOST) {
-        res_h.append("x-forwarded-host", host_val.clone());
+        res_h.append(X_FORWARDED_HOST, host_val.clone());
     }
     res_h.append(
-        "x-forwarded-for",
+        X_FORWARDED_FOR,
         conn.client.ip().to_string().parse().unwrap(),
     );
-    res_h.append("x-forwarded-proto", conn.protocol.parse().unwrap());
+    res_h.append(X_FORWARDED_PROTO, conn.protocol.parse().unwrap());
 }
 
 #[cfg(test)]
@@ -99,6 +106,12 @@ mod tests {
         let mut h = HeaderMap::new();
         build(&server(), &req, &conn(), &mut h);
         assert_eq!(header_vals(&h, "X-Forwarded-Host"), vec!(orig_fwd, orig))
+    }
+
+    #[test]
+    fn test_keep_alive_stripped() {
+        let h = build_mapped(|b| b.header(KEEP_ALIVE, "timeout=5"));
+        assert!(!h.contains_key(KEEP_ALIVE));
     }
 
     #[test]
