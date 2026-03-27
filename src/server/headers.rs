@@ -38,59 +38,33 @@ mod tests {
     use super::super::Server;
     use super::*;
 
-    type BuilderMod = fn(Builder) -> Builder;
-
     const CLIENT_IP: &str = "127.0.0.1";
     const CLIENT: &str = "127.0.0.1:45678";
     const TARGET: &str = "localhost:80";
 
     #[test]
     fn test_x_forwarded_for_added() {
-        let req = Builder::new().body(empty()).unwrap();
-        let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
-        assert_eq!(
-            h.get("X-Forwarded-For").map(|v| v.to_str().unwrap()),
-            Some(CLIENT_IP)
-        )
+        let h = build_mapped(|b| b);
+        assert_eq!(header_val(&h, "X-Forwarded-For"), Some(CLIENT_IP))
     }
 
     #[test]
     fn test_x_forwarded_for_appended() {
         let orig = "192.168.1.1";
-        let req = Builder::new()
-            .header("x-forwarded-for", orig)
-            .body(empty())
-            .unwrap();
-        let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
+        let h = build_mapped(|b| b.header("x-forwarded-for", orig));
         assert_eq!(header_vals(&h, "X-Forwarded-For"), vec!(orig, CLIENT_IP))
     }
 
     #[test]
     fn test_x_forwarded_proto_added() {
-        let req = Builder::new().body(empty()).unwrap();
-        let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
-        assert_eq!(
-            h.get("X-Forwarded-Proto").map(|v| v.to_str().unwrap()),
-            Some("http")
-        )
+        let h = build_mapped(|b| b);
+        assert_eq!(header_val(&h, "X-Forwarded-Proto"), Some("http"));
     }
 
     #[test]
     fn test_x_forwarded_host_added() {
         let orig = "localhost:3000";
-        let req = Builder::new()
-            .header(hyper::header::HOST, orig)
-            .body(empty())
-            .unwrap();
-        let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
-        assert_eq!(
-            h.get("X-Forwarded-Host").map(|v| v.to_str().unwrap()),
-            Some(orig)
-        );
+        let h = build_mapped(|b| b.header(hyper::header::HOST, orig));
         assert_eq!(header_val(&h, "X-Forwarded-Host"), Some(orig));
     }
 
@@ -98,13 +72,7 @@ mod tests {
     fn test_x_forwarded_host_appended() {
         let orig = "localhost:3000";
         let orig_fwd = "altair:80";
-        let req = Builder::new()
-            .header("Host", orig)
-            .header("X-Forwarded-Host", orig_fwd)
-            .body(empty())
-            .unwrap();
-        let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
+        let h = build_mapped(|b| b.header("Host", orig).header("X-Forwarded-Host", orig_fwd));
         assert_eq!(header_vals(&h, "X-Forwarded-Host"), vec!(orig_fwd, orig))
     }
 
@@ -120,7 +88,7 @@ mod tests {
         assert_eq!(header_val(&h, "host"), Some(TARGET))
     }
 
-    fn build_mapped(modify: BuilderMod) -> HeaderMap {
+    fn build_mapped(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
         let mut h = HeaderMap::new();
         build(&server(), &req, &conn(), &mut h);
