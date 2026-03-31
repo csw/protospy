@@ -393,7 +393,11 @@ def tagged_url(url: str, test_id: str) -> str:
 # Proxy coordinate types and startup helpers
 # ---------------------------------------------------------------------------
 
-ALL_PROXIES = ["caddy", "haproxy", "protospy"]
+MANAGED_PROXIES: list[str] = ["caddy", "haproxy", "protospy"]
+
+# All valid proxy type strings, including external ones that must be
+# selected explicitly and cannot be auto-started.
+ALL_PROXIES: list[str] = [*MANAGED_PROXIES, "protospy-ext"]
 
 
 @dataclass
@@ -465,12 +469,12 @@ def start_proxy(
     For non-default timeouts call start_caddy / start_haproxy directly.
     Raises ValueError for unknown proxy types.
     """
-    if proxy_type not in ALL_PROXIES:
-        supported = ", ".join(ALL_PROXIES)
+    if proxy_type not in MANAGED_PROXIES:
+        supported = ", ".join(MANAGED_PROXIES)
         msg = (
             f"Unknown proxy type: {proxy_type!r}. "
             f"Supported: {supported}. "
-            "To add a new proxy, extend ALL_PROXIES and the dispatch "
+            "To add a new proxy, extend MANAGED_PROXIES and the dispatch "
             "in start_proxy() in proxies.py."
         )
         raise ValueError(msg)

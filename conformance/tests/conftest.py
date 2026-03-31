@@ -16,7 +16,7 @@ from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.h2c_server import H2cServer
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
-from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
+from .proxies import ALL_PROXIES, MANAGED_PROXIES, ProxyUrls, start_proxy
 
 FindingLevel = Literal["info", "finding"]
 
@@ -162,12 +162,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Fix the WireServer port (default: random). Useful with --proxy-url.",
     )
+    parser.addoption(
+        "--protospy-ext-host",
+        default="127.0.0.1",
+        help="Host where pre-running protospy listens (default: 127.0.0.1).",
+    )
+    parser.addoption(
+        "--protospy-ext-good-port",
+        type=int,
+        default=7400,
+        help="Protospy frontend port for the good channel (default: 7400).",
+    )
+    parser.addoption(
+        "--protospy-ext-wire-port",
+        type=int,
+        default=7401,
+        help="Protospy frontend port for the wire channel (default: 7401).",
+    )
+    parser.addoption(
+        "--protospy-ext-dead-port",
+        type=int,
+        default=7402,
+        help="Protospy frontend port for the dead channel (default: 7402).",
+    )
 
 
 def _get_proxy_list(config: pytest.Config) -> list[str]:
     raw = str(config.getoption("--proxy"))
     if raw == "all":
-        return list(ALL_PROXIES)
+        return list(MANAGED_PROXIES)
     return [p.strip() for p in raw.split(",") if p.strip()]
 
 
@@ -222,7 +245,7 @@ def proxy_type(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
-    port = request.config.getoption("--good-target-port")
+    port: int | None = request.config.getoption("--good-target-port")
     server = GoodServer() if port is None else GoodServer(port=port)
     server.start()
     yield server
@@ -231,7 +254,7 @@ def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
 
 @pytest.fixture(scope="session")
 def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
-    port = request.config.getoption("--wire-target-port")
+    port: int | None = request.config.getoption("--wire-target-port")
     server = WireServer() if port is None else WireServer(port=port)
     register_default_routes(server)
     server.start()
@@ -271,6 +294,11 @@ def proxy(
     via ``--proxy``).  Pass ``--proxy-url`` to skip lifecycle management
     and use an externally-started proxy instead.
     """
+    if proxy_type not in ALL_PROXIES:
+        supported = ", ".join(ALL_PROXIES)
+        msg = f"Unknown proxy type: {proxy_type!r}. Supported: {supported}."
+        raise ValueError(msg)
+
     proxy_url = request.config.getoption("--proxy-url")
 
     if proxy_url is not None:
@@ -287,6 +315,24 @@ def proxy(
             dead_url="",
             dead_host="",
             dead_port=0,
+        )
+        return
+
+    if proxy_type == "protospy-ext":
+        host: str = request.config.getoption("--protospy-ext-host")
+        good_port: int = request.config.getoption("--protospy-ext-good-port")
+        wire_port: int = request.config.getoption("--protospy-ext-wire-port")
+        dead_port: int = request.config.getoption("--protospy-ext-dead-port")
+        yield ProxyUrls(
+            good_url=f"http://{host}:{good_port}",
+            wire_url=f"http://{host}:{wire_port}",
+            good_host=host,
+            good_port=good_port,
+            wire_host=host,
+            wire_port=wire_port,
+            dead_url=f"http://{host}:{dead_port}",
+            dead_host=host,
+            dead_port=dead_port,
         )
         return
 
