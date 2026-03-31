@@ -68,7 +68,7 @@ impl Server {
 
         let mut target_req_builder = Request::builder().method(req.method()).uri(uri_string);
         if let Some(target_h) = target_req_builder.headers_mut() {
-            super::headers::build(&self, &req, &conn, target_h);
+            super::headers::build(&self, &req, &conn, target_h)?;
         }
 
         let wrapped_body = super::body::BodyWrapper {

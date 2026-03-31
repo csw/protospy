@@ -1,22 +1,46 @@
-use http::{HeaderMap, HeaderValue, Request};
+use std::sync::LazyLock;
+
+use http::{HeaderMap, HeaderName, HeaderValue, Request};
 
 use super::conn::ConnInfo;
 
-const KEEP_ALIVE: &str = "Keep-Alive";
+const KEEP_ALIVE: &str = "keep-alive";
 const X_FORWARDED_FOR: &str = "X-Forwarded-For";
 const X_FORWARDED_HOST: &str = "X-Forwarded-Host";
 const X_FORWARDED_PROTO: &str = "X-Forwarded-Proto";
+
+static STRIP_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
+    vec![
+        hyper::header::CONNECTION,
+        HeaderName::from_static(KEEP_ALIVE),
+    ]
+});
 
 pub fn build<T>(
     proxy: &super::Server,
     req: &Request<T>,
     conn: &ConnInfo,
     res_h: &mut HeaderMap<HeaderValue>,
-) {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     res_h.clone_from(req.headers());
-    res_h.insert(hyper::header::HOST, proxy.target.parse().unwrap());
+    res_h.insert(hyper::header::HOST, proxy.target.parse()?);
 
-    res_h.remove(KEEP_ALIVE);
+    if let Some(conn_str) = res_h
+        .get(hyper::header::CONNECTION)
+        .and_then(|v| v.to_str().ok())
+        .map(&str::to_string)
+    {
+        for field in header_fields(&conn_str) {
+            res_h.remove(field);
+        }
+    }
+
+    for to_strip in STRIP_HEADERS.iter() {
+        res_h.remove(to_strip);
+    }
+
+    // Hop-by-hop:
+    // Keep-Alive, Transfer-Encoding, TE, Connection, Trailer, Upgrade, Proxy-Authorization and Proxy-Authenticate
 
     if let Some(host_val) = req.headers().get(hyper::header::HOST) {
         res_h.append(X_FORWARDED_HOST, host_val.clone());
@@ -25,7 +49,13 @@ pub fn build<T>(
         X_FORWARDED_FOR,
         conn.client.ip().to_string().parse().unwrap(),
     );
-    res_h.append(X_FORWARDED_PROTO, conn.protocol.parse().unwrap());
+    res_h.append(X_FORWARDED_PROTO, conn.protocol.parse()?);
+
+    Ok(())
+}
+
+fn header_fields(val: &str) -> impl Iterator<Item = &str> {
+    val.split(',').map(|s| s.trim())
 }
 
 #[cfg(test)]
@@ -91,7 +121,7 @@ mod tests {
     fn build_mapped(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
         let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h);
+        build(&server(), &req, &conn(), &mut h).unwrap();
         h
     }
 
