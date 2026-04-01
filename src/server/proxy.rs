@@ -2,7 +2,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use color_eyre::{Result, eyre::WrapErr};
-use http::uri;
+use http::{StatusCode, uri};
+use http_body_util::{Either, Empty};
+use hyper::body::Bytes;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -14,6 +16,13 @@ use crate::server::conn::ConnInfo;
 
 use super::client::Client;
 use super::headers;
+
+pub const SERVER_NAME: &str = "protospy";
+
+type ServerResponse =
+    Response<http_body_util::Either<hyper::body::Incoming, http_body_util::Empty<Bytes>>>;
+
+type ClientResult = <hyper_util::client::legacy::ResponseFuture as Future>::Output;
 
 #[derive(Debug)]
 pub struct Server {
@@ -71,7 +80,7 @@ impl Server {
         self: Arc<Self>,
         req: Request<hyper::body::Incoming>,
         conn: ConnInfo,
-    ) -> Result<Response<hyper::body::Incoming>> {
+    ) -> Result<ServerResponse> {
         let req_uri = req.uri();
 
         let target_uri = uri::Builder::new()
@@ -99,14 +108,31 @@ impl Server {
 
         info!("Forwarding request");
 
-        let mut response = self
-            .client
-            .request(target_req)
-            .await
-            .wrap_err_with(move || format!("HTTP request to {} failed", target_uri))?;
+        let response_res = self.client.request(target_req).await;
 
-        *response.headers_mut() = headers::response_headers(response.headers())?;
+        self.build_response(response_res)
+    }
 
-        Ok(response)
+    fn build_response(&self, upstream: ClientResult) -> Result<ServerResponse> {
+        // N.B. I'm puzzled as to how to test this, since I can't construct a
+        // hyper_util::client::legacy::Error.
+        if let Err(ref e) = upstream
+            && e.is_connect()
+        {
+            return self.error_response(StatusCode::BAD_GATEWAY);
+        }
+        let response = upstream.wrap_err("HTTP request failed")?;
+
+        let (parts, response_body) = response.into_parts();
+        let mut res_parts = parts.clone();
+        res_parts.headers = headers::response_headers(&parts.headers)?;
+        Ok(Response::from_parts(res_parts, Either::Left(response_body)))
+    }
+
+    fn error_response(&self, status: StatusCode) -> Result<ServerResponse> {
+        Ok(Response::builder()
+            .status(status)
+            .header("server", SERVER_NAME)
+            .body(Either::Right(Empty::new()))?)
     }
 }
