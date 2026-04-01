@@ -17,4 +17,22 @@
     "env": { "ENV": "development" },
     "cwd": "$ZED_WORKTREE_ROOT",
   },
+  {
+    "label": "Debug: protospy-ext",
+    "adapter": "CodeLLDB",
+    "request": "launch",
+    "build": {
+      "command": "cargo",
+      "args": ["build"],
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/debug/protospy",
+    "args": [
+      "--proxy=name=good,port=7400,target=127.0.0.1:7300",
+      "--proxy=name=wire,port=7401,target=127.0.0.1:7301",
+      "--proxy=name=dead,port=7402,target=127.0.0.1:7399",
+    ],
+    "sourceLanguages": ["rust"],
+    "env": { "ENV": "development" },
+    "cwd": "$ZED_WORKTREE_ROOT",
+  },
 ]
