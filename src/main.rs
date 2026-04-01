@@ -1,7 +1,11 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use clap::Parser;
+use color_eyre::config::Frame;
+use eyre::Result;
 use tokio::task::JoinSet;
+use tracing_error::ErrorLayer;
+use tracing_subscriber::{prelude::*, registry::Registry};
 
 pub mod server;
 
@@ -21,10 +25,11 @@ struct ProxyConfig {
 }
 
 impl ProxyConfig {
-    fn to_server(&self) -> server::Server {
+    fn to_server(&self, client: server::client::Client) -> server::Server {
         server::Server {
             addr: SocketAddr::from(([127, 0, 0, 1], self.port)),
             target: self.target.clone(),
+            client,
         }
     }
 }
@@ -58,14 +63,17 @@ impl std::str::FromStr for ProxyConfig {
 }
 
 #[tokio::main]
-pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn main() -> Result<()> {
+    init_error_reporting()?;
+
     let args = Args::parse();
+    let client = server::client::build();
     let servers: Vec<Arc<server::Server>> = args
         .proxies
         .iter()
         .map(|p| {
             _ = p.name;
-            Arc::new(p.to_server())
+            Arc::new(p.to_server(client.clone()))
         })
         .collect();
     let mut join_set = JoinSet::new();
@@ -73,11 +81,23 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let server = Arc::clone(server);
         _ = join_set.spawn(async move { server.run().await });
     }
-    Ok(join_set
-        .join_next()
-        .await
-        .unwrap()
-        .unwrap()
-        .map(|_| ())
-        .map_err(Box::new)?)
+    join_set.join_next().await.unwrap().unwrap()
+}
+
+fn init_error_reporting() -> Result<()> {
+    // enable spantrace capture
+    Registry::default().with(ErrorLayer::default()).init();
+
+    color_eyre::config::HookBuilder::default()
+        .add_frame_filter(Box::new(&our_frames_filter))
+        .install()
+}
+
+fn our_frames_filter(frames: &mut Vec<&Frame>) {
+    frames.retain(|frame| {
+        frame
+            .name
+            .as_ref()
+            .is_some_and(|name| name.starts_with("protospy::"))
+    });
 }

@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use color_eyre::Result;
 use http::{HeaderMap, HeaderName, HeaderValue, Request};
 
 use super::conn::ConnInfo;
@@ -21,7 +22,7 @@ pub fn build<T>(
     req: &Request<T>,
     conn: &ConnInfo,
     res_h: &mut HeaderMap<HeaderValue>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<()> {
     res_h.clone_from(req.headers());
     res_h.insert(hyper::header::HOST, proxy.target.parse()?);
 
@@ -64,6 +65,8 @@ mod tests {
     use http::request::Builder;
     use http_body_util::Empty;
     use hyper::body::Bytes;
+
+    use crate::server::client;
 
     use super::super::Server;
     use super::*;
@@ -141,6 +144,7 @@ mod tests {
         Server {
             addr: "127.0.0.1:8080".parse().unwrap(),
             target: TARGET.to_string(),
+            client: client::build(),
         }
     }
 
