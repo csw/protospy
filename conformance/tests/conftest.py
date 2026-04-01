@@ -151,6 +151,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Show proxy behavioral findings in terminal summary.",
     )
     parser.addoption(
+        "--show-http",
+        action="store_true",
+        default=False,
+        help=(
+            "Print request/response details (curl -v style) to stderr. "
+            "Pass -s to see output in real time."
+        ),
+    )
+    parser.addoption(
         "--proxy",
         default="caddy,haproxy",
         help=(
@@ -380,9 +389,22 @@ def proxy_name(proxy_type: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def client() -> Generator[httpx.Client]:
+def client(pytestconfig: pytest.Config) -> Generator[httpx.Client]:
     """httpx client configured to ignore environment proxy settings."""
-    with httpx.Client(trust_env=False) as c:
+    from proxy_conformance.httpx_util import (
+        verbose_request_hook,
+        verbose_response_hook,
+    )
+
+    event_hooks = (
+        {
+            "request": [verbose_request_hook],
+            "response": [verbose_response_hook],
+        }
+        if pytestconfig.getoption("--show-http")
+        else {}
+    )
+    with httpx.Client(trust_env=False, event_hooks=event_hooks) as c:
         yield c
 
 

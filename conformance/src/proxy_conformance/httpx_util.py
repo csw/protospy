@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Iterable
 
 import httpx
@@ -21,3 +22,34 @@ def dump_response(response: httpx.Response) -> str:
         + _fmt_headers(response.headers)
         + "\n"
     )
+
+
+def _curl_request_lines(request: httpx.Request) -> Iterable[str]:
+    path = request.url.raw_path.decode()
+    yield f"> {request.method} {path} HTTP/1.1"
+    for h, v in request.headers.multi_items():
+        yield f"> {h}: {v}"
+    yield ">"
+
+
+def _curl_response_lines(response: httpx.Response) -> Iterable[str]:
+    yield (f"< {response.http_version} {response.status_code} {response.reason_phrase}")
+    for h, v in response.headers.multi_items():
+        yield f"< {h}: {v}"
+    yield "<"
+    cl = response.headers.get("content-length")
+    te = response.headers.get("transfer-encoding", "")
+    if cl is not None:
+        yield f"* Response body: {cl} bytes"
+    elif "chunked" in te.lower():
+        yield "* Response body: chunked (length unknown)"
+    else:
+        yield "* Response body: (no content-length)"
+
+
+def verbose_request_hook(request: httpx.Request) -> None:
+    print("\n".join(_curl_request_lines(request)), file=sys.stderr)
+
+
+def verbose_response_hook(response: httpx.Response) -> None:
+    print("\n".join(_curl_response_lines(response)), file=sys.stderr)

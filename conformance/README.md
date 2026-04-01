@@ -16,6 +16,12 @@ Use `--proxy all` to run against all managed proxies (caddy, haproxy, protospy).
 
 To print the conformance findings as well as the test results, use the `--findings` option.
 
+To see the actual HTTP requests and responses on stderr, in the style of `curl -v`, use the `--show-http` option. To see this for tests which pass, also specify `-rP`. For example:
+
+```shell
+uv run pytest -rP --proxy caddy --show-http -k upstream_unreachable
+```
+
 ### Running against a pre-started protospy instance
 
 `--proxy protospy-ext` connects to a protospy process you started yourself, rather than having the test harness spawn one. This is useful during active protospy development when you want full control over the binary, configuration, and logs.
