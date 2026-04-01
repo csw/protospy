@@ -4,7 +4,9 @@ use clap::Parser;
 use color_eyre::config::Frame;
 use eyre::Result;
 use tokio::task::JoinSet;
+use tracing::level_filters::LevelFilter;
 use tracing_error::ErrorLayer;
+use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
 pub mod server;
@@ -64,7 +66,8 @@ impl std::str::FromStr for ProxyConfig {
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    init_error_reporting()?;
+    // init_logging();
+    init_logging()?;
 
     let args = Args::parse();
     let client = server::client::build();
@@ -84,10 +87,22 @@ pub async fn main() -> Result<()> {
     join_set.join_next().await.unwrap().unwrap()
 }
 
-fn init_error_reporting() -> Result<()> {
-    // enable spantrace capture
-    Registry::default().with(ErrorLayer::default()).init();
+/// Set up event logging and error reporting.
+fn init_logging() -> Result<()> {
+    // set up standard logging
+    let log_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()?;
+    let log_layer = tracing_subscriber::fmt::layer().with_filter(log_filter);
 
+    // register tracing layers for logging and errors with color-eyre
+    Registry::default()
+        .with(ErrorLayer::default())
+        .with(log_layer)
+        .init();
+
+    // filter backtrace frames for only ours; otherwise we get about 50
+    // infrastructure frames.
     color_eyre::config::HookBuilder::default()
         .add_frame_filter(Box::new(&our_frames_filter))
         .install()

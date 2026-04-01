@@ -16,7 +16,10 @@ color-eyre = "0.6.5"
 tracing = "0.1.44"
 color-spantrace = "0.3.0"
 tracing-error = { version = "0.2.1", features = ["traced-error"] }
-tracing-subscriber = "0.3.23"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[profile.dev]
+panic = "abort"
 
 [profile.dev.package.backtrace]
 opt-level = 3

@@ -17,7 +17,7 @@ static STRIP_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
     ]
 });
 
-pub fn build<T>(
+pub fn build_request<T>(
     proxy: &super::Server,
     req: &Request<T>,
     conn: &ConnInfo,
@@ -55,6 +55,7 @@ pub fn build<T>(
     Ok(())
 }
 
+/// Splits a comma-delimited header field, such as Connection.
 fn header_fields(val: &str) -> impl Iterator<Item = &str> {
     val.split(',').map(|s| s.trim())
 }
@@ -124,7 +125,7 @@ mod tests {
     fn build_mapped(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
         let mut h = HeaderMap::new();
-        build(&server(), &req, &conn(), &mut h).unwrap();
+        build_request(&server(), &req, &conn(), &mut h).unwrap();
         h
     }
 

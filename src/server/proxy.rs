@@ -8,7 +8,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
-use tracing::Instrument;
+use tracing::{Instrument, info};
 
 use crate::server::conn::ConnInfo;
 
@@ -26,7 +26,7 @@ impl Server {
     pub async fn run(self: Arc<Self>) -> Result<()> {
         // We create a TcpListener and bind it
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
-        eprintln!("Listening on {}", self.addr);
+        info!("Listening");
 
         // We start a loop to continuously accept incoming connections
         loop {
@@ -87,7 +87,7 @@ impl Server {
             .method(req.method())
             .uri(target_uri.clone());
         if let Some(target_h) = target_req_builder.headers_mut() {
-            super::headers::build(&self, &req, &conn, target_h)?;
+            super::headers::build_request(&self, &req, &conn, target_h)?;
         }
 
         let wrapped_body = super::body::BodyWrapper {
@@ -95,6 +95,8 @@ impl Server {
         };
 
         let target_req = target_req_builder.body(wrapped_body)?;
+
+        info!("Forwarding request");
 
         self.client
             .request(target_req)
