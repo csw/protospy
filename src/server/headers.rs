@@ -55,6 +55,14 @@ pub fn build_request<T>(
     Ok(())
 }
 
+pub fn response_headers(orig: &HeaderMap) -> Result<HeaderMap> {
+    let mut headers = orig.clone();
+    for to_strip in STRIP_HEADERS.iter() {
+        headers.remove(to_strip);
+    }
+    Ok(headers)
+}
+
 /// Splits a comma-delimited header field, such as Connection.
 fn header_fields(val: &str) -> impl Iterator<Item = &str> {
     val.split(',').map(|s| s.trim())
@@ -62,6 +70,9 @@ fn header_fields(val: &str) -> impl Iterator<Item = &str> {
 
 #[cfg(test)]
 mod tests {
+
+    use std::collections::HashMap;
+    use std::hash::RandomState;
 
     use http::request::Builder;
     use http_body_util::Empty;
@@ -78,27 +89,27 @@ mod tests {
 
     #[test]
     fn test_x_forwarded_for_added() {
-        let h = build_mapped(|b| b);
+        let h = build_mapped_req(|b| b);
         assert_eq!(header_val(&h, "X-Forwarded-For"), Some(CLIENT_IP))
     }
 
     #[test]
     fn test_x_forwarded_for_appended() {
         let orig = "192.168.1.1";
-        let h = build_mapped(|b| b.header("x-forwarded-for", orig));
+        let h = build_mapped_req(|b| b.header("x-forwarded-for", orig));
         assert_eq!(header_vals(&h, "X-Forwarded-For"), vec!(orig, CLIENT_IP))
     }
 
     #[test]
     fn test_x_forwarded_proto_added() {
-        let h = build_mapped(|b| b);
+        let h = build_mapped_req(|b| b);
         assert_eq!(header_val(&h, "X-Forwarded-Proto"), Some("http"));
     }
 
     #[test]
     fn test_x_forwarded_host_added() {
         let orig = "localhost:3000";
-        let h = build_mapped(|b| b.header(hyper::header::HOST, orig));
+        let h = build_mapped_req(|b| b.header(hyper::header::HOST, orig));
         assert_eq!(header_val(&h, "X-Forwarded-Host"), Some(orig));
     }
 
@@ -106,23 +117,46 @@ mod tests {
     fn test_x_forwarded_host_appended() {
         let orig = "localhost:3000";
         let orig_fwd = "altair:80";
-        let h = build_mapped(|b| b.header("Host", orig).header("X-Forwarded-Host", orig_fwd));
+        let h = build_mapped_req(|b| b.header("Host", orig).header("X-Forwarded-Host", orig_fwd));
         assert_eq!(header_vals(&h, "X-Forwarded-Host"), vec!(orig_fwd, orig))
     }
 
     #[test]
     fn test_keep_alive_stripped() {
-        let h = build_mapped(|b| b.header(KEEP_ALIVE, "timeout=5"));
+        let h = build_mapped_req(|b| b.header(KEEP_ALIVE, "timeout=5"));
         assert!(!h.contains_key(KEEP_ALIVE));
     }
 
     #[test]
     fn test_host() {
-        let h = build_mapped(|b| b.header("Host", "localhost:3000"));
+        let h = build_mapped_req(|b| b.header("Host", "localhost:3000"));
         assert_eq!(header_val(&h, "host"), Some(TARGET))
     }
 
-    fn build_mapped(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
+    #[test]
+    fn test_res_strip_connection() {
+        let h = response_headers(&make_headers(&[
+            ("connection", "keep-alive"),
+            ("keep-alive", "timeout=5"),
+        ]))
+        .unwrap();
+        assert!(!h.contains_key("connection"));
+        assert!(!h.contains_key("keep-alive"));
+    }
+
+    #[test]
+    fn test_res_strip_lone_keep_alive() {
+        let h = response_headers(&make_headers(&[("keep-alive", "timeout=5")])).unwrap();
+        assert!(!h.contains_key("keep-alive"));
+    }
+
+    fn make_headers(literals: &[(&str, &str)]) -> HeaderMap {
+        let strings = literals.iter().map(|(k, v)| (k.to_string(), v.to_string()));
+        let m1 = HashMap::<String, String, RandomState>::from_iter(strings);
+        HeaderMap::try_from(&m1).expect("valid headers")
+    }
+
+    fn build_mapped_req(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
         let mut h = HeaderMap::new();
         build_request(&server(), &req, &conn(), &mut h).unwrap();

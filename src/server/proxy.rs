@@ -13,6 +13,7 @@ use tracing::{Instrument, info};
 use crate::server::conn::ConnInfo;
 
 use super::client::Client;
+use super::headers;
 
 #[derive(Debug)]
 pub struct Server {
@@ -87,7 +88,7 @@ impl Server {
             .method(req.method())
             .uri(target_uri.clone());
         if let Some(target_h) = target_req_builder.headers_mut() {
-            super::headers::build_request(&self, &req, &conn, target_h)?;
+            headers::build_request(&self, &req, &conn, target_h)?;
         }
 
         let wrapped_body = super::body::BodyWrapper {
@@ -98,9 +99,14 @@ impl Server {
 
         info!("Forwarding request");
 
-        self.client
+        let mut response = self
+            .client
             .request(target_req)
             .await
-            .wrap_err_with(move || format!("HTTP request to {} failed", target_uri))
+            .wrap_err_with(move || format!("HTTP request to {} failed", target_uri))?;
+
+        *response.headers_mut() = headers::response_headers(response.headers())?;
+
+        Ok(response)
     }
 }
