@@ -338,6 +338,7 @@ def start_protospy(
     """Start a protospy reverse proxy subprocess via cargo run.
 
     Returns the Popen handle. The caller is responsible for terminating it.
+    Combined stdout and stderr are written to protospy.log in tmp_dir.
     """
     # Build --proxy arguments for each upstream
     proxy_args: list[str] = []
@@ -355,13 +356,14 @@ def start_protospy(
     if config.h2c is not None:
         add_proxy_arg("h2c", config.h2c)
 
-    # Run protospy from the workspace root
-    proc = subprocess.Popen(
-        ["cargo", "run", "--"] + proxy_args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd="/Users/csw/src/protospy",
-    )
+    log_path = config.tmp_dir / "protospy.log"
+    with open(log_path, "wb") as log_file:
+        proc = subprocess.Popen(
+            ["cargo", "run", "--"] + proxy_args,
+            stdout=log_file,
+            stderr=log_file,
+            cwd="/Users/csw/src/protospy",
+        )
 
     # Wait for all ports to be available
     ports = [config.good.listen_port, config.wire.listen_port, config.dead.listen_port]
@@ -376,8 +378,8 @@ def start_protospy(
         except TimeoutError:
             proc.terminate()
             proc.wait(timeout=5)
-            stderr = proc.stderr.read() if proc.stderr else b""
-            msg = f"Protospy failed to start: {stderr.decode(errors='replace')}"
+            output = log_path.read_text(errors="replace") if log_path.exists() else ""
+            msg = f"Protospy failed to start: {output}"
             raise RuntimeError(msg) from None
 
     return proc

@@ -6,6 +6,7 @@ import json
 import os
 import urllib.parse
 from collections.abc import Generator
+from pathlib import Path
 from typing import Literal
 
 import httpx
@@ -36,6 +37,12 @@ _session_findings = Findings()
 
 # Collected by the controller from worker report sections (xdist mode).
 _controller_entries: list[tuple[str, str, FindingLevel]] = []
+
+# protospy log file path per test module (keyed by module __name__).
+_protospy_log_paths: dict[str, Path] = {}
+
+# Per-test capture state: nodeid -> (log_path, byte offset before test).
+_protospy_captures: dict[str, tuple[Path, int]] = {}
 
 
 @pytest.fixture(scope="session")
@@ -69,14 +76,25 @@ def pytest_runtest_makereport(
     return report
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Collect findings sections forwarded by xdist workers (controller side)."""
+    """Collect findings from xdist workers; attach protospy output on failure."""
     if report.when != "call":
         return
     for title, payload in report.sections:
         if title == _FINDINGS_SECTION:
             entries: list[tuple[str, str, FindingLevel]] = json.loads(payload)
             _controller_entries.extend(entries)
+    if report.failed:
+        capture = _protospy_captures.pop(report.nodeid, None)
+        if capture is not None:
+            log_path, offset = capture
+            if log_path.exists():
+                with open(log_path, "rb") as f:
+                    f.seek(offset)
+                    output = f.read().decode(errors="replace")
+                if output.strip():
+                    report.sections.append(("protospy output", output))
 
 
 def pytest_terminal_summary(
@@ -345,11 +363,14 @@ def proxy(
         grpc_upstream=grpc_server.url,
         h2c_upstream=h2c_server.url,
     )
+    if proxy_type == "protospy":
+        _protospy_log_paths[request.module.__name__] = tmp / "protospy.log"
     try:
         yield urls
     finally:
         proc.terminate()
         proc.wait(timeout=5)
+        _protospy_log_paths.pop(request.module.__name__, None)
 
 
 @pytest.fixture(scope="module")
@@ -363,6 +384,22 @@ def client() -> Generator[httpx.Client]:
     """httpx client configured to ignore environment proxy settings."""
     with httpx.Client(trust_env=False) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _protospy_output_capture(request: pytest.FixtureRequest) -> Generator[None]:
+    """Record protospy log offset before each test for failure capture."""
+    if "proxy_type" not in request.fixturenames:
+        yield
+        return
+    proxy_type: str = request.getfixturevalue("proxy_type")
+    if proxy_type != "protospy":
+        yield
+        return
+    log_path = _protospy_log_paths.get(request.module.__name__)
+    if log_path is not None and log_path.exists():
+        _protospy_captures[request.node.nodeid] = (log_path, log_path.stat().st_size)
+    yield
 
 
 @pytest.fixture(autouse=True)
