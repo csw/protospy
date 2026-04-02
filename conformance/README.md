@@ -12,6 +12,22 @@ This uses pytest for tests.
 
 To run tests against a specific proxy, use the custom `--proxy` option for pytest: `--proxy caddy` or `--proxy haproxy`.
 
+To run tests against protospy (always built with `cargo build`):
+
+```shell
+uv run pytest --proxy protospy
+```
+
+To show a summary of failing tests against protospy, without error details:
+```shell
+uv run pytest --proxy protospy --tb=no --show-capture no --disable-warnings -rf
+```
+
+Or a summary of all tests:
+```shell
+uv run pytest --proxy protospy --tb=no --show-capture no --disable-warnings -rA
+```
+
 Use `--proxy all` to run against all managed proxies (caddy, haproxy, protospy). This excludes `protospy-ext` (see below).
 
 To print the conformance findings as well as the test results, use the `--findings` option.

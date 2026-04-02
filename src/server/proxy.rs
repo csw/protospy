@@ -118,8 +118,8 @@ impl Server {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
 
-        let (parts, response_body) = match upstream {
-            Ok(response) => response.into_parts(),
+        let response = match upstream {
+            Ok(response) => response,
             Err(e) => {
                 return self.error_response(e);
             }
@@ -127,12 +127,14 @@ impl Server {
 
         info!(
             name = "upstream_response",
-            status = parts.status.to_string()
+            status = response.status().to_string()
         );
 
-        let mut res_parts = parts.clone();
-        res_parts.headers = headers::response_headers(&parts.headers)?;
-        Ok(Response::from_parts(res_parts, Either::Left(response_body)))
+        let new_headers = headers::response_headers(&response)?;
+        let (mut parts, body) = response.into_parts();
+
+        parts.headers = new_headers;
+        Ok(Response::from_parts(parts, Either::Left(body)))
     }
 
     fn error_response(

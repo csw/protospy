@@ -14,7 +14,16 @@
     "program": "$ZED_WORKTREE_ROOT/target/debug/protospy",
     "args": ["--proxy", "name=es,port=3000,target=localhost:9200"],
     "sourceLanguages": ["rust"],
-    "env": { "ENV": "development" },
+    "cwd": "$ZED_WORKTREE_ROOT",
+  },
+  {
+    "label": "Debug: protospy tests",
+    "adapter": "CodeLLDB",
+    "build": {
+      "command": "cargo",
+      "args": ["test", "--no-run"],
+    },
+    "sourceLanguages": ["rust"],
     "cwd": "$ZED_WORKTREE_ROOT",
   },
   {
@@ -34,5 +43,13 @@
     "sourceLanguages": ["rust"],
     "env": { "ENV": "development" },
     "cwd": "$ZED_WORKTREE_ROOT",
+  },
+  {
+    "label": "Debug: conformance protospy",
+    "adapter": "Debugpy",
+    "request": "launch",
+    "module": "pytest",
+    "args": ["-n", "0", "--proxy=protospy", "-k", "via-appended-to-response"],
+    "cwd": "${ZED_WORKTREE_ROOT}/conformance",
   },
 ]
