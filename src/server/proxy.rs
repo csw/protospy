@@ -117,22 +117,13 @@ impl Server {
     fn build_response(&self, upstream: ClientResult) -> Result<ProxyResponse> {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
-        if let Err(ref e) = upstream {
-            let err_res: ProxyResponse = if e.is_connect() {
-                error!(name = "upstream_error", error = e.to_string());
-                self.error_response(StatusCode::BAD_GATEWAY, errors::Cause::ConnectionError)?
-            } else {
-                return Err(upstream.wrap_err("HTTP request failed").unwrap_err());
-            };
-            info!(
-                name = "internal_error_response",
-                status = err_res.status().to_string()
-            );
-            return Ok(err_res);
-        }
-        let response = upstream.wrap_err("HTTP request failed")?;
 
-        let (parts, response_body) = response.into_parts();
+        let (parts, response_body) = match upstream {
+            Ok(response) => response.into_parts(),
+            Err(e) => {
+                return self.error_response(e);
+            }
+        };
 
         info!(
             name = "upstream_response",
@@ -144,7 +135,28 @@ impl Server {
         Ok(Response::from_parts(res_parts, Either::Left(response_body)))
     }
 
-    fn error_response(&self, status: StatusCode, cause: errors::Cause) -> Result<ProxyResponse> {
+    fn error_response(
+        &self,
+        client_error: hyper_util::client::legacy::Error,
+    ) -> Result<ProxyResponse> {
+        let cause = if client_error.is_connect() {
+            errors::Cause::ConnectFailed
+        } else {
+            errors::Cause::ConnectionError
+        };
+        error!(
+            name = "upstream_connection_error",
+            cause = cause.to_string(),
+            error = ?client_error,
+        );
+        self.error_http_response(StatusCode::BAD_GATEWAY, cause)
+    }
+
+    fn error_http_response(
+        &self,
+        status: StatusCode,
+        cause: errors::Cause,
+    ) -> Result<ProxyResponse> {
         Response::builder()
             .status(status)
             .header("server", SERVER_NAME)
