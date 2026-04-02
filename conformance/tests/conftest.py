@@ -85,16 +85,15 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
         if title == _FINDINGS_SECTION:
             entries: list[tuple[str, str, FindingLevel]] = json.loads(payload)
             _controller_entries.extend(entries)
-    if report.failed:
-        capture = _protospy_captures.pop(report.nodeid, None)
-        if capture is not None:
-            log_path, offset = capture
-            if log_path.exists():
-                with open(log_path, "rb") as f:
-                    f.seek(offset)
-                    output = f.read().decode(errors="replace")
-                if output.strip():
-                    report.sections.append(("protospy output", output))
+    capture = _protospy_captures.pop(report.nodeid, None)
+    if capture is not None:
+        log_path, offset = capture
+        if log_path.exists():
+            with open(log_path, "rb") as f:
+                f.seek(offset)
+                output = f.read().decode(errors="replace")
+            if output.strip():
+                report.sections.append(("protospy output", output))
 
 
 def pytest_terminal_summary(
