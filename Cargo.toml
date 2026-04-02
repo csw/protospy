@@ -17,6 +17,7 @@ tracing = "0.1.44"
 color-spantrace = "0.3.0"
 tracing-error = { version = "0.2.1", features = ["traced-error"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+strum = { version = "0.28", features = ["derive"] }
 
 [profile.dev]
 panic = "abort"

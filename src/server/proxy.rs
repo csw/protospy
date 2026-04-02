@@ -10,16 +10,17 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
-use tracing::{Instrument, info};
+use tracing::{Instrument, error, info};
 
 use crate::server::conn::ConnInfo;
 
 use super::client::Client;
+use super::errors;
 use super::headers;
 
 pub const SERVER_NAME: &str = "protospy";
 
-type ServerResponse =
+type ProxyResponse =
     Response<http_body_util::Either<hyper::body::Incoming, http_body_util::Empty<Bytes>>>;
 
 type ClientResult = <hyper_util::client::legacy::ResponseFuture as Future>::Output;
@@ -80,7 +81,7 @@ impl Server {
         self: Arc<Self>,
         req: Request<hyper::body::Incoming>,
         conn: ConnInfo,
-    ) -> Result<ServerResponse> {
+    ) -> Result<ProxyResponse> {
         let req_uri = req.uri();
 
         let target_uri = uri::Builder::new()
@@ -113,26 +114,42 @@ impl Server {
         self.build_response(response_res)
     }
 
-    fn build_response(&self, upstream: ClientResult) -> Result<ServerResponse> {
+    fn build_response(&self, upstream: ClientResult) -> Result<ProxyResponse> {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
-        if let Err(ref e) = upstream
-            && e.is_connect()
-        {
-            return self.error_response(StatusCode::BAD_GATEWAY);
+        if let Err(ref e) = upstream {
+            let err_res: ProxyResponse = if e.is_connect() {
+                error!(name = "upstream_error", error = e.to_string());
+                self.error_response(StatusCode::BAD_GATEWAY, errors::Cause::ConnectionError)?
+            } else {
+                return Err(upstream.wrap_err("HTTP request failed").unwrap_err());
+            };
+            info!(
+                name = "internal_error_response",
+                status = err_res.status().to_string()
+            );
+            return Ok(err_res);
         }
         let response = upstream.wrap_err("HTTP request failed")?;
 
         let (parts, response_body) = response.into_parts();
+
+        info!(
+            name = "upstream_response",
+            status = parts.status.to_string()
+        );
+
         let mut res_parts = parts.clone();
         res_parts.headers = headers::response_headers(&parts.headers)?;
         Ok(Response::from_parts(res_parts, Either::Left(response_body)))
     }
 
-    fn error_response(&self, status: StatusCode) -> Result<ServerResponse> {
-        Ok(Response::builder()
+    fn error_response(&self, status: StatusCode, cause: errors::Cause) -> Result<ProxyResponse> {
+        Response::builder()
             .status(status)
             .header("server", SERVER_NAME)
-            .body(Either::Right(Empty::new()))?)
+            .header("x-cause", cause.to_string())
+            .body(Either::Right(Empty::new()))
+            .wrap_err("failed to build internal response")
     }
 }

@@ -1,6 +1,7 @@
 pub mod body;
 pub mod client;
 pub mod conn;
+pub mod errors;
 pub mod headers;
 pub mod proxy;
 
