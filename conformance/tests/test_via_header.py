@@ -40,7 +40,7 @@ VIA_TESTS: list[ProxyTestCase] = [
             method="GET", path="/echo", headers={"Via": "1.0 upstream-proxy"}
         ),
         expect_at_target=TargetExpectation(
-            headers=HeaderExpectation(contains={"via": "1.1"}),
+            headers=HeaderExpectation(contains={"via": "1.0 upstream-proxy, 1.1"}),
         ),
         expect_at_client=ClientExpectation(status=200),
     ),
@@ -67,7 +67,7 @@ VIA_TESTS: list[ProxyTestCase] = [
         expect_at_target=TargetExpectation(),
         expect_at_client=ClientExpectation(
             status=200,
-            headers=HeaderExpectation(contains={"via": "1.1"}),
+            headers=HeaderExpectation(contains={"via": "1.1 backend"}),
         ),
     ),
 ]

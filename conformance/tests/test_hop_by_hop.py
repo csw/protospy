@@ -151,22 +151,31 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
         catalog_ids=["3.6"],
         request=RequestSpec(
             method="GET",
-            path="/headers?Connection=keep-alive&Keep-Alive=timeout%3D5",
+            path=(
+                "/headers?Connection=keep-alive"
+                "&Keep-Alive=timeout%3D5"
+                "&Proxy-Authenticate=Basic"
+            ),
         ),
         expect_at_target=TargetExpectation(),
         expect_at_client=ClientExpectation(
             status=200,
             headers=HeaderExpectation(
-                absent=["connection", "keep-alive"],
+                absent=[
+                    "connection",
+                    "keep-alive",
+                    "proxy-authenticate",
+                ],
             ),
         ),
         proxy_quirks={
             "haproxy": ProxyQuirk(
                 disposition="override",
                 reason=(
-                    "HAProxy does not strip hop-by-hop headers from upstream "
-                    "responses by default; requires explicit "
-                    "`http-response del-header` rules."
+                    "HAProxy does not strip hop-by-hop headers"
+                    " from upstream responses by default;"
+                    " requires explicit"
+                    " `http-response del-header` rules."
                 ),
                 client=ClientExpectation(status=200),
             ),

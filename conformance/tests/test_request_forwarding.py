@@ -168,16 +168,16 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
             body=b'{"key": "value"}',
         ),
     ),
-    # 1.7: Request body chunked (RFC 9112 §7.1)
+    # 1.7: Binary request body integrity
     ProxyTestCase(
-        id="1.7-request-body-chunked",
-        spec_ref="RFC 9112 §7.1",
-        description="Proxy forwards chunked request body",
+        id="1.7-binary-request-body",
+        spec_ref="RFC 9110 §8.6",
+        description=("Proxy forwards binary request body without corruption"),
         catalog_ids=["1.7"],
         request=RequestSpec(
             method="POST",
             path="/echo",
-            body=b"chunked body content",
+            body=bytes(range(256)) * 4,
         ),
     ),
     # 1.8: Empty body not fabricated (RFC 9110 §9.3.1)
@@ -187,6 +187,11 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
         description="Proxy does not fabricate a body for GET",
         catalog_ids=["1.8"],
         request=RequestSpec(method="GET", path="/echo"),
+        expect_at_target=TargetExpectation(
+            headers=HeaderExpectation(
+                absent=["content-length"],
+            ),
+        ),
     ),
     # 1.9: Host header set to upstream authority (RFC 9110 §7.6.3)
     ProxyTestCase(
@@ -217,14 +222,8 @@ REQUEST_FORWARDING_TESTS: list[ProxyTestCase] = [
     ),
     # 14.2: Dot segments — tested via raw socket in TestDotSegments below
     # (httpx normalizes ./.. before sending, so ProxyTestCase can't test it)
-    # 14.3: Empty query preserved (RFC 9112 §3.2)
-    ProxyTestCase(
-        id="14.3-empty-query-preserved",
-        spec_ref="RFC 9112 §3.2",
-        description="Proxy preserves query string with parameters",
-        catalog_ids=["14.3"],
-        request=RequestSpec(method="GET", path="/echo/empty-query?x=1"),
-    ),
+    # 14.3: Empty query — tested via raw socket in TestEmptyQuery below
+    # (httpx may normalize a trailing `?`, so ProxyTestCase can't test it)
     # 14.4 (fragment) is in TestFragmentHandling below
 ]
 
@@ -294,6 +293,63 @@ class TestDotSegments:
             findings.record(
                 "dot-segments",
                 f"[{proxy_name}] Target received no request",
+                level="finding",
+            )
+
+
+class TestEmptyQuery:
+    """Test 14.3: empty query string preserved (RFC 9112 §3.2).
+
+    httpx may normalize a trailing `?`, so this test uses raw sockets.
+    """
+
+    def test_empty_query_preserved(
+        self,
+        proxy: ProxyUrls,
+        good_server: GoodServer,
+        findings: Findings,
+        proxy_name: str,
+    ) -> None:
+        """Proxy preserves a trailing '?' with no query parameters."""
+        result = send_raw_request_line(
+            host=proxy.good_host,
+            port=proxy.good_port,
+            request_line="GET /echo/empty-query? HTTP/1.1",
+        )
+        if result is None:
+            findings.record(
+                "empty-query",
+                (f"[{proxy_name}] Proxy closed connection for empty query string"),
+                level="finding",
+            )
+            return
+
+        assert result.status == 200
+
+        try:
+            captured = good_server.last_request(timeout=1.0)
+            if captured.path == "/echo/empty-query?":
+                findings.record(
+                    "empty-query",
+                    (f"[{proxy_name}] Proxy preserved empty query string"),
+                    level="info",
+                )
+            elif captured.path == "/echo/empty-query":
+                findings.record(
+                    "empty-query",
+                    (f"[{proxy_name}] Proxy stripped trailing '?' from path"),
+                    level="finding",
+                )
+            else:
+                findings.record(
+                    "empty-query",
+                    (f"[{proxy_name}] Proxy changed path: {captured.path!r}"),
+                    level="finding",
+                )
+        except Exception:
+            findings.record(
+                "empty-query",
+                (f"[{proxy_name}] Target received no request"),
                 level="finding",
             )
 

@@ -19,6 +19,7 @@ from proxy_conformance.types import (
     assert_proxy_test_case,
 )
 
+from .conftest import Findings
 from .proxies import ProxyUrls, tagged_url
 
 FORWARDING_HEADER_TESTS: list[ProxyTestCase] = [
@@ -135,3 +136,84 @@ def test_forwarding_headers(
     )
 
     assert_proxy_test_case(response, good_server, case, proxy_name=proxy_name)
+
+
+# ---------------------------------------------------------------------------
+# Findings-based: existing X-Forwarded-Proto / X-Forwarded-Host
+# ---------------------------------------------------------------------------
+
+
+def test_x_forwarded_proto_existing(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """X-Forwarded-Proto with pre-existing value (§5.5).
+
+    When the client already sends X-Forwarded-Proto, the proxy may
+    preserve, replace, or append. This test records observed behavior.
+    """
+    response = client.get(
+        tagged_url(
+            f"{proxy.good_url}/echo",
+            "x-forwarded-proto-existing",
+        ),
+        headers={"X-Forwarded-Proto": "https"},
+    )
+    assert response.status_code == 200
+
+    captured = good_server.last_request()
+    xfp = captured.header_joined("x-forwarded-proto")
+    if xfp and "https" in xfp:
+        findings.record(
+            "x-forwarded-proto-existing",
+            (f"[{proxy_name}] Proxy preserved original X-Forwarded-Proto: {xfp!r}"),
+            level="info",
+        )
+    else:
+        findings.record(
+            "x-forwarded-proto-existing",
+            (f"[{proxy_name}] Proxy replaced X-Forwarded-Proto: {xfp!r}"),
+            level="finding",
+        )
+
+
+def test_x_forwarded_host_existing(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    client: httpx.Client,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """X-Forwarded-Host with pre-existing value (§5.6).
+
+    When the client already sends X-Forwarded-Host, the proxy may
+    preserve, replace, or append. This test records observed behavior.
+    """
+    response = client.get(
+        tagged_url(
+            f"{proxy.good_url}/echo",
+            "x-forwarded-host-existing",
+        ),
+        headers={
+            "X-Forwarded-Host": "previous.example.com",
+        },
+    )
+    assert response.status_code == 200
+
+    captured = good_server.last_request()
+    xfh = captured.header_joined("x-forwarded-host")
+    if xfh and "previous.example.com" in xfh:
+        findings.record(
+            "x-forwarded-host-existing",
+            (f"[{proxy_name}] Proxy preserved original X-Forwarded-Host: {xfh!r}"),
+            level="info",
+        )
+    else:
+        findings.record(
+            "x-forwarded-host-existing",
+            (f"[{proxy_name}] Proxy replaced X-Forwarded-Host: {xfh!r}"),
+            level="finding",
+        )

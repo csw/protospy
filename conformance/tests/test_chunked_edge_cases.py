@@ -26,6 +26,8 @@ from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import (
     RawResponse,
     _read_complete_response,
+    parse_chunked_trailers,
+    send_and_read_response,
     send_incomplete_chunked_request,
     send_invalid_chunk_size,
 )
@@ -254,28 +256,40 @@ def test_request_trailers_forwarded(
 def test_response_trailers_forwarded(
     proxy: ProxyUrls,
     good_server: GoodServer,
-    client: httpx.Client,
     findings: Findings,
     proxy_name: str,
 ) -> None:
     """Proxy forwards response trailers to the client (§7.2).
 
-    httpx does not expose HTTP/1.1 trailers, so we verify the response
-    arrived without error. The response itself is asserted.
+    httpx does not expose HTTP/1.1 trailers, so we use the h11
+    raw client to read the chunked body and parse trailers from
+    the wire bytes.
     """
-    url = tagged_url(
-        f"{proxy.good_url}/chunked-with-trailers?X-Custom-Trailer=trailer-value",
+    path = tagged_url(
+        ("/chunked-with-trailers?X-Custom-Trailer=trailer-value"),
         "response-trailers",
     )
-    response = client.get(url)
-    assert response.status_code == 200
+    result = send_and_read_response(
+        host=proxy.good_host,
+        port=proxy.good_port,
+        path=path,
+    )
+    assert result is not None, "Connection closed with no response"
+    assert result.status == 200
 
-    findings.record(
-        "response-trailers",
-        f"[{proxy_name}] Response with trailers received, "
-        f"status={response.status_code}",
-        level="info",
-    )
+    trailers = parse_chunked_trailers(result.body)
+    if "x-custom-trailer" in trailers:
+        findings.record(
+            "response-trailers",
+            (f"[{proxy_name}] Proxy forwarded response trailer X-Custom-Trailer"),
+            level="info",
+        )
+    else:
+        findings.record(
+            "response-trailers",
+            (f"[{proxy_name}] Proxy stripped response trailer X-Custom-Trailer"),
+            level="finding",
+        )
     good_server.clear()
 
 

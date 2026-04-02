@@ -44,7 +44,10 @@ BODY_FRAMING_TESTS: list[ProxyTestCase] = [
             path="/echo",
             body=b"",
         ),
-        expect_at_target=TargetExpectation(body=b""),
+        expect_at_target=TargetExpectation(
+            body=b"",
+            headers=HeaderExpectation(present={"content-length": "0"}),
+        ),
         expect_at_client=ClientExpectation(status=200),
     ),
 ]
