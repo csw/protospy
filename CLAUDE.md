@@ -56,7 +56,7 @@ Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of 
 
 ## Documentation
 
-When in doubt about how to use a tool or library, refer to its documentation (via Context7 or the web), especially if you try what seems obvious and it doesn't work. Use the docs before trying to experimentally determine the behavior or studying its source.
+**When in doubt about how to use a tool or library, consult its documentation first — via Context7 or a web search. Do this before reading library source code, before trial-and-error, and before reasoning from first principles about implementation details. If something doesn't work as expected, your first action should be to look it up, not to read the source.**
 
 ## Python Style
 
