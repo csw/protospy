@@ -10,10 +10,18 @@ const X_FORWARDED_FOR: &str = "X-Forwarded-For";
 const X_FORWARDED_HOST: &str = "X-Forwarded-Host";
 const X_FORWARDED_PROTO: &str = "X-Forwarded-Proto";
 
-static STRIP_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
+static STRIP_REQUEST_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
     vec![
         hyper::header::CONNECTION,
         HeaderName::from_static(KEEP_ALIVE),
+    ]
+});
+
+static STRIP_RESPONSE_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
+    vec![
+        hyper::header::CONNECTION,
+        HeaderName::from_static(KEEP_ALIVE),
+        hyper::header::PROXY_AUTHENTICATE,
     ]
 });
 
@@ -36,7 +44,7 @@ pub fn build_request<T>(
         }
     }
 
-    for to_strip in STRIP_HEADERS.iter() {
+    for to_strip in STRIP_REQUEST_HEADERS.iter() {
         res_h.remove(to_strip);
     }
 
@@ -57,7 +65,7 @@ pub fn build_request<T>(
 
 pub fn response_headers(orig: &HeaderMap) -> Result<HeaderMap> {
     let mut headers = orig.clone();
-    for to_strip in STRIP_HEADERS.iter() {
+    for to_strip in STRIP_RESPONSE_HEADERS.iter() {
         headers.remove(to_strip);
     }
     Ok(headers)
@@ -142,6 +150,20 @@ mod tests {
         .unwrap();
         assert!(!h.contains_key("connection"));
         assert!(!h.contains_key("keep-alive"));
+    }
+
+    #[test]
+    fn test_res_strip_proxy_authenticate() {
+        let h = response_headers(&make_headers(&[
+            ("connection", "keep-alive"),
+            ("keep-alive", "timeout=5"),
+            (
+                "proxy-authenticate",
+                "Basic realm=\"Dev\", charset=\"UTF-8\"",
+            ),
+        ]))
+        .unwrap();
+        assert!(!h.contains_key("proxy-authenticate"));
     }
 
     #[test]
