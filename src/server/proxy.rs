@@ -2,10 +2,13 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use color_eyre::{Result, eyre::WrapErr};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr, eyre},
+};
 use http::{StatusCode, uri};
 use http_body_util::{Either, Empty};
-use hyper::body::Bytes;
+use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -14,6 +17,7 @@ use tokio::net::TcpListener;
 use tracing::{Instrument, error, info};
 
 use crate::server::conn::ConnInfo;
+use crate::server::op::{self, OpReportingContext};
 
 use super::body::BodyWrapper;
 use super::client::Client;
@@ -23,8 +27,6 @@ use super::headers;
 pub const SERVER_NAME: &str = "protospy";
 
 type ProxyResponse = Response<http_body_util::Either<BodyWrapper, http_body_util::Empty<Bytes>>>;
-
-type ClientResult = <hyper_util::client::legacy::ResponseFuture as Future>::Output;
 
 #[derive(Debug)]
 pub struct Server {
@@ -103,29 +105,51 @@ impl Server {
             headers::build_request(&self, &req, &conn, target_h)?;
         }
 
-        let wrapped_body = BodyWrapper {
-            base: req.into_body(),
-        };
+        let (req_parts, req_body) = req.into_parts();
+
+        let (
+            op_reporter,
+            OpReportingContext {
+                request_tracker,
+                response_tracker,
+                response_sender,
+            },
+        ) = op::create_reporting(req_parts, conn);
+
+        tokio::spawn(
+            async move {
+                op_reporter.run().await?;
+                Ok::<_, eyre::Report>(())
+            }
+            .instrument(tracing::Span::current()),
+        );
+
+        let wrapped_body = BodyWrapper::new(req_body, request_tracker);
 
         let target_req = target_req_builder.body(wrapped_body)?;
 
         info!("Forwarding request");
 
-        let response_res = self.client.request(target_req).await;
+        let result = self.client.request(target_req).await;
 
-        self.build_response(response_res)
+        let our_response = match result {
+            Ok(upstream_response) => {
+                self.build_response(upstream_response, response_sender, response_tracker)?
+            }
+            Err(upstream_err) => return self.error_response(&upstream_err),
+        };
+        info!("Generated response");
+        Ok(our_response)
     }
 
-    fn build_response(&self, upstream: ClientResult) -> Result<ProxyResponse> {
+    fn build_response(
+        &self,
+        response: Response<Incoming>,
+        response_sender: tokio::sync::oneshot::Sender<http::response::Parts>,
+        response_tracker: op::BodyTracker,
+    ) -> Result<ProxyResponse> {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
-
-        let response = match upstream {
-            Ok(response) => response,
-            Err(e) => {
-                return self.error_response(&e);
-            }
-        };
 
         info!(
             name = "upstream_response",
@@ -134,10 +158,13 @@ impl Server {
 
         let new_headers = headers::response_headers(&response)?;
         let (mut parts, body) = response.into_parts();
+        response_sender
+            .send(parts.clone())
+            .map_err(|_| eyre!("failed to send response data"))?;
 
         parts.headers = new_headers;
 
-        let wrapped_body = BodyWrapper { base: body };
+        let wrapped_body = BodyWrapper::new(body, response_tracker);
 
         Ok(Response::from_parts(parts, Either::Left(wrapped_body)))
     }
