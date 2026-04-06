@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -121,7 +122,7 @@ impl Server {
         let response = match upstream {
             Ok(response) => response,
             Err(e) => {
-                return self.error_response(e);
+                return self.error_response(&e);
             }
         };
 
@@ -139,19 +140,26 @@ impl Server {
 
     fn error_response(
         &self,
-        client_error: hyper_util::client::legacy::Error,
+        client_error: &hyper_util::client::legacy::Error,
     ) -> Result<ProxyResponse> {
-        let cause = if client_error.is_connect() {
-            errors::Cause::ConnectFailed
-        } else {
-            errors::Cause::ConnectionError
-        };
+        let (cause_tag, status) = classify_error(client_error);
+        if let Some(source) = client_error.source()
+            && let Some(hyper_err) = source.downcast_ref::<hyper::Error>()
+        {
+            error!(
+                "hyper error: {:?}, source {:?}",
+                hyper_err,
+                hyper_err.source(),
+            );
+            error!("hyper error report: {}", hyper_error_report(hyper_err))
+        }
         error!(
             name = "upstream_connection_error",
-            cause = cause.to_string(),
+            cause = cause_tag.to_string(),
+            status = status.as_u16(),
             error = ?client_error,
         );
-        self.error_http_response(StatusCode::BAD_GATEWAY, cause)
+        self.error_http_response(status, cause_tag)
     }
 
     fn error_http_response(
@@ -165,5 +173,98 @@ impl Server {
             .header("x-cause", cause.to_string())
             .body(Either::Right(Empty::new()))
             .wrap_err("failed to build internal response")
+    }
+}
+
+fn classify_error(client_error: &hyper_util::client::legacy::Error) -> (errors::Cause, StatusCode) {
+    if client_error.is_connect() {
+        (errors::Cause::ConnectFailed, StatusCode::BAD_GATEWAY)
+    } else if is_hyper_user_error(client_error) {
+        (errors::Cause::RequestError, StatusCode::BAD_REQUEST)
+    } else {
+        (errors::Cause::ConnectionError, StatusCode::BAD_GATEWAY)
+    }
+}
+
+fn hyper_error_report(top: &hyper::Error) -> String {
+    let mut report = dump_hyper_error(top);
+    let mut err: &dyn Error = top;
+    while let Some(src) = err.source() {
+        report += " <- ";
+        let desc = if let Some(hyper_err) = src.downcast_ref::<hyper::Error>() {
+            dump_hyper_error(hyper_err)
+        } else {
+            format!("{:?}", src)
+        };
+        report += desc.as_str();
+        err = src;
+    }
+    report
+}
+
+fn dump_hyper_error(err: &hyper::Error) -> String {
+    format!(
+        "[hyper::Error desc='{}' flags={}]",
+        err,
+        hyper_error_flags(err).join(",")
+    )
+}
+
+fn hyper_error_flags(err: &hyper::Error) -> Vec<&'static str> {
+    let mut flags = Vec::new();
+    if err.is_parse() {
+        flags.push("parse");
+    }
+    if err.is_parse_too_large() {
+        flags.push("parse_too_large");
+    }
+    if err.is_parse_status() {
+        flags.push("parse_status");
+    }
+    if err.is_user() {
+        flags.push("is_user");
+    }
+    if err.is_canceled() {
+        flags.push("canceled")
+    }
+    if err.is_closed() {
+        flags.push("closed");
+    }
+    if err.is_incomplete_message() {
+        flags.push("incomplete_message");
+    }
+    if err.is_body_write_aborted() {
+        flags.push("body_write_aborted");
+    }
+    if err.is_shutdown() {
+        flags.push("shutdown");
+    }
+    if err.is_timeout() {
+        flags.push("timeout");
+    }
+    flags
+}
+
+fn is_hyper_user_error(top: &hyper_util::client::legacy::Error) -> bool {
+    find_in_err_chain(top, |err: &hyper::Error| err.is_user())
+}
+
+fn find_in_err_chain<E: Error + 'static>(
+    err: &(dyn Error + 'static),
+    pred: fn(&E) -> bool,
+) -> bool {
+    let mut cur: &dyn Error = err;
+    loop {
+        if let Some(specific) = cur.downcast_ref::<E>()
+            && pred(specific)
+        {
+            return true;
+        }
+        match cur.source() {
+            Some(src) => {
+                cur = src;
+            }
+            None => return false,
+        }
     }
 }

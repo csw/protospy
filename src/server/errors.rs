@@ -4,4 +4,5 @@ use strum::Display;
 pub enum Cause {
     ConnectFailed,
     ConnectionError,
+    RequestError,
 }
