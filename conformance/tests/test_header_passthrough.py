@@ -74,12 +74,16 @@ def test_cache_request_headers_forwarded(
         tagged_url(f"{proxy.good_url}/echo", "cache-request-headers"),
         headers={
             "If-None-Match": '"abc123"',
+            "If-Modified-Since": "Wed, 21 Oct 2025 07:28:00 GMT",
             "Cache-Control": "no-cache",
         },
     )
     assert response.status_code == 200
     captured = good_server.last_request()
     assert '"abc123"' in (captured.header_joined("if-none-match") or "")
+    assert "Wed, 21 Oct 2025 07:28:00 GMT" in (
+        captured.header_joined("if-modified-since") or ""
+    )
     assert "no-cache" in (captured.header_joined("cache-control") or "")
 
 
@@ -89,6 +93,7 @@ CONTENT_RESPONSE_HEADERS = [
     ("Content-Type", "application/json"),
     ("Content-Language", "en-US"),
     ("Content-Disposition", "attachment; filename=test.txt"),
+    ("Content-Range", "bytes 0-499/1000"),
 ]
 
 

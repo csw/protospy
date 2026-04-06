@@ -413,6 +413,79 @@ def send_raw_request_line(
         return _read_response(sock)
 
 
+def send_and_read_response(
+    host: str,
+    port: int,
+    path: str = "/",
+    timeout: float = 5.0,
+) -> RawResponse | None:
+    """Send a GET request and return the raw response.
+
+    Returns the full RawResponse (with raw chunked body bytes
+    preserved), or None if the connection was closed without data.
+    """
+    conn = h11.Connection(our_role=h11.CLIENT)
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.settimeout(timeout)
+        sock.sendall(
+            conn.send(
+                h11.Request(
+                    method="GET",
+                    target=path,
+                    headers=[("host", f"{host}:{port}")],
+                )
+            )
+        )
+        return _read_response(sock)
+
+
+def parse_chunked_trailers(
+    body: bytes,
+) -> dict[str, list[str]]:
+    """Extract trailer headers from raw chunked response body.
+
+    The raw body from _read_chunked_body includes chunk framing
+    and trailing headers. This function parses any trailer fields
+    that appear after the zero-length terminating chunk.
+
+    Returns a dict mapping lowercase header names to lists of
+    values. Returns an empty dict if no trailers are found.
+    """
+    trailers: dict[str, list[str]] = {}
+    # Look for the zero-length chunk: "0\r\n"
+    # Trailers follow the zero-length chunk line.
+    pos = 0
+    while pos < len(body):
+        crlf = body.find(b"\r\n", pos)
+        if crlf == -1:
+            break
+        size_field = body[pos:crlf].split(b";")[0].strip()
+        try:
+            chunk_size = int(size_field, 16)
+        except ValueError:
+            break
+        if chunk_size == 0:
+            # Everything after "0\r\n" until "\r\n" is trailers
+            trailer_start = crlf + 2
+            trailer_section = body[trailer_start:]
+            # Remove final \r\n if present
+            if trailer_section.endswith(b"\r\n"):
+                trailer_section = trailer_section[:-2]
+            if not trailer_section:
+                break
+            for line in trailer_section.split(b"\r\n"):
+                decoded = line.decode("latin-1")
+                name, _, value = decoded.partition(":")
+                name = name.strip().lower()
+                value = value.strip()
+                if name:
+                    trailers.setdefault(name, []).append(value)
+            break
+        # Skip chunk data + trailing CRLF
+        pos = crlf + 2 + chunk_size + 2
+    return trailers
+
+
 def _parse_raw_response(data: bytes) -> RawResponse:
     """Parse a raw HTTP/1.1 response into status, headers, and body.
 

@@ -4,3 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+hyper = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+http-body-util = "0.1"
+hyper-util = { version = "0.1", features = ["full"] }
+clap = { version = "4.6.0", features = ["derive"] }
+http = "1.4.0"
+pin-project-lite = "0.2.17"
+eyre = "0.6.12"
+color-eyre = "0.6.5"
+tracing = "0.1.44"
+color-spantrace = "0.3.0"
+tracing-error = { version = "0.2.1", features = ["traced-error"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+strum = { version = "0.28", features = ["derive"] }
+
+[profile.dev]
+panic = "abort"
+
+[profile.dev.package.backtrace]
+opt-level = 3

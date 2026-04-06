@@ -40,7 +40,7 @@ VIA_TESTS: list[ProxyTestCase] = [
             method="GET", path="/echo", headers={"Via": "1.0 upstream-proxy"}
         ),
         expect_at_target=TargetExpectation(
-            headers=HeaderExpectation(contains={"via": "1.1"}),
+            headers=HeaderExpectation(contains={"via": "1.0 upstream-proxy, 1.1"}),
         ),
         expect_at_client=ClientExpectation(status=200),
     ),
@@ -63,11 +63,11 @@ VIA_TESTS: list[ProxyTestCase] = [
             "Proxy appends Via header to response (upstream Via present in response)"
         ),
         catalog_ids=["4.4"],
-        request=RequestSpec(method="GET", path="/headers?Via=1.1+backend"),
+        request=RequestSpec(method="GET", path="/headers?Via=1.0+backend"),
         expect_at_target=TargetExpectation(),
         expect_at_client=ClientExpectation(
             status=200,
-            headers=HeaderExpectation(contains={"via": "1.1"}),
+            headers=HeaderExpectation(contains={"via": "1.0"}),
         ),
     ),
 ]

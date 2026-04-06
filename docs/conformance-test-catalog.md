@@ -324,11 +324,11 @@ These catalog requirements will be noted in the test files, e.g. `catalog_ids=["
 **Target expectation:** Body is `{"key": "value"}`, Content-Length matches
 **Client expectation:** 200
 
-#### 1.7 — Request body forwarded (chunked)
-**Spec:** RFC 9112 §7.1
-**Description:** A POST request body sent with chunked transfer encoding arrives at the upstream intact. The proxy may re-frame (chunked→Content-Length or vice versa) as long as the body content is preserved.
-**Request:** POST /data with chunked body
-**Target expectation:** Body content matches what was sent
+#### 1.7 — Binary request body
+**Spec:** RFC 9110 §8.6
+**Description:** Proxy forwards binary request body without corruption. Sends a 1024-byte body containing all 256 byte values repeated 4 times.
+**Request:** POST /echo with binary body (bytes 0x00–0xFF × 4)
+**Target expectation:** Body matches what was sent byte-for-byte
 **Client expectation:** 200
 
 #### 1.8 — Empty body not fabricated
@@ -337,6 +337,14 @@ These catalog requirements will be noted in the test files, e.g. `catalog_ids=["
 **Request:** GET / with no body, no Content-Length
 **Target expectation:** No body received; Content-Length absent or zero
 **Client expectation:** 200
+
+#### 1.9 — Host header set to upstream authority
+**Spec:** RFC 9110 §7.6.3
+**Description:** The proxy MUST send a `Host` header matching the upstream server's authority (host:port), not the client's original `Host` value.
+**Request:** GET /echo with `Host: test-host.example.com`
+**Target expectation:** `host` header equals `{good_server.host}:{good_server.port}`
+**Client expectation:** 200
+**Note:** Checked via `CustomTargetExpectation` callback since the upstream port is assigned at runtime. HAProxy preserves the original Host by default (RFC deviation).
 
 ---
 
@@ -450,6 +458,13 @@ _Note: Uses GoodServer `/headers?Connection=keep-alive&Keep-Alive=timeout%3D5&Pr
 **Target expectation:** Both headers present with original values
 **Client expectation:** 200
 
+#### 3.8 — Upgrade header stripped when not acting on upgrade _(deferred)_
+**Spec:** RFC 9110 §7.8
+**Description:** The Upgrade header is hop-by-hop. When the proxy does not act on the upgrade (e.g., the request is a normal GET with a stale `Upgrade: h2c` header), the proxy must strip the Upgrade header from the forwarded request. When the proxy does act on the upgrade (e.g., WebSocket), it handles the Upgrade mechanism directly (see category 15).
+**Request:** GET / with `Upgrade: h2c`
+**Target expectation:** Upgrade header absent
+**Client expectation:** 200
+
 ---
 
 ### 4. Via header
@@ -516,6 +531,20 @@ _Note: Tests 4.3 and 4.4 use GoodServer's `/headers` endpoint to set custom resp
 **Target expectation:** X-Forwarded-Host present with value "original.example.com"
 **Client expectation:** 200
 
+#### 5.5 — X-Forwarded-Proto with existing value (findings-based)
+**Spec:** [MDN: X-Forwarded-Proto](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Proto)
+**Description:** When the client already sends X-Forwarded-Proto, the proxy may preserve, replace, or append. This test records observed behavior — all three approaches are seen in practice.
+**Request:** GET / with `X-Forwarded-Proto: https`
+**Target expectation:** X-Forwarded-Proto present; "https" may or may not be preserved
+**Client expectation:** 200
+
+#### 5.6 — X-Forwarded-Host with existing value (findings-based)
+**Spec:** [MDN: X-Forwarded-Host](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-Host)
+**Description:** When the client already sends X-Forwarded-Host, the proxy may preserve, replace, or append. This test records observed behavior.
+**Request:** GET / with `X-Forwarded-Host: previous.example.com`
+**Target expectation:** X-Forwarded-Host present; "previous.example.com" may or may not be preserved
+**Client expectation:** 200
+
 ---
 
 ### 6. Body framing
@@ -561,6 +590,20 @@ _Note: Tests 4.3 and 4.4 use GoodServer's `/headers` endpoint to set custom resp
 **Request:** POST / with Content-Length: 0 and empty body
 **Target expectation:** Content-Length: 0 present, body is empty
 **Client expectation:** 200
+
+#### 6.7 — Transfer-Encoding and Content-Length together rejected _(deferred)_
+**Spec:** RFC 9112 §6.1
+**Description:** A request that contains both Transfer-Encoding and Content-Length is a potential request smuggling vector. The proxy must reject such requests with 400 rather than forwarding them.
+**Request:** POST / with both `Transfer-Encoding: chunked` and `Content-Length: 100`
+**Target expectation:** No request forwarded
+**Client expectation:** 400
+
+#### 6.8 — Duplicate Content-Length rejected _(deferred)_
+**Spec:** RFC 9110 §8.6
+**Description:** A request with multiple Content-Length headers carrying different values is malformed and must be rejected to prevent request smuggling.
+**Request:** POST / with two `Content-Length` headers with different values
+**Target expectation:** No request forwarded
+**Client expectation:** 400
 
 ---
 

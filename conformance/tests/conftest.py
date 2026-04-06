@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.parse
 from collections.abc import Generator
+from pathlib import Path
+from subprocess import TimeoutExpired
 from typing import Literal
 
 import httpx
@@ -16,7 +19,7 @@ from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.h2c_server import H2cServer
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
-from .proxies import ALL_PROXIES, ProxyUrls, start_proxy
+from .proxies import ALL_PROXIES, MANAGED_PROXIES, ProxyUrls, start_proxy
 
 FindingLevel = Literal["info", "finding"]
 
@@ -36,6 +39,12 @@ _session_findings = Findings()
 
 # Collected by the controller from worker report sections (xdist mode).
 _controller_entries: list[tuple[str, str, FindingLevel]] = []
+
+# protospy log file path per test module (keyed by module __name__).
+_protospy_log_paths: dict[str, Path] = {}
+
+# Per-test capture state: nodeid -> (log_path, byte offset before test).
+_protospy_captures: dict[str, tuple[Path, int]] = {}
 
 
 @pytest.fixture(scope="session")
@@ -69,14 +78,24 @@ def pytest_runtest_makereport(
     return report
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Collect findings sections forwarded by xdist workers (controller side)."""
+    """Collect findings from xdist workers; attach protospy output on failure."""
     if report.when != "call":
         return
     for title, payload in report.sections:
         if title == _FINDINGS_SECTION:
             entries: list[tuple[str, str, FindingLevel]] = json.loads(payload)
             _controller_entries.extend(entries)
+    capture = _protospy_captures.pop(report.nodeid, None)
+    if capture is not None:
+        log_path, offset = capture
+        if log_path.exists():
+            with open(log_path, "rb") as f:
+                f.seek(offset)
+                output = f.read().decode(errors="replace")
+            if output.strip():
+                report.sections.append(("protospy output", output))
 
 
 def pytest_terminal_summary(
@@ -133,6 +152,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Show proxy behavioral findings in terminal summary.",
     )
     parser.addoption(
+        "--show-http",
+        action="store_true",
+        default=False,
+        help=(
+            "Print request/response details (curl -v style) to stderr. "
+            "Pass -s to see output in real time."
+        ),
+    )
+    parser.addoption(
         "--proxy",
         default="caddy,haproxy",
         help=(
@@ -162,12 +190,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Fix the WireServer port (default: random). Useful with --proxy-url.",
     )
+    parser.addoption(
+        "--protospy-ext-host",
+        default="127.0.0.1",
+        help="Host where pre-running protospy listens (default: 127.0.0.1).",
+    )
+    parser.addoption(
+        "--protospy-ext-good-port",
+        type=int,
+        default=7400,
+        help="Protospy frontend port for the good channel (default: 7400).",
+    )
+    parser.addoption(
+        "--protospy-ext-wire-port",
+        type=int,
+        default=7401,
+        help="Protospy frontend port for the wire channel (default: 7401).",
+    )
+    parser.addoption(
+        "--protospy-ext-dead-port",
+        type=int,
+        default=7402,
+        help="Protospy frontend port for the dead channel (default: 7402).",
+    )
 
 
 def _get_proxy_list(config: pytest.Config) -> list[str]:
     raw = str(config.getoption("--proxy"))
     if raw == "all":
-        return list(ALL_PROXIES)
+        return list(MANAGED_PROXIES)
     return [p.strip() for p in raw.split(",") if p.strip()]
 
 
@@ -222,7 +273,7 @@ def proxy_type(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
-    port = request.config.getoption("--good-target-port")
+    port: int | None = request.config.getoption("--good-target-port")
     server = GoodServer() if port is None else GoodServer(port=port)
     server.start()
     yield server
@@ -231,7 +282,7 @@ def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
 
 @pytest.fixture(scope="session")
 def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
-    port = request.config.getoption("--wire-target-port")
+    port: int | None = request.config.getoption("--wire-target-port")
     server = WireServer() if port is None else WireServer(port=port)
     register_default_routes(server)
     server.start()
@@ -271,6 +322,11 @@ def proxy(
     via ``--proxy``).  Pass ``--proxy-url`` to skip lifecycle management
     and use an externally-started proxy instead.
     """
+    if proxy_type not in ALL_PROXIES:
+        supported = ", ".join(ALL_PROXIES)
+        msg = f"Unknown proxy type: {proxy_type!r}. Supported: {supported}."
+        raise ValueError(msg)
+
     proxy_url = request.config.getoption("--proxy-url")
 
     if proxy_url is not None:
@@ -290,6 +346,24 @@ def proxy(
         )
         return
 
+    if proxy_type == "protospy-ext":
+        host: str = request.config.getoption("--protospy-ext-host")
+        good_port: int = request.config.getoption("--protospy-ext-good-port")
+        wire_port: int = request.config.getoption("--protospy-ext-wire-port")
+        dead_port: int = request.config.getoption("--protospy-ext-dead-port")
+        yield ProxyUrls(
+            good_url=f"http://{host}:{good_port}",
+            wire_url=f"http://{host}:{wire_port}",
+            good_host=host,
+            good_port=good_port,
+            wire_host=host,
+            wire_port=wire_port,
+            dead_url=f"http://{host}:{dead_port}",
+            dead_host=host,
+            dead_port=dead_port,
+        )
+        return
+
     tmp = tmp_path_factory.mktemp(proxy_type)
     proc, urls = start_proxy(
         proxy_type,
@@ -299,11 +373,22 @@ def proxy(
         grpc_upstream=grpc_server.url,
         h2c_upstream=h2c_server.url,
     )
+    if proxy_type == "protospy":
+        _protospy_log_paths[request.module.__name__] = tmp / "protospy.log"
     try:
         yield urls
     finally:
         proc.terminate()
-        proc.wait(timeout=5)
+        try:
+            _ = proc.wait(timeout=5)
+        except TimeoutExpired:
+            print(
+                f"timeout expired stopping {proxy_type} proxy (pid {proc.pid}), "
+                "killing",
+                file=sys.stderr,
+            )
+            proc.kill()
+        _protospy_log_paths.pop(request.module.__name__, None)
 
 
 @pytest.fixture(scope="module")
@@ -313,10 +398,39 @@ def proxy_name(proxy_type: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def client() -> Generator[httpx.Client]:
+def client(pytestconfig: pytest.Config) -> Generator[httpx.Client]:
     """httpx client configured to ignore environment proxy settings."""
-    with httpx.Client(trust_env=False) as c:
+    from proxy_conformance.httpx_util import (
+        verbose_request_hook,
+        verbose_response_hook,
+    )
+
+    event_hooks = (
+        {
+            "request": [verbose_request_hook],
+            "response": [verbose_response_hook],
+        }
+        if pytestconfig.getoption("--show-http")
+        else {}
+    )
+    with httpx.Client(trust_env=False, event_hooks=event_hooks) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _protospy_output_capture(request: pytest.FixtureRequest) -> Generator[None]:
+    """Record protospy log offset before each test for failure capture."""
+    if "proxy_type" not in request.fixturenames:
+        yield
+        return
+    proxy_type: str = request.getfixturevalue("proxy_type")
+    if proxy_type != "protospy":
+        yield
+        return
+    log_path = _protospy_log_paths.get(request.module.__name__)
+    if log_path is not None and log_path.exists():
+        _protospy_captures[request.node.nodeid] = (log_path, log_path.stat().st_size)
+    yield
 
 
 @pytest.fixture(autouse=True)

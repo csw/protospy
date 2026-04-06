@@ -1,5 +1,23 @@
 [
   {
+    "label": "protospy",
+    "command": "cargo run -- --proxy name=es,port=3000,target=localhost:9200",
+    "env": {
+      "RUST_BACKTRACE": "1",
+    },
+  },
+  {
+    "label": "protospy tests",
+    "command": "cargo test",
+  },
+  {
+    "label": "protospy-ext",
+    "command": "cargo run -- --proxy=name=good,port=7400,target=127.0.0.1:7300 --proxy=name=wire,port=7401,target=127.0.0.1:7301 --proxy=name=dead,port=7402,target=127.0.0.1:7399",
+    "env": {
+      "RUST_BACKTRACE": "1",
+    },
+  },
+  {
     "label": "elasticflix: run",
     "command": "uv run uvicorn elasticflix.main:app --reload",
     "cwd": "$ZED_WORKTREE_ROOT/demo",
@@ -18,7 +36,7 @@
   },
   {
     "label": "conformance tests",
-    "command": "uv run pytest --findings",
+    "command": "uv run pytest -q -r pxf --findings",
     "cwd": "$ZED_WORKTREE_ROOT/conformance",
   },
   {
