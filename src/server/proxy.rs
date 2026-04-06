@@ -15,14 +15,14 @@ use tracing::{Instrument, error, info};
 
 use crate::server::conn::ConnInfo;
 
+use super::body::BodyWrapper;
 use super::client::Client;
 use super::errors;
 use super::headers;
 
 pub const SERVER_NAME: &str = "protospy";
 
-type ProxyResponse =
-    Response<http_body_util::Either<hyper::body::Incoming, http_body_util::Empty<Bytes>>>;
+type ProxyResponse = Response<http_body_util::Either<BodyWrapper, http_body_util::Empty<Bytes>>>;
 
 type ClientResult = <hyper_util::client::legacy::ResponseFuture as Future>::Output;
 
@@ -77,6 +77,7 @@ impl Server {
         }
     }
 
+    /// Proxy a single request to the upstream server.
     #[tracing::instrument]
     async fn proxy(
         self: Arc<Self>,
@@ -102,7 +103,7 @@ impl Server {
             headers::build_request(&self, &req, &conn, target_h)?;
         }
 
-        let wrapped_body = super::body::BodyWrapper {
+        let wrapped_body = BodyWrapper {
             base: req.into_body(),
         };
 
@@ -135,7 +136,10 @@ impl Server {
         let (mut parts, body) = response.into_parts();
 
         parts.headers = new_headers;
-        Ok(Response::from_parts(parts, Either::Left(body)))
+
+        let wrapped_body = BodyWrapper { base: body };
+
+        Ok(Response::from_parts(parts, Either::Left(wrapped_body)))
     }
 
     fn error_response(
