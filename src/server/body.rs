@@ -1,4 +1,4 @@
-use std::task::Poll::Ready;
+use std::task::Poll;
 
 use hyper::body::Body;
 use pin_project_lite::pin_project;
@@ -19,11 +19,19 @@ impl Body for BodyWrapper {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
         let res = self.project().base.poll_frame(cx);
-        if let Ready(Some(Ok(frame))) = &res
-            && let Some(bytes) = frame.data_ref()
-        {
-            eprintln!("read frame: {} bytes", bytes.len())
+        match res {
+            Poll::Ready(Some(Ok(ref frame))) => {
+                if let Some(bytes) = frame.data_ref() {
+                    eprintln!("read frame: {} bytes", bytes.len());
+                }
+            }
+            Poll::Ready(Some(Err(ref err))) => {
+                eprintln!("read error: {:?}", err);
+            }
+            Poll::Ready(None) => (),
+            Poll::Pending => (),
         }
+
         res
     }
 

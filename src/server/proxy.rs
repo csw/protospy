@@ -69,7 +69,7 @@ impl Server {
                         )
                         .await
                     {
-                        eprintln!("Error serving connection: {:?}", err);
+                        error!("error serving connection: {:?}", err);
                     }
                 }
                 .instrument(tracing::Span::current()),
