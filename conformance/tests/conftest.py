@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.parse
 from collections.abc import Generator
 from pathlib import Path
+from subprocess import TimeoutExpired
 from typing import Literal
 
 import httpx
@@ -377,7 +379,15 @@ def proxy(
         yield urls
     finally:
         proc.terminate()
-        proc.wait(timeout=5)
+        try:
+            _ = proc.wait(timeout=5)
+        except TimeoutExpired:
+            print(
+                f"timeout expired stopping {proxy_type} proxy (pid {proc.pid}), "
+                "killing",
+                file=sys.stderr,
+            )
+            proc.kill()
         _protospy_log_paths.pop(request.module.__name__, None)
 
 
