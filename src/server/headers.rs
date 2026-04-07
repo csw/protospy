@@ -261,6 +261,7 @@ mod tests {
 
     fn server() -> Server {
         Server {
+            name: "bowie".to_string(),
             addr: "127.0.0.1:8080".parse().unwrap(),
             target: TARGET.to_string(),
             client: client::build(),

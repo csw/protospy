@@ -1,11 +1,12 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use clap::Parser;
-use color_eyre::config::Frame;
-use eyre::Result;
-use tokio::task::JoinSet;
-use tracing::level_filters::LevelFilter;
+use color_eyre::{Result, config::Frame};
+use console_subscriber::ConsoleLayer;
+use tokio::task::{AbortHandle, JoinSet};
+use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
+use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
@@ -15,8 +16,10 @@ pub mod server;
 #[command(version, about, long_about = None)]
 struct Args {
     /// Proxy definition
-    #[arg(long = "proxy")]
+    #[arg(long = "proxy", required = true)]
     proxies: Vec<ProxyConfig>,
+    #[arg(long)]
+    console: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +32,7 @@ struct ProxyConfig {
 impl ProxyConfig {
     fn to_server(&self, client: server::client::Client) -> server::Server {
         server::Server {
+            name: self.name.clone(),
             addr: SocketAddr::from(([127, 0, 0, 1], self.port)),
             target: self.target.clone(),
             client,
@@ -66,10 +70,9 @@ impl std::str::FromStr for ProxyConfig {
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    // init_logging();
-    init_logging()?;
-
     let args = Args::parse();
+    init_logging(args.console)?;
+
     let client = server::client::build();
     let servers: Vec<Arc<server::Server>> = args
         .proxies
@@ -81,25 +84,41 @@ pub async fn main() -> Result<()> {
         .collect();
     let mut join_set = JoinSet::new();
     for server in servers.iter() {
-        let server = Arc::clone(server);
-        _ = join_set.spawn(async move { server.run().await });
+        _ = start_server(Arc::clone(server), &mut join_set)?;
     }
-    join_set.join_next().await.unwrap().unwrap()
+    let join_res = join_set.join_next().await;
+    join_res.unwrap()?
+}
+
+fn start_server(
+    server: Arc<server::Server>,
+    join_set: &mut JoinSet<Result<()>>,
+) -> std::io::Result<AbortHandle> {
+    join_set
+        .build_task()
+        .name(format!("server({}) port={}", server.name, server.addr.port()).as_str())
+        .spawn(async move { server.run().await })
 }
 
 /// Set up event logging and error reporting.
-fn init_logging() -> Result<()> {
+fn init_logging(enable_console: bool) -> Result<()> {
     // set up standard logging
     let log_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()?;
     let log_layer = tracing_subscriber::fmt::layer().with_filter(log_filter);
+    let console_layer = enable_console.then(|| ConsoleLayer::builder().with_default_env().spawn());
 
     // register tracing layers for logging and errors with color-eyre
     Registry::default()
         .with(ErrorLayer::default())
         .with(log_layer)
+        .with(console_layer)
         .init();
+
+    if enable_console {
+        info!("enabled tokio-console support");
+    }
 
     // filter backtrace frames for only ours; otherwise we get about 50
     // infrastructure frames.

@@ -13,7 +13,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tracing::{Instrument, error, info};
 
 use crate::server::op::{self, OpReportingContext};
@@ -30,6 +30,7 @@ type ProxyResponse = Response<http_body_util::Either<BodyWrapper, http_body_util
 
 #[derive(Debug)]
 pub struct Server {
+    pub name: String,
     pub addr: SocketAddr,
     pub target: String,
     pub client: Client,
@@ -45,21 +46,25 @@ impl Server {
         // We start a loop to continuously accept incoming connections
         loop {
             let (stream, _) = listener.accept().await?;
+            self.handle_connection(stream)?;
+        }
+    }
 
-            let conn_info = ConnInfo {
-                protocol: "http".to_string(),
-                client: stream.peer_addr()?,
-            };
+    fn handle_connection(self: &Arc<Self>, stream: TcpStream) -> Result<()> {
+        let conn_info = ConnInfo {
+            protocol: "http".to_string(),
+            client: stream.peer_addr()?,
+        };
 
-            // Use an adapter to access something implementing `tokio::io` traits as if they implement
-            // `hyper::rt` IO traits.
-            let io = TokioIo::new(stream);
-            let server = Arc::clone(&self);
+        // Use an adapter to access something implementing `tokio::io` traits as if they implement
+        // `hyper::rt` IO traits.
+        let io = TokioIo::new(stream);
+        let server = Arc::clone(self);
 
-            // Spawn a tokio task to serve multiple connections concurrently
-            tokio::task::spawn(
+        tokio::task::Builder::new()
+            .name(format!("conn({}) {}", self.name, conn_info.client).as_str())
+            .spawn(
                 async move {
-                    // Finally, we bind the incoming connection to our `hello` service
                     if let Err(err) = http1::Builder::new()
                         // `service_fn` converts our function in a `Service`
                         .serve_connection(
@@ -75,8 +80,8 @@ impl Server {
                     }
                 }
                 .instrument(tracing::Span::current()),
-            );
-        }
+            )?;
+        Ok(())
     }
 
     /// Proxy a single request to the upstream server.
@@ -87,6 +92,7 @@ impl Server {
         conn: ConnInfo,
     ) -> Result<ProxyResponse> {
         let req_uri = req.uri();
+        let task_name = format!("report {} {}", req.method(), req_uri);
 
         let target_uri = uri::Builder::new()
             .scheme(http::uri::Scheme::HTTP)
@@ -116,13 +122,13 @@ impl Server {
             },
         ) = op::create_reporting(req_parts, conn);
 
-        tokio::spawn(
+        tokio::task::Builder::new().name(task_name.as_str()).spawn(
             async move {
                 op_reporter.run().await?;
                 Ok::<_, eyre::Report>(())
             }
             .instrument(tracing::Span::current()),
-        );
+        )?;
 
         let wrapped_body = BodyWrapper::new(Direction::Request, req_body, request_tracker);
 

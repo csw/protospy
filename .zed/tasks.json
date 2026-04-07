@@ -1,7 +1,7 @@
 [
   {
     "label": "protospy",
-    "command": "cargo run -- --proxy name=es,port=3000,target=localhost:9200",
+    "command": "cargo run -- --console --proxy name=es,port=3000,target=localhost:9200",
     "env": {
       "RUST_BACKTRACE": "1",
       "RUST_LOG": "info,protospy=debug",
