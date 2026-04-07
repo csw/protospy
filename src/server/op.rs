@@ -79,7 +79,7 @@ impl OpReporter {
 }
 
 pub struct BodyTracker {
-    data: Option<TrackedBodyData>,
+    body: Option<TrackedBodyData>,
     done_chan: Option<tokio::sync::oneshot::Sender<TrackedBodyData>>,
 }
 
@@ -88,7 +88,7 @@ impl BodyTracker {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         (
             Self {
-                data: Some(TrackedBodyData::default()),
+                body: Some(TrackedBodyData::default()),
                 done_chan: Some(sender),
             },
             receiver,
@@ -96,31 +96,30 @@ impl BodyTracker {
     }
 
     pub fn saw_data(&mut self, bytes: &Bytes) {
-        self.mut_data().data.extend_from_slice(bytes);
+        let body = self.mut_body();
+        body.saw_body = true;
+        body.data.extend_from_slice(bytes);
     }
 
     pub fn saw_trailers(&mut self, trailers: &HeaderMap) {
+        let body = self.mut_body();
         for (key, value) in trailers.iter() {
-            self.mut_data().trailers.append(key, value.clone());
+            body.trailers.append(key, value.clone());
         }
     }
 
     pub fn saw_error(&mut self, err: String) -> Result<()> {
-        {
-            self.mut_data().error = Some(err)
-        }
+        self.mut_body().error = Some(err);
         self.report()
     }
 
     pub fn saw_eof(&mut self) -> Result<()> {
-        {
-            self.mut_data().saw_eof = true;
-        }
+        self.mut_body().saw_eof = true;
         self.report()
     }
 
-    fn mut_data(&mut self) -> &mut TrackedBodyData {
-        self.data.as_mut().expect("not yet sent")
+    fn mut_body(&mut self) -> &mut TrackedBodyData {
+        self.body.as_mut().expect("not yet sent")
     }
 
     fn report(&mut self) -> Result<()> {
@@ -128,7 +127,7 @@ impl BodyTracker {
             .take()
             .ok_or_else(|| eyre!("already reported completion"))?
             .send(
-                self.data
+                self.body
                     .take()
                     .ok_or_else(|| eyre!("already took body data"))?,
             )
@@ -138,7 +137,7 @@ impl BodyTracker {
 
 impl Drop for BodyTracker {
     fn drop(&mut self) {
-        if self.done_chan.is_some() && self.data.is_some() {
+        if self.done_chan.is_some() && self.body.is_some() {
             warn!("BodyTracker dropped without explicit report");
             self.report().expect("report succeeded");
         }
@@ -150,6 +149,7 @@ pub struct TrackedBodyData {
     data: Vec<u8>,
     error: Option<String>,
     trailers: HeaderMap,
+    saw_body: bool,
     saw_eof: bool,
 }
 
@@ -159,6 +159,7 @@ impl TrackedBodyData {
             data: Vec::new(),
             error: None,
             trailers: HeaderMap::new(),
+            saw_body: false,
             saw_eof: false,
         }
     }

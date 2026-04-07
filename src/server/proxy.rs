@@ -16,8 +16,8 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tracing::{Instrument, error, info};
 
-use crate::server::conn::ConnInfo;
 use crate::server::op::{self, OpReportingContext};
+use crate::server::{body::Direction, conn::ConnInfo};
 
 use super::body::BodyWrapper;
 use super::client::Client;
@@ -124,7 +124,7 @@ impl Server {
             .instrument(tracing::Span::current()),
         );
 
-        let wrapped_body = BodyWrapper::new(req_body, request_tracker);
+        let wrapped_body = BodyWrapper::new(Direction::Request, req_body, request_tracker);
 
         let target_req = target_req_builder.body(wrapped_body)?;
 
@@ -164,7 +164,7 @@ impl Server {
 
         parts.headers = new_headers;
 
-        let wrapped_body = BodyWrapper::new(body, response_tracker);
+        let wrapped_body = BodyWrapper::new(Direction::Response, body, response_tracker);
 
         Ok(Response::from_parts(parts, Either::Left(wrapped_body)))
     }

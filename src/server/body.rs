@@ -2,11 +2,20 @@ use std::task::Poll;
 
 use hyper::body::Body;
 use pin_project_lite::pin_project;
+use strum::Display;
+use tracing::debug;
 
 use crate::server::op::BodyTracker;
 
+#[derive(Display, Debug)]
+pub enum Direction {
+    Request,
+    Response,
+}
+
 pin_project! {
     pub struct BodyWrapper {
+        pub direction: Direction,
         #[pin]
         pub base: hyper::body::Incoming,
         tracker: BodyTracker,
@@ -14,8 +23,12 @@ pin_project! {
 }
 
 impl BodyWrapper {
-    pub fn new(base: hyper::body::Incoming, tracker: BodyTracker) -> Self {
-        Self { base, tracker }
+    pub fn new(direction: Direction, base: hyper::body::Incoming, tracker: BodyTracker) -> Self {
+        Self {
+            direction,
+            base,
+            tracker,
+        }
     }
 }
 
@@ -30,11 +43,23 @@ impl Body for BodyWrapper {
         let res = self.as_mut().project().base.poll_frame(cx);
         match res {
             Poll::Ready(Some(Ok(ref frame))) => {
+                let at_eof = self.base.is_end_stream();
+
                 if let Some(bytes) = frame.data_ref() {
-                    eprintln!("read frame: {} bytes", bytes.len());
+                    debug!(
+                        direction = %self.direction,
+                        event = "read_frame",
+                        len = bytes.len(),
+                        at_eof = at_eof,
+                    );
                     self.as_mut().tracker.saw_data(bytes);
                 } else if let Some(trailers) = frame.trailers_ref() {
-                    eprintln!("read {} trailers", trailers.len());
+                    debug!(
+                        direction = %self.direction,
+                        event = "read_trailers",
+                        count = trailers.len(),
+                        at_eof = at_eof,
+                    );
                     self.as_mut().tracker.saw_trailers(trailers);
                 }
 
@@ -43,7 +68,11 @@ impl Body for BodyWrapper {
                 }
             }
             Poll::Ready(Some(Err(ref err))) => {
-                eprintln!("read error: {:?}", err);
+                debug!(
+                    direction = %self.direction,
+                    event = "read_error",
+                    error = ?err,
+                );
                 self.as_mut()
                     .tracker
                     .saw_error(err.to_string())
@@ -51,6 +80,11 @@ impl Body for BodyWrapper {
             }
             // EOF
             Poll::Ready(None) => {
+                debug!(
+                    direction = %self.direction,
+                    event = "body_eof",
+                );
+
                 self.as_mut().tracker.saw_eof().expect("reported OK");
             }
             Poll::Pending => (),
