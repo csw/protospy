@@ -111,9 +111,10 @@ impl Server {
         let mut target_req_builder = Request::builder()
             .method(req.method())
             .uri(target_uri.clone());
-        if let Some(target_h) = target_req_builder.headers_mut() {
-            headers::build_request(self.target.as_str(), &req, &conn, target_h)?;
-        }
+        let req_headers = headers::build_request(self.target.as_str(), &req, &conn)?;
+        *target_req_builder
+            .headers_mut()
+            .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
 
         let (req_parts, req_body) = req.into_parts();
 
