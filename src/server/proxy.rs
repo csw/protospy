@@ -30,9 +30,13 @@ type ProxyResponse = Response<http_body_util::Either<BodyWrapper, http_body_util
 
 #[derive(Debug)]
 pub struct Server {
+    /// User-defined name of the server instance, e.g. 'db'.
     pub name: String,
+    /// Listening socket address.
     pub addr: SocketAddr,
+    /// Target URL.
     pub target: String,
+    /// HTTP client.
     pub client: Client,
 }
 
@@ -108,7 +112,7 @@ impl Server {
             .method(req.method())
             .uri(target_uri.clone());
         if let Some(target_h) = target_req_builder.headers_mut() {
-            headers::build_request(&self, &req, &conn, target_h)?;
+            headers::build_request(self.target.as_str(), &req, &conn, target_h)?;
         }
 
         let (req_parts, req_body) = req.into_parts();
