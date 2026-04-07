@@ -89,7 +89,7 @@ impl Server {
     }
 
     /// Proxy a single request to the upstream server.
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     async fn proxy(
         self: Arc<Self>,
         req: Request<hyper::body::Incoming>,
@@ -111,7 +111,7 @@ impl Server {
         let mut target_req_builder = Request::builder()
             .method(req.method())
             .uri(target_uri.clone());
-        let req_headers = headers::build_request(self.target.as_str(), &req, &conn)?;
+        let req_headers = headers::request_headers(self.target.as_str(), &req, &conn)?;
         *target_req_builder
             .headers_mut()
             .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;

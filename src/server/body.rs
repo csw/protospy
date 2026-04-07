@@ -3,7 +3,7 @@ use std::task::Poll;
 use hyper::body::Body;
 use pin_project_lite::pin_project;
 use strum::Display;
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use crate::server::op::BodyTracker;
 
@@ -36,6 +36,7 @@ impl Body for BodyWrapper {
     type Data = <hyper::body::Incoming as hyper::body::Body>::Data;
     type Error = <hyper::body::Incoming as hyper::body::Body>::Error;
 
+    #[instrument(skip(self, cx), fields(direction = %self.direction))]
     fn poll_frame(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -46,16 +47,10 @@ impl Body for BodyWrapper {
                 let at_eof = self.base.is_end_stream();
 
                 if let Some(bytes) = frame.data_ref() {
-                    debug!(
-                        direction = %self.direction,
-                        event = "read_frame",
-                        len = bytes.len(),
-                        at_eof = at_eof,
-                    );
+                    debug!(event = "read_frame", len = bytes.len(), at_eof = at_eof,);
                     self.as_mut().tracker.saw_data(bytes);
                 } else if let Some(trailers) = frame.trailers_ref() {
                     debug!(
-                        direction = %self.direction,
                         event = "read_trailers",
                         count = trailers.len(),
                         at_eof = at_eof,
@@ -69,7 +64,6 @@ impl Body for BodyWrapper {
             }
             Poll::Ready(Some(Err(ref err))) => {
                 debug!(
-                    direction = %self.direction,
                     event = "read_error",
                     error = ?err,
                 );
@@ -80,10 +74,7 @@ impl Body for BodyWrapper {
             }
             // EOF
             Poll::Ready(None) => {
-                debug!(
-                    direction = %self.direction,
-                    event = "body_eof",
-                );
+                debug!(event = "body_eof",);
 
                 self.as_mut().tracker.saw_eof().expect("reported OK");
             }

@@ -27,7 +27,8 @@ static STRIP_RESPONSE_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
     ]
 });
 
-pub fn build_request<T>(target: &str, req: &Request<T>, conn: &ConnInfo) -> Result<HeaderMap> {
+/// Compute headers to use for the forwarded request.
+pub fn request_headers<T>(target: &str, req: &Request<T>, conn: &ConnInfo) -> Result<HeaderMap> {
     let mut req_h = HeaderMap::new();
     req_h.clone_from(req.headers());
     req_h.insert(hyper::header::HOST, target.parse()?);
@@ -66,6 +67,7 @@ pub fn build_request<T>(target: &str, req: &Request<T>, conn: &ConnInfo) -> Resu
     Ok(req_h)
 }
 
+/// Compute headers to use for the forwarded response.
 pub fn response_headers<B>(orig: &Response<B>) -> Result<HeaderMap> {
     let mut headers = orig.headers().clone();
     for to_strip in STRIP_RESPONSE_HEADERS.iter() {
@@ -235,7 +237,7 @@ mod tests {
 
     fn build_mapped_req(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
-        build_request(TARGET, &req, &conn()).unwrap()
+        request_headers(TARGET, &req, &conn()).unwrap()
     }
 
     fn header_val<'a>(headers: &'a HeaderMap, name: &'a str) -> Option<&'a str> {
