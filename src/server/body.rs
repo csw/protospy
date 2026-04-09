@@ -1,6 +1,7 @@
 use std::task::Poll;
 
-use hyper::body::Body;
+use http::Response;
+use hyper::body::{Body, Bytes, Incoming};
 use pin_project_lite::pin_project;
 use strum::Display;
 use tracing::{debug, instrument};
@@ -13,17 +14,39 @@ pub enum Direction {
     Response,
 }
 
+pub type ProxyResponse = Response<ProxyResponseBody>;
+
+pub type ProxiedBody = http_body_util::Either<BodyWrapper, Incoming>;
+
+pub type ProxyResponseBody = http_body_util::Either<ProxiedBody, http_body_util::Empty<Bytes>>;
+
+pub fn wrapped_response_body(wrapper: BodyWrapper) -> ProxyResponseBody {
+    ProxyResponseBody::Left(ProxiedBody::Left(wrapper))
+}
+
+pub fn passthrough_response_body(incoming: Incoming) -> ProxyResponseBody {
+    ProxyResponseBody::Left(ProxiedBody::Right(incoming))
+}
+
+pub fn empty_response_body() -> ProxyResponseBody {
+    ProxyResponseBody::Right(http_body_util::Empty::new())
+}
+
 pin_project! {
     pub struct BodyWrapper {
         pub direction: Direction,
         #[pin]
         pub base: hyper::body::Incoming,
-        tracker: BodyTracker,
+        tracker: Box<BodyTracker>,
     }
 }
 
 impl BodyWrapper {
-    pub fn new(direction: Direction, base: hyper::body::Incoming, tracker: BodyTracker) -> Self {
+    pub fn new(
+        direction: Direction,
+        base: hyper::body::Incoming,
+        tracker: Box<BodyTracker>,
+    ) -> Self {
         Self {
             direction,
             base,
@@ -48,14 +71,17 @@ impl Body for BodyWrapper {
 
                 if let Some(bytes) = frame.data_ref() {
                     debug!(event = "read_frame", len = bytes.len(), at_eof = at_eof,);
-                    self.as_mut().tracker.saw_data(bytes);
+                    self.as_mut().tracker.saw_data(bytes).expect("reported OK");
                 } else if let Some(trailers) = frame.trailers_ref() {
                     debug!(
                         event = "read_trailers",
                         count = trailers.len(),
                         at_eof = at_eof,
                     );
-                    self.as_mut().tracker.saw_trailers(trailers);
+                    self.as_mut()
+                        .tracker
+                        .saw_trailers(trailers)
+                        .expect("reported OK");
                 }
 
                 if self.base.is_end_stream() {

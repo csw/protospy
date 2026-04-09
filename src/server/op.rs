@@ -1,9 +1,15 @@
 use color_eyre::{Result, eyre::eyre};
-use http::HeaderMap;
+use http::{HeaderMap, Response};
 use hyper::body::Bytes;
+use tokio::sync::oneshot;
 use tracing::{info, warn};
 
-use crate::server::conn::ConnInfo;
+use crate::server::{
+    body,
+    body::{BodyWrapper, Direction, ProxyResponse},
+    client::{Client, ClientBody},
+    conn::ConnInfo,
+};
 
 /// An HTTP request-response pair
 #[derive(Debug)]
@@ -21,7 +27,7 @@ pub fn create_reporting(
 ) -> (OpReporter, OpReportingContext) {
     let (request_tracker, request_body_receiver) = BodyTracker::create_pair();
     let (response_tracker, response_body_receiver) = BodyTracker::create_pair();
-    let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+    let (response_sender, response_receiver) = oneshot::channel();
     (
         OpReporter {
             request,
@@ -30,26 +36,105 @@ pub fn create_reporting(
             response_chan: response_receiver,
             response_body_chan: response_body_receiver,
         },
-        OpReportingContext {
-            request_tracker,
-            response_tracker,
-            response_sender,
+        OpReportingContext::Report {
+            request_tracker: Some(Box::new(request_tracker)),
+            response_tracker: Some(Box::new(response_tracker)),
+            response_sender: Some(response_sender),
         },
     )
 }
 
-pub struct OpReportingContext {
-    pub request_tracker: BodyTracker,
-    pub response_tracker: BodyTracker,
-    pub response_sender: tokio::sync::oneshot::Sender<http::response::Parts>,
+pub enum OpReportingContext {
+    NoOp,
+    Report {
+        request_tracker: Option<Box<BodyTracker>>,
+        response_tracker: Option<Box<BodyTracker>>,
+        response_sender: Option<oneshot::Sender<http::response::Parts>>,
+    },
+}
+
+impl OpReportingContext {
+    pub fn report_response(&mut self, parts: &http::response::Parts) -> Result<()> {
+        match self {
+            Self::NoOp => Ok(()),
+            Self::Report {
+                response_sender: sender @ Some(_),
+                ..
+            } => sender
+                .take()
+                .unwrap()
+                .send(parts.clone())
+                .map_err(|_| eyre!("failed to send response data")),
+            Self::Report {
+                response_sender: None,
+                ..
+            } => Err(eyre!("already reported response")),
+        }
+    }
+
+    pub fn forward_request(
+        &mut self,
+        client: &Client,
+        request: http::Request<hyper::body::Incoming>,
+    ) -> Result<hyper_util::client::legacy::ResponseFuture> {
+        let (parts, incoming) = request.into_parts();
+        match self {
+            Self::NoOp => {
+                Ok(client.request(http::Request::from_parts(parts, ClientBody::Left(incoming))))
+            }
+
+            Self::Report {
+                request_tracker: tracker_opt @ Some(_),
+                ..
+            } => {
+                let tracker = tracker_opt.take().unwrap();
+                let wrapped = BodyWrapper::new(Direction::Request, incoming, tracker);
+                Ok(client.request(http::Request::from_parts(parts, ClientBody::Right(wrapped))))
+            }
+            Self::Report {
+                request_tracker: None,
+                ..
+            } => Err(eyre!("already wrapped request body")),
+        }
+    }
+
+    pub fn tracked_response(
+        &mut self,
+        response: http::Response<hyper::body::Incoming>,
+    ) -> Result<ProxyResponse> {
+        let (parts, incoming) = response.into_parts();
+        match self {
+            Self::NoOp => Ok(http::Response::from_parts(
+                parts,
+                body::passthrough_response_body(incoming),
+            )),
+            Self::Report {
+                response_tracker: tracker @ Some(_),
+                response_sender: sender @ Some(_),
+                ..
+            } => {
+                let sender = sender.take().unwrap();
+                sender
+                    .send(parts.clone())
+                    .map_err(|_| eyre!("failed to send response data"))?;
+                let tracker = tracker.take().unwrap();
+                let wrapped = BodyWrapper::new(Direction::Response, incoming, tracker);
+                Ok(Response::from_parts(
+                    parts,
+                    body::wrapped_response_body(wrapped),
+                ))
+            }
+            _ => Err(eyre!("already reported response")),
+        }
+    }
 }
 
 pub struct OpReporter {
     request: http::request::Parts,
     conn_info: ConnInfo,
-    request_body_chan: tokio::sync::oneshot::Receiver<TrackedBodyData>,
-    response_chan: tokio::sync::oneshot::Receiver<http::response::Parts>,
-    response_body_chan: tokio::sync::oneshot::Receiver<TrackedBodyData>,
+    request_body_chan: oneshot::Receiver<TrackedBodyData>,
+    response_chan: oneshot::Receiver<http::response::Parts>,
+    response_body_chan: oneshot::Receiver<TrackedBodyData>,
 }
 
 impl OpReporter {
@@ -80,12 +165,12 @@ impl OpReporter {
 
 pub struct BodyTracker {
     body: Option<TrackedBodyData>,
-    done_chan: Option<tokio::sync::oneshot::Sender<TrackedBodyData>>,
+    done_chan: Option<oneshot::Sender<TrackedBodyData>>,
 }
 
 impl BodyTracker {
-    fn create_pair() -> (Self, tokio::sync::oneshot::Receiver<TrackedBodyData>) {
-        let (sender, receiver) = tokio::sync::oneshot::channel();
+    fn create_pair() -> (Self, oneshot::Receiver<TrackedBodyData>) {
+        let (sender, receiver) = oneshot::channel();
         (
             Self {
                 body: Some(TrackedBodyData::default()),
@@ -95,31 +180,33 @@ impl BodyTracker {
         )
     }
 
-    pub fn saw_data(&mut self, bytes: &Bytes) {
-        let body = self.mut_body();
+    pub fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
+        let body = self.mut_body()?;
         body.saw_body = true;
         body.data.extend_from_slice(bytes);
+        Ok(())
     }
 
-    pub fn saw_trailers(&mut self, trailers: &HeaderMap) {
-        let body = self.mut_body();
+    pub fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
+        let body = self.mut_body()?;
         for (key, value) in trailers.iter() {
             body.trailers.append(key, value.clone());
         }
+        Ok(())
     }
 
     pub fn saw_error(&mut self, err: String) -> Result<()> {
-        self.mut_body().error = Some(err);
+        self.mut_body()?.error = Some(err);
         self.report()
     }
 
     pub fn saw_eof(&mut self) -> Result<()> {
-        self.mut_body().saw_eof = true;
+        self.mut_body()?.saw_eof = true;
         self.report()
     }
 
-    fn mut_body(&mut self) -> &mut TrackedBodyData {
-        self.body.as_mut().expect("not yet sent")
+    fn mut_body(&mut self) -> Result<&mut TrackedBodyData> {
+        self.body.as_mut().ok_or_else(|| eyre!("already sent body"))
     }
 
     fn report(&mut self) -> Result<()> {
@@ -144,7 +231,7 @@ impl Drop for BodyTracker {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TrackedBodyData {
     data: Vec<u8>,
     error: Option<String>,
@@ -168,5 +255,64 @@ impl TrackedBodyData {
 impl Default for TrackedBodyData {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tracker_eof_only() -> Result<()> {
+        let (mut tracker, rcv) = BodyTracker::create_pair();
+        tracker.saw_eof()?;
+        let body = rcv.blocking_recv()?;
+        assert_eq!(
+            body,
+            TrackedBodyData {
+                saw_eof: true,
+                ..Default::default()
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_tracker_data_2() -> Result<()> {
+        let (mut tracker, rcv) = BodyTracker::create_pair();
+        tracker.saw_data(&Bytes::from_static(b"ab"))?;
+        tracker.saw_data(&Bytes::from_static(b"cd"))?;
+        tracker.saw_eof()?;
+        let body = rcv.blocking_recv()?;
+        assert_eq!(
+            body,
+            TrackedBodyData {
+                data: b"abcd".into(),
+                saw_body: true,
+                saw_eof: true,
+                ..Default::default()
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_tracker_data_drop() -> Result<()> {
+        let (tracker, rcv) = BodyTracker::create_pair();
+        {
+            let mut t2 = tracker;
+            t2.saw_data(&Bytes::from_static(b"ab"))?;
+        }
+        let body = rcv.blocking_recv()?;
+        assert_eq!(
+            body,
+            TrackedBodyData {
+                data: b"ab".into(),
+                saw_body: true,
+                saw_eof: false,
+                ..Default::default()
+            }
+        );
+        Ok(())
     }
 }

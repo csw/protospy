@@ -7,8 +7,7 @@ use color_eyre::{
     eyre::{WrapErr, eyre},
 };
 use http::{StatusCode, uri};
-use http_body_util::{Either, Empty};
-use hyper::body::{Bytes, Incoming};
+use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -16,17 +15,15 @@ use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{Instrument, error, info};
 
-use crate::server::op::{self, OpReportingContext};
-use crate::server::{body::Direction, conn::ConnInfo};
+use crate::server::conn::ConnInfo;
+use crate::server::{body::ProxyResponse, op};
 
-use super::body::BodyWrapper;
+use super::body;
 use super::client::Client;
 use super::errors;
 use super::headers;
 
 pub const SERVER_NAME: &str = "protospy";
-
-type ProxyResponse = Response<http_body_util::Either<BodyWrapper, http_body_util::Empty<Bytes>>>;
 
 #[derive(Debug)]
 pub struct Server {
@@ -118,14 +115,7 @@ impl Server {
 
         let (req_parts, req_body) = req.into_parts();
 
-        let (
-            op_reporter,
-            OpReportingContext {
-                request_tracker,
-                response_tracker,
-                response_sender,
-            },
-        ) = op::create_reporting(req_parts, conn);
+        let (op_reporter, mut reporting_ctx) = op::create_reporting(req_parts, conn);
 
         tokio::task::Builder::new().name(task_name.as_str()).spawn(
             async move {
@@ -135,17 +125,16 @@ impl Server {
             .instrument(tracing::Span::current()),
         )?;
 
-        let wrapped_body = BodyWrapper::new(Direction::Request, req_body, request_tracker);
-
-        let target_req = target_req_builder.body(wrapped_body)?;
-
         info!("Forwarding request");
 
-        let result = self.client.request(target_req).await;
+        let result = reporting_ctx
+            .forward_request(&self.client, target_req_builder.body(req_body)?)?
+            .await;
 
         let our_response = match result {
             Ok(upstream_response) => {
-                self.build_response(upstream_response, response_sender, response_tracker)?
+                let proxied = self.build_response(upstream_response)?;
+                reporting_ctx.tracked_response(proxied)?
             }
             Err(upstream_err) => return self.error_response(&upstream_err),
         };
@@ -153,12 +142,7 @@ impl Server {
         Ok(our_response)
     }
 
-    fn build_response(
-        &self,
-        response: Response<Incoming>,
-        response_sender: tokio::sync::oneshot::Sender<http::response::Parts>,
-        response_tracker: op::BodyTracker,
-    ) -> Result<ProxyResponse> {
+    fn build_response(&self, response: Response<Incoming>) -> Result<Response<Incoming>> {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
 
@@ -169,15 +153,10 @@ impl Server {
 
         let new_headers = headers::response_headers(&response)?;
         let (mut parts, body) = response.into_parts();
-        response_sender
-            .send(parts.clone())
-            .map_err(|_| eyre!("failed to send response data"))?;
 
         parts.headers = new_headers;
 
-        let wrapped_body = BodyWrapper::new(Direction::Response, body, response_tracker);
-
-        Ok(Response::from_parts(parts, Either::Left(wrapped_body)))
+        Ok(Response::from_parts(parts, body))
     }
 
     fn error_response(
@@ -213,7 +192,7 @@ impl Server {
             .status(status)
             .header("server", SERVER_NAME)
             .header("x-cause", cause.to_string())
-            .body(Either::Right(Empty::new()))
+            .body(body::empty_response_body())
             .wrap_err("failed to build internal response")
     }
 }
