@@ -3,7 +3,8 @@ use std::sync::Arc;
 use color_eyre::Result;
 use tokio::sync::broadcast;
 
-use crate::server::op::Op;
+use crate::server::op::{self, Op};
+use crate::tokio_util::spawn_instrumented;
 
 pub type Payload = Arc<Op>;
 pub type Sender = broadcast::Sender<Payload>;
@@ -43,5 +44,24 @@ impl Publisher {
 impl Default for Publisher {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub fn start_logger(
+    server_name: &str,
+    receiver: Receiver,
+) -> Result<tokio::task::JoinHandle<Result<()>>> {
+    let task_name = format!("logger({})", server_name);
+    spawn_instrumented(
+        task_name.as_str(),
+        async move { run_logger(receiver).await },
+    )
+}
+
+#[tracing::instrument(level = "info")]
+pub async fn run_logger(mut receiver: Receiver) -> Result<()> {
+    loop {
+        let val = receiver.recv().await?;
+        op::log_op(&val)?;
     }
 }

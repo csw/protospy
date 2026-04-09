@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use color_eyre::{
     Result,
     eyre::{ErrReport, eyre},
@@ -5,14 +7,15 @@ use color_eyre::{
 use http::{HeaderMap, Response};
 use hyper::body::Bytes;
 use tokio::sync::oneshot;
-use tracing::{Instrument, info, warn};
+use tracing::{info, warn};
 
 use crate::server::{
-    body,
-    body::{BodyWrapper, Direction, ProxyResponse},
+    body::{self, BodyWrapper, Direction, ProxyResponse},
     client::{Client, ClientBody},
     conn::ConnInfo,
+    monitor,
 };
+use crate::tokio_util::spawn_instrumented;
 
 /// An HTTP request-response pair
 #[derive(Debug)]
@@ -24,9 +27,10 @@ pub struct Op {
     response_body: TrackedBodyData,
 }
 
-pub type OpHandler = fn(Op) -> Result<()>;
+pub type OpHandler = Box<dyn Fn(Op) -> Result<()> + Send>;
 
 pub fn create_reporting(
+    sender: monitor::Sender,
     request: http::request::Parts,
     conn_info: ConnInfo,
 ) -> (OpReporter, OpReportingContext) {
@@ -35,7 +39,10 @@ pub fn create_reporting(
     let (response_sender, response_receiver) = oneshot::channel();
     (
         OpReporter {
-            handler: log_op,
+            handler: Box::new(move |op| {
+                sender.send(Arc::new(op))?;
+                Ok(())
+            }),
             request,
             conn_info,
             request_body_chan: request_body_receiver,
@@ -150,15 +157,9 @@ pub struct OpReporter {
 }
 
 impl OpReporter {
-    pub fn start(self) -> Result<tokio::task::JoinHandle<Result<(), ErrReport>>, std::io::Error> {
+    pub fn start(self) -> Result<tokio::task::JoinHandle<Result<(), ErrReport>>> {
         let task_name = format!("report {} {}", self.request.method, self.request.uri);
-        tokio::task::Builder::new().name(task_name.as_str()).spawn(
-            async move {
-                self.run().await?;
-                Ok::<_, eyre::Report>(())
-            }
-            .instrument(tracing::Span::current()),
-        )
+        spawn_instrumented(task_name.as_str(), async move { self.run().await })
     }
 
     pub async fn run(self) -> Result<()> {
@@ -177,7 +178,7 @@ impl OpReporter {
     }
 }
 
-pub fn log_op(op: Op) -> Result<()> {
+pub fn log_op(op: &Op) -> Result<()> {
     info!(
         "reporting op: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
         op.conn,

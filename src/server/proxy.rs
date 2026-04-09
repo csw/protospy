@@ -64,6 +64,8 @@ impl Server {
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
         info!("Listening");
 
+        monitor::start_logger(&self.name, self.publisher.subscribe())?;
+
         // We start a loop to continuously accept incoming connections
         loop {
             let (stream, _) = listener.accept().await?;
@@ -164,7 +166,8 @@ impl Server {
         conn_info: ConnInfo,
     ) -> Result<OpReportingContext> {
         if self.publisher.has_listeners() {
-            let (op_reporter, reporting_ctx) = op::create_reporting(request, conn_info);
+            let (op_reporter, reporting_ctx) =
+                op::create_reporting(self.publisher.sender(), request, conn_info);
             op_reporter.start()?;
             Ok(reporting_ctx)
         } else {

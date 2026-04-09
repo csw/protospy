@@ -11,6 +11,7 @@ use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
 pub mod server;
+pub(crate) mod tokio_util;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
