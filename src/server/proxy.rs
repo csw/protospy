@@ -15,8 +15,12 @@ use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{Instrument, error, info};
 
-use crate::server::conn::ConnInfo;
-use crate::server::{body::ProxyResponse, op};
+use crate::server::{
+    body::ProxyResponse,
+    monitor::Publisher,
+    op::{self, OpReportingContext},
+};
+use crate::server::{conn::ConnInfo, monitor};
 
 use super::body;
 use super::client::Client;
@@ -35,9 +39,25 @@ pub struct Server {
     pub target: String,
     /// HTTP client.
     pub client: Client,
+    /// Tracking sender.
+    pub publisher: monitor::Publisher,
+    pub subscriber: monitor::Receiver,
 }
 
 impl Server {
+    pub fn new(name: String, addr: SocketAddr, target: String, client: Client) -> Self {
+        let publisher = Publisher::new();
+        let subscriber = publisher.subscribe();
+        Self {
+            name,
+            addr,
+            target,
+            client,
+            publisher,
+            subscriber,
+        }
+    }
+
     #[tracing::instrument(level = "info")]
     pub async fn run(self: Arc<Self>) -> Result<()> {
         // We create a TcpListener and bind it
@@ -106,8 +126,7 @@ impl Server {
             .headers_mut()
             .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
 
-        let (op_reporter, mut reporting_ctx) = op::create_reporting(req_parts, conn);
-        op_reporter.start()?;
+        let mut reporting_ctx = self.prepare_reporting(req_parts, conn)?;
 
         info!("Forwarding request");
 
@@ -137,6 +156,20 @@ impl Server {
                     .map_or("/", http::uri::PathAndQuery::as_str),
             )
             .build()?)
+    }
+
+    fn prepare_reporting(
+        &self,
+        request: http::request::Parts,
+        conn_info: ConnInfo,
+    ) -> Result<OpReportingContext> {
+        if self.publisher.has_listeners() {
+            let (op_reporter, reporting_ctx) = op::create_reporting(request, conn_info);
+            op_reporter.start()?;
+            Ok(reporting_ctx)
+        } else {
+            Ok(OpReportingContext::create_noop())
+        }
     }
 
     fn build_response(&self, response: Response<Incoming>) -> Result<Response<Incoming>> {

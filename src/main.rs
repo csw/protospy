@@ -31,12 +31,8 @@ struct ProxyConfig {
 
 impl ProxyConfig {
     fn to_server(&self, client: server::client::Client) -> server::Server {
-        server::Server {
-            name: self.name.clone(),
-            addr: SocketAddr::from(([127, 0, 0, 1], self.port)),
-            target: self.target.clone(),
-            client,
-        }
+        let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
+        server::Server::new(self.name.clone(), addr, self.target.clone(), client)
     }
 }
 

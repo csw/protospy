@@ -55,15 +55,20 @@ impl BodyWrapper {
     }
 }
 
+type WrappedBodyData = <hyper::body::Incoming as hyper::body::Body>::Data;
+type WrappedBodyError = <hyper::body::Incoming as hyper::body::Body>::Error;
+
+type BodyPollResult = Option<Result<hyper::body::Frame<WrappedBodyData>, WrappedBodyError>>;
+
 impl Body for BodyWrapper {
-    type Data = <hyper::body::Incoming as hyper::body::Body>::Data;
-    type Error = <hyper::body::Incoming as hyper::body::Body>::Error;
+    type Data = WrappedBodyData;
+    type Error = WrappedBodyError;
 
     #[instrument(skip(self, cx), fields(direction = %self.direction))]
     fn poll_frame(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
+    ) -> std::task::Poll<BodyPollResult> {
         let res = self.as_mut().project().base.poll_frame(cx);
         match res {
             Poll::Ready(Some(Ok(ref frame))) => {

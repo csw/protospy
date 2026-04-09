@@ -60,6 +60,11 @@ pub enum OpReportingContext {
 }
 
 impl OpReportingContext {
+    pub fn create_noop() -> OpReportingContext {
+        info!("create_noop");
+        Self::NoOp
+    }
+
     pub fn report_response(&mut self, parts: &http::response::Parts) -> Result<()> {
         match self {
             Self::NoOp => Ok(()),
