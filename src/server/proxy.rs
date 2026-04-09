@@ -6,7 +6,7 @@ use color_eyre::{
     Result,
     eyre::{WrapErr, eyre},
 };
-use http::{StatusCode, uri};
+use http::{StatusCode, Uri, uri};
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -93,42 +93,27 @@ impl Server {
         conn: ConnInfo,
     ) -> Result<ProxyResponse> {
         let req_uri = req.uri();
-        let task_name = format!("report {} {}", req.method(), req_uri);
 
-        let target_uri = uri::Builder::new()
-            .scheme(http::uri::Scheme::HTTP)
-            .authority(self.target.as_str())
-            .path_and_query(
-                req_uri
-                    .path_and_query()
-                    .map_or("/", http::uri::PathAndQuery::as_str),
-            )
-            .build()?;
+        let target_uri = self.map_uri(req_uri)?;
+        let req_headers = headers::request_headers(self.target.as_str(), &req, &conn)?;
+
+        let (req_parts, req_body) = req.into_parts();
 
         let mut target_req_builder = Request::builder()
-            .method(req.method())
+            .method(&req_parts.method)
             .uri(target_uri.clone());
-        let req_headers = headers::request_headers(self.target.as_str(), &req, &conn)?;
         *target_req_builder
             .headers_mut()
             .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
 
-        let (req_parts, req_body) = req.into_parts();
-
         let (op_reporter, mut reporting_ctx) = op::create_reporting(req_parts, conn);
-
-        tokio::task::Builder::new().name(task_name.as_str()).spawn(
-            async move {
-                op_reporter.run().await?;
-                Ok::<_, eyre::Report>(())
-            }
-            .instrument(tracing::Span::current()),
-        )?;
+        op_reporter.start()?;
 
         info!("Forwarding request");
 
+        let target_request = target_req_builder.body(req_body)?;
         let result = reporting_ctx
-            .forward_request(&self.client, target_req_builder.body(req_body)?)?
+            .forward_request(&self.client, target_request)?
             .await;
 
         let our_response = match result {
@@ -140,6 +125,18 @@ impl Server {
         };
         info!("Generated response");
         Ok(our_response)
+    }
+
+    fn map_uri(&self, req_uri: &Uri) -> Result<Uri> {
+        Ok(uri::Builder::new()
+            .scheme(http::uri::Scheme::HTTP)
+            .authority(self.target.as_str())
+            .path_and_query(
+                req_uri
+                    .path_and_query()
+                    .map_or("/", http::uri::PathAndQuery::as_str),
+            )
+            .build()?)
     }
 
     fn build_response(&self, response: Response<Incoming>) -> Result<Response<Incoming>> {

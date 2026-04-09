@@ -1,8 +1,11 @@
-use color_eyre::{Result, eyre::eyre};
+use color_eyre::{
+    Result,
+    eyre::{ErrReport, eyre},
+};
 use http::{HeaderMap, Response};
 use hyper::body::Bytes;
 use tokio::sync::oneshot;
-use tracing::{info, warn};
+use tracing::{Instrument, info, warn};
 
 use crate::server::{
     body,
@@ -21,6 +24,8 @@ pub struct Op {
     response_body: TrackedBodyData,
 }
 
+pub type OpHandler = fn(Op) -> Result<()>;
+
 pub fn create_reporting(
     request: http::request::Parts,
     conn_info: ConnInfo,
@@ -30,6 +35,7 @@ pub fn create_reporting(
     let (response_sender, response_receiver) = oneshot::channel();
     (
         OpReporter {
+            handler: log_op,
             request,
             conn_info,
             request_body_chan: request_body_receiver,
@@ -130,6 +136,7 @@ impl OpReportingContext {
 }
 
 pub struct OpReporter {
+    handler: OpHandler,
     request: http::request::Parts,
     conn_info: ConnInfo,
     request_body_chan: oneshot::Receiver<TrackedBodyData>,
@@ -138,6 +145,17 @@ pub struct OpReporter {
 }
 
 impl OpReporter {
+    pub fn start(self) -> Result<tokio::task::JoinHandle<Result<(), ErrReport>>, std::io::Error> {
+        let task_name = format!("report {} {}", self.request.method, self.request.uri);
+        tokio::task::Builder::new().name(task_name.as_str()).spawn(
+            async move {
+                self.run().await?;
+                Ok::<_, eyre::Report>(())
+            }
+            .instrument(tracing::Span::current()),
+        )
+    }
+
     pub async fn run(self) -> Result<()> {
         let request_body = self.request_body_chan.await?;
         let response = self.response_chan.await?;
@@ -150,17 +168,20 @@ impl OpReporter {
             response_parts: response,
             response_body,
         };
-        info!(
-            "reporting op: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
-            op.conn,
-            op.request_parts,
-            op.request_body.data.len(),
-            op.response_parts,
-            op.response_body.data.len()
-        );
-
-        Ok(())
+        (self.handler)(op)
     }
+}
+
+pub fn log_op(op: Op) -> Result<()> {
+    info!(
+        "reporting op: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
+        op.conn,
+        op.request_parts,
+        op.request_body.data.len(),
+        op.response_parts,
+        op.response_body.data.len()
+    );
+    Ok(())
 }
 
 pub struct BodyTracker {
