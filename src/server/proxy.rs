@@ -137,10 +137,10 @@ impl Server {
 
         let our_response = match result {
             Ok(upstream_response) => {
-                let proxied = self.build_response(upstream_response)?;
+                let proxied = build_response(upstream_response)?;
                 reporting_ctx.tracked_response(proxied)?
             }
-            Err(upstream_err) => return self.error_response(&upstream_err),
+            Err(upstream_err) => return error_response(&upstream_err),
         };
         Ok(our_response)
     }
@@ -171,60 +171,53 @@ impl Server {
             Ok(OpReportingContext::create_noop())
         }
     }
+}
 
-    fn build_response(&self, response: Response<Incoming>) -> Result<Response<Incoming>> {
-        // N.B. I'm puzzled as to how to test this, since I can't construct a
-        // hyper_util::client::legacy::Error.
+fn build_response(response: Response<Incoming>) -> Result<Response<Incoming>> {
+    // N.B. I'm puzzled as to how to test this, since I can't construct a
+    // hyper_util::client::legacy::Error.
 
-        debug!(
-            name = "upstream_response",
-            status = response.status().to_string()
-        );
+    debug!(
+        name = "upstream_response",
+        status = response.status().to_string()
+    );
 
-        let new_headers = headers::response_headers(&response)?;
-        let (mut parts, body) = response.into_parts();
+    let new_headers = headers::response_headers(&response)?;
+    let (mut parts, body) = response.into_parts();
 
-        parts.headers = new_headers;
+    parts.headers = new_headers;
 
-        Ok(Response::from_parts(parts, body))
-    }
+    Ok(Response::from_parts(parts, body))
+}
 
-    fn error_response(
-        &self,
-        client_error: &hyper_util::client::legacy::Error,
-    ) -> Result<ProxyResponse> {
-        let (cause_tag, status) = classify_error(client_error);
-        if let Some(source) = client_error.source()
-            && let Some(hyper_err) = source.downcast_ref::<hyper::Error>()
-        {
-            error!(
-                "hyper error: {:?}, source {:?}",
-                hyper_err,
-                hyper_err.source(),
-            );
-            error!("hyper error report: {}", hyper_error_report(hyper_err))
-        }
+fn error_response(client_error: &hyper_util::client::legacy::Error) -> Result<ProxyResponse> {
+    let (cause_tag, status) = classify_error(client_error);
+    if let Some(source) = client_error.source()
+        && let Some(hyper_err) = source.downcast_ref::<hyper::Error>()
+    {
         error!(
-            name = "upstream_connection_error",
-            cause = cause_tag.to_string(),
-            status = status.as_u16(),
-            error = ?client_error,
+            "hyper error: {:?}, source {:?}",
+            hyper_err,
+            hyper_err.source(),
         );
-        self.error_http_response(status, cause_tag)
+        error!("hyper error report: {}", hyper_error_report(hyper_err));
     }
+    error!(
+        name = "upstream_connection_error",
+        cause = cause_tag.to_string(),
+        status = status.as_u16(),
+        error = ?client_error,
+    );
+    error_http_response(status, cause_tag)
+}
 
-    fn error_http_response(
-        &self,
-        status: StatusCode,
-        cause: errors::Cause,
-    ) -> Result<ProxyResponse> {
-        Response::builder()
-            .status(status)
-            .header("server", SERVER_NAME)
-            .header("x-cause", cause.to_string())
-            .body(body::empty_response_body())
-            .wrap_err("failed to build internal response")
-    }
+fn error_http_response(status: StatusCode, cause: errors::Cause) -> Result<ProxyResponse> {
+    Response::builder()
+        .status(status)
+        .header("server", SERVER_NAME)
+        .header("x-cause", cause.to_string())
+        .body(body::empty_response_body())
+        .wrap_err("failed to build internal response")
 }
 
 fn classify_error(client_error: &hyper_util::client::legacy::Error) -> (errors::Cause, StatusCode) {
@@ -276,7 +269,7 @@ fn hyper_error_flags(err: &hyper::Error) -> Vec<&'static str> {
         flags.push("is_user");
     }
     if err.is_canceled() {
-        flags.push("canceled")
+        flags.push("canceled");
     }
     if err.is_closed() {
         flags.push("closed");

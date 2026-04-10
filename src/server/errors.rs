@@ -1,6 +1,6 @@
 use strum::Display;
 
-#[derive(Display)]
+#[derive(Clone, Copy, Display)]
 pub enum Cause {
     ConnectFailed,
     ConnectionError,

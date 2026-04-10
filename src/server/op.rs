@@ -223,7 +223,7 @@ impl BodyTracker {
     #[instrument(parent = &self.span)]
     pub fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
         let body = self.mut_body()?;
-        for (key, value) in trailers.iter() {
+        for (key, value) in trailers {
             body.trailers.append(key, value.clone());
         }
         Ok(())

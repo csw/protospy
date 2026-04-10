@@ -49,7 +49,7 @@ impl std::str::FromStr for ProxyConfig {
             match pair.split_once('=') {
                 Some(("name", v)) => name = Some(v.to_string()),
                 Some(("port", v)) => {
-                    port = Some(v.parse::<u16>().map_err(|e| format!("invalid port: {e}"))?)
+                    port = Some(v.parse::<u16>().map_err(|e| format!("invalid port: {e}"))?);
                 }
                 Some(("target", v)) => target = Some(v.to_string()),
                 Some((field, _)) => return Err(format!("unknown field: {field}")),
@@ -80,7 +80,7 @@ pub async fn main() -> Result<()> {
         })
         .collect();
     let mut join_set = JoinSet::new();
-    for server in servers.iter() {
+    for server in &servers {
         _ = start_server(Arc::clone(server), &mut join_set)?;
     }
     let join_res = join_set.join_next().await;
