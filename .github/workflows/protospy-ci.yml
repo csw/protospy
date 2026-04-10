@@ -7,12 +7,14 @@ on:
       - "Cargo.toml"
       - ".cargo"
       - "src/**"
+      - ".github/workflows/protospy-ci.yml"
   pull_request:
     paths:
       - "Cargo.lock"
       - "Cargo.toml"
       - ".cargo"
       - "src/**"
+      - ".github/workflows/protospy-ci.yml"
 
 jobs:
   test:
