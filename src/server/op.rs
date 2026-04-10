@@ -7,7 +7,7 @@ use color_eyre::{
 use http::{HeaderMap, Response};
 use hyper::body::Bytes;
 use tokio::sync::oneshot;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::server::{
     body::{self, BodyWrapper, Direction, ProxyResponse},
@@ -34,8 +34,8 @@ pub fn create_reporting(
     request: http::request::Parts,
     conn_info: ConnInfo,
 ) -> (OpReporter, OpReportingContext) {
-    let (request_tracker, request_body_receiver) = BodyTracker::create_pair();
-    let (response_tracker, response_body_receiver) = BodyTracker::create_pair();
+    let (request_tracker, request_body_receiver) = BodyTracker::create_pair(Direction::Request);
+    let (response_tracker, response_body_receiver) = BodyTracker::create_pair(Direction::Response);
     let (response_sender, response_receiver) = oneshot::channel();
     (
         OpReporter {
@@ -190,23 +190,29 @@ pub fn log_op(op: &Op) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
 pub struct BodyTracker {
     body: Option<TrackedBodyData>,
     done_chan: Option<oneshot::Sender<TrackedBodyData>>,
+    direction: Direction,
+    span: tracing::Span,
 }
 
 impl BodyTracker {
-    fn create_pair() -> (Self, oneshot::Receiver<TrackedBodyData>) {
+    fn create_pair(direction: Direction) -> (Self, oneshot::Receiver<TrackedBodyData>) {
         let (sender, receiver) = oneshot::channel();
         (
             Self {
                 body: Some(TrackedBodyData::default()),
                 done_chan: Some(sender),
+                direction,
+                span: tracing::Span::current(),
             },
             receiver,
         )
     }
 
+    #[instrument(parent = &self.span)]
     pub fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
         let body = self.mut_body()?;
         body.saw_body = true;
@@ -214,6 +220,7 @@ impl BodyTracker {
         Ok(())
     }
 
+    #[instrument(parent = &self.span)]
     pub fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
         let body = self.mut_body()?;
         for (key, value) in trailers.iter() {
@@ -222,11 +229,13 @@ impl BodyTracker {
         Ok(())
     }
 
+    #[instrument(parent = &self.span)]
     pub fn saw_error(&mut self, err: String) -> Result<()> {
         self.mut_body()?.error = Some(err);
         self.report()
     }
 
+    #[instrument(parent = &self.span)]
     pub fn saw_eof(&mut self) -> Result<()> {
         self.mut_body()?.saw_eof = true;
         self.report()
@@ -250,9 +259,10 @@ impl BodyTracker {
 }
 
 impl Drop for BodyTracker {
+    #[instrument(parent = &self.span, skip(self), fields(direction = %self.direction))]
     fn drop(&mut self) {
         if self.done_chan.is_some() && self.body.is_some() {
-            warn!("BodyTracker dropped without explicit report");
+            // no body all, e.g. GET
             self.report().expect("report succeeded");
         }
     }
@@ -291,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_tracker_eof_only() -> Result<()> {
-        let (mut tracker, rcv) = BodyTracker::create_pair();
+        let (mut tracker, rcv) = BodyTracker::create_pair(Direction::Request);
         tracker.saw_eof()?;
         let body = rcv.blocking_recv()?;
         assert_eq!(
@@ -306,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_tracker_data_2() -> Result<()> {
-        let (mut tracker, rcv) = BodyTracker::create_pair();
+        let (mut tracker, rcv) = BodyTracker::create_pair(Direction::Request);
         tracker.saw_data(&Bytes::from_static(b"ab"))?;
         tracker.saw_data(&Bytes::from_static(b"cd"))?;
         tracker.saw_eof()?;
@@ -325,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_tracker_data_drop() -> Result<()> {
-        let (tracker, rcv) = BodyTracker::create_pair();
+        let (tracker, rcv) = BodyTracker::create_pair(Direction::Request);
         {
             let mut t2 = tracker;
             t2.saw_data(&Bytes::from_static(b"ab"))?;

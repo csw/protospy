@@ -4,7 +4,7 @@ use http::Response;
 use hyper::body::{Body, Bytes, Incoming};
 use pin_project_lite::pin_project;
 use strum::Display;
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::server::op::BodyTracker;
 
@@ -38,6 +38,7 @@ pin_project! {
         #[pin]
         pub base: hyper::body::Incoming,
         tracker: Box<BodyTracker>,
+        span: tracing::Span,
     }
 }
 
@@ -51,6 +52,7 @@ impl BodyWrapper {
             direction,
             base,
             tracker,
+            span: tracing::Span::current(),
         }
     }
 }
@@ -64,7 +66,7 @@ impl Body for BodyWrapper {
     type Data = WrappedBodyData;
     type Error = WrappedBodyError;
 
-    #[instrument(skip(self, cx), fields(direction = %self.direction))]
+    #[instrument(parent = &self.span, skip(self, cx), fields(direction = %self.direction))]
     fn poll_frame(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -94,7 +96,7 @@ impl Body for BodyWrapper {
                 }
             }
             Poll::Ready(Some(Err(ref err))) => {
-                debug!(
+                error!(
                     event = "read_error",
                     error = ?err,
                 );

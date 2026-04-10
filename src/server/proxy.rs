@@ -13,7 +13,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
-use tracing::{Instrument, error, info};
+use tracing::{Instrument, error, info, instrument};
 
 use crate::server::{
     body::ProxyResponse,
@@ -58,7 +58,7 @@ impl Server {
         }
     }
 
-    #[tracing::instrument(level = "info")]
+    #[instrument(level = "info", skip(self), fields(name = %self.name, addr = %self.addr, target = %self.target))]
     pub async fn run(self: Arc<Self>) -> Result<()> {
         // We create a TcpListener and bind it
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
@@ -108,7 +108,7 @@ impl Server {
     }
 
     /// Proxy a single request to the upstream server.
-    #[tracing::instrument(skip(self))]
+    #[instrument(skip(self))]
     async fn proxy(
         self: Arc<Self>,
         req: Request<hyper::body::Incoming>,
