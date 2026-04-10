@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use color_eyre::{Result, eyre::eyre};
 use http::{HeaderMap, HeaderName, Request, Response};
 
-use crate::proxy::server::SERVER_NAME;
+use crate::proxy::service::SERVER_NAME;
 
 use super::conn::ConnInfo;
 
@@ -94,7 +94,7 @@ fn header_fields(val: &str) -> impl Iterator<Item = &str> {
 
 /// Render an HTTP version as a bare number, e.g. 1.1, as needed for the Via
 /// header.
-fn http_version_num(version: http::Version) -> Result<&'static str> {
+pub fn http_version_num(version: http::Version) -> Result<&'static str> {
     use http::Version;
     match version {
         Version::HTTP_09 => Ok("0.9"),

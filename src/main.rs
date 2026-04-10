@@ -1,16 +1,21 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
-use tokio::task::{AbortHandle, JoinSet};
+use tokio::task::JoinHandle;
 use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
+use crate::proxy::client::Client;
+use crate::server::App;
+
 pub mod proxy;
+pub mod server;
 pub(crate) mod tokio_util;
 
 #[derive(Parser, Debug)]
@@ -21,6 +26,8 @@ struct Args {
     proxies: Vec<ProxyConfig>,
     #[arg(long)]
     console: bool,
+    #[arg(long = "no-web", default_value_t = true, action = ArgAction::SetFalse)]
+    web: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -28,13 +35,6 @@ struct ProxyConfig {
     name: String,
     port: u16,
     target: String,
-}
-
-impl ProxyConfig {
-    fn to_server(&self, client: proxy::client::Client) -> proxy::Server {
-        let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
-        proxy::Server::new(self.name.clone(), addr, self.target.clone(), client)
-    }
 }
 
 impl std::str::FromStr for ProxyConfig {
@@ -71,30 +71,36 @@ pub async fn main() -> Result<()> {
     init_logging(args.console)?;
 
     let client = proxy::client::build();
-    let servers: Vec<Arc<proxy::Server>> = args
-        .proxies
-        .iter()
-        .map(|p| {
-            _ = p.name;
-            Arc::new(p.to_server(client.clone()))
-        })
-        .collect();
-    let mut join_set = JoinSet::new();
-    for server in &servers {
-        _ = start_server(Arc::clone(server), &mut join_set)?;
+    let proxy_group = Arc::new(create_group(&args, client)?);
+
+    if args.web {
+        start_web(Arc::clone(&proxy_group)).await?;
     }
-    let join_res = join_set.join_next().await;
+
+    let mut proxy_join_set = proxy_group.start_services()?;
+
+    let join_res = proxy_join_set.join_next().await;
     join_res.unwrap()?
 }
 
-fn start_server(
-    server: Arc<proxy::Server>,
-    join_set: &mut JoinSet<Result<()>>,
-) -> std::io::Result<AbortHandle> {
-    join_set
-        .build_task()
-        .name(format!("server({}) port={}", server.name, server.addr.port()).as_str())
-        .spawn(async move { server.run().await })
+async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
+    let app = Arc::new(App {
+        proxy_group: Arc::clone(&proxy_group),
+    });
+    let router = crate::server::router::router(app);
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    Ok(tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap()
+    }))
+}
+
+fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {
+    let mut group = proxy::Group::new(client);
+    for config in &args.proxies {
+        let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+        group.add_service(&config.name, addr, &config.target)?;
+    }
+    Ok(group)
 }
 
 /// Set up event logging and error reporting.
