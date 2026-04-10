@@ -89,7 +89,7 @@ fn via_header(version: http::Version) -> Result<String> {
 
 /// Splits a comma-delimited header field, such as Connection.
 fn header_fields(val: &str) -> impl Iterator<Item = &str> {
-    val.split(',').map(|s| s.trim())
+    val.split(',').map(str::trim)
 }
 
 /// Render an HTTP version as a bare number, e.g. 1.1, as needed for the Via
