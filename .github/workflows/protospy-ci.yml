@@ -21,4 +21,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # just build, to separate compiler output
+      - run: cargo test --all-features --no-run
       - run: cargo test --all-features
