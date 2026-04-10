@@ -995,6 +995,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "pin-project-lite",
+ "serde",
  "strum",
  "tokio",
  "tracing",

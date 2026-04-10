@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use clap::Parser;
 use color_eyre::{Result, config::Frame};
@@ -10,6 +11,7 @@ use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
 use crate::proxy::client::Client;
+use crate::server::App;
 
 pub mod proxy;
 pub mod server;
@@ -66,7 +68,14 @@ pub async fn main() -> Result<()> {
     init_logging(args.console)?;
 
     let client = proxy::client::build();
-    let proxy_group = create_group(&args, client)?;
+    let proxy_group = Arc::new(create_group(&args, client)?);
+
+    let app = Arc::new(App {
+        proxy_group: Arc::clone(&proxy_group),
+    });
+    let router = crate::server::router::router(app);
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
 
     let mut proxy_join_set = proxy_group.start_services()?;
 

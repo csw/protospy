@@ -11,8 +11,8 @@ use crate::{
 #[derive(Debug)]
 pub struct Group {
     client: Client,
-    services: Vec<Arc<Service>>,
-    by_name: HashMap<String, Arc<Service>>,
+    pub services: Vec<Arc<Service>>,
+    pub by_name: HashMap<String, Arc<Service>>,
 }
 
 impl Group {

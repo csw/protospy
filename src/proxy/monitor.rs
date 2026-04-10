@@ -28,6 +28,10 @@ impl Publisher {
         self.sender.receiver_count() > 0
     }
 
+    pub fn listener_count(&self) -> usize {
+        self.sender.receiver_count()
+    }
+
     pub fn sender(&self) -> Sender {
         self.sender.clone()
     }
