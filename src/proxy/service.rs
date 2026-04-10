@@ -30,7 +30,7 @@ use super::headers;
 pub const SERVER_NAME: &str = "protospy";
 
 #[derive(Debug)]
-pub struct Server {
+pub struct Service {
     /// User-defined name of the server instance, e.g. 'db'.
     pub name: String,
     /// Listening socket address.
@@ -44,7 +44,7 @@ pub struct Server {
     pub subscriber: monitor::Receiver,
 }
 
-impl Server {
+impl Service {
     pub fn new(name: String, addr: SocketAddr, target: String, client: Client) -> Self {
         let publisher = Publisher::new();
         let subscriber = publisher.subscribe();

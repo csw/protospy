@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use color_eyre::{Result, eyre::eyre};
 use http::{HeaderMap, HeaderName, Request, Response};
 
-use crate::proxy::server::SERVER_NAME;
+use crate::proxy::service::SERVER_NAME;
 
 use super::conn::ConnInfo;
 

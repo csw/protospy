@@ -1,16 +1,18 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use clap::Parser;
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
-use tokio::task::{AbortHandle, JoinSet};
 use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
+use crate::proxy::client::Client;
+
 pub mod proxy;
+pub mod server;
 pub(crate) mod tokio_util;
 
 #[derive(Parser, Debug)]
@@ -28,13 +30,6 @@ struct ProxyConfig {
     name: String,
     port: u16,
     target: String,
-}
-
-impl ProxyConfig {
-    fn to_server(&self, client: proxy::client::Client) -> proxy::Server {
-        let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
-        proxy::Server::new(self.name.clone(), addr, self.target.clone(), client)
-    }
 }
 
 impl std::str::FromStr for ProxyConfig {
@@ -71,30 +66,21 @@ pub async fn main() -> Result<()> {
     init_logging(args.console)?;
 
     let client = proxy::client::build();
-    let servers: Vec<Arc<proxy::Server>> = args
-        .proxies
-        .iter()
-        .map(|p| {
-            _ = p.name;
-            Arc::new(p.to_server(client.clone()))
-        })
-        .collect();
-    let mut join_set = JoinSet::new();
-    for server in &servers {
-        _ = start_server(Arc::clone(server), &mut join_set)?;
-    }
-    let join_res = join_set.join_next().await;
+    let proxy_group = create_group(&args, client)?;
+
+    let mut proxy_join_set = proxy_group.start_services()?;
+
+    let join_res = proxy_join_set.join_next().await;
     join_res.unwrap()?
 }
 
-fn start_server(
-    server: Arc<proxy::Server>,
-    join_set: &mut JoinSet<Result<()>>,
-) -> std::io::Result<AbortHandle> {
-    join_set
-        .build_task()
-        .name(format!("server({}) port={}", server.name, server.addr.port()).as_str())
-        .spawn(async move { server.run().await })
+fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {
+    let mut group = proxy::Group::new(client);
+    for config in &args.proxies {
+        let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+        group.add_service(&config.name, addr, &config.target)?;
+    }
+    Ok(group)
 }
 
 /// Set up event logging and error reporting.
