@@ -1,0 +1,30 @@
+name: protospy-ci
+
+on:
+  push:
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - ".cargo"
+      - "src/**"
+      - ".github/workflows/protospy-ci.yml"
+  pull_request:
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - ".cargo"
+      - "src/**"
+      - ".github/workflows/protospy-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # just build, to separate compiler output
+      - run: cargo test --all-features --no-run
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --all-features --no-deps -- -D warnings
+      - run: cargo test --all-features
