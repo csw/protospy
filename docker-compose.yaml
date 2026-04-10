@@ -5,8 +5,9 @@ services:
     ports:
       - "8001:8000"
     environment:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-      OTLP_ENDPOINT: http://jaeger:4318
+      #- ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_URL=http://host.docker.internal:3000
+      - OTLP_ENDPOINT=http://jaeger:4318
     depends_on:
       - elasticsearch
       - jaeger
