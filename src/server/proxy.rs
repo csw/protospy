@@ -13,7 +13,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
-use tracing::{Instrument, error, info, instrument};
+use tracing::{Instrument, debug, error, info, instrument};
 
 use crate::server::{
     body::ProxyResponse,
@@ -130,8 +130,6 @@ impl Server {
 
         let mut reporting_ctx = self.prepare_reporting(req_parts, conn)?;
 
-        info!("Forwarding request");
-
         let target_request = target_req_builder.body(req_body)?;
         let result = reporting_ctx
             .forward_request(&self.client, target_request)?
@@ -144,7 +142,6 @@ impl Server {
             }
             Err(upstream_err) => return self.error_response(&upstream_err),
         };
-        info!("Generated response");
         Ok(our_response)
     }
 
@@ -179,7 +176,7 @@ impl Server {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
 
-        info!(
+        debug!(
             name = "upstream_response",
             status = response.status().to_string()
         );

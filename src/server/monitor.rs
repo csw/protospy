@@ -58,7 +58,7 @@ pub fn start_logger(
     )
 }
 
-#[tracing::instrument(level = "info")]
+#[tracing::instrument(level = "info", skip(receiver))]
 pub async fn run_logger(mut receiver: Receiver) -> Result<()> {
     loop {
         let val = receiver.recv().await?;

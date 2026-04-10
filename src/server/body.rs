@@ -4,7 +4,7 @@ use http::Response;
 use hyper::body::{Body, Bytes, Incoming};
 use pin_project_lite::pin_project;
 use strum::Display;
-use tracing::{debug, error, instrument};
+use tracing::{error, instrument, trace};
 
 use crate::server::op::BodyTracker;
 
@@ -77,10 +77,10 @@ impl Body for BodyWrapper {
                 let at_eof = self.base.is_end_stream();
 
                 if let Some(bytes) = frame.data_ref() {
-                    debug!(event = "read_frame", len = bytes.len(), at_eof = at_eof,);
+                    trace!(event = "read_frame", len = bytes.len(), at_eof = at_eof,);
                     self.as_mut().tracker.saw_data(bytes).expect("reported OK");
                 } else if let Some(trailers) = frame.trailers_ref() {
-                    debug!(
+                    trace!(
                         event = "read_trailers",
                         count = trailers.len(),
                         at_eof = at_eof,
@@ -107,7 +107,7 @@ impl Body for BodyWrapper {
             }
             // EOF
             Poll::Ready(None) => {
-                debug!(event = "body_eof",);
+                trace!(event = "body_eof",);
 
                 self.as_mut().tracker.saw_eof().expect("reported OK");
             }
