@@ -2,62 +2,92 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use color_eyre::{Result, eyre::WrapErr};
-use http::{StatusCode, uri};
-use http_body_util::{Either, Empty};
-use hyper::body::Bytes;
+use color_eyre::{
+    Result,
+    eyre::{WrapErr, eyre},
+};
+use http::{StatusCode, Uri, uri};
+use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use tokio::net::TcpListener;
-use tracing::{Instrument, error, info};
+use tokio::net::{TcpListener, TcpStream};
+use tracing::{Instrument, debug, error, info, instrument};
 
-use crate::server::conn::ConnInfo;
+use crate::server::{
+    body::ProxyResponse,
+    monitor::Publisher,
+    op::{self, OpReportingContext},
+};
+use crate::server::{conn::ConnInfo, monitor};
 
+use super::body;
 use super::client::Client;
 use super::errors;
 use super::headers;
 
 pub const SERVER_NAME: &str = "protospy";
 
-type ProxyResponse =
-    Response<http_body_util::Either<hyper::body::Incoming, http_body_util::Empty<Bytes>>>;
-
-type ClientResult = <hyper_util::client::legacy::ResponseFuture as Future>::Output;
-
 #[derive(Debug)]
 pub struct Server {
+    /// User-defined name of the server instance, e.g. 'db'.
+    pub name: String,
+    /// Listening socket address.
     pub addr: SocketAddr,
+    /// Target URL.
     pub target: String,
+    /// HTTP client.
     pub client: Client,
+    /// Tracking sender.
+    pub publisher: monitor::Publisher,
+    pub subscriber: monitor::Receiver,
 }
 
 impl Server {
-    #[tracing::instrument(level = "info")]
+    pub fn new(name: String, addr: SocketAddr, target: String, client: Client) -> Self {
+        let publisher = Publisher::new();
+        let subscriber = publisher.subscribe();
+        Self {
+            name,
+            addr,
+            target,
+            client,
+            publisher,
+            subscriber,
+        }
+    }
+
+    #[instrument(level = "info", skip(self), fields(name = %self.name, addr = %self.addr, target = %self.target))]
     pub async fn run(self: Arc<Self>) -> Result<()> {
         // We create a TcpListener and bind it
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
         info!("Listening");
 
+        monitor::start_logger(&self.name, self.publisher.subscribe())?;
+
         // We start a loop to continuously accept incoming connections
         loop {
             let (stream, _) = listener.accept().await?;
+            self.handle_connection(stream)?;
+        }
+    }
 
-            let conn_info = ConnInfo {
-                protocol: "http".to_string(),
-                client: stream.peer_addr()?,
-            };
+    fn handle_connection(self: &Arc<Self>, stream: TcpStream) -> Result<()> {
+        let conn_info = ConnInfo {
+            protocol: "http".to_string(),
+            client: stream.peer_addr()?,
+        };
 
-            // Use an adapter to access something implementing `tokio::io` traits as if they implement
-            // `hyper::rt` IO traits.
-            let io = TokioIo::new(stream);
-            let server = Arc::clone(&self);
+        // Use an adapter to access something implementing `tokio::io` traits as if they implement
+        // `hyper::rt` IO traits.
+        let io = TokioIo::new(stream);
+        let server = Arc::clone(self);
 
-            // Spawn a tokio task to serve multiple connections concurrently
-            tokio::task::spawn(
+        tokio::task::Builder::new()
+            .name(format!("conn({}) {}", self.name, conn_info.client).as_str())
+            .spawn(
                 async move {
-                    // Finally, we bind the incoming connection to our `hello` service
                     if let Err(err) = http1::Builder::new()
                         // `service_fn` converts our function in a `Service`
                         .serve_connection(
@@ -69,15 +99,16 @@ impl Server {
                         )
                         .await
                     {
-                        eprintln!("Error serving connection: {:?}", err);
+                        error!("error serving connection: {:?}", err);
                     }
                 }
                 .instrument(tracing::Span::current()),
-            );
-        }
+            )?;
+        Ok(())
     }
 
-    #[tracing::instrument]
+    /// Proxy a single request to the upstream server.
+    #[instrument(skip(self))]
     async fn proxy(
         self: Arc<Self>,
         req: Request<hyper::body::Incoming>,
@@ -85,7 +116,37 @@ impl Server {
     ) -> Result<ProxyResponse> {
         let req_uri = req.uri();
 
-        let target_uri = uri::Builder::new()
+        let target_uri = self.map_uri(req_uri)?;
+        let req_headers = headers::request_headers(self.target.as_str(), &req, &conn)?;
+
+        let (req_parts, req_body) = req.into_parts();
+
+        let mut target_req_builder = Request::builder()
+            .method(&req_parts.method)
+            .uri(target_uri.clone());
+        *target_req_builder
+            .headers_mut()
+            .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
+
+        let mut reporting_ctx = self.prepare_reporting(req_parts, conn)?;
+
+        let target_request = target_req_builder.body(req_body)?;
+        let result = reporting_ctx
+            .forward_request(&self.client, target_request)?
+            .await;
+
+        let our_response = match result {
+            Ok(upstream_response) => {
+                let proxied = self.build_response(upstream_response)?;
+                reporting_ctx.tracked_response(proxied)?
+            }
+            Err(upstream_err) => return self.error_response(&upstream_err),
+        };
+        Ok(our_response)
+    }
+
+    fn map_uri(&self, req_uri: &Uri) -> Result<Uri> {
+        Ok(uri::Builder::new()
             .scheme(http::uri::Scheme::HTTP)
             .authority(self.target.as_str())
             .path_and_query(
@@ -93,40 +154,29 @@ impl Server {
                     .path_and_query()
                     .map_or("/", http::uri::PathAndQuery::as_str),
             )
-            .build()?;
-
-        let mut target_req_builder = Request::builder()
-            .method(req.method())
-            .uri(target_uri.clone());
-        if let Some(target_h) = target_req_builder.headers_mut() {
-            headers::build_request(&self, &req, &conn, target_h)?;
-        }
-
-        let wrapped_body = super::body::BodyWrapper {
-            base: req.into_body(),
-        };
-
-        let target_req = target_req_builder.body(wrapped_body)?;
-
-        info!("Forwarding request");
-
-        let response_res = self.client.request(target_req).await;
-
-        self.build_response(response_res)
+            .build()?)
     }
 
-    fn build_response(&self, upstream: ClientResult) -> Result<ProxyResponse> {
+    fn prepare_reporting(
+        &self,
+        request: http::request::Parts,
+        conn_info: ConnInfo,
+    ) -> Result<OpReportingContext> {
+        if self.publisher.has_listeners() {
+            let (op_reporter, reporting_ctx) =
+                op::create_reporting(self.publisher.sender(), request, conn_info);
+            op_reporter.start()?;
+            Ok(reporting_ctx)
+        } else {
+            Ok(OpReportingContext::create_noop())
+        }
+    }
+
+    fn build_response(&self, response: Response<Incoming>) -> Result<Response<Incoming>> {
         // N.B. I'm puzzled as to how to test this, since I can't construct a
         // hyper_util::client::legacy::Error.
 
-        let response = match upstream {
-            Ok(response) => response,
-            Err(e) => {
-                return self.error_response(&e);
-            }
-        };
-
-        info!(
+        debug!(
             name = "upstream_response",
             status = response.status().to_string()
         );
@@ -135,7 +185,8 @@ impl Server {
         let (mut parts, body) = response.into_parts();
 
         parts.headers = new_headers;
-        Ok(Response::from_parts(parts, Either::Left(body)))
+
+        Ok(Response::from_parts(parts, body))
     }
 
     fn error_response(
@@ -171,7 +222,7 @@ impl Server {
             .status(status)
             .header("server", SERVER_NAME)
             .header("x-cause", cause.to_string())
-            .body(Either::Right(Empty::new()))
+            .body(body::empty_response_body())
             .wrap_err("failed to build internal response")
     }
 }

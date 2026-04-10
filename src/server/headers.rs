@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use color_eyre::{Result, eyre::eyre};
-use http::{HeaderMap, HeaderName, HeaderValue, Request, Response};
+use http::{HeaderMap, HeaderName, Request, Response};
 
 use crate::server::proxy::SERVER_NAME;
 
@@ -27,14 +27,11 @@ static STRIP_RESPONSE_HEADERS: LazyLock<Vec<HeaderName>> = LazyLock::new(|| {
     ]
 });
 
-pub fn build_request<T>(
-    proxy: &super::Server,
-    req: &Request<T>,
-    conn: &ConnInfo,
-    req_h: &mut HeaderMap<HeaderValue>,
-) -> Result<()> {
+/// Compute headers to use for the forwarded request.
+pub fn request_headers<T>(target: &str, req: &Request<T>, conn: &ConnInfo) -> Result<HeaderMap> {
+    let mut req_h = HeaderMap::new();
     req_h.clone_from(req.headers());
-    req_h.insert(hyper::header::HOST, proxy.target.parse()?);
+    req_h.insert(hyper::header::HOST, target.parse()?);
 
     if let Some(conn_str) = req_h
         .get(hyper::header::CONNECTION)
@@ -67,9 +64,10 @@ pub fn build_request<T>(
     );
     req_h.append(X_FORWARDED_PROTO, conn.protocol.parse()?);
 
-    Ok(())
+    Ok(req_h)
 }
 
+/// Compute headers to use for the forwarded response.
 pub fn response_headers<B>(orig: &Response<B>) -> Result<HeaderMap> {
     let mut headers = orig.headers().clone();
     for to_strip in STRIP_RESPONSE_HEADERS.iter() {
@@ -118,9 +116,6 @@ mod tests {
     use http_body_util::Empty;
     use hyper::body::Bytes;
 
-    use crate::server::client;
-
-    use super::super::Server;
     use super::*;
 
     const CLIENT_IP: &str = "127.0.0.1";
@@ -242,9 +237,7 @@ mod tests {
 
     fn build_mapped_req(modify: impl Fn(Builder) -> Builder) -> HeaderMap {
         let req = modify(Builder::new()).body(empty()).unwrap();
-        let mut h = HeaderMap::new();
-        build_request(&server(), &req, &conn(), &mut h).unwrap();
-        h
+        request_headers(TARGET, &req, &conn()).unwrap()
     }
 
     fn header_val<'a>(headers: &'a HeaderMap, name: &'a str) -> Option<&'a str> {
@@ -257,14 +250,6 @@ mod tests {
             .iter()
             .map(|v| v.to_str().unwrap())
             .collect::<Vec<_>>()
-    }
-
-    fn server() -> Server {
-        Server {
-            addr: "127.0.0.1:8080".parse().unwrap(),
-            target: TARGET.to_string(),
-            client: client::build(),
-        }
     }
 
     fn conn() -> ConnInfo {
