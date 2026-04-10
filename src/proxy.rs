@@ -5,6 +5,6 @@ pub mod errors;
 pub mod headers;
 pub mod monitor;
 pub mod op;
-pub mod proxy;
+pub mod server;
 
-pub type Server = self::proxy::Server;
+pub type Server = self::server::Server;

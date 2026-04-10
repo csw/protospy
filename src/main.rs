@@ -10,7 +10,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
-pub mod server;
+pub mod proxy;
 pub(crate) mod tokio_util;
 
 #[derive(Parser, Debug)]
@@ -31,9 +31,9 @@ struct ProxyConfig {
 }
 
 impl ProxyConfig {
-    fn to_server(&self, client: server::client::Client) -> server::Server {
+    fn to_server(&self, client: proxy::client::Client) -> proxy::Server {
         let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
-        server::Server::new(self.name.clone(), addr, self.target.clone(), client)
+        proxy::Server::new(self.name.clone(), addr, self.target.clone(), client)
     }
 }
 
@@ -70,8 +70,8 @@ pub async fn main() -> Result<()> {
     let args = Args::parse();
     init_logging(args.console)?;
 
-    let client = server::client::build();
-    let servers: Vec<Arc<server::Server>> = args
+    let client = proxy::client::build();
+    let servers: Vec<Arc<proxy::Server>> = args
         .proxies
         .iter()
         .map(|p| {
@@ -88,7 +88,7 @@ pub async fn main() -> Result<()> {
 }
 
 fn start_server(
-    server: Arc<server::Server>,
+    server: Arc<proxy::Server>,
     join_set: &mut JoinSet<Result<()>>,
 ) -> std::io::Result<AbortHandle> {
     join_set

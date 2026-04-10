@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use tokio::sync::broadcast;
 
-use crate::server::op::{self, Op};
+use crate::proxy::op::{self, Op};
 use crate::tokio_util::spawn_instrumented;
 
 pub type Payload = Arc<Op>;

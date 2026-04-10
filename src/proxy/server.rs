@@ -15,12 +15,12 @@ use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{Instrument, debug, error, info, instrument};
 
-use crate::server::{
+use crate::proxy::{
     body::ProxyResponse,
     monitor::Publisher,
     op::{self, OpReportingContext},
 };
-use crate::server::{conn::ConnInfo, monitor};
+use crate::proxy::{conn::ConnInfo, monitor};
 
 use super::body;
 use super::client::Client;

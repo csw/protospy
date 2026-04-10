@@ -9,7 +9,7 @@ use hyper::body::Bytes;
 use tokio::sync::oneshot;
 use tracing::{info, instrument, warn};
 
-use crate::server::{
+use crate::proxy::{
     body::{self, BodyWrapper, Direction, ProxyResponse},
     client::{Client, ClientBody},
     conn::ConnInfo,
