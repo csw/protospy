@@ -14,5 +14,9 @@ pub fn router(app: Arc<App>) -> Router {
     Router::new()
         .route("/", get(|| async { "Hello, world!" }))
         .route("/info", get(crate::server::info::get_info))
+        .route(
+            "/service/{name}/events",
+            get(crate::server::events::handle_events),
+        )
         .with_state(state)
 }

@@ -55,4 +55,8 @@ impl Group {
         }
         Ok(join_set)
     }
+
+    pub fn get_service(&self, name: &str) -> Option<Arc<Service>> {
+        self.by_name.get(name).map(Arc::clone)
+    }
 }
