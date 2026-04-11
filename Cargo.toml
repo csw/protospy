@@ -21,6 +21,9 @@ strum = { version = "0.28", features = ["derive"] }
 console-subscriber = "0.5.0"
 axum = { version = "0.8.8", features = ["ws"] }
 serde = "1.0.228"
+serde_json = "1.0.149"
+bytes = "1.11.1"
+base64-bytes = "0.1.0"
 
 [profile.dev]
 panic = "abort"

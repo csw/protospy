@@ -20,11 +20,11 @@ use crate::tokio_util::spawn_instrumented;
 /// An HTTP request-response pair
 #[derive(Debug)]
 pub struct Op {
-    conn: ConnInfo,
-    request_parts: http::request::Parts,
-    response_parts: http::response::Parts,
-    request_body: TrackedBodyData,
-    response_body: TrackedBodyData,
+    pub conn: ConnInfo,
+    pub request_parts: http::request::Parts,
+    pub response_parts: http::response::Parts,
+    pub request_body: TrackedBodyData,
+    pub response_body: TrackedBodyData,
 }
 
 pub type OpHandler = Box<dyn Fn(Op) -> Result<()> + Send>;
@@ -270,11 +270,11 @@ impl Drop for BodyTracker {
 
 #[derive(Debug, PartialEq)]
 pub struct TrackedBodyData {
-    data: Vec<u8>,
-    error: Option<String>,
-    trailers: HeaderMap,
-    saw_body: bool,
-    saw_eof: bool,
+    pub data: Vec<u8>,
+    pub error: Option<String>,
+    pub trailers: HeaderMap,
+    pub saw_body: bool,
+    pub saw_eof: bool,
 }
 
 impl TrackedBodyData {

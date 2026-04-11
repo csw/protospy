@@ -3,7 +3,8 @@ use std::sync::Arc;
 use color_eyre::Result;
 use tokio::sync::broadcast;
 
-use crate::proxy::op::{self, Op};
+use crate::proxy::op::Op;
+use crate::server::messages;
 use crate::tokio_util::spawn_instrumented;
 
 pub type Payload = Arc<Op>;
@@ -66,6 +67,9 @@ pub fn start_logger(
 pub async fn run_logger(mut receiver: Receiver) -> Result<()> {
     loop {
         let val = receiver.recv().await?;
-        op::log_op(&val)?;
+        // op::log_op(&val)?;
+        let operation = messages::Operation::from_op(&val)?;
+        let rendered = serde_json::to_string_pretty(&operation)?;
+        eprintln!("{}", rendered);
     }
 }

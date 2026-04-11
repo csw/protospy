@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Router,
-    routing::{any, get},
-};
+use axum::{Router, routing::get};
 
 use crate::server::App;
 
@@ -17,6 +14,5 @@ pub fn router(app: Arc<App>) -> Router {
     Router::new()
         .route("/", get(|| async { "Hello, world!" }))
         .route("/info", get(crate::server::info::get_info))
-        .route("/ws", any(crate::server::ws::handler))
         .with_state(state)
 }
