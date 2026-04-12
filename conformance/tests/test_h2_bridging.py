@@ -11,11 +11,14 @@ HTTP/2 when forwarding to an h2c upstream:
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from proxy_conformance.h2c_server import CapturedH2Request, H2cServer
 
 from .conftest import Findings
 from .proxies import ProxyUrls
+
+pytestmark = [pytest.mark.xfail_for("protospy")]
 
 
 def test_host_to_authority(

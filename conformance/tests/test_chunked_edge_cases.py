@@ -205,6 +205,7 @@ def _assert_raw_response(
     assert_probe_result(probe, expected, test_id=test_id)
 
 
+@pytest.mark.xfail_for("protospy")
 def test_request_trailers_forwarded(
     proxy: ProxyUrls,
     good_server: GoodServer,

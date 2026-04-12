@@ -6,7 +6,7 @@ See:
 
 ## Development
 
-### Tests
+### Running tests
 
 This uses pytest for tests.
 
@@ -83,4 +83,13 @@ When run with stdlib logging at the DEBUG level (for the `conformance` logger sp
 
 ```shell
 uv run pytest --log-level DEBUG -r A -k x-forwarded-for-append
+```
+
+### Marking expected failures
+
+For tests not using the ProxyTestCase mechanism, expected failures can be indicated for a particular proxy using the `xfail_for` fixture, e.g.
+
+```python
+@pytest.mark.xfail_for("protospy")
+def test_websocket_bidirectional(
 ```

@@ -9,7 +9,7 @@ import urllib.parse
 from collections.abc import Generator
 from pathlib import Path
 from subprocess import TimeoutExpired
-from typing import Literal
+from typing import Literal, cast
 
 import httpx
 import pytest
@@ -19,7 +19,13 @@ from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.h2c_server import H2cServer
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
-from .proxies import ALL_PROXIES, MANAGED_PROXIES, ProxyUrls, start_proxy
+from .proxies import (
+    ALL_PROXIES,
+    MANAGED_PROXIES,
+    PROXY_FAMILIES,
+    ProxyUrls,
+    start_proxy,
+)
 
 FindingLevel = Literal["info", "finding"]
 
@@ -269,6 +275,24 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 def proxy_type(request: pytest.FixtureRequest) -> str:
     """The proxy type for the current parametrized run."""
     return str(request.param)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def check_xfail_for(proxy_type: str, request: pytest.FixtureRequest):
+    node: pytest.Function = cast(pytest.Function, request.node)
+    if m := node.get_closest_marker("xfail_for"):
+        # print(f"node: {type(request.node)}: {request.node}", file=sys.stderr)
+        if not m.args:
+            raise RuntimeError("No family arg for xfail_for marker!")
+
+        family = cast(str, m.args[0])
+        proxies = PROXY_FAMILIES.get(family)
+        if proxies is None:
+            raise RuntimeError(f"Unknown proxy family: {family}")
+        if proxy_type in proxies:
+            request.applymarker(
+                pytest.mark.xfail(reason=f"expected to fail for {family}", strict=True)
+            )
 
 
 @pytest.fixture(scope="session")
