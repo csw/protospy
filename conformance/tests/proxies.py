@@ -401,6 +401,12 @@ MANAGED_PROXIES: list[str] = ["caddy", "haproxy", "protospy"]
 # selected explicitly and cannot be auto-started.
 ALL_PROXIES: list[str] = [*MANAGED_PROXIES, "protospy-ext"]
 
+PROXY_FAMILIES: dict[str, frozenset[str]] = {
+    "caddy": frozenset(["caddy"]),
+    "haproxy": frozenset(["haproxy"]),
+    "protospy": frozenset(["protospy", "protospy-ext"]),
+}
+
 
 @dataclass
 class ProxyUrls:

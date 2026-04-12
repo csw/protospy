@@ -40,6 +40,9 @@ module-root = "src"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short -n auto --dist loadgroup"
+markers = [
+    "xfail_for: xfail for specific proxies"
+]
 
 # NOTE: pyright config lives in pyrightconfig.json, not here.
 # pyrightconfig.json takes precedence over [tool.pyright] when present,
