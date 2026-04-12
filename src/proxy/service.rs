@@ -238,7 +238,7 @@ fn hyper_error_report(top: &hyper::Error) -> String {
         let desc = if let Some(hyper_err) = src.downcast_ref::<hyper::Error>() {
             dump_hyper_error(hyper_err)
         } else {
-            format!("{:?}", src)
+            format!("{src:?}")
         };
         report += desc.as_str();
         err = src;
