@@ -12,6 +12,8 @@ from pathlib import Path
 
 from proxy_conformance.net import find_free_port
 
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 
 @dataclass
 class ProxyEntry:
@@ -332,9 +334,7 @@ backend h2c_backend
 # ---------------------------------------------------------------------------
 
 
-def start_protospy(
-    config: ProxyConfig,
-) -> subprocess.Popen[bytes]:
+def start_protospy(config: ProxyConfig) -> subprocess.Popen[bytes]:
     """Start a protospy reverse proxy subprocess via cargo run.
 
     Returns the Popen handle. The caller is responsible for terminating it.
@@ -362,7 +362,7 @@ def start_protospy(
             ["cargo", "run", "--"] + proxy_args,
             stdout=log_file,
             stderr=log_file,
-            cwd="/Users/csw/src/protospy",
+            cwd=REPO_ROOT,
         )
 
     # Wait for all ports to be available
