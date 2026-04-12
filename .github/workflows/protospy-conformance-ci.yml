@@ -40,7 +40,8 @@ jobs:
         working-directory: .
         run: cargo build
       - name: Run conformance tests
-        run: uv run pytest -q --proxy protospy --findings --junit-xml=results.xml
+        # TODO: remove -n 1 after fixing race condition
+        run: uv run pytest -q -n 1 --proxy protospy --findings --junit-xml=results.xml
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
