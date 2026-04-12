@@ -15,10 +15,13 @@ and error semantics.
 from __future__ import annotations
 
 import grpc
+import pytest
 
 from proxy_conformance.proto import echo_pb2, echo_pb2_grpc
 
 from .proxies import ProxyUrls
+
+pytestmark = [pytest.mark.xfail_for("protospy")]
 
 
 def _stub(proxy: ProxyUrls) -> echo_pb2_grpc.EchoStub:

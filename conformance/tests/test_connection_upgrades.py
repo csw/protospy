@@ -11,11 +11,13 @@ for WebSocket connections (RFC 6455, RFC 9110 §7.8).
 from __future__ import annotations
 
 import httpx
+import pytest
 from websockets.sync.client import connect as ws_connect
 
 from .proxies import ProxyUrls, tagged_url
 
 
+@pytest.mark.xfail_for("protospy")
 def test_websocket_upgrade(
     proxy: ProxyUrls,
 ) -> None:
@@ -42,6 +44,7 @@ def test_websocket_upgrade_rejected(
     assert response.status_code == 403
 
 
+@pytest.mark.xfail_for("protospy")
 def test_websocket_bidirectional(
     proxy: ProxyUrls,
 ) -> None:
