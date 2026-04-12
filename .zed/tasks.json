@@ -37,7 +37,12 @@
   },
   {
     "label": "conformance tests",
-    "command": "uv run pytest -q -r pxf --findings",
+    "command": "uv run pytest -q -r pxEf --findings",
+    "cwd": "$ZED_WORKTREE_ROOT/conformance",
+  },
+  {
+    "label": "conformance: protospy",
+    "command": "uv run pytest -n 1 -q -r pxEf --proxy protospy --findings",
     "cwd": "$ZED_WORKTREE_ROOT/conformance",
   },
   {
