@@ -1,0 +1,53 @@
+name: protospy-conformance-ci
+
+on:
+  push:
+    paths:
+      - ".github/workflows/protospy-conformance-ci.yml"
+      - "conformance/**"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - ".cargo"
+      - "src/**"
+  pull_request:
+    paths:
+      - ".github/workflows/protospy-conformance-ci.yml"
+      - "conformance/**"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - ".cargo"
+      - "src/**"
+
+defaults:
+  run:
+    working-directory: conformance
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/uv.lock
+      - run: uv sync --frozen
+      - name: Run conformance tests
+        run: uv run pytest -q --proxy protospy --findings --junit-xml=results.xml
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: conformance-results
+          path: conformance/results.xml
+      - uses: dorny/test-reporter@v2.6.0
+        if: always()
+        with:
+          name: Conformance Tests
+          path: conformance/results.xml
+          reporter: java-junit
+          use-actions-summary: true
