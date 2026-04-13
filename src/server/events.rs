@@ -16,8 +16,8 @@ use tracing::error;
 use {color_eyre::Report, eyre::Context};
 
 use crate::{
-    proxy::op::Op,
-    server::{errors::ErrorMessage, messages::Operation, router::AppState},
+    proxy::exchange,
+    server::{errors::ErrorMessage, messages, router::AppState},
 };
 
 pub async fn handle_events(
@@ -36,7 +36,7 @@ pub async fn handle_events(
     let json = json_stream(receiver);
     let events = json
         .inspect_err(|err| error!("event error: {:?}", err))
-        .map_ok(|json| Event::default().event("op-report").data(json))
+        .map_ok(|json| Event::default().event("exchange-report").data(json))
         .filter_map(|res| res.ok())
         .map(Ok::<Event, Infallible>);
 
@@ -48,13 +48,15 @@ pub async fn handle_events(
 }
 
 fn json_stream(
-    receiver: broadcast::Receiver<Arc<Op>>,
+    receiver: broadcast::Receiver<Arc<exchange::Exchange>>,
 ) -> impl TryStream<Ok = String, Error = Report> {
     BroadcastStream::new(receiver).map(|rcvd| {
         rcvd.wrap_err("receive error")
-            .and_then(|op| Operation::from_op(&op).wrap_err("failed to extract operation"))
-            .and_then(|op| {
-                serde_json::to_string_pretty(&op).wrap_err("failed to serialize operation")
+            .and_then(|exch| {
+                messages::Exchange::from_internal(&exch).wrap_err("failed to extract exchange")
+            })
+            .and_then(|exch| {
+                serde_json::to_string_pretty(&exch).wrap_err("failed to serialize exchange")
             })
     })
 }

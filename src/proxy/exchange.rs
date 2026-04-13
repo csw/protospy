@@ -19,7 +19,7 @@ use crate::tokio_util::spawn_instrumented;
 
 /// An HTTP request-response pair
 #[derive(Debug)]
-pub struct Op {
+pub struct Exchange {
     pub conn: ConnInfo,
     pub request_parts: http::request::Parts,
     pub response_parts: http::response::Parts,
@@ -27,18 +27,18 @@ pub struct Op {
     pub response_body: TrackedBodyData,
 }
 
-pub type OpHandler = Box<dyn Fn(Op) -> Result<()> + Send>;
+pub type ExchangeHandler = Box<dyn Fn(Exchange) -> Result<()> + Send>;
 
 pub fn create_reporting(
     sender: monitor::Sender,
     request: http::request::Parts,
     conn_info: ConnInfo,
-) -> (OpReporter, OpReportingContext) {
+) -> (ExchangeReporter, ExchangeReportingContext) {
     let (request_tracker, request_body_receiver) = BodyTracker::create_pair(Direction::Request);
     let (response_tracker, response_body_receiver) = BodyTracker::create_pair(Direction::Response);
     let (response_sender, response_receiver) = oneshot::channel();
     (
-        OpReporter {
+        ExchangeReporter {
             handler: Box::new(move |op| {
                 sender.send(Arc::new(op))?;
                 Ok(())
@@ -49,7 +49,7 @@ pub fn create_reporting(
             response_chan: response_receiver,
             response_body_chan: response_body_receiver,
         },
-        OpReportingContext::Report {
+        ExchangeReportingContext::Report {
             request_tracker: Some(Box::new(request_tracker)),
             response_tracker: Some(Box::new(response_tracker)),
             response_sender: Some(response_sender),
@@ -57,7 +57,7 @@ pub fn create_reporting(
     )
 }
 
-pub enum OpReportingContext {
+pub enum ExchangeReportingContext {
     NoOp,
     Report {
         request_tracker: Option<Box<BodyTracker>>,
@@ -66,8 +66,8 @@ pub enum OpReportingContext {
     },
 }
 
-impl OpReportingContext {
-    pub fn create_noop() -> OpReportingContext {
+impl ExchangeReportingContext {
+    pub fn create_noop() -> ExchangeReportingContext {
         info!("create_noop");
         Self::NoOp
     }
@@ -147,8 +147,8 @@ impl OpReportingContext {
     }
 }
 
-pub struct OpReporter {
-    handler: OpHandler,
+pub struct ExchangeReporter {
+    handler: ExchangeHandler,
     request: http::request::Parts,
     conn_info: ConnInfo,
     request_body_chan: oneshot::Receiver<TrackedBodyData>,
@@ -156,7 +156,7 @@ pub struct OpReporter {
     response_body_chan: oneshot::Receiver<TrackedBodyData>,
 }
 
-impl OpReporter {
+impl ExchangeReporter {
     pub fn start(self) -> Result<tokio::task::JoinHandle<Result<(), ErrReport>>> {
         let task_name = format!("report {} {}", self.request.method, self.request.uri);
         spawn_instrumented(task_name.as_str(), async move { self.run().await })
@@ -167,7 +167,7 @@ impl OpReporter {
         let response = self.response_chan.await?;
         let response_body = self.response_body_chan.await?;
 
-        let op = Op {
+        let op = Exchange {
             conn: self.conn_info,
             request_parts: self.request,
             request_body,
@@ -178,9 +178,9 @@ impl OpReporter {
     }
 }
 
-pub fn log_op(op: &Op) -> Result<()> {
+pub fn log_exchange(op: &Exchange) -> Result<()> {
     info!(
-        "reporting op: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
+        "reporting exchange: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
         op.conn,
         op.request_parts,
         op.request_body.data.len(),

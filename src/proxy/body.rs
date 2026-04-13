@@ -6,7 +6,7 @@ use pin_project_lite::pin_project;
 use strum::Display;
 use tracing::{error, instrument, trace};
 
-use crate::proxy::op::BodyTracker;
+use crate::proxy::exchange::BodyTracker;
 
 #[derive(Display, Debug)]
 pub enum Direction {

@@ -17,8 +17,8 @@ use tracing::{Instrument, debug, error, info, instrument};
 
 use crate::proxy::{
     body::ProxyResponse,
+    exchange::{self, ExchangeReportingContext},
     monitor::Publisher,
-    op::{self, OpReportingContext},
 };
 use crate::proxy::{conn::ConnInfo, monitor};
 
@@ -161,14 +161,14 @@ impl Service {
         &self,
         request: http::request::Parts,
         conn_info: ConnInfo,
-    ) -> Result<OpReportingContext> {
+    ) -> Result<ExchangeReportingContext> {
         if self.publisher.has_listeners() {
-            let (op_reporter, reporting_ctx) =
-                op::create_reporting(self.publisher.sender(), request, conn_info);
-            op_reporter.start()?;
+            let (exch_reporter, reporting_ctx) =
+                exchange::create_reporting(self.publisher.sender(), request, conn_info);
+            exch_reporter.start()?;
             Ok(reporting_ctx)
         } else {
-            Ok(OpReportingContext::create_noop())
+            Ok(ExchangeReportingContext::create_noop())
         }
     }
 }

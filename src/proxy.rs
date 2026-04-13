@@ -5,7 +5,7 @@ pub mod errors;
 pub mod group;
 pub mod headers;
 pub mod monitor;
-pub mod op;
+pub mod exchange;
 pub mod service;
 
 pub type Service = self::service::Service;
