@@ -17,6 +17,7 @@ import pytest
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.h2c_server import H2cServer
+from proxy_conformance.net import PortAllocator, worker_base_port
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import (
@@ -56,6 +57,12 @@ _protospy_captures: dict[str, tuple[Path, int]] = {}
 @pytest.fixture(scope="session")
 def findings() -> Findings:
     return _session_findings
+
+
+@pytest.fixture(scope="session")
+def port_allocator(request: pytest.FixtureRequest) -> PortAllocator:
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
+    return PortAllocator(worker_base_port(worker_id))
 
 
 def pytest_runtest_makereport(
@@ -296,18 +303,26 @@ def check_xfail_for(proxy_type: str, request: pytest.FixtureRequest):
 
 
 @pytest.fixture(scope="session")
-def good_server(request: pytest.FixtureRequest) -> Generator[GoodServer]:
-    port: int | None = request.config.getoption("--good-target-port")
-    server = GoodServer() if port is None else GoodServer(port=port)
+def good_server(
+    request: pytest.FixtureRequest,
+    port_allocator: PortAllocator,
+) -> Generator[GoodServer]:
+    cli_port: int | None = request.config.getoption("--good-target-port")
+    port = cli_port if cli_port is not None else port_allocator.alloc()
+    server = GoodServer(port=port)
     server.start()
     yield server
     server.stop()
 
 
 @pytest.fixture(scope="session")
-def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
-    port: int | None = request.config.getoption("--wire-target-port")
-    server = WireServer() if port is None else WireServer(port=port)
+def wire_server(
+    request: pytest.FixtureRequest,
+    port_allocator: PortAllocator,
+) -> Generator[WireServer]:
+    cli_port: int | None = request.config.getoption("--wire-target-port")
+    port = cli_port if cli_port is not None else port_allocator.alloc()
+    server = WireServer(port=port)
     register_default_routes(server)
     server.start()
     yield server
@@ -315,16 +330,16 @@ def wire_server(request: pytest.FixtureRequest) -> Generator[WireServer]:
 
 
 @pytest.fixture(scope="session")
-def grpc_server() -> Generator[GrpcServer]:
-    server = GrpcServer()
+def grpc_server(port_allocator: PortAllocator) -> Generator[GrpcServer]:
+    server = GrpcServer(port=port_allocator.alloc())
     server.start()
     yield server
     server.stop()
 
 
 @pytest.fixture(scope="session")
-def h2c_server() -> Generator[H2cServer]:
-    server = H2cServer()
+def h2c_server(port_allocator: PortAllocator) -> Generator[H2cServer]:
+    server = H2cServer(port=port_allocator.alloc())
     server.start()
     yield server
     server.stop()
@@ -339,6 +354,7 @@ def proxy(
     grpc_server: GrpcServer,
     h2c_server: H2cServer,
     tmp_path_factory: pytest.TempPathFactory,
+    port_allocator: PortAllocator,
 ) -> Generator[ProxyUrls]:
     """ProxyUrls for the proxy under test.
 
@@ -396,6 +412,7 @@ def proxy(
         tmp,
         grpc_upstream=grpc_server.url,
         h2c_upstream=h2c_server.url,
+        base_port=port_allocator.proxy_base,
     )
     if proxy_type == "protospy":
         _protospy_log_paths[request.module.__name__] = tmp / "protospy.log"
