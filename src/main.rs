@@ -1,9 +1,10 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
+use tokio::task::JoinHandle;
 use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -25,6 +26,8 @@ struct Args {
     proxies: Vec<ProxyConfig>,
     #[arg(long)]
     console: bool,
+    #[arg(long = "no-web", default_value_t = true, action = ArgAction::SetFalse)]
+    web: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -70,17 +73,25 @@ pub async fn main() -> Result<()> {
     let client = proxy::client::build();
     let proxy_group = Arc::new(create_group(&args, client)?);
 
-    let app = Arc::new(App {
-        proxy_group: Arc::clone(&proxy_group),
-    });
-    let router = crate::server::router::router(app);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
-    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    if args.web {
+        start_web(Arc::clone(&proxy_group)).await?;
+    }
 
     let mut proxy_join_set = proxy_group.start_services()?;
 
     let join_res = proxy_join_set.join_next().await;
     join_res.unwrap()?
+}
+
+async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
+    let app = Arc::new(App {
+        proxy_group: Arc::clone(&proxy_group),
+    });
+    let router = crate::server::router::router(app);
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    Ok(tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap()
+    }))
 }
 
 fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {
