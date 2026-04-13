@@ -359,7 +359,7 @@ def start_protospy(config: ProxyConfig) -> subprocess.Popen[bytes]:
     log_path = config.tmp_dir / "protospy.log"
     with open(log_path, "wb") as log_file:
         proc = subprocess.Popen(
-            ["cargo", "run", "--"] + proxy_args,
+            ["cargo", "run", "--", "--no-web"] + proxy_args,
             stdout=log_file,
             stderr=log_file,
             cwd=REPO_ROOT,
@@ -459,6 +459,61 @@ def make_proxy_urls(
 
 _START_RETRIES = 3
 
+# Port offsets within a worker's proxy range (relative to proxy_base).
+# Slots 0-5 match the plan layout offsets 4-9 (base_port is already offset+4).
+_SLOT_GOOD = 0
+_SLOT_WIRE = 1
+_SLOT_DEAD = 2
+_SLOT_DEAD_UPSTREAM = 3  # intentionally unbound
+_SLOT_GRPC = 4
+_SLOT_H2C = 5
+
+
+def _start_proxy_fixed(
+    proxy_type: str,
+    good_upstream: str,
+    wire_upstream: str,
+    tmp_dir: Path,
+    base_port: int,
+    grpc_upstream: str = "",
+    h2c_upstream: str = "",
+) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
+    """Start proxy using deterministic ports derived from base_port.
+
+    No retry loop — if a port is in use something is genuinely wrong.
+    """
+    good = ProxyEntry(listen_port=base_port + _SLOT_GOOD, upstream=good_upstream)
+    wire = ProxyEntry(listen_port=base_port + _SLOT_WIRE, upstream=wire_upstream)
+    dead = ProxyEntry(
+        listen_port=base_port + _SLOT_DEAD,
+        upstream=f"http://127.0.0.1:{base_port + _SLOT_DEAD_UPSTREAM}",
+    )
+    grpc_entry = (
+        ProxyEntry(listen_port=base_port + _SLOT_GRPC, upstream=grpc_upstream)
+        if grpc_upstream
+        else None
+    )
+    h2c_entry = (
+        ProxyEntry(listen_port=base_port + _SLOT_H2C, upstream=h2c_upstream)
+        if h2c_upstream
+        else None
+    )
+    proxy_config = ProxyConfig(
+        good=good,
+        wire=wire,
+        dead=dead,
+        tmp_dir=tmp_dir,
+        grpc=grpc_entry,
+        h2c=h2c_entry,
+    )
+    if proxy_type == "caddy":
+        proc = start_caddy(proxy_config)
+    elif proxy_type == "haproxy":
+        proc = start_haproxy(proxy_config)
+    else:  # protospy
+        proc = start_protospy(proxy_config)
+    return proc, make_proxy_urls(good, wire, dead, grpc=grpc_entry, h2c=h2c_entry)
+
 
 def start_proxy(
     proxy_type: str,
@@ -467,12 +522,13 @@ def start_proxy(
     tmp_dir: Path,
     grpc_upstream: str = "",
     h2c_upstream: str = "",
+    base_port: int | None = None,
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Allocate ports, start proxy with default timeouts, return (proc, urls).
 
-    Retries up to ``_START_RETRIES`` times on port conflicts (the
-    TOCTOU gap between ``find_free_port`` and ``bind`` is inherent
-    when many workers start proxies concurrently).
+    When ``base_port`` is given, ports are allocated as fixed offsets from it
+    (no TOCTOU gap, no retry loop).  When ``base_port`` is None, falls back to
+    ``find_free_port()`` with up to ``_START_RETRIES`` retries.
 
     For non-default timeouts call start_caddy / start_haproxy directly.
     Raises ValueError for unknown proxy types.
@@ -486,6 +542,17 @@ def start_proxy(
             "in start_proxy() in proxies.py."
         )
         raise ValueError(msg)
+
+    if base_port is not None:
+        return _start_proxy_fixed(
+            proxy_type,
+            good_upstream,
+            wire_upstream,
+            tmp_dir,
+            base_port,
+            grpc_upstream=grpc_upstream,
+            h2c_upstream=h2c_upstream,
+        )
 
     last_exc: RuntimeError | None = None
     for attempt in range(_START_RETRIES):
