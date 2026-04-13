@@ -3,17 +3,15 @@ use std::sync::Arc;
 use color_eyre::Result;
 use tokio::sync::broadcast;
 
-use crate::proxy::exchange::Exchange;
-use crate::server::messages;
-use crate::tokio_util::spawn_instrumented;
+use crate::proxy::event::EventMessage;
 
-pub type Payload = Arc<Exchange>;
+pub type Payload = Arc<EventMessage>;
 pub type Sender = broadcast::Sender<Payload>;
 pub type Receiver = broadcast::Receiver<Payload>;
 
 const BUFSIZE: usize = 256;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Publisher {
     sender: Sender,
 }
@@ -52,15 +50,8 @@ impl Default for Publisher {
     }
 }
 
-pub fn start_logger(
-    server_name: &str,
-    receiver: Receiver,
-) -> Result<tokio::task::JoinHandle<Result<()>>> {
-    let task_name = format!("logger({})", server_name);
-    spawn_instrumented(
-        task_name.as_str(),
-        async move { run_logger(receiver).await },
-    )
+pub fn logger_task_name(server: &str) -> String {
+    format!("logger({})", server)
 }
 
 #[tracing::instrument(level = "info", skip(receiver))]
@@ -68,8 +59,7 @@ pub async fn run_logger(mut receiver: Receiver) -> Result<()> {
     loop {
         let val = receiver.recv().await?;
         // op::log_op(&val)?;
-        let exchange = messages::Exchange::from_internal(&val)?;
-        let rendered = serde_json::to_string_pretty(&exchange)?;
+        let rendered = serde_json::to_string_pretty(val.as_ref())?;
         eprintln!("{}", rendered);
     }
 }

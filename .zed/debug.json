@@ -12,7 +12,11 @@
       "args": ["build"],
     },
     "program": "$ZED_WORKTREE_ROOT/target/debug/protospy",
-    "args": ["--proxy", "name=es,port=3000,target=localhost:9200"],
+    "args": [
+      "--proxy",
+      "name=es,port=3000,target=localhost:9200",
+      "--print-messages",
+    ],
     "sourceLanguages": ["rust"],
     "cwd": "$ZED_WORKTREE_ROOT",
   },

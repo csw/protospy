@@ -45,13 +45,13 @@ pub enum Body {
 
 impl Exchange {
     pub fn from_internal(
-        exchange::Exchange {
+        exchange::FullExchange {
             request_parts: req,
             request_body: req_body,
             response_parts: res,
             response_body: res_body,
             conn: _,
-        }: &exchange::Exchange,
+        }: &exchange::FullExchange,
     ) -> Result<Exchange> {
         Ok(Exchange {
             request: Request {

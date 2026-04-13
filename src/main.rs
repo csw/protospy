@@ -4,7 +4,7 @@ use std::sync::Arc;
 use clap::{ArgAction, Parser};
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -12,7 +12,10 @@ use tracing_subscriber::{self, EnvFilter};
 use tracing_subscriber::{prelude::*, registry::Registry};
 
 use crate::proxy::client::Client;
+use crate::proxy::group::ServiceEntry;
+use crate::proxy::monitor;
 use crate::server::App;
+use crate::tokio_util::spawn_instrumented_on;
 
 pub mod proxy;
 pub mod server;
@@ -25,7 +28,9 @@ struct Args {
     #[arg(long = "proxy", required = true)]
     proxies: Vec<ProxyConfig>,
     #[arg(long)]
-    console: bool,
+    tokio_console: bool,
+    #[arg(short, long)]
+    print_messages: bool,
     #[arg(long = "no-web", default_value_t = true, action = ArgAction::SetFalse)]
     web: bool,
 }
@@ -68,7 +73,7 @@ impl std::str::FromStr for ProxyConfig {
 #[tokio::main]
 pub async fn main() -> Result<()> {
     let args = Args::parse();
-    init_logging(args.console)?;
+    init_logging(args.tokio_console)?;
 
     let client = proxy::client::build();
     let proxy_group = Arc::new(create_group(&args, client)?);
@@ -78,6 +83,12 @@ pub async fn main() -> Result<()> {
     }
 
     let mut proxy_join_set = proxy_group.start_services()?;
+
+    if args.print_messages {
+        for service in &proxy_group.services {
+            start_logger(&mut proxy_join_set, service)?;
+        }
+    }
 
     let join_res = proxy_join_set.join_next().await;
     join_res.unwrap()?
@@ -92,6 +103,15 @@ async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
     Ok(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
     }))
+}
+
+fn start_logger(tasks: &mut JoinSet<Result<()>>, entry: &ServiceEntry) -> Result<()> {
+    spawn_instrumented_on(
+        tasks,
+        &monitor::logger_task_name(&entry.service.name),
+        monitor::run_logger(entry.publisher.subscribe()),
+    )?;
+    Ok(())
 }
 
 fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {

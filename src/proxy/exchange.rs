@@ -1,25 +1,61 @@
+use std::fmt::Debug;
+use std::result::Result as StdResult;
 use std::sync::Arc;
 
-use color_eyre::{
-    Result,
-    eyre::{ErrReport, eyre},
-};
-use http::{HeaderMap, Response};
+use chrono::prelude::*;
+use color_eyre::Result;
+use futures::Stream;
+use http::HeaderMap;
 use hyper::body::Bytes;
-use tokio::sync::oneshot;
-use tracing::{info, instrument, warn};
+use serde::{Serialize, Serializer};
+use tracing::instrument;
+use uid::IdU64 as IdT;
 
 use crate::proxy::{
-    body::{self, BodyWrapper, Direction, ProxyResponse},
-    client::{Client, ClientBody},
+    body::{self, BodyReporter, BodyStreamWrapper, Direction},
     conn::ConnInfo,
-    monitor,
+    errors::BodyError,
+    event::{Event, EventMessage, flatten_headers},
+    monitor::{self},
 };
-use crate::tokio_util::spawn_instrumented;
+
+#[derive(Copy, Clone, Eq, PartialEq, Serialize)]
+struct IdInner(());
+
+type Id = IdT<IdInner>;
+
+pub type Timestamp = DateTime<Utc>;
+
+#[derive(Copy, Clone, Debug, Serialize)]
+pub struct Exchange {
+    #[serde(serialize_with = "serialize_id")]
+    exchange_id: Id,
+    timestamp: Timestamp,
+}
+
+pub trait ExchangeReporterService: Send + Sync + Debug {
+    fn should_report(&self) -> bool;
+    fn make_reporter(&self, exchange: Exchange) -> Box<dyn ExchangeReporter>;
+}
+
+pub trait ExchangeReporter: Send + Sync + Debug {
+    fn send_event(&self, event: Event) -> Result<()>;
+}
+
+#[derive(Debug)]
+pub struct PublisherExchangeReporterFactory {
+    publisher: monitor::Publisher,
+}
+
+#[derive(Debug, Clone)]
+pub struct PublisherExchangeReporter {
+    exchange: Exchange,
+    publisher: monitor::Publisher,
+}
 
 /// An HTTP request-response pair
 #[derive(Debug)]
-pub struct Exchange {
+pub struct FullExchange {
     pub conn: ConnInfo,
     pub request_parts: http::request::Parts,
     pub response_parts: http::response::Parts,
@@ -27,243 +63,141 @@ pub struct Exchange {
     pub response_body: TrackedBodyData,
 }
 
-pub type ExchangeHandler = Box<dyn Fn(Exchange) -> Result<()> + Send>;
+pub type ExchangeHandler = Box<dyn Fn(FullExchange) -> Result<()> + Send>;
 
-pub fn create_reporting(
-    sender: monitor::Sender,
-    request: http::request::Parts,
-    conn_info: ConnInfo,
-) -> (ExchangeReporter, ExchangeReportingContext) {
-    let (request_tracker, request_body_receiver) = BodyTracker::create_pair(Direction::Request);
-    let (response_tracker, response_body_receiver) = BodyTracker::create_pair(Direction::Response);
-    let (response_sender, response_receiver) = oneshot::channel();
-    (
-        ExchangeReporter {
-            handler: Box::new(move |op| {
-                sender.send(Arc::new(op))?;
-                Ok(())
-            }),
-            request,
-            conn_info,
-            request_body_chan: request_body_receiver,
-            response_chan: response_receiver,
-            response_body_chan: response_body_receiver,
-        },
-        ExchangeReportingContext::Report {
-            request_tracker: Some(Box::new(request_tracker)),
-            response_tracker: Some(Box::new(response_tracker)),
-            response_sender: Some(response_sender),
-        },
-    )
-}
-
-pub enum ExchangeReportingContext {
-    NoOp,
-    Report {
-        request_tracker: Option<Box<BodyTracker>>,
-        response_tracker: Option<Box<BodyTracker>>,
-        response_sender: Option<oneshot::Sender<http::response::Parts>>,
-    },
-}
-
-impl ExchangeReportingContext {
-    pub fn create_noop() -> ExchangeReportingContext {
-        info!("create_noop");
-        Self::NoOp
-    }
-
-    pub fn report_response(&mut self, parts: &http::response::Parts) -> Result<()> {
-        match self {
-            Self::NoOp => Ok(()),
-            Self::Report {
-                response_sender: sender @ Some(_),
-                ..
-            } => sender
-                .take()
-                .unwrap()
-                .send(parts.clone())
-                .map_err(|_| eyre!("failed to send response data")),
-            Self::Report {
-                response_sender: None,
-                ..
-            } => Err(eyre!("already reported response")),
-        }
-    }
-
-    pub fn forward_request(
-        &mut self,
-        client: &Client,
-        request: http::Request<hyper::body::Incoming>,
-    ) -> Result<hyper_util::client::legacy::ResponseFuture> {
-        let (parts, incoming) = request.into_parts();
-        match self {
-            Self::NoOp => {
-                Ok(client.request(http::Request::from_parts(parts, ClientBody::Left(incoming))))
-            }
-
-            Self::Report {
-                request_tracker: tracker_opt @ Some(_),
-                ..
-            } => {
-                let tracker = tracker_opt.take().unwrap();
-                let wrapped = BodyWrapper::new(Direction::Request, incoming, tracker);
-                Ok(client.request(http::Request::from_parts(parts, ClientBody::Right(wrapped))))
-            }
-            Self::Report {
-                request_tracker: None,
-                ..
-            } => Err(eyre!("already wrapped request body")),
-        }
-    }
-
-    pub fn tracked_response(
-        &mut self,
-        response: http::Response<hyper::body::Incoming>,
-    ) -> Result<ProxyResponse> {
-        let (parts, incoming) = response.into_parts();
-        match self {
-            Self::NoOp => Ok(http::Response::from_parts(
-                parts,
-                body::passthrough_response_body(incoming),
-            )),
-            Self::Report {
-                response_tracker: tracker @ Some(_),
-                response_sender: sender @ Some(_),
-                ..
-            } => {
-                let sender = sender.take().unwrap();
-                sender
-                    .send(parts.clone())
-                    .map_err(|_| eyre!("failed to send response data"))?;
-                let tracker = tracker.take().unwrap();
-                let wrapped = BodyWrapper::new(Direction::Response, incoming, tracker);
-                Ok(Response::from_parts(
-                    parts,
-                    body::wrapped_response_body(wrapped),
-                ))
-            }
-            _ => Err(eyre!("already reported response")),
+impl Exchange {
+    pub fn new() -> Self {
+        Self {
+            exchange_id: Id::new(),
+            timestamp: Utc::now(),
         }
     }
 }
 
-pub struct ExchangeReporter {
-    handler: ExchangeHandler,
-    request: http::request::Parts,
-    conn_info: ConnInfo,
-    request_body_chan: oneshot::Receiver<TrackedBodyData>,
-    response_chan: oneshot::Receiver<http::response::Parts>,
-    response_body_chan: oneshot::Receiver<TrackedBodyData>,
-}
-
-impl ExchangeReporter {
-    pub fn start(self) -> Result<tokio::task::JoinHandle<Result<(), ErrReport>>> {
-        let task_name = format!("report {} {}", self.request.method, self.request.uri);
-        spawn_instrumented(task_name.as_str(), async move { self.run().await })
-    }
-
-    pub async fn run(self) -> Result<()> {
-        let request_body = self.request_body_chan.await?;
-        let response = self.response_chan.await?;
-        let response_body = self.response_body_chan.await?;
-
-        let op = Exchange {
-            conn: self.conn_info,
-            request_parts: self.request,
-            request_body,
-            response_parts: response,
-            response_body,
-        };
-        (self.handler)(op)
+impl Default for Exchange {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-pub fn log_exchange(op: &Exchange) -> Result<()> {
-    info!(
-        "reporting exchange: conn={:?}, request={:?}, request body len={}, response={:?}, response body len={}",
-        op.conn,
-        op.request_parts,
-        op.request_body.data.len(),
-        op.response_parts,
-        op.response_body.data.len()
-    );
-    Ok(())
+impl PublisherExchangeReporterFactory {
+    pub fn new(publisher: monitor::Publisher) -> Self {
+        Self { publisher }
+    }
+}
+
+impl ExchangeReporterService for PublisherExchangeReporterFactory {
+    fn should_report(&self) -> bool {
+        self.publisher.has_listeners()
+    }
+
+    fn make_reporter(&self, exchange: Exchange) -> Box<dyn ExchangeReporter> {
+        Box::new(PublisherExchangeReporter {
+            exchange,
+            publisher: self.publisher.clone(),
+        })
+    }
+}
+
+impl ExchangeReporter for PublisherExchangeReporter {
+    fn send_event(&self, event: Event) -> Result<()> {
+        let msg = Arc::new(EventMessage {
+            exchange: self.exchange,
+            event,
+        });
+        self.publisher.send(msg)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 pub struct BodyTracker {
-    body: Option<TrackedBodyData>,
-    done_chan: Option<oneshot::Sender<TrackedBodyData>>,
+    reporter: Box<dyn ExchangeReporter>,
     direction: Direction,
     span: tracing::Span,
+    seen: bool,
+    ended: bool,
+    total_bytes: usize,
+}
+
+pub fn tracked_body_stream<S>(
+    reporter: Box<dyn ExchangeReporter>,
+    direction: Direction,
+    stream: S,
+    prev_bytes: usize,
+) -> BodyStreamWrapper<S>
+where
+    S: Stream<Item = StdResult<body::BodyFrame, BodyError>>,
+{
+    let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
+    BodyStreamWrapper::new(direction, stream, tracker)
 }
 
 impl BodyTracker {
-    fn create_pair(direction: Direction) -> (Self, oneshot::Receiver<TrackedBodyData>) {
-        let (sender, receiver) = oneshot::channel();
-        (
-            Self {
-                body: Some(TrackedBodyData::default()),
-                done_chan: Some(sender),
-                direction,
-                span: tracing::Span::current(),
-            },
-            receiver,
-        )
-    }
-
-    #[instrument(parent = &self.span)]
-    pub fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
-        let body = self.mut_body()?;
-        body.saw_body = true;
-        body.data.extend_from_slice(bytes);
-        Ok(())
-    }
-
-    #[instrument(parent = &self.span)]
-    pub fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
-        let body = self.mut_body()?;
-        for (key, value) in trailers {
-            body.trailers.append(key, value.clone());
+    pub fn new(
+        reporter: Box<dyn ExchangeReporter>,
+        direction: Direction,
+        prev_bytes: usize,
+    ) -> Self {
+        Self {
+            reporter,
+            direction,
+            span: tracing::Span::current(),
+            seen: prev_bytes > 0,
+            ended: false,
+            total_bytes: prev_bytes,
         }
+    }
+}
+
+impl BodyReporter for BodyTracker {
+    #[instrument(parent = &self.span)]
+    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
+        self.seen = true;
+        self.total_bytes += bytes.len();
+        self.reporter.send_event(Event::BodyData {
+            direction: self.direction,
+            bytes: bytes.len(),
+            payload: bytes.into(),
+        })
+    }
+
+    #[instrument(parent = &self.span)]
+    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
+        self.reporter.send_event(Event::Trailers {
+            direction: self.direction,
+            entries: flatten_headers(trailers),
+        })
+    }
+
+    #[instrument(parent = &self.span)]
+    fn saw_error(&mut self, err: String) -> Result<()> {
+        self.reporter.send_event(Event::Error {
+            message: format!("body error ({}): {}", self.direction, err),
+        })
+    }
+
+    #[instrument(parent = &self.span)]
+    fn saw_eof(&mut self) -> Result<()> {
+        self.reporter.send_event(Event::BodyEnd {
+            direction: self.direction,
+            seen: self.seen,
+            total_bytes: self.total_bytes,
+        })?;
+        self.ended = true;
         Ok(())
-    }
-
-    #[instrument(parent = &self.span)]
-    pub fn saw_error(&mut self, err: String) -> Result<()> {
-        self.mut_body()?.error = Some(err);
-        self.report()
-    }
-
-    #[instrument(parent = &self.span)]
-    pub fn saw_eof(&mut self) -> Result<()> {
-        self.mut_body()?.saw_eof = true;
-        self.report()
-    }
-
-    fn mut_body(&mut self) -> Result<&mut TrackedBodyData> {
-        self.body.as_mut().ok_or_else(|| eyre!("already sent body"))
-    }
-
-    fn report(&mut self) -> Result<()> {
-        self.done_chan
-            .take()
-            .ok_or_else(|| eyre!("already reported completion"))?
-            .send(
-                self.body
-                    .take()
-                    .ok_or_else(|| eyre!("already took body data"))?,
-            )
-            .map_err(|_| eyre!("receiver closed prematurely"))
     }
 }
 
 impl Drop for BodyTracker {
     #[instrument(parent = &self.span, skip(self), fields(direction = %self.direction))]
     fn drop(&mut self) {
-        if self.done_chan.is_some() && self.body.is_some() {
-            // no body all, e.g. GET
-            self.report().expect("report succeeded");
+        if !self.ended {
+            _ = self.reporter.send_event(Event::BodyEnd {
+                direction: self.direction,
+                seen: self.seen,
+                total_bytes: self.total_bytes,
+            });
         }
     }
 }
@@ -295,61 +229,6 @@ impl Default for TrackedBodyData {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tracker_eof_only() -> Result<()> {
-        let (mut tracker, rcv) = BodyTracker::create_pair(Direction::Request);
-        tracker.saw_eof()?;
-        let body = rcv.blocking_recv()?;
-        assert_eq!(
-            body,
-            TrackedBodyData {
-                saw_eof: true,
-                ..Default::default()
-            }
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_tracker_data_2() -> Result<()> {
-        let (mut tracker, rcv) = BodyTracker::create_pair(Direction::Request);
-        tracker.saw_data(&Bytes::from_static(b"ab"))?;
-        tracker.saw_data(&Bytes::from_static(b"cd"))?;
-        tracker.saw_eof()?;
-        let body = rcv.blocking_recv()?;
-        assert_eq!(
-            body,
-            TrackedBodyData {
-                data: b"abcd".into(),
-                saw_body: true,
-                saw_eof: true,
-                ..Default::default()
-            }
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_tracker_data_drop() -> Result<()> {
-        let (tracker, rcv) = BodyTracker::create_pair(Direction::Request);
-        {
-            let mut t2 = tracker;
-            t2.saw_data(&Bytes::from_static(b"ab"))?;
-        }
-        let body = rcv.blocking_recv()?;
-        assert_eq!(
-            body,
-            TrackedBodyData {
-                data: b"ab".into(),
-                saw_body: true,
-                saw_eof: false,
-                ..Default::default()
-            }
-        );
-        Ok(())
-    }
+fn serialize_id<S: Serializer>(id: &Id, s: S) -> StdResult<S::Ok, S::Error> {
+    s.serialize_u64(id.get())
 }

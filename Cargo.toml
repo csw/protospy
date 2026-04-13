@@ -27,6 +27,9 @@ base64-bytes = "0.1.0"
 futures-util = "0.3.32"
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 futures = "0.3.32"
+uid = "0.1.8"
+chrono = { version = "0.4.44", features = ["serde"] }
+thiserror = "2.0.18"
 
 [profile.dev]
 panic = "abort"

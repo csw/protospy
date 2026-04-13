@@ -4,15 +4,23 @@ use tokio::task::JoinSet;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::{
-    proxy::{Service, client::Client},
+    proxy::{
+        Service, client::Client, exchange::PublisherExchangeReporterFactory, monitor::Publisher,
+    },
     tokio_util,
 };
+
+#[derive(Clone, Debug)]
+pub struct ServiceEntry {
+    pub service: Arc<Service>,
+    pub publisher: Publisher,
+}
 
 #[derive(Debug)]
 pub struct Group {
     client: Client,
-    pub services: Vec<Arc<Service>>,
-    pub by_name: HashMap<String, Arc<Service>>,
+    pub services: Vec<ServiceEntry>,
+    pub by_name: HashMap<String, ServiceEntry>,
 }
 
 impl Group {
@@ -24,30 +32,29 @@ impl Group {
         }
     }
 
-    pub fn add_service(
-        &mut self,
-        name: &str,
-        addr: SocketAddr,
-        target: &str,
-    ) -> Result<Arc<Service>> {
+    pub fn add_service(&mut self, name: &str, addr: SocketAddr, target: &str) -> Result<()> {
         if self.by_name.contains_key(name) {
             return Err(eyre!("service {} already registered", name));
         }
-        let svc = Arc::new(Service::new(
+        let publisher = Publisher::new();
+        let pub_factory = Arc::new(PublisherExchangeReporterFactory::new(publisher.clone()));
+        let service = Arc::new(Service::new(
             name.to_string(),
             addr,
             target.to_string(),
             self.client.clone(),
+            pub_factory,
         ));
-        self.services.push(Arc::clone(&svc));
-        self.by_name.insert(name.to_string(), Arc::clone(&svc));
-        Ok(svc)
+        let entry = ServiceEntry { service, publisher };
+        self.services.push(entry.clone());
+        self.by_name.insert(name.to_string(), entry);
+        Ok(())
     }
 
     pub fn start_services(&self) -> Result<JoinSet<Result<()>>> {
         let mut join_set = JoinSet::new();
-        for service in &self.services {
-            let service = Arc::clone(service);
+        for entry in &self.services {
+            let service = Arc::clone(&entry.service);
             let task_name = format!("service({}) port={}", service.name, service.addr.port());
             tokio_util::spawn_instrumented_on(&mut join_set, &task_name, async move {
                 service.run().await
@@ -56,7 +63,9 @@ impl Group {
         Ok(join_set)
     }
 
-    pub fn get_service(&self, name: &str) -> Option<Arc<Service>> {
-        self.by_name.get(name).map(Arc::clone)
+    pub fn get_service(&self, name: &str) -> Option<(Arc<Service>, Publisher)> {
+        self.by_name
+            .get(name)
+            .map(|ServiceEntry { service, publisher }| (Arc::clone(service), publisher.clone()))
     }
 }

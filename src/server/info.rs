@@ -1,7 +1,7 @@
 use axum::{Json, extract::State};
 use serde::Serialize;
 
-use crate::server::router::AppState;
+use crate::{proxy::group::ServiceEntry, server::router::AppState};
 
 #[derive(Serialize, Debug)]
 pub struct Info {
@@ -22,11 +22,11 @@ pub async fn get_info(State(state): State<AppState>) -> Json<Info> {
         .proxy_group
         .services
         .iter()
-        .map(|svc| Service {
-            name: svc.name.clone(),
-            addr: svc.addr.to_string(),
-            target: svc.target.clone(),
-            subscribers: svc.publisher.listener_count(),
+        .map(|ServiceEntry { service, publisher }| Service {
+            name: service.name.clone(),
+            addr: service.addr.to_string(),
+            target: service.target.clone(),
+            subscribers: publisher.listener_count(),
         })
         .collect();
     let info = Info { services };

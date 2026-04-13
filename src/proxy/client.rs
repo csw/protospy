@@ -1,18 +1,15 @@
 use std::time::Duration;
 
-use http_body_util::Either;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
 
-use super::body::BodyWrapper;
-
-// type HyperClient = hyper_util::client::legacy::Client;
+use super::body;
 
 pub type Client = hyper_util::client::legacy::Client<
     hyper_util::client::legacy::connect::HttpConnector,
     ClientBody,
 >;
 
-pub type ClientBody = Either<hyper::body::Incoming, BodyWrapper>;
+pub type ClientBody = body::upstream::RequestBody;
 
 pub fn build() -> Client {
     hyper_util::client::legacy::Client::builder(TokioExecutor::new())

@@ -1,53 +1,114 @@
-use std::task::Poll;
+use std::fmt::{self, Debug};
+use std::pin::Pin;
+use std::result::Result as StdResult;
+use std::{task::Poll, time::Duration};
 
-use http::Response;
-use hyper::body::{Body, Bytes, Incoming};
+use color_eyre::{Result, eyre::eyre};
+use futures::Stream;
+use futures::stream::Peekable;
+use futures::{
+    StreamExt,
+    stream::{self, FusedStream},
+};
+use http::{HeaderMap, Request, Response};
+use http_body_util::{BodyExt, BodyStream, StreamBody};
+use hyper::body::{Body, Bytes, Frame};
 use pin_project_lite::pin_project;
+use serde::Serialize;
 use strum::Display;
-use tracing::{error, instrument, trace};
+use tokio::time::timeout;
+use tracing::{debug, error, instrument, trace};
 
-use crate::proxy::exchange::BodyTracker;
+use crate::proxy::errors::BodyError;
 
-#[derive(Display, Debug)]
+#[derive(Copy, Clone, Display, Debug, Serialize)]
 pub enum Direction {
     Request,
     Response,
 }
 
-pub type ProxyResponse = Response<ProxyResponseBody>;
+pub type Data = Bytes;
+pub type BodyFrame = Frame<Data>;
+pub type Error = BodyError;
 
-pub type ProxiedBody = http_body_util::Either<BodyWrapper, Incoming>;
+pub type Internal = http_body_util::combinators::BoxBody<Data, Error>;
 
-pub type ProxyResponseBody = http_body_util::Either<ProxiedBody, http_body_util::Empty<Bytes>>;
-
-pub fn wrapped_response_body(wrapper: BodyWrapper) -> ProxyResponseBody {
-    ProxyResponseBody::Left(ProxiedBody::Left(wrapper))
+pub fn wrapped<T>(body: T) -> Internal
+where
+    T: Body<Data = Data> + Send + Sync + 'static,
+    T::Error: Into<BodyError>,
+{
+    Internal::new(body.map_err(|e| e.into()))
 }
 
-pub fn passthrough_response_body(incoming: Incoming) -> ProxyResponseBody {
-    ProxyResponseBody::Left(ProxiedBody::Right(incoming))
+pub fn wrapped_stream<S>(s: S) -> Internal
+where
+    S: Stream<Item = StdResult<Frame<Data>, Error>> + Sync + Send + 'static,
+{
+    wrapped(StreamBody::new(s))
 }
 
-pub fn empty_response_body() -> ProxyResponseBody {
-    ProxyResponseBody::Right(http_body_util::Empty::new())
+pub mod upstream {
+
+    pub type RequestBody = super::Internal;
+
+    pub fn wrapped_request<T>(body: T) -> super::Internal
+    where
+        T: hyper::body::Body<Data = super::Data, Error = super::Error> + Send + Sync + 'static,
+    {
+        super::Internal::new(body)
+    }
+}
+
+pub mod downstream {
+
+    pub fn empty_response() -> super::Internal {
+        super::wrapped(http_body_util::Empty::new())
+    }
+}
+
+pub type ProxyResponse = Response<Internal>;
+
+pub fn map_request_body<I, O, F>(request: Request<I>, fun: F) -> Request<O>
+where
+    F: Fn(I) -> O,
+{
+    let (parts, body) = request.into_parts();
+    Request::from_parts(parts, fun(body))
+}
+
+pub fn map_response_body<I, O, F>(response: Response<I>, fun: F) -> Response<O>
+where
+    F: Fn(I) -> O,
+{
+    let (parts, body) = response.into_parts();
+    Response::from_parts(parts, fun(body))
+}
+
+pub trait BodyReporter: Send + Sync {
+    fn saw_data(&mut self, bytes: &Bytes) -> Result<()>;
+    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()>;
+    fn saw_error(&mut self, err: String) -> Result<()>;
+    fn saw_eof(&mut self) -> Result<()>;
 }
 
 pin_project! {
-    pub struct BodyWrapper {
+    pub struct BodyStreamWrapper<S>
+    where S: Stream<Item = StdResult<Frame<Data>, Error>>
+     {
         pub direction: Direction,
         #[pin]
-        pub base: hyper::body::Incoming,
-        tracker: Box<BodyTracker>,
+        pub base: S,
+        tracker: Box<dyn BodyReporter>,
         span: tracing::Span,
     }
 }
 
-impl BodyWrapper {
-    pub fn new(
-        direction: Direction,
-        base: hyper::body::Incoming,
-        tracker: Box<BodyTracker>,
-    ) -> Self {
+impl<S> BodyStreamWrapper<S>
+where
+    S: Stream<Item = StdResult<Frame<Data>, Error>>,
+{
+    pub fn new(direction: Direction, base: S, tracker: Box<dyn BodyReporter>) -> Self {
         Self {
             direction,
             base,
@@ -57,51 +118,37 @@ impl BodyWrapper {
     }
 }
 
-type WrappedBodyData = <hyper::body::Incoming as hyper::body::Body>::Data;
-type WrappedBodyError = <hyper::body::Incoming as hyper::body::Body>::Error;
-
-type BodyPollResult = Option<Result<hyper::body::Frame<WrappedBodyData>, WrappedBodyError>>;
-
-impl Body for BodyWrapper {
-    type Data = WrappedBodyData;
-    type Error = WrappedBodyError;
+impl<S> Stream for BodyStreamWrapper<S>
+where
+    S: Stream<Item = StdResult<Frame<Data>, Error>>,
+{
+    type Item = S::Item;
 
     #[instrument(parent = &self.span, skip(self, cx), fields(direction = %self.direction))]
-    fn poll_frame(
-        mut self: std::pin::Pin<&mut Self>,
+    fn poll_next(
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<BodyPollResult> {
-        let res = self.as_mut().project().base.poll_frame(cx);
+    ) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+        let res = this.base.as_mut().poll_next(cx);
         match res {
             Poll::Ready(Some(Ok(ref frame))) => {
-                let at_eof = self.base.is_end_stream();
-
                 if let Some(bytes) = frame.data_ref() {
-                    trace!(event = "read_frame", len = bytes.len(), at_eof = at_eof,);
-                    self.as_mut().tracker.saw_data(bytes).expect("reported OK");
+                    trace!(event = "read_frame", len = bytes.len());
+                    this.tracker.saw_data(bytes).expect("reported OK");
                 } else if let Some(trailers) = frame.trailers_ref() {
-                    trace!(
-                        event = "read_trailers",
-                        count = trailers.len(),
-                        at_eof = at_eof,
-                    );
-                    self.as_mut()
-                        .tracker
-                        .saw_trailers(trailers)
-                        .expect("reported OK");
-                }
-
-                if self.base.is_end_stream() {
-                    self.as_mut().tracker.saw_eof().expect("reported OK");
-                }
+                    trace!(event = "read_trailers", count = trailers.len());
+                    this.tracker.saw_trailers(trailers).expect("reported OK");
+                } else {
+                    panic!("unhandled frame type: {frame:?}")
+                };
             }
             Poll::Ready(Some(Err(ref err))) => {
                 error!(
                     event = "read_error",
                     error = ?err,
                 );
-                self.as_mut()
-                    .tracker
+                this.tracker
                     .saw_error(err.to_string())
                     .expect("reported OK");
             }
@@ -109,19 +156,215 @@ impl Body for BodyWrapper {
             Poll::Ready(None) => {
                 trace!(event = "body_eof",);
 
-                self.as_mut().tracker.saw_eof().expect("reported OK");
+                this.tracker.saw_eof().expect("reported OK");
             }
             Poll::Pending => (),
         }
 
         res
     }
+}
 
-    fn is_end_stream(&self) -> bool {
-        self.base.is_end_stream()
+#[derive(Debug)]
+pub enum FoundBodyData {
+    NoBody,
+    NoneRead,
+    Partial(BodyContent),
+    Complete(BodyContent),
+}
+
+impl FoundBodyData {
+    pub fn trailers(&self) -> Option<&HeaderMap> {
+        match self {
+            Self::NoBody | Self::NoneRead => None,
+            Self::Partial(BodyContent { trailers, .. }) => trailers.as_ref(),
+            Self::Complete(BodyContent { trailers, .. }) => trailers.as_ref(),
+        }
     }
 
-    fn size_hint(&self) -> hyper::body::SizeHint {
-        self.base.size_hint()
+    pub fn has_remaining(&self) -> bool {
+        match self {
+            Self::NoBody | Self::Complete(_) => false,
+            Self::NoneRead | Self::Partial(_) => true,
+        }
+    }
+}
+
+pub struct BodyContent {
+    pub data: Vec<u8>,
+    pub trailers: Option<HeaderMap>,
+}
+
+impl fmt::Debug for BodyContent {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("BodyContent")
+            .field("data", &format_args!("[{} bytes]", self.data.len()))
+            .field("trailers", &self.trailers)
+            .finish()
+    }
+}
+
+impl BodyContent {
+    fn copy_from_frames(frames: &[Frame<Bytes>]) -> Self {
+        let total_size: usize = frames
+            .iter()
+            .filter_map(|f| f.data_ref().map(|d| d.len()))
+            .sum();
+        let mut buf = Vec::new();
+        buf.reserve_exact(total_size);
+        for frame in frames.iter().filter_map(Frame::data_ref) {
+            buf.extend(frame);
+        }
+        let trailers = frames.iter().find_map(Frame::trailers_ref);
+        Self {
+            data: buf,
+            trailers: trailers.cloned(),
+        }
+    }
+}
+
+pub struct PrefetchedBody<B>
+where
+    B: Unpin + Body,
+{
+    pub frames: Option<Vec<Frame<Data>>>,
+    pub rest: Option<Pin<Box<Peekable<BodyStream<B>>>>>,
+}
+
+const PEEK_DURATION: Duration = Duration::from_micros(100);
+
+// Read any immediately-available data from an HTTP body, and return it in a
+// structured form together with a Body which reproduces the original.
+pub async fn collect_ready_data<B>(body: B) -> Result<(FoundBodyData, PrefetchedBody<B>)>
+where
+    B: hyper::body::Body<Data = Data, Error = Error> + Send + Sync + Unpin + 'static,
+{
+    debug!(
+        "collect_ready_data: initial end_stream: {}",
+        body.is_end_stream()
+    );
+
+    if body.is_end_stream() {
+        // is_end_stream isn't propagated into a BodyStream, so we have to check
+        // this here, before extract_ready_frames
+        return Ok((
+            FoundBodyData::NoBody,
+            PrefetchedBody {
+                frames: None,
+                rest: None,
+            },
+        ));
+    }
+
+    let body_stream_p = BodyStream::new(body);
+
+    let mut ready = body_stream_p.peekable().ready_chunks(32);
+    let found = timeout(PEEK_DURATION, ready.next()).await;
+    debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
+    let mut rest = Box::pin(ready.into_inner());
+    // Peek, because is_terminated() won't be true until we await again. This
+    // isn't deterministic, even with a request coming in as a single packet,
+    // and doesn't always catch termination.
+    _ = timeout(Duration::ZERO, rest.as_mut().peek()).await;
+    let terminated = rest.is_terminated();
+    debug!(
+        event = "extract_ready_frames peek term",
+        terminated = rest.is_terminated(),
+    );
+    // N.B. BodyStream just returns false for is_end_stream()
+
+    match (found, terminated) {
+        // EOF
+        (Err(_) | Ok(None), true) => Ok((
+            FoundBodyData::NoBody,
+            PrefetchedBody {
+                frames: None,
+                rest: None,
+            },
+        )),
+        // timeout, no data available
+        (Err(_), false) => Ok((
+            FoundBodyData::NoneRead,
+            PrefetchedBody {
+                frames: None,
+                rest: Some(rest),
+            },
+        )),
+        (Ok(None), false) => Err(eyre!(
+            "invalid collect_ready_data state, end of frames but not terminated"
+        )),
+        (Ok(Some(frames)), terminated) => {
+            let frames = frames
+                .into_iter()
+                .collect::<StdResult<Vec<Frame<_>>, _>>()?;
+            let content = BodyContent::copy_from_frames(&frames);
+            Ok(match terminated {
+                true => (
+                    FoundBodyData::Complete(content),
+                    PrefetchedBody {
+                        frames: Some(frames),
+                        rest: None,
+                    },
+                ),
+                false => (
+                    FoundBodyData::Partial(content),
+                    PrefetchedBody {
+                        frames: Some(frames),
+                        rest: Some(rest),
+                    },
+                ),
+            })
+        }
+    }
+}
+
+pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = StdResult<Frame<Data>, Error>> {
+    StreamBody::new(stream::iter(
+        frames.into_iter().map(StdResult::Ok::<Frame<Data>, Error>),
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use futures::{StreamExt, stream::FusedStream};
+    use tokio::time::timeout;
+
+    #[tokio::test]
+    async fn test_ready_chunks_pending() {
+        let p = tokio_stream::pending::<i32>();
+        let mut ready = p.ready_chunks(8);
+        // poll will block
+        let found = timeout(Duration::ZERO, ready.next()).await;
+        assert!(found.is_err())
+    }
+
+    #[tokio::test]
+    async fn test_ready_chunks_empty() {
+        let p = tokio_stream::empty::<i32>();
+        let mut ready = p.ready_chunks(8);
+        // poll will block
+        let found = timeout(Duration::ZERO, ready.next()).await;
+        assert_eq!(found, Ok(None))
+    }
+
+    #[tokio::test]
+    async fn test_ready_chunks_some() {
+        let p = tokio_stream::iter(vec![1, 2, 3]).chain(tokio_stream::pending());
+        let mut ready = p.ready_chunks(8);
+        // poll will block
+        let found = timeout(Duration::ZERO, ready.next()).await;
+        assert_eq!(found, Ok(Some(vec![1, 2, 3])));
+    }
+
+    #[tokio::test]
+    async fn test_ready_chunks_complete() {
+        let p = tokio_stream::iter(vec![1, 2, 3]);
+        let mut ready = p.ready_chunks(8);
+        // poll will block
+        let found = timeout(Duration::ZERO, ready.next()).await;
+        assert_eq!(found, Ok(Some(vec![1, 2, 3])));
+        assert!(ready.is_terminated());
     }
 }

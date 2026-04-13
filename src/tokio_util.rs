@@ -2,6 +2,7 @@ use color_eyre::Result;
 use tokio::task::{AbortHandle, JoinHandle, JoinSet};
 use tracing::Instrument;
 
+#[allow(dead_code)]
 pub fn spawn_instrumented<Fut, T>(name: &str, future: Fut) -> Result<JoinHandle<Result<T>>>
 where
     Fut: Future + Send + 'static,

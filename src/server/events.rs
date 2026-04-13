@@ -16,22 +16,21 @@ use tracing::error;
 use {color_eyre::Report, eyre::Context};
 
 use crate::{
-    proxy::exchange,
-    server::{errors::ErrorMessage, messages, router::AppState},
+    proxy::event::EventMessage,
+    server::{errors::ErrorMessage, router::AppState},
 };
 
 pub async fn handle_events(
     State(AppState { app }): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    let Some(service) = app.proxy_group.get_service(&name) else {
+    let Some((_, publisher)) = app.proxy_group.get_service(&name) else {
         return Err(ErrorMessage::response(
             StatusCode::NOT_FOUND,
             format!("Not Found: {}", &name),
         ));
     };
-    // let service = app.proxy_group.get_service(&name).unwrap();
-    let receiver = service.publisher.subscribe();
+    let receiver = publisher.subscribe();
     // can also use Event::json_data for simple compact serialization
     let json = json_stream(receiver);
     let events = json
@@ -48,15 +47,11 @@ pub async fn handle_events(
 }
 
 fn json_stream(
-    receiver: broadcast::Receiver<Arc<exchange::Exchange>>,
+    receiver: broadcast::Receiver<Arc<EventMessage>>,
 ) -> impl TryStream<Ok = String, Error = Report> {
     BroadcastStream::new(receiver).map(|rcvd| {
-        rcvd.wrap_err("receive error")
-            .and_then(|exch| {
-                messages::Exchange::from_internal(&exch).wrap_err("failed to extract exchange")
-            })
-            .and_then(|exch| {
-                serde_json::to_string_pretty(&exch).wrap_err("failed to serialize exchange")
-            })
+        rcvd.wrap_err("receive error").and_then(|evt| {
+            serde_json::to_string_pretty(evt.as_ref()).wrap_err("failed to serialize exchange")
+        })
     })
 }

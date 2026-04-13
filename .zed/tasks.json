@@ -1,7 +1,23 @@
 [
   {
     "label": "protospy",
-    "command": "cargo run -- --console --proxy name=es,port=3000,target=localhost:9200",
+    "command": "cargo run -- --tokio-console --proxy name=es,port=3000,target=localhost:9200",
+    "env": {
+      "RUST_BACKTRACE": "1",
+      "RUST_LOG": "info,protospy=info",
+    },
+  },
+  {
+    "label": "protospy (debug)",
+    "command": "cargo run -- --print-messages --tokio-console --proxy name=es,port=3000,target=localhost:9200",
+    "env": {
+      "RUST_BACKTRACE": "1",
+      "RUST_LOG": "info,protospy=debug",
+    },
+  },
+  {
+    "label": "protospy (print)",
+    "command": "cargo run -- --print-messages --tokio-console --proxy name=es,port=3000,target=localhost:9200",
     "env": {
       "RUST_BACKTRACE": "1",
       "RUST_LOG": "info,protospy=info",
