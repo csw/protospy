@@ -1,0 +1,7 @@
+{
+  "folders": [
+    { "path": ".", "name": "protospy" },
+    { "path": "conformance", "name": "conformance" },
+    { "path": "demo", "name": "demo" }
+  ]
+}

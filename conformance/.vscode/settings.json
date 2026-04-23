@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["-q"],
+  "python.testing.cwd": "${workspaceFolder}",
+  "rust-analyzer.enable": false,
+  "rust-analyzer.linkedProjects": []
+}
