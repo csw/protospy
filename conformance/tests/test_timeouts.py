@@ -24,6 +24,7 @@ import httpx
 import pytest
 
 from proxy_conformance.net import find_free_port
+from proxy_conformance.targets import proxy_family
 from proxy_conformance.types import (
     ClientExpectation,
     ConnectionDrop,
@@ -124,7 +125,7 @@ def timeout_proxy(
 
     Skipped for proxy types that don't support timeout configuration.
     """
-    if proxy_type == "protospy":
+    if proxy_family(proxy_type) == "protospy":
         pytest.skip("Timeout configuration not yet supported for protospy")
 
     tmp = tmp_path_factory.mktemp("timeout-proxy")

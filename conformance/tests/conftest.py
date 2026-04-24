@@ -18,12 +18,15 @@ from proxy_conformance.good_server import GoodServer
 from proxy_conformance.grpc_server import GrpcServer
 from proxy_conformance.h2c_server import H2cServer
 from proxy_conformance.net import PortAllocator, worker_base_port
-from proxy_conformance.wire_server import WireServer, register_default_routes
-
-from .proxies import (
+from proxy_conformance.targets import (
     ALL_PROXIES,
     MANAGED_PROXIES,
     PROXY_FAMILIES,
+    proxy_family,
+)
+from proxy_conformance.wire_server import WireServer, register_default_routes
+
+from .proxies import (
     ProxyUrls,
     start_proxy,
 )
@@ -232,7 +235,22 @@ def _get_proxy_list(config: pytest.Config) -> list[str]:
     raw = str(config.getoption("--proxy"))
     if raw == "all":
         return list(MANAGED_PROXIES)
-    return [p.strip() for p in raw.split(",") if p.strip()]
+    result: list[str] = []
+    seen: set[str] = set()
+    for token in (p.strip() for p in raw.split(",") if p.strip()):
+        # Family names that aren't also concrete proxy names (e.g.
+        # "protospy") expand to their managed members so `--proxy protospy`
+        # covers both bypass and capture without forcing callers to spell
+        # out every variant.
+        if token in PROXY_FAMILIES and token not in ALL_PROXIES:
+            members = [m for m in MANAGED_PROXIES if m in PROXY_FAMILIES[token]]
+        else:
+            members = [token]
+        for member in members:
+            if member not in seen:
+                result.append(member)
+                seen.add(member)
+    return result
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
@@ -414,7 +432,7 @@ def proxy(
         h2c_upstream=h2c_server.url,
         base_port=port_allocator.proxy_base,
     )
-    if proxy_type == "protospy":
+    if proxy_family(proxy_type) == "protospy" and proxy_type != "protospy-ext":
         _protospy_log_paths[request.module.__name__] = tmp / "protospy.log"
     try:
         yield urls
@@ -465,7 +483,7 @@ def _protospy_output_capture(request: pytest.FixtureRequest) -> Generator[None]:
         yield
         return
     proxy_type: str = request.getfixturevalue("proxy_type")
-    if proxy_type != "protospy":
+    if proxy_family(proxy_type) != "protospy" or proxy_type == "protospy-ext":
         yield
         return
     log_path = _protospy_log_paths.get(request.module.__name__)

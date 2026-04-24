@@ -68,6 +68,44 @@ Findings exist alongside assertions. A test that records a finding must still as
 
 ### h11 tests for HTTP misbehavior and low-level control
 
+## Targets
+
+The suite parametrizes every test over a set of proxy targets selected
+with `--proxy`. The taxonomy lives in
+`conformance/src/proxy_conformance/targets.py`:
+
+| `proxy_type`        | What it runs                                                                 |
+|---------------------|------------------------------------------------------------------------------|
+| `caddy`             | Caddy reference proxy, started by the suite.                                 |
+| `haproxy`           | HAProxy reference proxy, started by the suite.                               |
+| `protospy-bypass`   | `cargo run` with no `--print-messages` — exercises the default bypass path.  |
+| `protospy-capture`  | Same binary plus `--print-messages` — exercises the capture path.            |
+| `protospy-ext`      | An externally-managed protospy listening on fixed ports (see CLI flags).     |
+
+protospy has two distinct internal paths: bypass (no capture subscribers,
+exchange tracking skipped) and capture (logger task subscribed,
+`Service::should_report()` is true, bodies are prefetched and exchange
+events are published). Both must be HTTP-equivalent, so the suite covers
+each as its own target.
+
+Targets are grouped into **families** so test marks and quirks are
+written once per logical proxy:
+
+- `caddy` → `{caddy}`
+- `haproxy` → `{haproxy}`
+- `protospy` → `{protospy-bypass, protospy-capture, protospy-ext}`
+
+`@pytest.mark.xfail_for("protospy")` and
+`proxy_quirks={"protospy": ProxyQuirk(...)}` apply to every variant in the
+family. A concrete-name entry (e.g. `proxy_quirks={"protospy-capture": ...}`)
+takes precedence when present, but the project's working assumption is that
+the two modes behave identically — any mode-specific divergence is a bug
+in protospy, not a candidate for a per-mode quirk.
+
+Family names also work as shortcuts in `--proxy`:
+`--proxy protospy` expands to `protospy-bypass,protospy-capture` (the
+managed members of the family). `--proxy all` runs every managed target.
+
 ## Usage modes
 
 TODO: ephemeral instances as well as intended preexisting targets
