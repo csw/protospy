@@ -45,8 +45,6 @@ jobs:
     permissions:
       checks: write
       contents: read
-    env:
-      CADDY_VERSION: "2.11.2"
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -56,6 +54,7 @@ jobs:
       - run: uv sync --frozen
       - name: Install Caddy
         run: |
+          CADDY_VERSION=$(cat "${{ github.workspace }}/.caddy-version")
           ARCH=$(dpkg --print-architecture)
           curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${ARCH}.tar.gz" \
             | sudo tar -xz -C /usr/local/bin caddy
