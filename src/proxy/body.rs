@@ -13,6 +13,7 @@ use futures::{
 use http::{HeaderMap, Request, Response};
 use http_body_util::{BodyExt, BodyStream, StreamBody};
 use hyper::body::{Body, Bytes, Frame};
+use mockall::*;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 use strum::Display;
@@ -86,6 +87,7 @@ where
     Response::from_parts(parts, fun(body))
 }
 
+#[automock]
 pub trait BodyReporter: Send + Sync {
     fn saw_data(&mut self, bytes: &Bytes) -> Result<()>;
     fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()>;
@@ -166,7 +168,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FoundBodyData {
     NoBody,
     NoneRead,
@@ -191,6 +193,7 @@ impl FoundBodyData {
     }
 }
 
+#[derive(PartialEq)]
 pub struct BodyContent {
     pub data: Vec<u8>,
     pub trailers: Option<HeaderMap>,
@@ -295,6 +298,7 @@ where
             "invalid collect_ready_data state, end of frames but not terminated"
         )),
         (Ok(Some(frames)), terminated) => {
+            // TODO: deal with read error here
             let frames = frames
                 .into_iter()
                 .collect::<StdResult<Vec<Frame<_>>, _>>()?;
@@ -327,6 +331,71 @@ pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = BodyStreamIt
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use mockall::predicate::*;
+
+    mod wrapper {
+        use super::*;
+
+        use futures::TryStreamExt;
+        use tokio_test::stream_mock::StreamMockBuilder;
+
+        #[tokio::test]
+        async fn test_basic() {
+            let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
+            let mut reporter = Box::new(MockBodyReporter::new());
+            let mut seq = Sequence::new();
+            reporter
+                .expect_saw_data()
+                .with(eq(Bytes::from_static(b"ab")))
+                .returning(|_| Ok(()))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
+                .expect_saw_eof()
+                .times(1)
+                .returning(|| Ok(()))
+                .in_sequence(&mut seq);
+
+            let wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
+            let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
+            assert_eq!(res.len(), 1);
+        }
+    }
+
+    mod collect_ready {
+        use super::*;
+
+        #[tokio::test]
+        async fn test_basic() {
+            let frames = vec![df(b"ab"), df(b"cd")];
+            let body = frame_body(&frames);
+            let (found, prefetched) = collect_ready_data(body).await.unwrap();
+            assert_eq!(
+                found,
+                FoundBodyData::Complete(BodyContent {
+                    data: b"abcd".into(),
+                    trailers: None
+                })
+            );
+            assert_eq!(found.trailers(), None);
+            compare_frames(&prefetched.frames.unwrap(), &frames);
+            assert!(prefetched.rest.is_none());
+        }
+
+        fn compare_frames(a: &Vec<Frame<Bytes>>, b: &Vec<Frame<Bytes>>) {
+            assert!(
+                a.iter()
+                    .map(|f| f.data_ref())
+                    .eq(b.iter().map(|f| f.data_ref()))
+            );
+            assert!(
+                a.iter()
+                    .map(|f| f.trailers_ref())
+                    .eq(b.iter().map(|f| f.trailers_ref()))
+            );
+        }
+    }
 
     mod stream_behavior {
         use std::time::Duration;
@@ -369,6 +438,28 @@ mod tests {
             let found = timeout(Duration::ZERO, ready.next()).await;
             assert_eq!(found, Ok(Some(vec![1, 2, 3])));
             assert!(ready.is_terminated());
+        }
+    }
+
+    fn df(data: &[u8]) -> Frame<Bytes> {
+        Frame::data(Bytes::copy_from_slice(data))
+    }
+
+    fn dfr(data: &[u8]) -> BodyStreamItem {
+        Ok(Frame::data(Bytes::copy_from_slice(data)))
+    }
+
+    fn frame_body(frames: &Vec<Frame<Bytes>>) -> impl Body<Data = Data, Error = Error> + use<> {
+        StreamBody::new(frame_stream(frames.iter().map(copy_frame).collect()))
+    }
+
+    fn copy_frame<T: Clone>(frame: &Frame<T>) -> Frame<T> {
+        if let Some(data) = frame.data_ref() {
+            Frame::data(data.clone())
+        } else if let Some(trailers) = frame.trailers_ref() {
+            Frame::trailers(trailers.clone())
+        } else {
+            panic!("invalid Frame")
         }
     }
 }

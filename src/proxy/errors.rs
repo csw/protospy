@@ -16,4 +16,7 @@ pub enum BodyError {
     Read(#[from] hyper::Error),
     #[error("impossible")]
     Impossible(#[from] std::convert::Infallible),
+    #[cfg(test)]
+    #[error("test")]
+    Test,
 }
