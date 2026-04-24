@@ -4,3 +4,4 @@
 .*_cache
 __pycache__/
 CLAUDE.local.md
+lcov.info
