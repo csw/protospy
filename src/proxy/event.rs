@@ -5,79 +5,90 @@ use serde::{Serialize, Serializer};
 
 use crate::proxy::{
     body::{self, Direction},
-    exchange::Exchange,
     headers::http_version_num,
+    reporting::ExchangeMeta,
 };
 
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[derive(Serialize, Debug)]
 pub struct EventMessage {
-    pub exchange: Exchange,
+    pub exchange: ExchangeMeta,
+    pub direction: Direction,
     pub event: Event,
 }
 
-type Headers = Vec<Header>;
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+pub struct Headers(Vec<Header>);
 
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "lowercase")]
+#[derive(ts_rs::TS, Serialize, PartialEq, Debug)]
+#[serde(rename_all = "lowercase", tag = "type")]
 pub enum Event {
     Request {
         #[serde(serialize_with = "serialize_as_str")]
+        #[ts(type = "string")]
         method: http::Method,
         uri: String,
         #[serde(serialize_with = "serialize_http_version")]
+        #[ts(type = "string")]
         version: http::Version,
         headers: Headers,
         body: InitialBody,
-        trailers: Option<Headers>,
     },
     Response {
         #[serde(serialize_with = "serialize_http_status")]
+        #[ts(type = "string")]
         status: http::StatusCode,
         #[serde(serialize_with = "serialize_http_version")]
+        #[ts(type = "string")]
         version: http::Version,
         headers: Headers,
         elapsed_ms: i64,
         body: InitialBody,
-        trailers: Option<Headers>,
     },
-    BodyData {
-        direction: Direction,
-        bytes: usize,
-        payload: BodyData,
-    },
-    Trailers {
-        direction: Direction,
-        entries: Headers,
-    },
-    BodyEnd {
-        direction: Direction,
-        seen: bool,
-        total_bytes: usize,
-    },
+    BodyData(BodyData),
     Error {
+        direction: Direction,
         message: String,
     },
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+pub struct BodyData {
+    pub content: Option<BodyContent>,
+    pub trailers: Option<Headers>,
+    pub at_end: bool,
+    pub total_bytes: usize,
+}
+
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+pub struct BodyContent {
+    pub offset: usize,
+    pub length: usize,
+    pub payload: BodyChunk,
+}
+
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 pub struct Header {
     #[serde(serialize_with = "serialize_as_str")]
+    #[ts(type = "string")]
     name: http::HeaderName,
     #[serde(serialize_with = "serialize_http_header_value")]
+    #[ts(type = "string")]
     value: http::HeaderValue,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+#[serde(tag = "type")]
 pub enum InitialBody {
     NoBody,
     NotRead,
-    Partial(BodyData),
-    Complete(BodyData),
+    Data(BodyData),
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 #[serde(rename_all = "lowercase")]
-pub enum BodyData {
+pub enum BodyChunk {
     Text(String),
     #[serde(with = "base64_bytes")]
     Binary(Bytes),
@@ -85,15 +96,12 @@ pub enum BodyData {
 
 impl Event {
     pub fn from_request(request: http::request::Parts, body_data: body::FoundBodyData) -> Self {
-        let trailers = body_data.trailers().map(flatten_headers);
-
         Self::Request {
             method: request.method,
             uri: request.uri.to_string(),
             version: request.version,
-            headers: flatten_headers(&request.headers),
+            headers: request.headers.into(),
             body: InitialBody::from_found(body_data),
-            trailers,
         }
     }
 
@@ -102,15 +110,37 @@ impl Event {
         body_data: body::FoundBodyData,
         elapsed: TimeDelta,
     ) -> Self {
-        let trailers = body_data.trailers().map(flatten_headers);
-
         Self::Response {
             status: response.status,
             version: response.version,
-            headers: flatten_headers(&response.headers),
+            headers: response.headers.into(),
             elapsed_ms: elapsed.num_milliseconds(),
             body: InitialBody::from_found(body_data),
-            trailers,
+        }
+    }
+}
+
+impl From<BodyData> for Event {
+    fn from(value: BodyData) -> Self {
+        Self::BodyData(value)
+    }
+}
+
+impl BodyData {
+    pub fn from_content(
+        body::BodyContent { data, trailers }: body::BodyContent,
+        at_end: bool,
+    ) -> Self {
+        let len = data.len();
+        Self {
+            content: Some(BodyContent {
+                offset: 0,
+                length: len,
+                payload: data.into(),
+            }),
+            trailers: trailers.map(Into::into),
+            at_end,
+            total_bytes: len,
         }
     }
 }
@@ -120,28 +150,60 @@ impl InitialBody {
         match body_data {
             body::FoundBodyData::NoBody => InitialBody::NoBody,
             body::FoundBodyData::NoneRead => InitialBody::NotRead,
-            body::FoundBodyData::Partial(body::BodyContent { data, .. }) => {
-                InitialBody::Partial(data.into())
+            body::FoundBodyData::Partial(content) => {
+                InitialBody::Data(BodyData::from_content(content, false))
             }
-            body::FoundBodyData::Complete(body::BodyContent { data, .. }) => {
-                InitialBody::Complete(data.into())
+            body::FoundBodyData::Complete(content) => {
+                InitialBody::Data(BodyData::from_content(content, true))
             }
         }
     }
 }
 
-impl From<&Bytes> for BodyData {
-    fn from(value: &Bytes) -> Self {
-        BodyData::Binary(value.clone())
-    }
-}
-
-impl From<Vec<u8>> for BodyData {
+impl From<Vec<u8>> for BodyChunk {
     fn from(value: Vec<u8>) -> Self {
         match String::from_utf8(value) {
-            Ok(str) => BodyData::Text(str),
-            Err(err) => BodyData::Binary(err.into_bytes().into()),
+            Ok(str) => BodyChunk::Text(str),
+            Err(err) => BodyChunk::Binary(err.into_bytes().into()),
         }
+    }
+}
+
+impl From<&'static [u8]> for BodyChunk {
+    fn from(value: &'static [u8]) -> Self {
+        Vec::<u8>::from(value).into()
+    }
+}
+
+impl<const N: usize> From<&'static [u8; N]> for BodyChunk {
+    fn from(value: &'static [u8; N]) -> Self {
+        Vec::<u8>::from(value).into()
+    }
+}
+
+impl From<&http::HeaderMap> for Headers {
+    fn from(value: &http::HeaderMap) -> Self {
+        Headers(
+            value
+                .iter()
+                .map(|(name, value)| Header {
+                    name: name.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+        )
+    }
+}
+
+impl From<http::HeaderMap> for Headers {
+    fn from(value: http::HeaderMap) -> Self {
+        Headers(
+            value
+                .into_iter()
+                .filter_map(|(name, value)| name.map(|name| (name, value)))
+                .map(|(name, value)| Header { name, value })
+                .collect(),
+        )
     }
 }
 

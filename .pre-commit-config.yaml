@@ -63,3 +63,8 @@ repos:
         language: system
         files: ^conformance/
         pass_filenames: false
+      - id: ts-rs-export
+        name: ensure ts-rs bindings are up to date
+        entry: bash -c 'cargo test export_bindings && ls bindings && git diff --exit-code bindings && [[ $(git ls-files --others --exclude-standard bindings | wc -l) -eq 0 ]]'
+        language: system
+        files: ^(src/|Cargo\.)

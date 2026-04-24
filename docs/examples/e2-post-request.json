@@ -1,0 +1,57 @@
+{
+    "exchange": {
+        "exchange_id": 1,
+        "timestamp": "2026-04-28T23:57:36.394431Z"
+    },
+    "direction": "Request",
+    "event": {
+        "type": "request",
+        "method": "POST",
+        "uri": "/movies/_search",
+        "version": "1.1",
+        "headers": [
+            {
+                "name": "user-agent",
+                "value": "bruno-runtime/3.2.0"
+            },
+            {
+                "name": "accept-encoding",
+                "value": ""
+            },
+            {
+                "name": "content-type",
+                "value": "application/json"
+            },
+            {
+                "name": "request-start-time",
+                "value": "1777420656392"
+            },
+            {
+                "name": "content-length",
+                "value": "2"
+            },
+            {
+                "name": "host",
+                "value": "localhost:3000"
+            },
+            {
+                "name": "connection",
+                "value": "keep-alive"
+            }
+        ],
+        "body": {
+            "type": "Data",
+            "content": {
+                "offset": 0,
+                "length": 2,
+                "payload": {
+                    "text": "{}"
+                }
+            },
+            "trailers": null,
+            "at_end": true,
+            "total_bytes": 2
+        },
+        "trailers": null
+    }
+}

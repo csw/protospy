@@ -13,6 +13,7 @@ use futures::{
 use http::{HeaderMap, Request, Response};
 use http_body_util::{BodyExt, BodyStream, StreamBody};
 use hyper::body::{Body, Bytes, Frame};
+use mockall::*;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 use strum::Display;
@@ -21,7 +22,7 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::proxy::errors::BodyError;
 
-#[derive(Copy, Clone, Display, Debug, Serialize)]
+#[derive(Copy, Clone, Display, PartialEq, Eq, PartialOrd, Hash, Debug, Serialize, ts_rs::TS)]
 pub enum Direction {
     Request,
     Response,
@@ -86,11 +87,15 @@ where
     Response::from_parts(parts, fun(body))
 }
 
+#[automock]
 pub trait BodyReporter: Send + Sync {
     fn saw_data(&mut self, bytes: &Bytes) -> Result<()>;
     fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()>;
     fn saw_error(&mut self, err: String) -> Result<()>;
     fn saw_eof(&mut self) -> Result<()>;
+    fn check_ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
 }
 
 pin_project! {
@@ -131,15 +136,33 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
+
+        fn report_on_err(event: &str, val: Result<()>) {
+            match val {
+                Ok(_) => {}
+                Err(err) => {
+                    error!(event = event, error = ?err)
+                }
+            }
+        }
+
+        match this.reporter.check_ready() {
+            Ok(true) => {}
+            Ok(false) => return Poll::Pending,
+            Err(err) => {
+                error!(event = "check_ready_error", error = ?err);
+            }
+        }
+
         let res = this.base.as_mut().poll_next(cx);
         match res {
             Poll::Ready(Some(Ok(ref frame))) => {
                 if let Some(bytes) = frame.data_ref() {
                     trace!(event = "read_frame", len = bytes.len());
-                    this.reporter.saw_data(bytes).expect("reported OK");
+                    report_on_err("wrapper_saw_data", this.reporter.saw_data(bytes));
                 } else if let Some(trailers) = frame.trailers_ref() {
                     trace!(event = "read_trailers", count = trailers.len());
-                    this.reporter.saw_trailers(trailers).expect("reported OK");
+                    report_on_err("wrapper_saw_trailers", this.reporter.saw_trailers(trailers));
                 } else {
                     panic!("unhandled frame type: {frame:?}")
                 };
@@ -149,15 +172,16 @@ where
                     event = "read_error",
                     error = ?err,
                 );
-                this.reporter
-                    .saw_error(err.to_string())
-                    .expect("reported OK");
+                report_on_err(
+                    "wrapper_saw_error",
+                    this.reporter.saw_error(err.to_string()),
+                );
             }
             // EOF
             Poll::Ready(None) => {
                 trace!(event = "body_eof",);
 
-                this.reporter.saw_eof().expect("reported OK");
+                report_on_err("wrapper_saw_eof", this.reporter.saw_eof());
             }
             Poll::Pending => (),
         }
@@ -166,7 +190,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FoundBodyData {
     NoBody,
     NoneRead,
@@ -191,6 +215,7 @@ impl FoundBodyData {
     }
 }
 
+#[derive(PartialEq)]
 pub struct BodyContent {
     pub data: Vec<u8>,
     pub trailers: Option<HeaderMap>,
@@ -224,22 +249,57 @@ impl BodyContent {
     }
 }
 
-pub struct PrefetchedBody<B>
-where
-    B: Unpin + Body,
-{
+pub type RestStream = Pin<Box<Peekable<BodyStream<Internal>>>>;
+
+pub struct PrefetchedParts {
     pub frames: Option<Vec<Frame<Data>>>,
-    pub rest: Option<Pin<Box<Peekable<BodyStream<B>>>>>,
+    pub rest: Option<Pin<Box<Peekable<BodyStream<Internal>>>>>,
+}
+
+impl PrefetchedParts {
+    pub fn assemble<F, S>(self, wrap_body: F) -> Result<Internal>
+    where
+        F: FnOnce(Pin<Box<Peekable<BodyStream<Internal>>>>) -> Result<S>,
+        S: Stream<Item = BodyStreamItem> + Send + Sync + 'static,
+    {
+        Ok(match self {
+            Self {
+                frames: Some(frames),
+                rest: Some(rest),
+            } => wrapped_stream(frame_stream(frames).chain(wrap_body(rest)?)),
+            Self {
+                frames: Some(frames),
+                rest: None,
+            } => wrapped_stream(frame_stream(frames)),
+            Self {
+                frames: None,
+                rest: Some(rest),
+            } => wrapped_stream(wrap_body(rest)?),
+            Self {
+                frames: None,
+                rest: None,
+            } => wrapped(http_body_util::Empty::new()),
+        })
+    }
+
+    pub fn data_bytes(&self) -> usize {
+        self.frames
+            .as_ref()
+            .map(|frames| {
+                frames
+                    .iter()
+                    .filter_map(|f| f.data_ref().map(|d| d.len()))
+                    .sum()
+            })
+            .unwrap_or_default()
+    }
 }
 
 const PEEK_DURATION: Duration = Duration::from_micros(100);
 
 // Read any immediately-available data from an HTTP body, and return it in a
 // structured form together with a Body which reproduces the original.
-pub async fn collect_ready_data<B>(body: B) -> Result<(FoundBodyData, PrefetchedBody<B>)>
-where
-    B: hyper::body::Body<Data = Data, Error = Error> + Send + Sync + Unpin + 'static,
-{
+pub async fn collect_ready_data(body: Internal) -> Result<(FoundBodyData, PrefetchedParts)> {
     debug!(
         "collect_ready_data: initial end_stream: {}",
         body.is_end_stream()
@@ -250,7 +310,7 @@ where
         // this here, before extract_ready_frames
         return Ok((
             FoundBodyData::NoBody,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: None,
             },
@@ -261,7 +321,7 @@ where
 
     let mut ready = body_stream_p.peekable().ready_chunks(32);
     let found = timeout(PEEK_DURATION, ready.next()).await;
-    debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
+    // debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
     let mut rest = Box::pin(ready.into_inner());
     // Peek, because is_terminated() won't be true until we await again. This
     // isn't deterministic, even with a request coming in as a single packet,
@@ -278,7 +338,7 @@ where
         // EOF
         (Err(_) | Ok(None), true) => Ok((
             FoundBodyData::NoBody,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: None,
             },
@@ -286,7 +346,7 @@ where
         // timeout, no data available
         (Err(_), false) => Ok((
             FoundBodyData::NoneRead,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: Some(rest),
             },
@@ -295,6 +355,7 @@ where
             "invalid collect_ready_data state, end of frames but not terminated"
         )),
         (Ok(Some(frames)), terminated) => {
+            // TODO: deal with read error here
             let frames = frames
                 .into_iter()
                 .collect::<StdResult<Vec<Frame<_>>, _>>()?;
@@ -302,14 +363,14 @@ where
             Ok(match terminated {
                 true => (
                     FoundBodyData::Complete(content),
-                    PrefetchedBody {
+                    PrefetchedParts {
                         frames: Some(frames),
                         rest: None,
                     },
                 ),
                 false => (
                     FoundBodyData::Partial(content),
-                    PrefetchedBody {
+                    PrefetchedParts {
                         frames: Some(frames),
                         rest: Some(rest),
                     },
@@ -327,6 +388,136 @@ pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = BodyStreamIt
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use mockall::predicate::*;
+    use rstest::*;
+
+    mod wrapper {
+        use super::*;
+
+        use futures::TryStreamExt;
+        use tokio_test::stream_mock::StreamMockBuilder;
+
+        #[tokio::test]
+        async fn test_basic() {
+            let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
+            let mut reporter = Box::new(MockBodyReporter::new());
+            let mut seq = Sequence::new();
+            reporter
+                .expect_check_ready()
+                .returning(|| Ok(true))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
+                .expect_saw_data()
+                .with(eq(Bytes::from_static(b"ab")))
+                .returning(|_| Ok(()))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
+                .expect_check_ready()
+                .returning(|| Ok(true))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
+                .expect_saw_eof()
+                .times(1)
+                .returning(|| Ok(()))
+                .in_sequence(&mut seq);
+
+            let wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
+            let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
+            assert_eq!(res.len(), 1);
+        }
+
+        struct FaultReporter {
+            n: usize,
+            fail_at: usize,
+        }
+
+        impl FaultReporter {
+            fn new(fail_at: usize) -> Self {
+                Self { n: 0, fail_at }
+            }
+
+            fn res(&mut self) -> Result<()> {
+                let cur = self.n;
+                self.n += 1;
+                if cur < self.fail_at {
+                    Ok(())
+                } else {
+                    Err(eyre!("fault"))
+                }
+            }
+        }
+
+        impl BodyReporter for FaultReporter {
+            fn check_ready(&mut self) -> Result<bool> {
+                self.res().map(|_| true)
+            }
+
+            fn saw_data(&mut self, _bytes: &Bytes) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_eof(&mut self) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_error(&mut self, _err: String) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_trailers(&mut self, _trailers: &HeaderMap) -> Result<()> {
+                self.res()
+            }
+        }
+
+        #[rstest]
+        #[tokio::test]
+        async fn test_fault(#[values(0, 1, 2, 3, 4)] fail_at: usize) {
+            let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
+            let reporter = Box::new(FaultReporter::new(fail_at));
+            let mut wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
+            while let Some(v) = wrapper.next().await {
+                assert!(v.is_ok(), "got {v:?}");
+            }
+        }
+    }
+
+    mod collect_ready {
+        use super::*;
+
+        #[tokio::test]
+        async fn test_basic() {
+            let frames = vec![df(b"ab"), df(b"cd")];
+            let body = frame_body(&frames).boxed();
+            let (found, prefetched) = collect_ready_data(body).await.unwrap();
+            assert_eq!(
+                found,
+                FoundBodyData::Complete(BodyContent {
+                    data: b"abcd".into(),
+                    trailers: None
+                })
+            );
+            assert_eq!(found.trailers(), None);
+            compare_frames(&prefetched.frames.unwrap(), &frames);
+            assert!(prefetched.rest.is_none());
+        }
+
+        fn compare_frames(a: &[Frame<Bytes>], b: &[Frame<Bytes>]) {
+            assert!(
+                a.iter()
+                    .map(|f| f.data_ref())
+                    .eq(b.iter().map(|f| f.data_ref()))
+            );
+            assert!(
+                a.iter()
+                    .map(|f| f.trailers_ref())
+                    .eq(b.iter().map(|f| f.trailers_ref()))
+            );
+        }
+    }
 
     mod stream_behavior {
         use std::time::Duration;
@@ -369,6 +560,28 @@ mod tests {
             let found = timeout(Duration::ZERO, ready.next()).await;
             assert_eq!(found, Ok(Some(vec![1, 2, 3])));
             assert!(ready.is_terminated());
+        }
+    }
+
+    fn df(data: &[u8]) -> Frame<Bytes> {
+        Frame::data(Bytes::copy_from_slice(data))
+    }
+
+    fn dfr(data: &[u8]) -> BodyStreamItem {
+        Ok(Frame::data(Bytes::copy_from_slice(data)))
+    }
+
+    fn frame_body(frames: &[Frame<Bytes>]) -> impl Body<Data = Data, Error = Error> + use<> {
+        StreamBody::new(frame_stream(frames.iter().map(copy_frame).collect()))
+    }
+
+    fn copy_frame<T: Clone>(frame: &Frame<T>) -> Frame<T> {
+        if let Some(data) = frame.data_ref() {
+            Frame::data(data.clone())
+        } else if let Some(trailers) = frame.trailers_ref() {
+            Frame::trailers(trailers.clone())
+        } else {
+            panic!("invalid Frame")
         }
     }
 }

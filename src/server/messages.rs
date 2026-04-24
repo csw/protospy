@@ -2,8 +2,8 @@ use bytes::Bytes;
 use color_eyre::Result;
 use serde::Serialize;
 
-use crate::proxy::exchange;
 use crate::proxy::headers::http_version_num;
+use crate::proxy::reporting;
 
 #[derive(Serialize)]
 pub struct Exchange {
@@ -45,13 +45,13 @@ pub enum Body {
 
 impl Exchange {
     pub fn from_internal(
-        exchange::FullExchange {
+        reporting::FullExchange {
             request_parts: req,
             request_body: req_body,
             response_parts: res,
             response_body: res_body,
             conn: _,
-        }: &exchange::FullExchange,
+        }: &reporting::FullExchange,
     ) -> Result<Exchange> {
         Ok(Exchange {
             request: Request {
@@ -71,8 +71,8 @@ impl Exchange {
     }
 }
 
-impl From<&exchange::TrackedBodyData> for Body {
-    fn from(value: &exchange::TrackedBodyData) -> Self {
+impl From<&reporting::TrackedBodyData> for Body {
+    fn from(value: &reporting::TrackedBodyData) -> Self {
         if !value.saw_body {
             Self::None
         } else if let Ok(text) = str::from_utf8(&value.data) {

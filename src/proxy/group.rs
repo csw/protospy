@@ -4,7 +4,9 @@ use tokio::task::JoinSet;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::{
-    proxy::{Service, client::Client, exchange::PublisherEventReporterService, monitor::Publisher},
+    proxy::{
+        Service, client::Client, monitor::Publisher, reporting::PublisherEventReporterService,
+    },
     tokio_util,
 };
 
