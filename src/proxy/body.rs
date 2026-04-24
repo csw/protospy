@@ -383,7 +383,7 @@ mod tests {
             assert!(prefetched.rest.is_none());
         }
 
-        fn compare_frames(a: &Vec<Frame<Bytes>>, b: &Vec<Frame<Bytes>>) {
+        fn compare_frames(a: &[Frame<Bytes>], b: &[Frame<Bytes>]) {
             assert!(
                 a.iter()
                     .map(|f| f.data_ref())
@@ -449,7 +449,7 @@ mod tests {
         Ok(Frame::data(Bytes::copy_from_slice(data)))
     }
 
-    fn frame_body(frames: &Vec<Frame<Bytes>>) -> impl Body<Data = Data, Error = Error> + use<> {
+    fn frame_body(frames: &[Frame<Bytes>]) -> impl Body<Data = Data, Error = Error> + use<> {
         StreamBody::new(frame_stream(frames.iter().map(copy_frame).collect()))
     }
 
