@@ -11,6 +11,28 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from proxy_conformance.net import find_free_port
+from proxy_conformance.targets import (
+    ALL_PROXIES,
+    MANAGED_PROXIES,
+    PROXY_FAMILIES,
+    proxy_family,
+)
+
+__all__ = [
+    "ALL_PROXIES",
+    "MANAGED_PROXIES",
+    "PROXY_FAMILIES",
+    "ProxyConfig",
+    "ProxyEntry",
+    "ProxyUrls",
+    "make_proxy_urls",
+    "proxy_family",
+    "start_caddy",
+    "start_haproxy",
+    "start_protospy",
+    "start_proxy",
+    "tagged_url",
+]
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -334,8 +356,14 @@ backend h2c_backend
 # ---------------------------------------------------------------------------
 
 
-def start_protospy(config: ProxyConfig) -> subprocess.Popen[bytes]:
+def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[bytes]:
     """Start a protospy reverse proxy subprocess via cargo run.
+
+    When ``capture`` is true, ``--print-messages`` is passed so the binary
+    spawns a logger task per service. Subscribing the logger keeps
+    ``publisher.has_listeners()`` true, which forces the capture code path
+    in ``Service::proxy()`` (exchange tracking and body prefetching). When
+    false, protospy runs in its default bypass path.
 
     Returns the Popen handle. The caller is responsible for terminating it.
     Combined stdout and stderr are written to protospy.log in tmp_dir.
@@ -356,10 +384,15 @@ def start_protospy(config: ProxyConfig) -> subprocess.Popen[bytes]:
     if config.h2c is not None:
         add_proxy_arg("h2c", config.h2c)
 
+    cargo_args = ["cargo", "run", "--", "--no-web"]
+    if capture:
+        cargo_args.append("--print-messages")
+    cargo_args += proxy_args
+
     log_path = config.tmp_dir / "protospy.log"
     with open(log_path, "wb") as log_file:
         proc = subprocess.Popen(
-            ["cargo", "run", "--", "--no-web"] + proxy_args,
+            cargo_args,
             stdout=log_file,
             stderr=log_file,
             cwd=REPO_ROOT,
@@ -395,17 +428,8 @@ def tagged_url(url: str, test_id: str) -> str:
 # Proxy coordinate types and startup helpers
 # ---------------------------------------------------------------------------
 
-MANAGED_PROXIES: list[str] = ["caddy", "haproxy", "protospy"]
-
-# All valid proxy type strings, including external ones that must be
-# selected explicitly and cannot be auto-started.
-ALL_PROXIES: list[str] = [*MANAGED_PROXIES, "protospy-ext"]
-
-PROXY_FAMILIES: dict[str, frozenset[str]] = {
-    "caddy": frozenset(["caddy"]),
-    "haproxy": frozenset(["haproxy"]),
-    "protospy": frozenset(["protospy", "protospy-ext"]),
-}
+# Proxy taxonomy (MANAGED_PROXIES, ALL_PROXIES, PROXY_FAMILIES, proxy_family)
+# is defined in proxy_conformance.targets and re-exported above.
 
 
 @dataclass
@@ -469,6 +493,20 @@ _SLOT_GRPC = 4
 _SLOT_H2C = 5
 
 
+def _dispatch_start(
+    proxy_type: str, proxy_config: ProxyConfig
+) -> subprocess.Popen[bytes]:
+    """Pick the launcher matching ``proxy_type`` and start the subprocess."""
+    if proxy_type == "caddy":
+        return start_caddy(proxy_config)
+    if proxy_type == "haproxy":
+        return start_haproxy(proxy_config)
+    if proxy_type in ("protospy-bypass", "protospy-capture"):
+        return start_protospy(proxy_config, capture=proxy_type == "protospy-capture")
+    msg = f"No launcher for managed proxy type: {proxy_type!r}"
+    raise ValueError(msg)
+
+
 def _start_proxy_fixed(
     proxy_type: str,
     good_upstream: str,
@@ -506,12 +544,7 @@ def _start_proxy_fixed(
         grpc=grpc_entry,
         h2c=h2c_entry,
     )
-    if proxy_type == "caddy":
-        proc = start_caddy(proxy_config)
-    elif proxy_type == "haproxy":
-        proc = start_haproxy(proxy_config)
-    else:  # protospy
-        proc = start_protospy(proxy_config)
+    proc = _dispatch_start(proxy_type, proxy_config)
     return proc, make_proxy_urls(good, wire, dead, grpc=grpc_entry, h2c=h2c_entry)
 
 
@@ -587,12 +620,7 @@ def start_proxy(
                 grpc=grpc_entry,
                 h2c=h2c_entry,
             )
-            if proxy_type == "caddy":
-                proc = start_caddy(proxy_config)
-            elif proxy_type == "haproxy":
-                proc = start_haproxy(proxy_config)
-            else:  # protospy
-                proc = start_protospy(proxy_config)
+            proc = _dispatch_start(proxy_type, proxy_config)
             return proc, make_proxy_urls(
                 good,
                 wire,

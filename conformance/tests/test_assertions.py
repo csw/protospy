@@ -15,6 +15,7 @@ from proxy_conformance.types import (
     ProxyTestCase,
     RequestSpec,
     TargetExpectation,
+    apply_quirk,
     assert_client_response,
     assert_headers,
     assert_proxy_test_case,
@@ -248,3 +249,37 @@ def test_proxy_quirk_xfail() -> None:
 
     with pytest.raises(pytest.xfail.Exception):  # type: ignore[attr-defined]
         assert_proxy_test_case(response, good_server, case, proxy_name="caddy")
+
+
+def test_proxy_quirk_resolves_via_family_alias() -> None:
+    """A quirk keyed on the family name applies to every concrete variant."""
+    case = _make_case(protospy=ProxyQuirk(disposition="skip", reason="unsupported"))
+    response = _mock_response(status_code=200)
+    good_server = MagicMock()
+
+    for variant in ("protospy-bypass", "protospy-capture", "protospy-ext"):
+        with pytest.raises(pytest.skip.Exception):
+            assert_proxy_test_case(response, good_server, case, proxy_name=variant)
+
+
+def test_proxy_quirk_concrete_name_wins_over_family() -> None:
+    """A concrete-name quirk takes precedence over the family entry."""
+    quirks: dict[str, ProxyQuirk] = {
+        "protospy": ProxyQuirk(disposition="skip", reason="family"),
+        "protospy-capture": ProxyQuirk(disposition="xfail", reason="capture-only"),
+    }
+
+    with pytest.raises(pytest.xfail.Exception):  # type: ignore[attr-defined]
+        apply_quirk("protospy-capture", quirks)
+    with pytest.raises(pytest.skip.Exception):
+        apply_quirk("protospy-bypass", quirks)
+
+
+def test_apply_quirk_family_alias() -> None:
+    """apply_quirk also resolves via the family alias."""
+    quirks = {"protospy": ProxyQuirk(disposition="xfail", reason="known")}
+
+    with pytest.raises(pytest.xfail.Exception):  # type: ignore[attr-defined]
+        apply_quirk("protospy-bypass", quirks)
+    # Concrete proxies outside the family are unaffected.
+    assert apply_quirk("caddy", quirks) is None

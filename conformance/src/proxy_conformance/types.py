@@ -22,6 +22,7 @@ import pytest
 
 from proxy_conformance import httpx_util
 from proxy_conformance.good_server import CapturedRequest, GoodServer
+from proxy_conformance.targets import proxy_family
 
 log = logging.getLogger("conformance")
 
@@ -330,8 +331,8 @@ def assert_proxy_test_case(
     """
     effective_client = case.expect_at_client
     effective_target = case.expect_at_target
-    if proxy_name and proxy_name in case.proxy_quirks:
-        quirk = case.proxy_quirks[proxy_name]
+    quirk = _resolve_quirk(proxy_name, case.proxy_quirks)
+    if quirk is not None:
         if quirk.disposition == "skip":
             pytest.skip(quirk.reason)
         elif quirk.disposition == "xfail":
@@ -457,6 +458,24 @@ def assert_probe_target(
     return captured
 
 
+def _resolve_quirk(proxy_name: str, quirks: dict[str, ProxyQuirk]) -> ProxyQuirk | None:
+    """Look up a quirk by concrete proxy name, then by family name.
+
+    The family fallback lets a single ``proxy_quirks={"protospy": ...}``
+    entry apply to every protospy variant (bypass, capture, ext) without
+    forcing test authors to enumerate them.
+    """
+    if not proxy_name:
+        return None
+    quirk = quirks.get(proxy_name)
+    if quirk is not None:
+        return quirk
+    family = proxy_family(proxy_name)
+    if family is not None and family != proxy_name:
+        return quirks.get(family)
+    return None
+
+
 def apply_quirk(proxy_name: str, quirks: dict[str, ProxyQuirk]) -> ProxyQuirk | None:
     """Apply a quirk for the given proxy name.
 
@@ -464,8 +483,12 @@ def apply_quirk(proxy_name: str, quirks: dict[str, ProxyQuirk]) -> ProxyQuirk | 
     For "xfail": calls pytest.xfail(reason) immediately (does not return).
     For "override": returns the quirk for the caller to act on.
     Returns None if no quirk is defined for this proxy.
+
+    Lookup tries the concrete proxy name first, then the family name
+    (e.g. a quirk keyed on ``"protospy"`` matches ``proxy_name`` of
+    ``"protospy-bypass"`` or ``"protospy-capture"``).
     """
-    quirk = quirks.get(proxy_name)
+    quirk = _resolve_quirk(proxy_name, quirks)
     if quirk is None:
         return None
     if quirk.disposition == "skip":
