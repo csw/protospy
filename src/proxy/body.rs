@@ -30,6 +30,7 @@ pub enum Direction {
 pub type Data = Bytes;
 pub type BodyFrame = Frame<Data>;
 pub type Error = BodyError;
+pub type BodyStreamItem = StdResult<Frame<Data>, Error>;
 
 pub type Internal = http_body_util::combinators::BoxBody<Data, Error>;
 
@@ -43,7 +44,7 @@ where
 
 pub fn wrapped_stream<S>(s: S) -> Internal
 where
-    S: Stream<Item = StdResult<Frame<Data>, Error>> + Sync + Send + 'static,
+    S: Stream<Item = BodyStreamItem> + Sync + Send + 'static,
 {
     wrapped(StreamBody::new(s))
 }
@@ -94,25 +95,25 @@ pub trait BodyReporter: Send + Sync {
 
 pin_project! {
     pub struct BodyStreamWrapper<S>
-    where S: Stream<Item = StdResult<Frame<Data>, Error>>
+    where S: Stream<Item = BodyStreamItem>
      {
         pub direction: Direction,
         #[pin]
         pub base: S,
-        tracker: Box<dyn BodyReporter>,
+        reporter: Box<dyn BodyReporter>,
         span: tracing::Span,
     }
 }
 
 impl<S> BodyStreamWrapper<S>
 where
-    S: Stream<Item = StdResult<Frame<Data>, Error>>,
+    S: Stream<Item = BodyStreamItem>,
 {
-    pub fn new(direction: Direction, base: S, tracker: Box<dyn BodyReporter>) -> Self {
+    pub fn new(direction: Direction, base: S, reporter: Box<dyn BodyReporter>) -> Self {
         Self {
             direction,
             base,
-            tracker,
+            reporter,
             span: tracing::Span::current(),
         }
     }
@@ -120,7 +121,7 @@ where
 
 impl<S> Stream for BodyStreamWrapper<S>
 where
-    S: Stream<Item = StdResult<Frame<Data>, Error>>,
+    S: Stream<Item = BodyStreamItem>,
 {
     type Item = S::Item;
 
@@ -135,10 +136,10 @@ where
             Poll::Ready(Some(Ok(ref frame))) => {
                 if let Some(bytes) = frame.data_ref() {
                     trace!(event = "read_frame", len = bytes.len());
-                    this.tracker.saw_data(bytes).expect("reported OK");
+                    this.reporter.saw_data(bytes).expect("reported OK");
                 } else if let Some(trailers) = frame.trailers_ref() {
                     trace!(event = "read_trailers", count = trailers.len());
-                    this.tracker.saw_trailers(trailers).expect("reported OK");
+                    this.reporter.saw_trailers(trailers).expect("reported OK");
                 } else {
                     panic!("unhandled frame type: {frame:?}")
                 };
@@ -148,7 +149,7 @@ where
                     event = "read_error",
                     error = ?err,
                 );
-                this.tracker
+                this.reporter
                     .saw_error(err.to_string())
                     .expect("reported OK");
             }
@@ -156,7 +157,7 @@ where
             Poll::Ready(None) => {
                 trace!(event = "body_eof",);
 
-                this.tracker.saw_eof().expect("reported OK");
+                this.reporter.saw_eof().expect("reported OK");
             }
             Poll::Pending => (),
         }
@@ -318,7 +319,7 @@ where
     }
 }
 
-pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = StdResult<Frame<Data>, Error>> {
+pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = BodyStreamItem> {
     StreamBody::new(stream::iter(
         frames.into_iter().map(StdResult::Ok::<Frame<Data>, Error>),
     ))
@@ -326,45 +327,48 @@ pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = StdResult<Fr
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
 
-    use futures::{StreamExt, stream::FusedStream};
-    use tokio::time::timeout;
+    mod stream_behavior {
+        use std::time::Duration;
 
-    #[tokio::test]
-    async fn test_ready_chunks_pending() {
-        let p = tokio_stream::pending::<i32>();
-        let mut ready = p.ready_chunks(8);
-        // poll will block
-        let found = timeout(Duration::ZERO, ready.next()).await;
-        assert!(found.is_err())
-    }
+        use futures::{StreamExt, stream::FusedStream};
+        use tokio::time::timeout;
 
-    #[tokio::test]
-    async fn test_ready_chunks_empty() {
-        let p = tokio_stream::empty::<i32>();
-        let mut ready = p.ready_chunks(8);
-        // poll will block
-        let found = timeout(Duration::ZERO, ready.next()).await;
-        assert_eq!(found, Ok(None))
-    }
+        #[tokio::test]
+        async fn test_ready_chunks_pending() {
+            let p = tokio_stream::pending::<i32>();
+            let mut ready = p.ready_chunks(8);
+            // poll will block
+            let found = timeout(Duration::ZERO, ready.next()).await;
+            assert!(found.is_err())
+        }
 
-    #[tokio::test]
-    async fn test_ready_chunks_some() {
-        let p = tokio_stream::iter(vec![1, 2, 3]).chain(tokio_stream::pending());
-        let mut ready = p.ready_chunks(8);
-        // poll will block
-        let found = timeout(Duration::ZERO, ready.next()).await;
-        assert_eq!(found, Ok(Some(vec![1, 2, 3])));
-    }
+        #[tokio::test]
+        async fn test_ready_chunks_empty() {
+            let p = tokio_stream::empty::<i32>();
+            let mut ready = p.ready_chunks(8);
+            // poll will block
+            let found = timeout(Duration::ZERO, ready.next()).await;
+            assert_eq!(found, Ok(None))
+        }
 
-    #[tokio::test]
-    async fn test_ready_chunks_complete() {
-        let p = tokio_stream::iter(vec![1, 2, 3]);
-        let mut ready = p.ready_chunks(8);
-        // poll will block
-        let found = timeout(Duration::ZERO, ready.next()).await;
-        assert_eq!(found, Ok(Some(vec![1, 2, 3])));
-        assert!(ready.is_terminated());
+        #[tokio::test]
+        async fn test_ready_chunks_some() {
+            let p = tokio_stream::iter(vec![1, 2, 3]).chain(tokio_stream::pending());
+            let mut ready = p.ready_chunks(8);
+            // poll will block
+            let found = timeout(Duration::ZERO, ready.next()).await;
+            assert_eq!(found, Ok(Some(vec![1, 2, 3])));
+        }
+
+        #[tokio::test]
+        async fn test_ready_chunks_complete() {
+            let p = tokio_stream::iter(vec![1, 2, 3]);
+            let mut ready = p.ready_chunks(8);
+            // poll will block
+            let found = timeout(Duration::ZERO, ready.next()).await;
+            assert_eq!(found, Ok(Some(vec![1, 2, 3])));
+            assert!(ready.is_terminated());
+        }
     }
 }

@@ -4,9 +4,7 @@ use tokio::task::JoinSet;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::{
-    proxy::{
-        Service, client::Client, exchange::PublisherExchangeReporterFactory, monitor::Publisher,
-    },
+    proxy::{Service, client::Client, exchange::PublisherEventReporterService, monitor::Publisher},
     tokio_util,
 };
 
@@ -37,7 +35,7 @@ impl Group {
             return Err(eyre!("service {} already registered", name));
         }
         let publisher = Publisher::new();
-        let pub_factory = Arc::new(PublisherExchangeReporterFactory::new(publisher.clone()));
+        let pub_factory = Arc::new(PublisherEventReporterService::new(publisher.clone()));
         let service = Arc::new(Service::new(
             name.to_string(),
             addr,
