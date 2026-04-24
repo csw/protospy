@@ -22,7 +22,7 @@ use crate::proxy::{
     body::{self, PrefetchedBody, ProxyResponse},
     errors::BodyError,
     event::Event,
-    exchange::{self, Exchange, ExchangeReporter, ExchangeReporterService},
+    exchange::{self, EventReporter, EventReporterService, Exchange},
     hyper_errors,
 };
 
@@ -42,10 +42,8 @@ pub struct Service {
     pub target: String,
     /// HTTP client.
     pub client: Client,
-    /// Tracking sender.
-    // pub publisher: monitor::Publisher,
-    // pub subscriber: monitor::Receiver,
-    pub reporter_service: Arc<dyn ExchangeReporterService>,
+    /// Event reporter.
+    pub reporter_service: Arc<dyn EventReporterService>,
 }
 
 impl Service {
@@ -54,7 +52,7 @@ impl Service {
         addr: SocketAddr,
         target: String,
         client: Client,
-        reporter_service: Arc<dyn ExchangeReporterService>,
+        reporter_service: Arc<dyn EventReporterService>,
     ) -> Self {
         Self {
             name,
@@ -192,7 +190,7 @@ impl Service {
     }
 
     async fn track_request(
-        reporter: Box<dyn ExchangeReporter>,
+        reporter: Box<dyn EventReporter>,
         request: Request<body::Internal>,
         orig_parts: http::request::Parts,
     ) -> Result<Request<body::upstream::RequestBody>> {
@@ -247,7 +245,7 @@ impl Service {
     }
 
     async fn track_response(
-        reporter: Box<dyn ExchangeReporter>,
+        reporter: Box<dyn EventReporter>,
         response: Response<body::Internal>,
         orig_parts: http::response::Parts,
         elapsed: TimeDelta,
@@ -267,7 +265,7 @@ impl Service {
 
     async fn assemble_tracked_body<B>(
         prefetched: PrefetchedBody<B>,
-        reporter: Box<dyn ExchangeReporter>,
+        reporter: Box<dyn EventReporter>,
         direction: body::Direction,
     ) -> body::Internal
     where

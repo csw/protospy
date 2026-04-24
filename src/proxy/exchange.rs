@@ -12,9 +12,8 @@ use tracing::instrument;
 use uid::IdU64 as IdT;
 
 use crate::proxy::{
-    body::{self, BodyReporter, BodyStreamWrapper, Direction},
+    body::{BodyReporter, BodyStreamItem, BodyStreamWrapper, Direction},
     conn::ConnInfo,
-    errors::BodyError,
     event::{Event, EventMessage, flatten_headers},
     monitor::{self},
 };
@@ -33,22 +32,22 @@ pub struct Exchange {
     timestamp: Timestamp,
 }
 
-pub trait ExchangeReporterService: Send + Sync + Debug {
+pub trait EventReporterService: Send + Sync + Debug {
     fn should_report(&self) -> bool;
-    fn make_reporter(&self, exchange: Exchange) -> Box<dyn ExchangeReporter>;
+    fn make_reporter(&self, exchange: Exchange) -> Box<dyn EventReporter>;
 }
 
-pub trait ExchangeReporter: Send + Sync + Debug {
+pub trait EventReporter: Send + Sync + Debug {
     fn send_event(&self, event: Event) -> Result<()>;
 }
 
 #[derive(Debug)]
-pub struct PublisherExchangeReporterFactory {
+pub struct PublisherEventReporterService {
     publisher: monitor::Publisher,
 }
 
 #[derive(Debug, Clone)]
-pub struct PublisherExchangeReporter {
+pub struct PublisherEventReporter {
     exchange: Exchange,
     publisher: monitor::Publisher,
 }
@@ -80,26 +79,26 @@ impl Default for Exchange {
     }
 }
 
-impl PublisherExchangeReporterFactory {
+impl PublisherEventReporterService {
     pub fn new(publisher: monitor::Publisher) -> Self {
         Self { publisher }
     }
 }
 
-impl ExchangeReporterService for PublisherExchangeReporterFactory {
+impl EventReporterService for PublisherEventReporterService {
     fn should_report(&self) -> bool {
         self.publisher.has_listeners()
     }
 
-    fn make_reporter(&self, exchange: Exchange) -> Box<dyn ExchangeReporter> {
-        Box::new(PublisherExchangeReporter {
+    fn make_reporter(&self, exchange: Exchange) -> Box<dyn EventReporter> {
+        Box::new(PublisherEventReporter {
             exchange,
             publisher: self.publisher.clone(),
         })
     }
 }
 
-impl ExchangeReporter for PublisherExchangeReporter {
+impl EventReporter for PublisherEventReporter {
     fn send_event(&self, event: Event) -> Result<()> {
         let msg = Arc::new(EventMessage {
             exchange: self.exchange,
@@ -112,7 +111,7 @@ impl ExchangeReporter for PublisherExchangeReporter {
 
 #[derive(Debug)]
 pub struct BodyTracker {
-    reporter: Box<dyn ExchangeReporter>,
+    reporter: Box<dyn EventReporter>,
     direction: Direction,
     span: tracing::Span,
     seen: bool,
@@ -121,24 +120,20 @@ pub struct BodyTracker {
 }
 
 pub fn tracked_body_stream<S>(
-    reporter: Box<dyn ExchangeReporter>,
+    reporter: Box<dyn EventReporter>,
     direction: Direction,
     stream: S,
     prev_bytes: usize,
 ) -> BodyStreamWrapper<S>
 where
-    S: Stream<Item = StdResult<body::BodyFrame, BodyError>>,
+    S: Stream<Item = BodyStreamItem>,
 {
     let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
     BodyStreamWrapper::new(direction, stream, tracker)
 }
 
 impl BodyTracker {
-    pub fn new(
-        reporter: Box<dyn ExchangeReporter>,
-        direction: Direction,
-        prev_bytes: usize,
-    ) -> Self {
+    pub fn new(reporter: Box<dyn EventReporter>, direction: Direction, prev_bytes: usize) -> Self {
         Self {
             reporter,
             direction,
