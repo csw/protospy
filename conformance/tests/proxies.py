@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import time
@@ -390,12 +391,15 @@ def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[by
     cargo_args += proxy_args
 
     log_path = config.tmp_dir / "protospy.log"
+    env = os.environ.copy()
+    env["RUST_BACKTRACE"] = "full"
     with open(log_path, "wb") as log_file:
         proc = subprocess.Popen(
             cargo_args,
             stdout=log_file,
             stderr=log_file,
             cwd=REPO_ROOT,
+            env=env,
         )
 
     # Wait for all ports to be available
