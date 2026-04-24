@@ -1,0 +1,62 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "protospy: run",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=protospy"
+                ]
+            },
+            "args": [
+                "--tokio-console",
+                "-p",
+                "--proxy",
+                "name=es,port=3000,target=localhost:9200"
+            ],
+            "env": {
+                "RUST_BACKTRACE": "1",
+                "RUST_LOG": "info,protospy=debug",
+            }
+        },
+        {
+            "name": "protospy-ext",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=protospy"
+                ]
+            },
+            "args": [
+                "--tokio-console",
+                "-p",
+                "--proxy=name=good,port=7400,target=127.0.0.1:7300",
+                "--proxy=name=wire,port=7401,target=127.0.0.1:7301",
+                "--proxy=name=dead,port=7402,target=127.0.0.1:7399"
+            ],
+            "env": {
+                "RUST_BACKTRACE": "full",
+                "RUST_LOG": "info,protospy=debug",
+            }
+        },
+        {
+            "name": "Debug unit tests in executable 'protospy'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=protospy"
+                ]
+            }
+        },
+    ]
+}
