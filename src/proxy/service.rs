@@ -271,16 +271,7 @@ impl Service {
     where
         B: Body<Data = body::Data, Error = BodyError> + Unpin + Send + Sync + 'static,
     {
-        let read_bytes: usize = prefetched
-            .frames
-            .as_ref()
-            .map(|frames| {
-                frames
-                    .iter()
-                    .filter_map(|f| f.data_ref().map(|d| d.len()))
-                    .sum()
-            })
-            .unwrap_or_default();
+        let read_bytes: usize = prefetched.data_bytes();
 
         let tracked = |rest| exchange::tracked_body_stream(reporter, direction, rest, read_bytes);
 

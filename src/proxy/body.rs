@@ -229,10 +229,27 @@ impl BodyContent {
 
 pub struct PrefetchedBody<B>
 where
-    B: Unpin + Body,
+    B: Body + Unpin,
 {
     pub frames: Option<Vec<Frame<Data>>>,
     pub rest: Option<Pin<Box<Peekable<BodyStream<B>>>>>,
+}
+
+impl<B> PrefetchedBody<B>
+where
+    B: Body + Unpin,
+{
+    pub fn data_bytes(&self) -> usize {
+        self.frames
+            .as_ref()
+            .map(|frames| {
+                frames
+                    .iter()
+                    .filter_map(|f| f.data_ref().map(|d| d.len()))
+                    .sum()
+            })
+            .unwrap_or_default()
+    }
 }
 
 const PEEK_DURATION: Duration = Duration::from_micros(100);
