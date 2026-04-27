@@ -5,13 +5,13 @@ use serde::{Serialize, Serializer};
 
 use crate::proxy::{
     body::{self, Direction},
-    exchange::Exchange,
     headers::http_version_num,
+    reporting::ExchangeMeta,
 };
 
 #[derive(Serialize, Debug)]
 pub struct EventMessage {
-    pub exchange: Exchange,
+    pub exchange: ExchangeMeta,
     pub event: Event,
 }
 

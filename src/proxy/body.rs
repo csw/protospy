@@ -316,7 +316,9 @@ impl BodyContent {
     }
 }
 
-pub struct PrefetchedBody<B>
+pub type RestStream = Pin<Box<Peekable<BodyStream<Internal>>>>;
+
+pub struct PrefetchedParts<B>
 where
     B: Body + Unpin,
 {
@@ -324,10 +326,35 @@ where
     pub rest: Option<Pin<Box<Peekable<BodyStream<B>>>>>,
 }
 
-impl<B> PrefetchedBody<B>
+impl<B> PrefetchedParts<B>
 where
     B: Body + Unpin,
 {
+    pub fn assemble<F, S>(self, wrap_body: F) -> Result<Internal>
+    where
+        F: FnOnce(Pin<Box<Peekable<BodyStream<B>>>>) -> Result<S>,
+        S: Stream<Item = BodyStreamItem> + Send + Sync + 'static,
+    {
+        Ok(match self {
+            Self {
+                frames: Some(frames),
+                rest: Some(rest),
+            } => wrapped_stream(frame_stream(frames).chain(wrap_body(rest)?)),
+            Self {
+                frames: Some(frames),
+                rest: None,
+            } => wrapped_stream(frame_stream(frames)),
+            Self {
+                frames: None,
+                rest: Some(rest),
+            } => wrapped_stream(wrap_body(rest)?),
+            Self {
+                frames: None,
+                rest: None,
+            } => wrapped(http_body_util::Empty::new()),
+        })
+    }
+
     pub fn data_bytes(&self) -> usize {
         self.frames
             .as_ref()
@@ -345,9 +372,9 @@ const PEEK_DURATION: Duration = Duration::from_micros(100);
 
 // Read any immediately-available data from an HTTP body, and return it in a
 // structured form together with a Body which reproduces the original.
-pub async fn collect_ready_data<B>(body: B) -> Result<(FoundBodyData, PrefetchedBody<B>)>
+pub async fn collect_ready_data<B>(body: B) -> Result<(FoundBodyData, PrefetchedParts<B>)>
 where
-    B: hyper::body::Body<Data = Data, Error = Error> + Send + Sync + Unpin + 'static,
+    B: Body<Data = Data, Error = Error> + Unpin,
 {
     debug!(
         "collect_ready_data: initial end_stream: {}",
@@ -359,7 +386,7 @@ where
         // this here, before extract_ready_frames
         return Ok((
             FoundBodyData::NoBody,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: None,
             },
@@ -387,7 +414,7 @@ where
         // EOF
         (Err(_) | Ok(None), true) => Ok((
             FoundBodyData::NoBody,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: None,
             },
@@ -395,7 +422,7 @@ where
         // timeout, no data available
         (Err(_), false) => Ok((
             FoundBodyData::NoneRead,
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: Some(rest),
             },
@@ -412,14 +439,14 @@ where
             Ok(match terminated {
                 true => (
                     FoundBodyData::Complete(content),
-                    PrefetchedBody {
+                    PrefetchedParts {
                         frames: Some(frames),
                         rest: None,
                     },
                 ),
                 false => (
                     FoundBodyData::Partial(content),
-                    PrefetchedBody {
+                    PrefetchedParts {
                         frames: Some(frames),
                         rest: Some(rest),
                     },

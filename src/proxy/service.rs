@@ -9,7 +9,6 @@ use color_eyre::{
 };
 use futures::StreamExt;
 use http::{StatusCode, Uri, uri};
-use hyper::body::Body;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -19,11 +18,10 @@ use tracing::{Instrument, debug, error, info, instrument};
 
 use crate::proxy::conn::ConnInfo;
 use crate::proxy::{
-    body::{self, PrefetchedBody, ProxyResponse},
-    errors::BodyError,
+    body::{self, PrefetchedParts, ProxyResponse},
     event::Event,
-    exchange::{self, EventReporter, EventReporterService, Exchange},
     hyper_errors,
+    reporting::{self, EventReporter, EventReporterService, ExchangeMeta},
 };
 
 use super::client::Client;
@@ -117,7 +115,7 @@ impl Service {
         client_request: Request<hyper::body::Incoming>,
         conn: ConnInfo,
     ) -> Result<ProxyResponse> {
-        let exchange = self.should_report().then(Exchange::default);
+        let exchange = self.should_report().then(ExchangeMeta::default);
 
         let client_request = body::map_request_body(client_request, body::wrapped);
 
@@ -151,7 +149,7 @@ impl Service {
 
     async fn process_request(
         &self,
-        exchange: &Option<Exchange>,
+        exchange: &Option<ExchangeMeta>,
         client_request: Request<body::Internal>,
         conn: ConnInfo,
     ) -> Result<Request<body::upstream::RequestBody>> {
@@ -210,7 +208,7 @@ impl Service {
     /// and handling the body.
     async fn process_response(
         &self,
-        exchange: &Option<Exchange>,
+        exchange: &Option<ExchangeMeta>,
         response: Response<body::Internal>,
         elapsed: TimeDelta,
     ) -> Result<ProxyResponse> {
@@ -263,32 +261,29 @@ impl Service {
         Ok(Response::from_parts(parts, downstream_body))
     }
 
-    async fn assemble_tracked_body<B>(
-        prefetched: PrefetchedBody<B>,
+    async fn assemble_tracked_body(
+        prefetched: PrefetchedParts<body::Internal>,
         reporter: Box<dyn EventReporter>,
         direction: body::Direction,
-    ) -> body::Internal
-    where
-        B: Body<Data = body::Data, Error = BodyError> + Unpin + Send + Sync + 'static,
-    {
+    ) -> body::Internal {
         let read_bytes: usize = prefetched.data_bytes();
 
-        let tracked = |rest| exchange::tracked_body_stream(reporter, direction, rest, read_bytes);
+        let tracked = |rest| reporting::tracked_body_stream(reporter, direction, rest, read_bytes);
 
         match prefetched {
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: Some(frames),
                 rest: Some(rest),
             } => body::wrapped_stream(body::frame_stream(frames).chain(tracked(rest))),
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: Some(frames),
                 rest: None,
             } => body::wrapped_stream(body::frame_stream(frames)),
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: Some(rest),
             } => body::wrapped_stream(tracked(rest)),
-            PrefetchedBody {
+            PrefetchedParts {
                 frames: None,
                 rest: None,
             } => body::wrapped(http_body_util::Empty::new()),
@@ -296,7 +291,7 @@ impl Service {
     }
 
     /// Map the original request URI to the upstream server.
-    fn map_uri(&self, req_uri: &Uri) -> Result<Uri> {
+    pub fn map_uri(&self, req_uri: &Uri) -> Result<Uri> {
         Ok(uri::Builder::new()
             .scheme(http::uri::Scheme::HTTP)
             .authority(self.target.as_str())
@@ -330,7 +325,7 @@ fn clone_response_parts<B>(
     (Response::from_parts(parts, body), cloned)
 }
 
-fn client_error_response(
+pub fn client_error_response(
     client_error: &hyper_util::client::legacy::Error,
 ) -> Result<ProxyResponse> {
     let (cause_tag, status) = hyper_errors::classify(client_error);
@@ -353,7 +348,7 @@ fn client_error_response(
     error_http_response(status, cause_tag)
 }
 
-fn internal_error_response(err: eyre::Report) -> Result<ProxyResponse> {
+pub fn internal_error_response(err: eyre::Report) -> Result<ProxyResponse> {
     error!(
         name = "internal_error",
         error = ?err,
@@ -361,7 +356,7 @@ fn internal_error_response(err: eyre::Report) -> Result<ProxyResponse> {
     error_http_response(StatusCode::BAD_GATEWAY, errors::Cause::InternalError)
 }
 
-fn error_http_response(status: StatusCode, cause: errors::Cause) -> Result<ProxyResponse> {
+pub fn error_http_response(status: StatusCode, cause: errors::Cause) -> Result<ProxyResponse> {
     Response::builder()
         .status(status)
         .header("server", SERVER_NAME)

@@ -1,389 +1,224 @@
-use std::mem::{self};
-use std::result::Result as StdResult;
-use std::sync::Arc;
-use std::{fmt::Debug, sync::Mutex};
+use chrono::{TimeDelta, prelude::*};
+use color_eyre::{Result, eyre::eyre};
+use http::{Request, Response};
+use tracing::debug;
 
-use chrono::prelude::*;
-use color_eyre::Result;
-use eyre::eyre;
-use futures::Stream;
-use http::HeaderMap;
-use hyper::body::Bytes;
-use serde::{Serialize, Serializer};
-use tokio::time::Instant;
-use tokio::{
-    sync::mpsc,
-    time::{Duration, Sleep},
+use crate::{
+    proxy::{
+        Service,
+        body::{self, ProxyResponse},
+        conn::ConnInfo,
+        event::Event,
+        headers,
+        reporting::{self, EventReporter, ExchangeMeta},
+        service,
+    },
+    tokio_util::spawn_instrumented_on,
 };
-use tracing::instrument;
-use uid::IdU64 as IdT;
 
-use crate::proxy::{
-    body::{BodyReporter, BodyStreamItem, BodyStreamWrapper, Direction},
-    conn::ConnInfo,
-    event::{Event, EventMessage, flatten_headers},
-    monitor::{self},
-};
-use crate::tokio_util::spawn_instrumented;
+pub const SERVER_NAME: &str = "protospy";
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize)]
-struct IdInner(());
-
-type Id = IdT<IdInner>;
-
-pub type Timestamp = DateTime<Utc>;
-
-#[derive(Copy, Clone, Debug, Serialize)]
 pub struct Exchange {
-    #[serde(serialize_with = "serialize_id")]
-    exchange_id: Id,
-    timestamp: Timestamp,
+    service: Service,
+    should_report: bool,
+    meta: ExchangeMeta,
+    conn: ConnInfo,
+    tasks: tokio::task::JoinSet<Result<()>>,
 }
-
-pub trait EventReporterService: Send + Sync + Debug {
-    fn should_report(&self) -> bool;
-    fn make_reporter(&self, exchange: Exchange) -> Box<dyn EventReporter>;
-}
-
-pub trait EventReporter: Send + Sync + Debug {
-    fn send_event(&self, event: Event) -> Result<()>;
-}
-
-#[derive(Debug)]
-pub struct PublisherEventReporterService {
-    publisher: monitor::Publisher,
-}
-
-#[derive(Debug, Clone)]
-pub struct PublisherEventReporter {
-    exchange: Exchange,
-    publisher: monitor::Publisher,
-}
-
-/// An HTTP request-response pair
-#[derive(Debug)]
-pub struct FullExchange {
-    pub conn: ConnInfo,
-    pub request_parts: http::request::Parts,
-    pub response_parts: http::response::Parts,
-    pub request_body: TrackedBodyData,
-    pub response_body: TrackedBodyData,
-}
-
-pub type ExchangeHandler = Box<dyn Fn(FullExchange) -> Result<()> + Send>;
 
 impl Exchange {
-    pub fn new() -> Self {
+    pub fn new(service: Service, should_report: bool, conn: ConnInfo) -> Self {
         Self {
-            exchange_id: Id::new(),
-            timestamp: Utc::now(),
+            service,
+            should_report,
+            meta: Default::default(),
+            conn,
+            tasks: Default::default(),
         }
     }
-}
 
-impl Default for Exchange {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PublisherEventReporterService {
-    pub fn new(publisher: monitor::Publisher) -> Self {
-        Self { publisher }
-    }
-}
-
-impl EventReporterService for PublisherEventReporterService {
-    fn should_report(&self) -> bool {
-        self.publisher.has_listeners()
-    }
-
-    fn make_reporter(&self, exchange: Exchange) -> Box<dyn EventReporter> {
-        Box::new(PublisherEventReporter {
-            exchange,
-            publisher: self.publisher.clone(),
-        })
-    }
-}
-
-impl EventReporter for PublisherEventReporter {
-    fn send_event(&self, event: Event) -> Result<()> {
-        let msg = Arc::new(EventMessage {
-            exchange: self.exchange,
-            event,
-        });
-        self.publisher.send(msg)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct BodyTracker {
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    span: tracing::Span,
-    seen: bool,
-    ended: bool,
-    total_bytes: usize,
-}
-
-pub fn tracked_body_stream<S>(
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    stream: S,
-    prev_bytes: usize,
-) -> BodyStreamWrapper<S>
-where
-    S: Stream<Item = BodyStreamItem>,
-{
-    // let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
-    // BodyStreamWrapper::new(direction, stream, tracker)
-    spawn_instrumented(format!(""), future)
-}
-
-impl BodyTracker {
-    pub fn new(reporter: Box<dyn EventReporter>, direction: Direction, prev_bytes: usize) -> Self {
-        Self {
-            reporter,
-            direction,
-            span: tracing::Span::current(),
-            seen: prev_bytes > 0,
-            ended: false,
-            total_bytes: prev_bytes,
-        }
-    }
-}
-
-impl BodyReporter for BodyTracker {
-    #[instrument(parent = &self.span)]
-    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
-        self.seen = true;
-        self.total_bytes += bytes.len();
-        self.reporter.send_event(Event::BodyData {
-            direction: self.direction,
-            bytes: bytes.len(),
-            payload: bytes.into(),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
-        self.reporter.send_event(Event::Trailers {
-            direction: self.direction,
-            entries: flatten_headers(trailers),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_error(&mut self, err: String) -> Result<()> {
-        self.reporter.send_event(Event::Error {
-            message: format!("body error ({}): {}", self.direction, err),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_eof(&mut self) -> Result<()> {
-        self.reporter.send_event(Event::BodyEnd {
-            direction: self.direction,
-            seen: self.seen,
-            total_bytes: self.total_bytes,
-        })?;
-        self.ended = true;
-        Ok(())
-    }
-}
-
-impl Drop for BodyTracker {
-    #[instrument(parent = &self.span, skip(self), fields(direction = %self.direction))]
-    fn drop(&mut self) {
-        if !self.ended {
-            _ = self.reporter.send_event(Event::BodyEnd {
-                direction: self.direction,
-                seen: self.seen,
-                total_bytes: self.total_bytes,
-            });
-        }
-    }
-}
-
-pub enum BodyEvent {
-    Data,
-    Trailers(HeaderMap),
-    Error(String),
-    EOF,
-}
-
-#[derive(Debug)]
-pub struct BufferedBodyTracker {
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    span: tracing::Span,
-    seen: bool,
-    ended: bool,
-    total_bytes: usize,
-    data: Bytes,
-    flush_sleep: Sleep,
-}
-
-pub struct BufferedDataCollector {
-    sender: mpsc::Sender<BodyEvent>,
-    permit: Option<mpsc::OwnedPermit<BodyEvent>>,
-    body_buffer: Arc<Mutex<Vec<u8>>>,
-}
-
-pub struct BufferedDataReporter {
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    seen: bool,
-    ended: bool,
-    total_bytes: usize,
-    receiver: mpsc::Receiver<BodyEvent>,
-    body_buffer: Arc<Mutex<Vec<u8>>>,
-}
-
-const BODY_FLUSH_INTERVAL: Duration = Duration::from_millis(100);
-
-impl BufferedDataReporter {
-    async fn run(&mut self) -> Result<()> {
-        let flush_sleep = tokio::time::sleep(Duration::ZERO);
-        tokio::pin!(flush_sleep);
-
-        loop {
-            tokio::select! {
-                event = self.receiver.recv() => {
-                    match event {
-                        Some(BodyEvent::Data) => {
-                            self.seen = true;
-                            if flush_sleep.is_elapsed() {
-                                flush_sleep.as_mut().reset(Instant::now() + BODY_FLUSH_INTERVAL);
-                            }
-
-                        },
-                        Some(BodyEvent::Trailers(trailers)) => {
-                            self.reporter.send_event(Event::Trailers {
-                                direction: self.direction,
-                                entries: flatten_headers(&trailers),
-                            })?;
-                        },
-                        Some(BodyEvent::Error(error)) => {
-                            self.reporter.send_event(Event::Error {
-                                message: format!("body error ({}): {}", self.direction, error),
-                            })?;
-                        },
-                        Some(BodyEvent::EOF) => {
-                            self.reporter.send_event(Event::BodyEnd {
-                                direction: self.direction,
-                                seen: self.seen,
-                                total_bytes: self.total_bytes,
-                            })?;
-                            self.ended = true;
-                        }
-                        None => {
-                            todo!("channel closed")
-                        }
-                    }
-                },
-                () = &mut flush_sleep => {
-                    self.flush_data()?;
-                }
+    pub async fn process(
+        &mut self,
+        incoming_request: Request<body::Internal>,
+    ) -> Result<ProxyResponse> {
+        let upstream_request = match self.build_upstream_request(incoming_request).await {
+            Ok(request) => request,
+            Err(err) => {
+                return service::internal_error_response(
+                    err.wrap_err("failed to build upstream request"),
+                );
             }
+        };
+
+        let sent_at = Utc::now();
+
+        // send the request to the upstream server
+        let upstream_response = match self.service.client.request(upstream_request).await {
+            Ok(response) => body::map_response_body(response, body::wrapped),
+            Err(upstream_err) => return service::client_error_response(&upstream_err),
+        };
+        let elapsed = Utc::now() - sent_at;
+
+        // handle the response
+        match self.process_response(upstream_response, elapsed).await {
+            Ok(response) => Ok(response),
+            Err(err) => service::internal_error_response(
+                err.wrap_err("failed to build downstream response"),
+            ),
         }
     }
 
-    fn flush_data(&mut self) -> Result<()> {
-        let to_send: Vec<u8>;
-        {
-            let mut buffer = self.body_buffer.lock().unwrap();
-            to_send = mem::take(buffer.as_mut());
-            self.total_bytes += to_send.len();
+    async fn build_upstream_request(
+        &mut self,
+        incoming_request: Request<body::Internal>,
+    ) -> Result<Request<body::upstream::RequestBody>> {
+        let (incoming_request, orig_req_parts) = clone_request_parts(incoming_request);
+
+        // transform the request for upstream
+        let proxy_request = self.transform_request_parts(incoming_request)?;
+        // set up for reporting, if needed
+        if self.should_report {
+            let reporter = self.service.reporter_service.make_reporter(self.meta);
+            self.track_request(reporter, proxy_request, orig_req_parts)
+                .await
+        } else {
+            Ok(body::map_request_body(proxy_request, body::wrapped))
         }
-        self.reporter.send_event(Event::BodyData {
-            direction: self.direction,
-            bytes: to_send.len(),
-            payload: to_send.into(),
-        })?;
-        Ok(())
+    }
+
+    fn transform_request_parts(
+        &self,
+        request: Request<body::Internal>,
+    ) -> Result<Request<body::Internal>> {
+        let req_uri = request.uri();
+
+        let target_uri = self.service.map_uri(req_uri)?;
+        let req_headers =
+            headers::request_headers(self.service.target.as_str(), &request, &self.conn)?;
+        let (req_parts, req_body) = request.into_parts();
+
+        let mut target_req_builder = Request::builder()
+            .method(&req_parts.method)
+            .uri(target_uri.clone());
+        *target_req_builder
+            .headers_mut()
+            .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
+        Ok(target_req_builder.body(req_body)?)
+    }
+
+    async fn track_request(
+        &mut self,
+        reporter: Box<dyn EventReporter>,
+        request: Request<body::Internal>,
+        orig_parts: http::request::Parts,
+    ) -> Result<Request<body::upstream::RequestBody>> {
+        let (parts, orig_body) = request.into_parts();
+        let (found_body_data, prefetched) = body::collect_ready_data(orig_body).await?;
+
+        let event = Event::from_request(orig_parts, found_body_data);
+        reporter.send_event(event)?;
+
+        let upstream_body = self
+            .tracked_body(prefetched, reporter, body::Direction::Request)
+            .await?;
+
+        Ok(Request::from_parts(parts, upstream_body))
+    }
+
+    /// Process the response, transforming headers, reporting if appropriate,
+    /// and handling the body.
+    async fn process_response(
+        &mut self,
+        response: Response<body::Internal>,
+        elapsed: TimeDelta,
+    ) -> Result<ProxyResponse> {
+        // report if appropriate
+        if self.should_report {
+            let (response, orig_parts) = clone_response_parts(response);
+
+            let response = Self::transform_response_parts(response)?;
+            let reporter = self.service.reporter_service.make_reporter(self.meta);
+            Ok(self
+                .track_response(reporter, response, orig_parts, elapsed)
+                .await?)
+        } else {
+            Ok(body::map_response_body(
+                Self::transform_response_parts(response)?,
+                body::wrapped,
+            ))
+        }
+    }
+
+    fn transform_response_parts(
+        response: Response<body::Internal>,
+    ) -> Result<Response<body::Internal>> {
+        // generate appropriate headers for our response
+        let new_headers = headers::response_headers(&response)?;
+
+        let (mut parts, body) = response.into_parts();
+
+        // set the headers
+        parts.headers = new_headers;
+
+        Ok(Response::from_parts(parts, body))
+    }
+
+    async fn track_response(
+        &mut self,
+        reporter: Box<dyn EventReporter>,
+        response: Response<body::Internal>,
+        orig_parts: http::response::Parts,
+        elapsed: TimeDelta,
+    ) -> Result<Response<body::Internal>> {
+        let (parts, orig_body) = response.into_parts();
+        let (found_body_data, prefetched) = body::collect_ready_data(orig_body).await?;
+        debug!("track_response found: {:?}", found_body_data);
+
+        let event = Event::from_response(orig_parts, found_body_data, elapsed);
+        reporter.send_event(event)?;
+
+        let downstream_body = self
+            .tracked_body(prefetched, reporter, body::Direction::Response)
+            .await?;
+
+        Ok(Response::from_parts(parts, downstream_body))
+    }
+
+    async fn tracked_body(
+        &mut self,
+        prefetched: body::PrefetchedParts<body::Internal>,
+        reporter: Box<dyn EventReporter>,
+        direction: body::Direction,
+    ) -> Result<body::Internal> {
+        let read_bytes: usize = prefetched.data_bytes();
+
+        prefetched.assemble(|rest| {
+            let (collector, mut data_reporter) =
+                reporting::create_buffered(reporter, direction, read_bytes);
+            spawn_instrumented_on(
+                &mut self.tasks,
+                &format!("track {} ({})", direction, self.conn.client),
+                async move { data_reporter.run().await },
+            )?;
+            Ok(body::BodyStreamWrapper::new(
+                direction,
+                rest,
+                Box::new(collector),
+            ))
+        })
     }
 }
 
-impl BufferedDataCollector {
-    fn send(&mut self, event: BodyEvent) -> Result<()> {
-        if !self.is_ready()? {
-            return Err(eyre!("must not send if not ready"));
-        }
-
-        self.permit.take().unwrap().send(event);
-        Ok(())
-    }
-
-    fn try_get_permit(&mut self) -> Result<bool> {
-        if self.permit.is_some() {
-            return Ok(true);
-        }
-        match self.sender.clone().try_reserve_owned() {
-            Ok(permit) => {
-                self.permit = Some(permit);
-                Ok(true)
-            }
-            Err(mpsc::error::TrySendError::Full(_)) => Ok(false),
-            Err(e) => Err(e.into()),
-        }
-    }
+fn clone_request_parts<B>(request: http::Request<B>) -> (http::Request<B>, http::request::Parts) {
+    let (parts, body) = request.into_parts();
+    let cloned = parts.clone();
+    (Request::from_parts(parts, body), cloned)
 }
 
-impl BodyReporter for BufferedDataCollector {
-    fn is_ready(&mut self) -> Result<bool> {
-        self.try_get_permit()
-    }
-
-    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
-        {
-            let mut buffer = self.body_buffer.lock().unwrap();
-            buffer.extend_from_slice(bytes);
-        }
-        self.send(BodyEvent::Data)
-    }
-
-    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
-        self.send(BodyEvent::Trailers(trailers.clone()))
-    }
-
-    fn saw_error(&mut self, err: String) -> Result<()> {
-        self.send(BodyEvent::Error(err))
-    }
-
-    fn saw_eof(&mut self) -> Result<()> {
-        self.send(BodyEvent::EOF)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TrackedBodyData {
-    pub data: Vec<u8>,
-    pub error: Option<String>,
-    pub trailers: HeaderMap,
-    pub saw_body: bool,
-    pub saw_eof: bool,
-}
-
-impl TrackedBodyData {
-    pub fn new() -> Self {
-        Self {
-            data: Vec::new(),
-            error: None,
-            trailers: HeaderMap::new(),
-            saw_body: false,
-            saw_eof: false,
-        }
-    }
-}
-
-impl Default for TrackedBodyData {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-fn serialize_id<S: Serializer>(id: &Id, s: S) -> StdResult<S::Ok, S::Error> {
-    s.serialize_u64(id.get())
+fn clone_response_parts<B>(
+    response: http::Response<B>,
+) -> (http::Response<B>, http::response::Parts) {
+    let (parts, body) = response.into_parts();
+    let cloned = parts.clone();
+    (Response::from_parts(parts, body), cloned)
 }
