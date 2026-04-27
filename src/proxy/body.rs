@@ -22,7 +22,7 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::proxy::errors::BodyError;
 
-#[derive(Copy, Clone, Display, Debug, Serialize)]
+#[derive(Copy, Clone, Display, PartialEq, Debug, Serialize)]
 pub enum Direction {
     Request,
     Response,
@@ -93,7 +93,7 @@ pub trait BodyReporter: Send + Sync {
     fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()>;
     fn saw_error(&mut self, err: String) -> Result<()>;
     fn saw_eof(&mut self) -> Result<()>;
-    fn is_ready(&mut self) -> Result<bool> {
+    fn check_ready(&mut self) -> Result<bool> {
         Ok(true)
     }
 }
@@ -137,7 +137,7 @@ where
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.reporter.is_ready() {
+        match this.reporter.check_ready() {
             Ok(true) => {}
             Ok(false) => return Poll::Pending,
             Err(e) => return Poll::Ready(Some(Err(e.into()))),
@@ -391,7 +391,7 @@ mod tests {
             let mut reporter = Box::new(MockBodyReporter::new());
             let mut seq = Sequence::new();
             reporter
-                .expect_is_ready()
+                .expect_check_ready()
                 .returning(|| Ok(true))
                 .times(1)
                 .in_sequence(&mut seq);
@@ -402,7 +402,7 @@ mod tests {
                 .times(1)
                 .in_sequence(&mut seq);
             reporter
-                .expect_is_ready()
+                .expect_check_ready()
                 .returning(|| Ok(true))
                 .times(1)
                 .in_sequence(&mut seq);

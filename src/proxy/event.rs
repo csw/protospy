@@ -17,7 +17,7 @@ pub struct EventMessage {
 
 type Headers = Vec<Header>;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Event {
     Request {
@@ -59,7 +59,7 @@ pub enum Event {
     },
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug)]
 pub struct Header {
     #[serde(serialize_with = "serialize_as_str")]
     name: http::HeaderName,
@@ -67,7 +67,7 @@ pub struct Header {
     value: http::HeaderValue,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug)]
 pub enum InitialBody {
     NoBody,
     NotRead,
@@ -75,7 +75,7 @@ pub enum InitialBody {
     Complete(BodyData),
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum BodyData {
     Text(String),
@@ -130,18 +130,24 @@ impl InitialBody {
     }
 }
 
-impl From<&Bytes> for BodyData {
-    fn from(value: &Bytes) -> Self {
-        BodyData::Binary(value.clone())
-    }
-}
-
 impl From<Vec<u8>> for BodyData {
     fn from(value: Vec<u8>) -> Self {
         match String::from_utf8(value) {
             Ok(str) => BodyData::Text(str),
             Err(err) => BodyData::Binary(err.into_bytes().into()),
         }
+    }
+}
+
+impl From<&'static [u8]> for BodyData {
+    fn from(value: &'static [u8]) -> Self {
+        Vec::<u8>::from(value).into()
+    }
+}
+
+impl<const N: usize> From<&'static [u8; N]> for BodyData {
+    fn from(value: &'static [u8; N]) -> Self {
+        Vec::<u8>::from(value).into()
     }
 }
 

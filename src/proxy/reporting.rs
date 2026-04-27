@@ -8,10 +8,10 @@ use color_eyre::Result;
 use eyre::eyre;
 use http::HeaderMap;
 use hyper::body::Bytes;
+use mockall::*;
 use serde::{Serialize, Serializer};
 use tokio::time::Instant;
 use tokio::{sync::mpsc, time::Duration};
-use tracing::instrument;
 use uid::IdU64 as IdT;
 
 use crate::proxy::{
@@ -40,6 +40,7 @@ pub trait EventReporterService: Send + Sync + Debug {
     fn make_reporter(&self, exchange: ExchangeMeta) -> Box<dyn EventReporter>;
 }
 
+#[automock]
 pub trait EventReporter: Send + Sync + Debug {
     fn send_event(&self, event: Event) -> Result<()>;
 }
@@ -112,81 +113,6 @@ impl EventReporter for PublisherEventReporter {
     }
 }
 
-#[derive(Debug)]
-pub struct BodyTracker {
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    span: tracing::Span,
-    seen: bool,
-    ended: bool,
-    total_bytes: usize,
-}
-
-impl BodyTracker {
-    pub fn new(reporter: Box<dyn EventReporter>, direction: Direction, prev_bytes: usize) -> Self {
-        Self {
-            reporter,
-            direction,
-            span: tracing::Span::current(),
-            seen: prev_bytes > 0,
-            ended: false,
-            total_bytes: prev_bytes,
-        }
-    }
-}
-
-impl BodyReporter for BodyTracker {
-    #[instrument(parent = &self.span)]
-    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
-        self.seen = true;
-        self.total_bytes += bytes.len();
-        self.reporter.send_event(Event::BodyData {
-            direction: self.direction,
-            bytes: bytes.len(),
-            payload: bytes.into(),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
-        self.reporter.send_event(Event::Trailers {
-            direction: self.direction,
-            entries: flatten_headers(trailers),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_error(&mut self, err: String) -> Result<()> {
-        self.reporter.send_event(Event::Error {
-            message: format!("body error ({}): {}", self.direction, err),
-        })
-    }
-
-    #[instrument(parent = &self.span)]
-    fn saw_eof(&mut self) -> Result<()> {
-        self.reporter.send_event(Event::BodyEnd {
-            direction: self.direction,
-            seen: self.seen,
-            total_bytes: self.total_bytes,
-        })?;
-        self.ended = true;
-        Ok(())
-    }
-}
-
-impl Drop for BodyTracker {
-    #[instrument(parent = &self.span, skip(self), fields(direction = %self.direction))]
-    fn drop(&mut self) {
-        if !self.ended {
-            _ = self.reporter.send_event(Event::BodyEnd {
-                direction: self.direction,
-                seen: self.seen,
-                total_bytes: self.total_bytes,
-            });
-        }
-    }
-}
-
 pub enum BodyEvent {
     Data,
     Trailers(HeaderMap),
@@ -206,7 +132,6 @@ pub struct BufferedDataReporter {
     receiver: mpsc::Receiver<BodyEvent>,
     body_buffer: Arc<Mutex<Vec<u8>>>,
     seen: bool,
-    ended: bool,
     total_bytes: usize,
 }
 
@@ -216,11 +141,77 @@ pub fn create_buffered(
     prev_bytes: usize,
 ) -> (BufferedDataCollector, BufferedDataReporter) {
     let buffer = Arc::new(Default::default());
-    let (sender, receiver) = mpsc::channel(1);
+    // TODO: figure out why it can't get a permit if this isn't at least 3
+    let (sender, receiver) = mpsc::channel(3);
     let collector = BufferedDataCollector::new(sender, Arc::clone(&buffer));
     let data_reporter =
         BufferedDataReporter::new(event_reporter, direction, receiver, buffer, prev_bytes);
     (collector, data_reporter)
+}
+
+impl BufferedDataCollector {
+    fn new(sender: mpsc::Sender<BodyEvent>, body_buffer: Arc<Mutex<Vec<u8>>>) -> Self {
+        Self {
+            sender,
+            permit: None,
+            body_buffer,
+        }
+    }
+
+    fn send(&mut self, event: BodyEvent) -> Result<()> {
+        self.ensure_ready()?;
+
+        self.permit.take().unwrap().send(event);
+        Ok(())
+    }
+
+    fn try_get_permit(&mut self) -> Result<bool> {
+        if self.permit.is_some() {
+            return Ok(true);
+        }
+        match self.sender.clone().try_reserve_owned() {
+            Ok(permit) => {
+                self.permit = Some(permit);
+                Ok(true)
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn ensure_ready(&mut self) -> Result<()> {
+        if !self.try_get_permit()? {
+            return Err(eyre!("BufferedDataCollector not ready"));
+        }
+        Ok(())
+    }
+}
+
+impl BodyReporter for BufferedDataCollector {
+    fn check_ready(&mut self) -> Result<bool> {
+        self.try_get_permit()
+    }
+
+    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
+        self.ensure_ready()?;
+        {
+            let mut buffer = self.body_buffer.lock().unwrap();
+            buffer.extend_from_slice(bytes);
+        }
+        self.send(BodyEvent::Data)
+    }
+
+    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
+        self.send(BodyEvent::Trailers(trailers.clone()))
+    }
+
+    fn saw_error(&mut self, err: String) -> Result<()> {
+        self.send(BodyEvent::Error(err))
+    }
+
+    fn saw_eof(&mut self) -> Result<()> {
+        self.send(BodyEvent::EOF)
+    }
 }
 
 const BODY_FLUSH_INTERVAL: Duration = Duration::from_millis(100);
@@ -239,7 +230,6 @@ impl BufferedDataReporter {
             receiver,
             body_buffer,
             seen: prev_bytes > 0,
-            ended: false,
             total_bytes: prev_bytes,
         }
     }
@@ -271,15 +261,12 @@ impl BufferedDataReporter {
                             })?;
                         },
                         Some(BodyEvent::EOF) => {
-                            self.event_reporter.send_event(Event::BodyEnd {
-                                direction: self.direction,
-                                seen: self.seen,
-                                total_bytes: self.total_bytes,
-                            })?;
-                            self.ended = true;
+                            self.report_eof()?;
+                            return Ok(());
                         }
                         None => {
-                            todo!("channel closed")
+                            self.report_eof()?;
+                            return Ok(());
                         }
                     }
                 },
@@ -288,6 +275,16 @@ impl BufferedDataReporter {
                 }
             }
         }
+    }
+
+    fn report_eof(&mut self) -> Result<()> {
+        self.flush_data()?;
+        self.event_reporter.send_event(Event::BodyEnd {
+            direction: self.direction,
+            seen: self.seen,
+            total_bytes: self.total_bytes,
+        })?;
+        Ok(())
     }
 
     fn flush_data(&mut self) -> Result<()> {
@@ -303,65 +300,6 @@ impl BufferedDataReporter {
             payload: to_send.into(),
         })?;
         Ok(())
-    }
-}
-
-impl BufferedDataCollector {
-    fn new(sender: mpsc::Sender<BodyEvent>, body_buffer: Arc<Mutex<Vec<u8>>>) -> Self {
-        Self {
-            sender,
-            permit: None,
-            body_buffer,
-        }
-    }
-
-    fn send(&mut self, event: BodyEvent) -> Result<()> {
-        if !self.is_ready()? {
-            return Err(eyre!("must not send if not ready"));
-        }
-
-        self.permit.take().unwrap().send(event);
-        Ok(())
-    }
-
-    fn try_get_permit(&mut self) -> Result<bool> {
-        if self.permit.is_some() {
-            return Ok(true);
-        }
-        match self.sender.clone().try_reserve_owned() {
-            Ok(permit) => {
-                self.permit = Some(permit);
-                Ok(true)
-            }
-            Err(mpsc::error::TrySendError::Full(_)) => Ok(false),
-            Err(e) => Err(e.into()),
-        }
-    }
-}
-
-impl BodyReporter for BufferedDataCollector {
-    fn is_ready(&mut self) -> Result<bool> {
-        self.try_get_permit()
-    }
-
-    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
-        {
-            let mut buffer = self.body_buffer.lock().unwrap();
-            buffer.extend_from_slice(bytes);
-        }
-        self.send(BodyEvent::Data)
-    }
-
-    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
-        self.send(BodyEvent::Trailers(trailers.clone()))
-    }
-
-    fn saw_error(&mut self, err: String) -> Result<()> {
-        self.send(BodyEvent::Error(err))
-    }
-
-    fn saw_eof(&mut self) -> Result<()> {
-        self.send(BodyEvent::EOF)
     }
 }
 
@@ -394,4 +332,48 @@ impl Default for TrackedBodyData {
 
 fn serialize_id<S: Serializer>(id: &Id, s: S) -> StdResult<S::Ok, S::Error> {
     s.serialize_u64(id.get())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::*;
+
+    #[tokio::test]
+    async fn test_buffered_basic() {
+        use crate::proxy::event::Event;
+
+        let mut event_reporter = Box::new(MockEventReporter::new());
+        let mut seq = Sequence::new();
+        event_reporter
+            .expect_send_event()
+            .with(eq(Event::BodyData {
+                direction: Direction::Request,
+                bytes: 4,
+                payload: b"abcd".into(),
+            }))
+            .returning(|_| Ok(()))
+            .times(1)
+            .in_sequence(&mut seq);
+        event_reporter
+            .expect_send_event()
+            .with(eq(Event::BodyEnd {
+                direction: Direction::Request,
+                seen: true,
+                total_bytes: 4,
+            }))
+            .returning(|_| Ok(()))
+            .times(1)
+            .in_sequence(&mut seq);
+        let (collector, mut reporter) = create_buffered(event_reporter, Direction::Request, 0);
+        // TODO: time stuff
+        let reporter_task = tokio::task::spawn(async move { reporter.run().await });
+        {
+            let mut collector = collector;
+            collector.saw_data(&"ab".into()).unwrap();
+            collector.saw_data(&"cd".into()).unwrap();
+            collector.saw_eof().unwrap();
+        }
+        reporter_task.await.unwrap().unwrap();
+    }
 }
