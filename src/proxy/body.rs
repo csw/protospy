@@ -178,85 +178,6 @@ where
     }
 }
 
-// pin_project! {
-//     pub struct BufferedBodyStreamWrapper<S>
-//     where S: Stream<Item = BodyStreamItem>
-//      {
-//         pub direction: Direction,
-//         #[pin]
-//         pub base: S,
-//         reporter: Box<dyn BodyReporter>,
-//         span: tracing::Span,
-//         collector: tokio::task::JoinHandle<()>,
-//         sender: mpsc::Sender<BodyEvent>,
-//     }
-// }
-
-// const BUFFERED_CHANNEL_SIZE: usize = 8;
-
-// impl<S> BufferedBodyStreamWrapper<S>
-// where
-//     S: Stream<Item = BodyStreamItem>,
-// {
-//     pub fn new(direction: Direction, base: S, reporter: Box<dyn BodyReporter>) -> Self {
-//         let (sender, receiver) = mpsc::channel(BUFFERED_CHANNEL_SIZE);
-
-//         Self {
-//             direction,
-//             base,
-//             reporter,
-//             span: tracing::Span::current(),
-//         }
-//     }
-// }
-
-// impl<S> Stream for BufferedBodyStreamWrapper<S>
-// where
-//     S: Stream<Item = BodyStreamItem>,
-// {
-//     type Item = S::Item;
-
-//     #[instrument(parent = &self.span, skip(self, cx), fields(direction = %self.direction))]
-//     fn poll_next(
-//         self: Pin<&mut Self>,
-//         cx: &mut std::task::Context<'_>,
-//     ) -> Poll<Option<Self::Item>> {
-//         let mut this = self.project();
-//         let res = this.base.as_mut().poll_next(cx);
-//         match res {
-//             Poll::Ready(Some(Ok(ref frame))) => {
-//                 if let Some(bytes) = frame.data_ref() {
-//                     trace!(event = "read_frame", len = bytes.len());
-//                     this.reporter.saw_data(bytes).expect("reported OK");
-//                 } else if let Some(trailers) = frame.trailers_ref() {
-//                     trace!(event = "read_trailers", count = trailers.len());
-//                     this.reporter.saw_trailers(trailers).expect("reported OK");
-//                 } else {
-//                     panic!("unhandled frame type: {frame:?}")
-//                 };
-//             }
-//             Poll::Ready(Some(Err(ref err))) => {
-//                 error!(
-//                     event = "read_error",
-//                     error = ?err,
-//                 );
-//                 this.reporter
-//                     .saw_error(err.to_string())
-//                     .expect("reported OK");
-//             }
-//             // EOF
-//             Poll::Ready(None) => {
-//                 trace!(event = "body_eof",);
-
-//                 this.reporter.saw_eof().expect("reported OK");
-//             }
-//             Poll::Pending => (),
-//         }
-
-//         res
-//     }
-// }
-
 #[derive(Debug, PartialEq)]
 pub enum FoundBodyData {
     NoBody,
@@ -318,21 +239,15 @@ impl BodyContent {
 
 pub type RestStream = Pin<Box<Peekable<BodyStream<Internal>>>>;
 
-pub struct PrefetchedParts<B>
-where
-    B: Body + Unpin,
-{
+pub struct PrefetchedParts {
     pub frames: Option<Vec<Frame<Data>>>,
-    pub rest: Option<Pin<Box<Peekable<BodyStream<B>>>>>,
+    pub rest: Option<Pin<Box<Peekable<BodyStream<Internal>>>>>,
 }
 
-impl<B> PrefetchedParts<B>
-where
-    B: Body + Unpin,
-{
+impl PrefetchedParts {
     pub fn assemble<F, S>(self, wrap_body: F) -> Result<Internal>
     where
-        F: FnOnce(Pin<Box<Peekable<BodyStream<B>>>>) -> Result<S>,
+        F: FnOnce(Pin<Box<Peekable<BodyStream<Internal>>>>) -> Result<S>,
         S: Stream<Item = BodyStreamItem> + Send + Sync + 'static,
     {
         Ok(match self {
@@ -372,10 +287,7 @@ const PEEK_DURATION: Duration = Duration::from_micros(100);
 
 // Read any immediately-available data from an HTTP body, and return it in a
 // structured form together with a Body which reproduces the original.
-pub async fn collect_ready_data<B>(body: B) -> Result<(FoundBodyData, PrefetchedParts<B>)>
-where
-    B: Body<Data = Data, Error = Error> + Unpin,
-{
+pub async fn collect_ready_data(body: Internal) -> Result<(FoundBodyData, PrefetchedParts)> {
     debug!(
         "collect_ready_data: initial end_stream: {}",
         body.is_end_stream()
@@ -397,7 +309,7 @@ where
 
     let mut ready = body_stream_p.peekable().ready_chunks(32);
     let found = timeout(PEEK_DURATION, ready.next()).await;
-    debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
+    // debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
     let mut rest = Box::pin(ready.into_inner());
     // Peek, because is_terminated() won't be true until we await again. This
     // isn't deterministic, even with a request coming in as a single packet,
@@ -479,9 +391,19 @@ mod tests {
             let mut reporter = Box::new(MockBodyReporter::new());
             let mut seq = Sequence::new();
             reporter
+                .expect_is_ready()
+                .returning(|| Ok(true))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
                 .expect_saw_data()
                 .with(eq(Bytes::from_static(b"ab")))
                 .returning(|_| Ok(()))
+                .times(1)
+                .in_sequence(&mut seq);
+            reporter
+                .expect_is_ready()
+                .returning(|| Ok(true))
                 .times(1)
                 .in_sequence(&mut seq);
             reporter
@@ -502,7 +424,7 @@ mod tests {
         #[tokio::test]
         async fn test_basic() {
             let frames = vec![df(b"ab"), df(b"cd")];
-            let body = frame_body(&frames);
+            let body = frame_body(&frames).boxed();
             let (found, prefetched) = collect_ready_data(body).await.unwrap();
             assert_eq!(
                 found,

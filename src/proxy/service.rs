@@ -2,31 +2,24 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use chrono::{TimeDelta, prelude::*};
-use color_eyre::{
-    Result,
-    eyre::{WrapErr, eyre},
-};
-use futures::StreamExt;
+use color_eyre::{Result, eyre::WrapErr};
 use http::{StatusCode, Uri, uri};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
-use tracing::{Instrument, debug, error, info, instrument};
+use tracing::{Instrument, error, info, instrument};
 
-use crate::proxy::conn::ConnInfo;
 use crate::proxy::{
-    body::{self, PrefetchedParts, ProxyResponse},
-    event::Event,
+    body::{self, ProxyResponse},
     hyper_errors,
-    reporting::{self, EventReporter, EventReporterService, ExchangeMeta},
+    reporting::EventReporterService,
 };
+use crate::proxy::{conn::ConnInfo, exchange::Exchange};
 
 use super::client::Client;
 use super::errors;
-use super::headers;
 
 pub const SERVER_NAME: &str = "protospy";
 
@@ -115,179 +108,10 @@ impl Service {
         client_request: Request<hyper::body::Incoming>,
         conn: ConnInfo,
     ) -> Result<ProxyResponse> {
-        let exchange = self.should_report().then(ExchangeMeta::default);
-
         let client_request = body::map_request_body(client_request, body::wrapped);
 
-        let upstream_request = match self.process_request(&exchange, client_request, conn).await {
-            Ok(request) => request,
-            Err(err) => {
-                return internal_error_response(err.wrap_err("failed to build upstream request"));
-            }
-        };
-
-        let sent_at = Utc::now();
-
-        // send the request to the upstream server
-        let upstream_response = match self.client.request(upstream_request).await {
-            Ok(response) => body::map_response_body(response, body::wrapped),
-            Err(upstream_err) => return client_error_response(&upstream_err),
-        };
-        let elapsed = Utc::now() - sent_at;
-
-        // handle the response
-        match self
-            .process_response(&exchange, upstream_response, elapsed)
-            .await
-        {
-            Ok(response) => Ok(response),
-            Err(err) => {
-                internal_error_response(err.wrap_err("failed to build downstream response"))
-            }
-        }
-    }
-
-    async fn process_request(
-        &self,
-        exchange: &Option<ExchangeMeta>,
-        client_request: Request<body::Internal>,
-        conn: ConnInfo,
-    ) -> Result<Request<body::upstream::RequestBody>> {
-        let (client_request, orig_req_parts) = clone_request_parts(client_request);
-
-        // transform the request for upstream
-        let proxy_request = self.proxy_request(client_request, conn)?;
-        // set up for reporting, if needed
-        if let Some(exchange) = exchange {
-            let reporter = self.reporter_service.make_reporter(*exchange);
-            Self::track_request(reporter, proxy_request, orig_req_parts).await
-        } else {
-            Ok(body::map_request_body(proxy_request, body::wrapped))
-        }
-    }
-
-    /// Transform an incoming client request into the appropriate upstream request.
-    fn proxy_request(
-        &self,
-        request: Request<body::Internal>,
-        conn: ConnInfo,
-    ) -> Result<Request<body::Internal>> {
-        let req_uri = request.uri();
-
-        let target_uri = self.map_uri(req_uri)?;
-        let req_headers = headers::request_headers(self.target.as_str(), &request, &conn)?;
-        let (req_parts, req_body) = request.into_parts();
-
-        let mut target_req_builder = Request::builder()
-            .method(&req_parts.method)
-            .uri(target_uri.clone());
-        *target_req_builder
-            .headers_mut()
-            .ok_or_else(|| eyre!("invalid request builder state for headers"))? = req_headers;
-        Ok(target_req_builder.body(req_body)?)
-    }
-
-    async fn track_request(
-        reporter: Box<dyn EventReporter>,
-        request: Request<body::Internal>,
-        orig_parts: http::request::Parts,
-    ) -> Result<Request<body::upstream::RequestBody>> {
-        let (parts, orig_body) = request.into_parts();
-        let (found_body_data, prefetched) = body::collect_ready_data(orig_body).await?;
-
-        let event = Event::from_request(orig_parts, found_body_data);
-        reporter.send_event(event)?;
-
-        let upstream_body =
-            Self::assemble_tracked_body(prefetched, reporter, body::Direction::Request).await;
-
-        Ok(Request::from_parts(parts, upstream_body))
-    }
-
-    /// Process the response, transforming headers, reporting if appropriate,
-    /// and handling the body.
-    async fn process_response(
-        &self,
-        exchange: &Option<ExchangeMeta>,
-        response: Response<body::Internal>,
-        elapsed: TimeDelta,
-    ) -> Result<ProxyResponse> {
-        // report if appropriate
-        if let Some(exchange) = exchange {
-            let (response, orig_parts) = clone_response_parts(response);
-
-            let response = self.proxy_response(response)?;
-            let reporter = self.reporter_service.make_reporter(*exchange);
-            Ok(Self::track_response(reporter, response, orig_parts, elapsed).await?)
-        } else {
-            Ok(body::map_response_body(
-                self.proxy_response(response)?,
-                body::wrapped,
-            ))
-        }
-    }
-
-    fn proxy_response(
-        &self,
-        response: Response<body::Internal>,
-    ) -> Result<Response<body::Internal>> {
-        // generate appropriate headers for our response
-        let new_headers = headers::response_headers(&response)?;
-
-        let (mut parts, body) = response.into_parts();
-
-        // set the headers
-        parts.headers = new_headers;
-
-        Ok(Response::from_parts(parts, body))
-    }
-
-    async fn track_response(
-        reporter: Box<dyn EventReporter>,
-        response: Response<body::Internal>,
-        orig_parts: http::response::Parts,
-        elapsed: TimeDelta,
-    ) -> Result<Response<body::Internal>> {
-        let (parts, orig_body) = response.into_parts();
-        let (found_body_data, prefetched) = body::collect_ready_data(orig_body).await?;
-        debug!("track_response found: {:?}", found_body_data);
-
-        let event = Event::from_response(orig_parts, found_body_data, elapsed);
-        reporter.send_event(event)?;
-
-        let downstream_body =
-            Self::assemble_tracked_body(prefetched, reporter, body::Direction::Response).await;
-
-        Ok(Response::from_parts(parts, downstream_body))
-    }
-
-    async fn assemble_tracked_body(
-        prefetched: PrefetchedParts<body::Internal>,
-        reporter: Box<dyn EventReporter>,
-        direction: body::Direction,
-    ) -> body::Internal {
-        let read_bytes: usize = prefetched.data_bytes();
-
-        let tracked = |rest| reporting::tracked_body_stream(reporter, direction, rest, read_bytes);
-
-        match prefetched {
-            PrefetchedParts {
-                frames: Some(frames),
-                rest: Some(rest),
-            } => body::wrapped_stream(body::frame_stream(frames).chain(tracked(rest))),
-            PrefetchedParts {
-                frames: Some(frames),
-                rest: None,
-            } => body::wrapped_stream(body::frame_stream(frames)),
-            PrefetchedParts {
-                frames: None,
-                rest: Some(rest),
-            } => body::wrapped_stream(tracked(rest)),
-            PrefetchedParts {
-                frames: None,
-                rest: None,
-            } => body::wrapped(http_body_util::Empty::new()),
-        }
+        let mut exchange = Exchange::new(Arc::clone(&self), self.should_report(), conn);
+        exchange.process(client_request).await
     }
 
     /// Map the original request URI to the upstream server.
@@ -309,20 +133,6 @@ impl Service {
     fn should_report(&self) -> bool {
         self.reporter_service.should_report()
     }
-}
-
-fn clone_request_parts<B>(request: http::Request<B>) -> (http::Request<B>, http::request::Parts) {
-    let (parts, body) = request.into_parts();
-    let cloned = parts.clone();
-    (Request::from_parts(parts, body), cloned)
-}
-
-fn clone_response_parts<B>(
-    response: http::Response<B>,
-) -> (http::Response<B>, http::response::Parts) {
-    let (parts, body) = response.into_parts();
-    let cloned = parts.clone();
-    (Response::from_parts(parts, body), cloned)
 }
 
 pub fn client_error_response(

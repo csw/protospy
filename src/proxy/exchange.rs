@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::{TimeDelta, prelude::*};
 use color_eyre::{Result, eyre::eyre};
 use http::{Request, Response};
@@ -19,7 +21,7 @@ use crate::{
 pub const SERVER_NAME: &str = "protospy";
 
 pub struct Exchange {
-    service: Service,
+    service: Arc<Service>,
     should_report: bool,
     meta: ExchangeMeta,
     conn: ConnInfo,
@@ -27,7 +29,7 @@ pub struct Exchange {
 }
 
 impl Exchange {
-    pub fn new(service: Service, should_report: bool, conn: ConnInfo) -> Self {
+    pub fn new(service: Arc<Service>, should_report: bool, conn: ConnInfo) -> Self {
         Self {
             service,
             should_report,
@@ -186,7 +188,7 @@ impl Exchange {
 
     async fn tracked_body(
         &mut self,
-        prefetched: body::PrefetchedParts<body::Internal>,
+        prefetched: body::PrefetchedParts,
         reporter: Box<dyn EventReporter>,
         direction: body::Direction,
     ) -> Result<body::Internal> {
