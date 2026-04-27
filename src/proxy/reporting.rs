@@ -6,7 +6,6 @@ use std::{fmt::Debug, sync::Mutex};
 use chrono::prelude::*;
 use color_eyre::Result;
 use eyre::eyre;
-use futures::Stream;
 use http::HeaderMap;
 use hyper::body::Bytes;
 use serde::{Serialize, Serializer};
@@ -16,7 +15,7 @@ use tracing::instrument;
 use uid::IdU64 as IdT;
 
 use crate::proxy::{
-    body::{BodyReporter, BodyStreamItem, BodyStreamWrapper, Direction},
+    body::{BodyReporter, Direction},
     conn::ConnInfo,
     event::{Event, EventMessage, flatten_headers},
     monitor::{self},
@@ -123,32 +122,6 @@ pub struct BodyTracker {
     total_bytes: usize,
 }
 
-pub fn tracked_body_stream<S>(
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    stream: S,
-    prev_bytes: usize,
-) -> BodyStreamWrapper<S>
-where
-    S: Stream<Item = BodyStreamItem>,
-{
-    let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
-    BodyStreamWrapper::new(direction, stream, tracker)
-}
-
-pub fn buffered_tracked_body_stream<S>(
-    reporter: Box<dyn EventReporter>,
-    direction: Direction,
-    stream: S,
-    prev_bytes: usize,
-) -> BodyStreamWrapper<S>
-where
-    S: Stream<Item = BodyStreamItem>,
-{
-    let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
-    BodyStreamWrapper::new(direction, stream, tracker)
-}
-
 impl BodyTracker {
     pub fn new(reporter: Box<dyn EventReporter>, direction: Direction, prev_bytes: usize) -> Self {
         Self {
@@ -228,7 +201,7 @@ pub struct BufferedDataCollector {
 }
 
 pub struct BufferedDataReporter {
-    reporter: Box<dyn EventReporter>,
+    event_reporter: Box<dyn EventReporter>,
     direction: Direction,
     receiver: mpsc::Receiver<BodyEvent>,
     body_buffer: Arc<Mutex<Vec<u8>>>,
@@ -238,7 +211,7 @@ pub struct BufferedDataReporter {
 }
 
 pub fn create_buffered(
-    reporter: Box<dyn EventReporter>,
+    event_reporter: Box<dyn EventReporter>,
     direction: Direction,
     prev_bytes: usize,
 ) -> (BufferedDataCollector, BufferedDataReporter) {
@@ -246,7 +219,7 @@ pub fn create_buffered(
     let (sender, receiver) = mpsc::channel(1);
     let collector = BufferedDataCollector::new(sender, Arc::clone(&buffer));
     let data_reporter =
-        BufferedDataReporter::new(reporter, direction, receiver, buffer, prev_bytes);
+        BufferedDataReporter::new(event_reporter, direction, receiver, buffer, prev_bytes);
     (collector, data_reporter)
 }
 
@@ -254,14 +227,14 @@ const BODY_FLUSH_INTERVAL: Duration = Duration::from_millis(100);
 
 impl BufferedDataReporter {
     fn new(
-        reporter: Box<dyn EventReporter>,
+        event_reporter: Box<dyn EventReporter>,
         direction: Direction,
         receiver: mpsc::Receiver<BodyEvent>,
         body_buffer: Arc<Mutex<Vec<u8>>>,
         prev_bytes: usize,
     ) -> Self {
         Self {
-            reporter,
+            event_reporter,
             direction,
             receiver,
             body_buffer,
@@ -287,18 +260,18 @@ impl BufferedDataReporter {
 
                         },
                         Some(BodyEvent::Trailers(trailers)) => {
-                            self.reporter.send_event(Event::Trailers {
+                            self.event_reporter.send_event(Event::Trailers {
                                 direction: self.direction,
                                 entries: flatten_headers(&trailers),
                             })?;
                         },
                         Some(BodyEvent::Error(error)) => {
-                            self.reporter.send_event(Event::Error {
+                            self.event_reporter.send_event(Event::Error {
                                 message: format!("body error ({}): {}", self.direction, error),
                             })?;
                         },
                         Some(BodyEvent::EOF) => {
-                            self.reporter.send_event(Event::BodyEnd {
+                            self.event_reporter.send_event(Event::BodyEnd {
                                 direction: self.direction,
                                 seen: self.seen,
                                 total_bytes: self.total_bytes,
@@ -324,7 +297,7 @@ impl BufferedDataReporter {
             to_send = mem::take(buffer.as_mut());
             self.total_bytes += to_send.len();
         }
-        self.reporter.send_event(Event::BodyData {
+        self.event_reporter.send_event(Event::BodyData {
             direction: self.direction,
             bytes: to_send.len(),
             payload: to_send.into(),
