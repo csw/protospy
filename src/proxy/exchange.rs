@@ -1,13 +1,20 @@
-use std::fmt::Debug;
+use std::mem::{self};
 use std::result::Result as StdResult;
 use std::sync::Arc;
+use std::{fmt::Debug, sync::Mutex};
 
 use chrono::prelude::*;
 use color_eyre::Result;
+use eyre::eyre;
 use futures::Stream;
 use http::HeaderMap;
 use hyper::body::Bytes;
 use serde::{Serialize, Serializer};
+use tokio::time::Instant;
+use tokio::{
+    sync::mpsc,
+    time::{Duration, Sleep},
+};
 use tracing::instrument;
 use uid::IdU64 as IdT;
 
@@ -17,6 +24,7 @@ use crate::proxy::{
     event::{Event, EventMessage, flatten_headers},
     monitor::{self},
 };
+use crate::tokio_util::spawn_instrumented;
 
 #[derive(Copy, Clone, Eq, PartialEq, Serialize)]
 struct IdInner(());
@@ -128,8 +136,9 @@ pub fn tracked_body_stream<S>(
 where
     S: Stream<Item = BodyStreamItem>,
 {
-    let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
-    BodyStreamWrapper::new(direction, stream, tracker)
+    // let tracker = Box::new(BodyTracker::new(reporter, direction, prev_bytes));
+    // BodyStreamWrapper::new(direction, stream, tracker)
+    spawn_instrumented(format!(""), future)
 }
 
 impl BodyTracker {
@@ -194,6 +203,157 @@ impl Drop for BodyTracker {
                 total_bytes: self.total_bytes,
             });
         }
+    }
+}
+
+pub enum BodyEvent {
+    Data,
+    Trailers(HeaderMap),
+    Error(String),
+    EOF,
+}
+
+#[derive(Debug)]
+pub struct BufferedBodyTracker {
+    reporter: Box<dyn EventReporter>,
+    direction: Direction,
+    span: tracing::Span,
+    seen: bool,
+    ended: bool,
+    total_bytes: usize,
+    data: Bytes,
+    flush_sleep: Sleep,
+}
+
+pub struct BufferedDataCollector {
+    sender: mpsc::Sender<BodyEvent>,
+    permit: Option<mpsc::OwnedPermit<BodyEvent>>,
+    body_buffer: Arc<Mutex<Vec<u8>>>,
+}
+
+pub struct BufferedDataReporter {
+    reporter: Box<dyn EventReporter>,
+    direction: Direction,
+    seen: bool,
+    ended: bool,
+    total_bytes: usize,
+    receiver: mpsc::Receiver<BodyEvent>,
+    body_buffer: Arc<Mutex<Vec<u8>>>,
+}
+
+const BODY_FLUSH_INTERVAL: Duration = Duration::from_millis(100);
+
+impl BufferedDataReporter {
+    async fn run(&mut self) -> Result<()> {
+        let flush_sleep = tokio::time::sleep(Duration::ZERO);
+        tokio::pin!(flush_sleep);
+
+        loop {
+            tokio::select! {
+                event = self.receiver.recv() => {
+                    match event {
+                        Some(BodyEvent::Data) => {
+                            self.seen = true;
+                            if flush_sleep.is_elapsed() {
+                                flush_sleep.as_mut().reset(Instant::now() + BODY_FLUSH_INTERVAL);
+                            }
+
+                        },
+                        Some(BodyEvent::Trailers(trailers)) => {
+                            self.reporter.send_event(Event::Trailers {
+                                direction: self.direction,
+                                entries: flatten_headers(&trailers),
+                            })?;
+                        },
+                        Some(BodyEvent::Error(error)) => {
+                            self.reporter.send_event(Event::Error {
+                                message: format!("body error ({}): {}", self.direction, error),
+                            })?;
+                        },
+                        Some(BodyEvent::EOF) => {
+                            self.reporter.send_event(Event::BodyEnd {
+                                direction: self.direction,
+                                seen: self.seen,
+                                total_bytes: self.total_bytes,
+                            })?;
+                            self.ended = true;
+                        }
+                        None => {
+                            todo!("channel closed")
+                        }
+                    }
+                },
+                () = &mut flush_sleep => {
+                    self.flush_data()?;
+                }
+            }
+        }
+    }
+
+    fn flush_data(&mut self) -> Result<()> {
+        let to_send: Vec<u8>;
+        {
+            let mut buffer = self.body_buffer.lock().unwrap();
+            to_send = mem::take(buffer.as_mut());
+            self.total_bytes += to_send.len();
+        }
+        self.reporter.send_event(Event::BodyData {
+            direction: self.direction,
+            bytes: to_send.len(),
+            payload: to_send.into(),
+        })?;
+        Ok(())
+    }
+}
+
+impl BufferedDataCollector {
+    fn send(&mut self, event: BodyEvent) -> Result<()> {
+        if !self.is_ready()? {
+            return Err(eyre!("must not send if not ready"));
+        }
+
+        self.permit.take().unwrap().send(event);
+        Ok(())
+    }
+
+    fn try_get_permit(&mut self) -> Result<bool> {
+        if self.permit.is_some() {
+            return Ok(true);
+        }
+        match self.sender.clone().try_reserve_owned() {
+            Ok(permit) => {
+                self.permit = Some(permit);
+                Ok(true)
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
+impl BodyReporter for BufferedDataCollector {
+    fn is_ready(&mut self) -> Result<bool> {
+        self.try_get_permit()
+    }
+
+    fn saw_data(&mut self, bytes: &Bytes) -> Result<()> {
+        {
+            let mut buffer = self.body_buffer.lock().unwrap();
+            buffer.extend_from_slice(bytes);
+        }
+        self.send(BodyEvent::Data)
+    }
+
+    fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()> {
+        self.send(BodyEvent::Trailers(trailers.clone()))
+    }
+
+    fn saw_error(&mut self, err: String) -> Result<()> {
+        self.send(BodyEvent::Error(err))
+    }
+
+    fn saw_eof(&mut self) -> Result<()> {
+        self.send(BodyEvent::EOF)
     }
 }
 

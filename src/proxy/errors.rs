@@ -14,6 +14,8 @@ use thiserror::Error;
 pub enum BodyError {
     #[error("hyper I/O error")]
     Read(#[from] hyper::Error),
+    #[error("eyre")]
+    Report(#[from] color_eyre::Report),
     #[error("impossible")]
     Impossible(#[from] std::convert::Infallible),
     #[cfg(test)]

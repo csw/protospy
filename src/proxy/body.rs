@@ -93,6 +93,9 @@ pub trait BodyReporter: Send + Sync {
     fn saw_trailers(&mut self, trailers: &HeaderMap) -> Result<()>;
     fn saw_error(&mut self, err: String) -> Result<()>;
     fn saw_eof(&mut self) -> Result<()>;
+    fn is_ready(&mut self) -> Result<bool> {
+        Ok(true)
+    }
 }
 
 pin_project! {
@@ -133,6 +136,13 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
+
+        match this.reporter.is_ready() {
+            Ok(true) => {}
+            Ok(false) => return Poll::Pending,
+            Err(e) => return Poll::Ready(Some(Err(e.into()))),
+        }
+
         let res = this.base.as_mut().poll_next(cx);
         match res {
             Poll::Ready(Some(Ok(ref frame))) => {
@@ -167,6 +177,85 @@ where
         res
     }
 }
+
+// pin_project! {
+//     pub struct BufferedBodyStreamWrapper<S>
+//     where S: Stream<Item = BodyStreamItem>
+//      {
+//         pub direction: Direction,
+//         #[pin]
+//         pub base: S,
+//         reporter: Box<dyn BodyReporter>,
+//         span: tracing::Span,
+//         collector: tokio::task::JoinHandle<()>,
+//         sender: mpsc::Sender<BodyEvent>,
+//     }
+// }
+
+// const BUFFERED_CHANNEL_SIZE: usize = 8;
+
+// impl<S> BufferedBodyStreamWrapper<S>
+// where
+//     S: Stream<Item = BodyStreamItem>,
+// {
+//     pub fn new(direction: Direction, base: S, reporter: Box<dyn BodyReporter>) -> Self {
+//         let (sender, receiver) = mpsc::channel(BUFFERED_CHANNEL_SIZE);
+
+//         Self {
+//             direction,
+//             base,
+//             reporter,
+//             span: tracing::Span::current(),
+//         }
+//     }
+// }
+
+// impl<S> Stream for BufferedBodyStreamWrapper<S>
+// where
+//     S: Stream<Item = BodyStreamItem>,
+// {
+//     type Item = S::Item;
+
+//     #[instrument(parent = &self.span, skip(self, cx), fields(direction = %self.direction))]
+//     fn poll_next(
+//         self: Pin<&mut Self>,
+//         cx: &mut std::task::Context<'_>,
+//     ) -> Poll<Option<Self::Item>> {
+//         let mut this = self.project();
+//         let res = this.base.as_mut().poll_next(cx);
+//         match res {
+//             Poll::Ready(Some(Ok(ref frame))) => {
+//                 if let Some(bytes) = frame.data_ref() {
+//                     trace!(event = "read_frame", len = bytes.len());
+//                     this.reporter.saw_data(bytes).expect("reported OK");
+//                 } else if let Some(trailers) = frame.trailers_ref() {
+//                     trace!(event = "read_trailers", count = trailers.len());
+//                     this.reporter.saw_trailers(trailers).expect("reported OK");
+//                 } else {
+//                     panic!("unhandled frame type: {frame:?}")
+//                 };
+//             }
+//             Poll::Ready(Some(Err(ref err))) => {
+//                 error!(
+//                     event = "read_error",
+//                     error = ?err,
+//                 );
+//                 this.reporter
+//                     .saw_error(err.to_string())
+//                     .expect("reported OK");
+//             }
+//             // EOF
+//             Poll::Ready(None) => {
+//                 trace!(event = "body_eof",);
+
+//                 this.reporter.saw_eof().expect("reported OK");
+//             }
+//             Poll::Pending => (),
+//         }
+
+//         res
+//     }
+// }
 
 #[derive(Debug, PartialEq)]
 pub enum FoundBodyData {
