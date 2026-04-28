@@ -31,7 +31,7 @@ uid = "0.1.8"
 chrono = { version = "0.4.44", features = ["serde"] }
 thiserror = "2.0.18"
 mockall = "0.14.0"
-ts-rs = { version = "12.0.1", features = ["bytes-impl", "chrono-impl"] }
+ts-rs = { version = "12.0.1", features = ["bytes-impl", "chrono-impl", "no-serde-warnings"] }
 
 [profile.dev]
 panic = "abort"
