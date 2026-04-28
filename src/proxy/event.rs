@@ -9,23 +9,27 @@ use crate::proxy::{
     reporting::ExchangeMeta,
 };
 
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[derive(Serialize, Debug)]
 pub struct EventMessage {
     pub exchange: ExchangeMeta,
     pub event: Event,
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 pub struct Headers(Vec<Header>);
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(ts_rs::TS, Serialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Event {
     Request {
         #[serde(serialize_with = "serialize_as_str")]
+        #[ts(type = "string")]
         method: http::Method,
         uri: String,
         #[serde(serialize_with = "serialize_http_version")]
+        #[ts(type = "string")]
         version: http::Version,
         headers: Headers,
         body: InitialBody,
@@ -33,8 +37,10 @@ pub enum Event {
     },
     Response {
         #[serde(serialize_with = "serialize_http_status")]
+        #[ts(type = "string")]
         status: http::StatusCode,
         #[serde(serialize_with = "serialize_http_version")]
+        #[ts(type = "string")]
         version: http::Version,
         headers: Headers,
         elapsed_ms: i64,
@@ -54,22 +60,24 @@ pub enum Event {
     },
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 pub struct BodyContent {
     pub offset: usize,
     pub length: usize,
     pub payload: BodyChunk,
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 pub struct Header {
     #[serde(serialize_with = "serialize_as_str")]
+    #[ts(type = "string")]
     name: http::HeaderName,
     #[serde(serialize_with = "serialize_http_header_value")]
+    #[ts(type = "string")]
     value: http::HeaderValue,
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 pub enum InitialBody {
     NoBody,
     NotRead,
@@ -77,7 +85,7 @@ pub enum InitialBody {
     Complete(BodyChunk),
 }
 
-#[derive(Serialize, PartialEq, Debug)]
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
 #[serde(rename_all = "lowercase")]
 pub enum BodyChunk {
     Text(String),

@@ -28,9 +28,10 @@ type Id = IdT<IdInner>;
 
 pub type Timestamp = DateTime<Utc>;
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, ts_rs::TS)]
 pub struct ExchangeMeta {
     #[serde(serialize_with = "serialize_id")]
+    #[ts(as = "u64")]
     exchange_id: Id,
     timestamp: Timestamp,
 }

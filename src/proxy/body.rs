@@ -22,7 +22,7 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::proxy::errors::BodyError;
 
-#[derive(Copy, Clone, Display, PartialEq, Debug, Serialize)]
+#[derive(Copy, Clone, Display, PartialEq, Debug, Serialize, ts_rs::TS)]
 pub enum Direction {
     Request,
     Response,
