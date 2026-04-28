@@ -118,7 +118,7 @@ impl Exchange {
         let (found_body_data, prefetched) = body::collect_ready_data(orig_body).await?;
 
         let event = Event::from_request(orig_parts, found_body_data);
-        reporter.send_event(event)?;
+        reporter.send_event(body::Direction::Request, event)?;
 
         let upstream_body = self
             .tracked_body(prefetched, reporter, body::Direction::Request)
@@ -177,7 +177,7 @@ impl Exchange {
         debug!("track_response found: {:?}", found_body_data);
 
         let event = Event::from_response(orig_parts, found_body_data, elapsed);
-        reporter.send_event(event)?;
+        reporter.send_event(body::Direction::Response, event)?;
 
         let downstream_body = self
             .tracked_body(prefetched, reporter, body::Direction::Response)

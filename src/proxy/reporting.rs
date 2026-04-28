@@ -13,7 +13,7 @@ use tokio::time::Instant;
 use tokio::{sync::mpsc, time::Duration};
 use uid::IdU64 as IdT;
 
-use crate::proxy::event::BodyContent;
+use crate::proxy::event::{BodyContent, BodyData};
 use crate::proxy::{
     body::{BodyReporter, Direction},
     conn::ConnInfo,
@@ -42,7 +42,7 @@ pub trait EventReporterService: Send + Sync + Debug {
 }
 
 pub trait EventReporter: Send + Sync + Debug {
-    fn send_event(&mut self, event: Event) -> Result<()>;
+    fn send_event(&mut self, direction: Direction, event: Event) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -103,9 +103,10 @@ impl EventReporterService for PublisherEventReporterService {
 }
 
 impl EventReporter for PublisherEventReporter {
-    fn send_event(&mut self, event: Event) -> Result<()> {
+    fn send_event(&mut self, direction: Direction, event: Event) -> Result<()> {
         let msg = Arc::new(EventMessage {
             exchange: self.exchange,
+            direction,
             event,
         });
         self.publisher.send(msg)?;
@@ -255,7 +256,7 @@ impl BufferedDataReporter {
                             self.trailers = Some(trailers);
                         },
                         Some(BodyEvent::Error(error)) => {
-                            self.event_reporter.send_event(Event::Error {
+                            self.event_reporter.send_event(self.direction, Event::Error {
                                  direction: self.direction,
                                 message: format!("body error ({}): {}", self.direction, error),
                             })?;
@@ -280,22 +281,27 @@ impl BufferedDataReporter {
     }
 
     fn send_data(&mut self, at_end: bool) -> Result<()> {
+        let body_data = self.build_body_data(at_end);
+        self.event_reporter
+            .send_event(self.direction, Event::BodyData(body_data))?;
+        Ok(())
+    }
+
+    fn build_body_data(&mut self, at_end: bool) -> BodyData {
         let content = self.take_content();
-        self.event_reporter.send_event(Event::BodyData {
-            direction: self.direction,
+        BodyData {
             content,
             trailers: self.trailers.take().map(Into::into),
-            at_end: at_end,
+            at_end,
             total_bytes: self.total_bytes,
-        })?;
-        Ok(())
+        }
     }
 
     fn take_content(&mut self) -> Option<BodyContent> {
         let to_send: Vec<u8>;
         {
             let mut buffer = self.body_buffer.lock().unwrap();
-            if buffer.len() == 0 {
+            if buffer.is_empty() {
                 return None;
             }
             to_send = mem::take(buffer.as_mut());
@@ -304,7 +310,7 @@ impl BufferedDataReporter {
         let length = to_send.len();
         let content = BodyContent {
             offset: self.total_bytes,
-            length: length,
+            length,
             payload: to_send.into(),
         };
         self.total_bytes += length;
@@ -360,7 +366,7 @@ mod tests {
     }
 
     impl EventReporter for EventCapturer {
-        fn send_event(&mut self, event: Event) -> Result<()> {
+        fn send_event(&mut self, _direction: Direction, event: Event) -> Result<()> {
             let mut events = self.events.lock().unwrap();
             events.push(event);
             Ok(())
@@ -389,17 +395,19 @@ mod tests {
 
         assert_eq!(
             Arc::into_inner(events).unwrap().into_inner().unwrap(),
-            vec!(Event::BodyData {
-                direction: Direction::Request,
-                content: Some(BodyContent {
-                    offset: 0,
-                    length: 4,
-                    payload: b"abcd".into()
-                }),
-                trailers: None,
-                at_end: true,
-                total_bytes: 4,
-            },)
+            vec!(
+                BodyData {
+                    content: Some(BodyContent {
+                        offset: 0,
+                        length: 4,
+                        payload: b"abcd".into()
+                    }),
+                    trailers: None,
+                    at_end: true,
+                    total_bytes: 4,
+                }
+                .into()
+            )
         );
     }
 }

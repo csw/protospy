@@ -14,6 +14,7 @@ use crate::proxy::{
 #[derive(Serialize, Debug)]
 pub struct EventMessage {
     pub exchange: ExchangeMeta,
+    pub direction: Direction,
     pub event: Event,
 }
 
@@ -47,17 +48,19 @@ pub enum Event {
         body: InitialBody,
         trailers: Option<Headers>,
     },
-    BodyData {
-        direction: Direction,
-        content: Option<BodyContent>,
-        trailers: Option<Headers>,
-        at_end: bool,
-        total_bytes: usize,
-    },
+    BodyData(BodyData),
     Error {
         direction: Direction,
         message: String,
     },
+}
+
+#[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+pub struct BodyData {
+    pub content: Option<BodyContent>,
+    pub trailers: Option<Headers>,
+    pub at_end: bool,
+    pub total_bytes: usize,
 }
 
 #[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
@@ -81,8 +84,7 @@ pub struct Header {
 pub enum InitialBody {
     NoBody,
     NotRead,
-    Partial(BodyChunk),
-    Complete(BodyChunk),
+    Data(BodyData),
 }
 
 #[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
@@ -120,7 +122,32 @@ impl Event {
             headers: response.headers.into(),
             elapsed_ms: elapsed.num_milliseconds(),
             body: InitialBody::from_found(body_data),
-            trailers: trailers,
+            trailers,
+        }
+    }
+}
+
+impl From<BodyData> for Event {
+    fn from(value: BodyData) -> Self {
+        Self::BodyData(value)
+    }
+}
+
+impl BodyData {
+    pub fn from_content(
+        body::BodyContent { data, trailers }: body::BodyContent,
+        at_end: bool,
+    ) -> Self {
+        let len = data.len();
+        Self {
+            content: Some(BodyContent {
+                offset: 0,
+                length: len,
+                payload: data.into(),
+            }),
+            trailers: trailers.map(Into::into),
+            at_end,
+            total_bytes: len,
         }
     }
 }
@@ -130,11 +157,11 @@ impl InitialBody {
         match body_data {
             body::FoundBodyData::NoBody => InitialBody::NoBody,
             body::FoundBodyData::NoneRead => InitialBody::NotRead,
-            body::FoundBodyData::Partial(body::BodyContent { data, .. }) => {
-                InitialBody::Partial(data.into())
+            body::FoundBodyData::Partial(content) => {
+                InitialBody::Data(BodyData::from_content(content, false))
             }
-            body::FoundBodyData::Complete(body::BodyContent { data, .. }) => {
-                InitialBody::Complete(data.into())
+            body::FoundBodyData::Complete(content) => {
+                InitialBody::Data(BodyData::from_content(content, true))
             }
         }
     }
@@ -181,10 +208,7 @@ impl From<http::HeaderMap> for Headers {
             value
                 .into_iter()
                 .filter_map(|(name, value)| name.map(|name| (name, value)))
-                .map(|(name, value)| Header {
-                    name: name,
-                    value: value,
-                })
+                .map(|(name, value)| Header { name, value })
                 .collect(),
         )
     }
