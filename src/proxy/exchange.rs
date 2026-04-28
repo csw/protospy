@@ -110,7 +110,7 @@ impl Exchange {
 
     async fn track_request(
         &mut self,
-        reporter: Box<dyn EventReporter>,
+        mut reporter: Box<dyn EventReporter>,
         request: Request<body::Internal>,
         orig_parts: http::request::Parts,
     ) -> Result<Request<body::upstream::RequestBody>> {
@@ -167,7 +167,7 @@ impl Exchange {
 
     async fn track_response(
         &mut self,
-        reporter: Box<dyn EventReporter>,
+        mut reporter: Box<dyn EventReporter>,
         response: Response<body::Internal>,
         orig_parts: http::response::Parts,
         elapsed: TimeDelta,

@@ -8,7 +8,6 @@ use color_eyre::Result;
 use eyre::eyre;
 use http::HeaderMap;
 use hyper::body::Bytes;
-use mockall::*;
 use serde::{Serialize, Serializer};
 use tokio::time::Instant;
 use tokio::{sync::mpsc, time::Duration};
@@ -40,9 +39,8 @@ pub trait EventReporterService: Send + Sync + Debug {
     fn make_reporter(&self, exchange: ExchangeMeta) -> Box<dyn EventReporter>;
 }
 
-#[automock]
 pub trait EventReporter: Send + Sync + Debug {
-    fn send_event(&self, event: Event) -> Result<()>;
+    fn send_event(&mut self, event: Event) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -103,7 +101,7 @@ impl EventReporterService for PublisherEventReporterService {
 }
 
 impl EventReporter for PublisherEventReporter {
-    fn send_event(&self, event: Event) -> Result<()> {
+    fn send_event(&mut self, event: Event) -> Result<()> {
         let msg = Arc::new(EventMessage {
             exchange: self.exchange,
             event,
@@ -292,8 +290,9 @@ impl BufferedDataReporter {
         {
             let mut buffer = self.body_buffer.lock().unwrap();
             to_send = mem::take(buffer.as_mut());
-            self.total_bytes += to_send.len();
+            buffer.reserve(to_send.len());
         }
+        self.total_bytes += to_send.len();
         self.event_reporter.send_event(Event::BodyData {
             direction: self.direction,
             bytes: to_send.len(),
@@ -336,44 +335,62 @@ fn serialize_id<S: Serializer>(id: &Id, s: S) -> StdResult<S::Ok, S::Error> {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use mockall::predicate::*;
+
+    #[derive(Debug)]
+    struct EventCapturer {
+        pub events: Arc<Mutex<Vec<Event>>>,
+    }
+
+    impl EventCapturer {
+        fn new(events: Arc<Mutex<Vec<Event>>>) -> Self {
+            Self { events }
+        }
+    }
+
+    impl EventReporter for EventCapturer {
+        fn send_event(&mut self, event: Event) -> Result<()> {
+            let mut events = self.events.lock().unwrap();
+            events.push(event);
+            Ok(())
+        }
+    }
 
     #[tokio::test]
     async fn test_buffered_basic() {
         use crate::proxy::event::Event;
 
-        let mut event_reporter = Box::new(MockEventReporter::new());
-        let mut seq = Sequence::new();
-        event_reporter
-            .expect_send_event()
-            .with(eq(Event::BodyData {
-                direction: Direction::Request,
-                bytes: 4,
-                payload: b"abcd".into(),
-            }))
-            .returning(|_| Ok(()))
-            .times(1)
-            .in_sequence(&mut seq);
-        event_reporter
-            .expect_send_event()
-            .with(eq(Event::BodyEnd {
-                direction: Direction::Request,
-                seen: true,
-                total_bytes: 4,
-            }))
-            .returning(|_| Ok(()))
-            .times(1)
-            .in_sequence(&mut seq);
-        let (collector, mut reporter) = create_buffered(event_reporter, Direction::Request, 0);
-        // TODO: time stuff
-        let reporter_task = tokio::task::spawn(async move { reporter.run().await });
+        let events: Arc<Mutex<Vec<Event>>> = Arc::new(Mutex::new(Vec::new()));
         {
-            let mut collector = collector;
-            collector.saw_data(&"ab".into()).unwrap();
-            collector.saw_data(&"cd".into()).unwrap();
-            collector.saw_eof().unwrap();
+            let capturer = Box::new(EventCapturer::new(Arc::clone(&events)));
+
+            let (collector, mut reporter) = create_buffered(capturer, Direction::Request, 0);
+            // TODO: time stuff
+            let reporter_task = tokio::task::spawn(async move { reporter.run().await });
+            {
+                let mut collector = collector;
+                collector.saw_data(&"ab".into()).unwrap();
+                collector.saw_data(&"cd".into()).unwrap();
+                collector.saw_eof().unwrap();
+            }
+            reporter_task.await.unwrap().unwrap();
         }
-        reporter_task.await.unwrap().unwrap();
+
+        assert_eq!(
+            Arc::into_inner(events).unwrap().into_inner().unwrap(),
+            vec!(
+                Event::BodyData {
+                    direction: Direction::Request,
+                    bytes: 4,
+                    payload: b"abcd".into(),
+                },
+                Event::BodyEnd {
+                    direction: Direction::Request,
+                    seen: true,
+                    total_bytes: 4,
+                }
+            )
+        );
     }
 }
