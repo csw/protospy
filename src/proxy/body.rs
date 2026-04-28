@@ -137,10 +137,21 @@ where
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
+        fn report_on_err(event: &str, val: Result<()>) {
+            match val {
+                Ok(_) => {}
+                Err(err) => {
+                    error!(event = event, error = ?err)
+                }
+            }
+        }
+
         match this.reporter.check_ready() {
             Ok(true) => {}
             Ok(false) => return Poll::Pending,
-            Err(e) => return Poll::Ready(Some(Err(e.into()))),
+            Err(err) => {
+                error!(event = "check_ready_error", error = ?err);
+            }
         }
 
         let res = this.base.as_mut().poll_next(cx);
@@ -148,10 +159,10 @@ where
             Poll::Ready(Some(Ok(ref frame))) => {
                 if let Some(bytes) = frame.data_ref() {
                     trace!(event = "read_frame", len = bytes.len());
-                    this.reporter.saw_data(bytes).expect("reported OK");
+                    report_on_err("wrapper_saw_data", this.reporter.saw_data(bytes));
                 } else if let Some(trailers) = frame.trailers_ref() {
                     trace!(event = "read_trailers", count = trailers.len());
-                    this.reporter.saw_trailers(trailers).expect("reported OK");
+                    report_on_err("wrapper_saw_trailers", this.reporter.saw_trailers(trailers));
                 } else {
                     panic!("unhandled frame type: {frame:?}")
                 };
@@ -161,15 +172,16 @@ where
                     event = "read_error",
                     error = ?err,
                 );
-                this.reporter
-                    .saw_error(err.to_string())
-                    .expect("reported OK");
+                report_on_err(
+                    "wrapper_saw_error",
+                    this.reporter.saw_error(err.to_string()),
+                );
             }
             // EOF
             Poll::Ready(None) => {
                 trace!(event = "body_eof",);
 
-                this.reporter.saw_eof().expect("reported OK");
+                report_on_err("wrapper_saw_eof", this.reporter.saw_eof());
             }
             Poll::Pending => (),
         }
@@ -378,6 +390,7 @@ pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = BodyStreamIt
 mod tests {
     use super::*;
     use mockall::predicate::*;
+    use rstest::*;
 
     mod wrapper {
         use super::*;
@@ -415,6 +428,60 @@ mod tests {
             let wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
             let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
             assert_eq!(res.len(), 1);
+        }
+
+        struct FaultReporter {
+            n: usize,
+            fail_at: usize,
+        }
+
+        impl FaultReporter {
+            fn new(fail_at: usize) -> Self {
+                Self { n: 0, fail_at }
+            }
+
+            fn res(&mut self) -> Result<()> {
+                let cur = self.n;
+                self.n += 1;
+                if cur < self.fail_at {
+                    Ok(())
+                } else {
+                    Err(eyre!("fault"))
+                }
+            }
+        }
+
+        impl BodyReporter for FaultReporter {
+            fn check_ready(&mut self) -> Result<bool> {
+                self.res().map(|_| true)
+            }
+
+            fn saw_data(&mut self, _bytes: &Bytes) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_eof(&mut self) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_error(&mut self, _err: String) -> Result<()> {
+                self.res()
+            }
+
+            fn saw_trailers(&mut self, _trailers: &HeaderMap) -> Result<()> {
+                self.res()
+            }
+        }
+
+        #[rstest]
+        #[tokio::test]
+        async fn test_fault(#[values(0, 1, 2, 3, 4)] fail_at: usize) {
+            let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
+            let reporter = Box::new(FaultReporter::new(fail_at));
+            let mut wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
+            while let Some(v) = wrapper.next().await {
+                assert!(v.is_ok(), "got {v:?}");
+            }
         }
     }
 
