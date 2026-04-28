@@ -13,10 +13,11 @@ use tokio::time::Instant;
 use tokio::{sync::mpsc, time::Duration};
 use uid::IdU64 as IdT;
 
+use crate::proxy::event::BodyContent;
 use crate::proxy::{
     body::{BodyReporter, Direction},
     conn::ConnInfo,
-    event::{Event, EventMessage, flatten_headers},
+    event::{Event, EventMessage},
     monitor::{self},
 };
 
@@ -129,6 +130,7 @@ pub struct BufferedDataReporter {
     direction: Direction,
     receiver: mpsc::Receiver<BodyEvent>,
     body_buffer: Arc<Mutex<Vec<u8>>>,
+    trailers: Option<HeaderMap>,
     seen: bool,
     total_bytes: usize,
 }
@@ -227,6 +229,7 @@ impl BufferedDataReporter {
             direction,
             receiver,
             body_buffer,
+            trailers: None,
             seen: prev_bytes > 0,
             total_bytes: prev_bytes,
         }
@@ -248,57 +251,63 @@ impl BufferedDataReporter {
 
                         },
                         Some(BodyEvent::Trailers(trailers)) => {
-                            self.event_reporter.send_event(Event::Trailers {
-                                direction: self.direction,
-                                entries: flatten_headers(&trailers),
-                            })?;
+                            self.trailers = Some(trailers);
                         },
                         Some(BodyEvent::Error(error)) => {
                             self.event_reporter.send_event(Event::Error {
+                                 direction: self.direction,
                                 message: format!("body error ({}): {}", self.direction, error),
                             })?;
                         },
+                        // explicit EOF
                         Some(BodyEvent::EOF) => {
-                            self.report_eof()?;
+                            self.send_data(true)?;
                             return Ok(());
                         }
+                        // channel closed, implicit EOF
                         None => {
-                            self.report_eof()?;
+                            self.send_data(true)?;
                             return Ok(());
                         }
                     }
                 },
                 () = &mut flush_sleep => {
-                    self.flush_data()?;
+                    self.send_data(false)?;
                 }
             }
         }
     }
 
-    fn report_eof(&mut self) -> Result<()> {
-        self.flush_data()?;
-        self.event_reporter.send_event(Event::BodyEnd {
+    fn send_data(&mut self, at_end: bool) -> Result<()> {
+        let content = self.take_content();
+        self.event_reporter.send_event(Event::BodyData {
             direction: self.direction,
-            seen: self.seen,
+            content,
+            trailers: self.trailers.take().map(Into::into),
+            at_end: at_end,
             total_bytes: self.total_bytes,
         })?;
         Ok(())
     }
 
-    fn flush_data(&mut self) -> Result<()> {
+    fn take_content(&mut self) -> Option<BodyContent> {
         let to_send: Vec<u8>;
         {
             let mut buffer = self.body_buffer.lock().unwrap();
+            if buffer.len() == 0 {
+                return None;
+            }
             to_send = mem::take(buffer.as_mut());
             buffer.reserve(to_send.len());
         }
-        self.total_bytes += to_send.len();
-        self.event_reporter.send_event(Event::BodyData {
-            direction: self.direction,
-            bytes: to_send.len(),
+        let length = to_send.len();
+        let content = BodyContent {
+            offset: self.total_bytes,
+            length: length,
             payload: to_send.into(),
-        })?;
-        Ok(())
+        };
+        self.total_bytes += length;
+        Some(content)
     }
 }
 
@@ -379,18 +388,17 @@ mod tests {
 
         assert_eq!(
             Arc::into_inner(events).unwrap().into_inner().unwrap(),
-            vec!(
-                Event::BodyData {
-                    direction: Direction::Request,
-                    bytes: 4,
-                    payload: b"abcd".into(),
-                },
-                Event::BodyEnd {
-                    direction: Direction::Request,
-                    seen: true,
-                    total_bytes: 4,
-                }
-            )
+            vec!(Event::BodyData {
+                direction: Direction::Request,
+                content: Some(BodyContent {
+                    offset: 0,
+                    length: 4,
+                    payload: b"abcd".into()
+                }),
+                trailers: None,
+                at_end: true,
+                total_bytes: 4,
+            },)
         );
     }
 }

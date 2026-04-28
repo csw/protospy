@@ -15,7 +15,8 @@ pub struct EventMessage {
     pub event: Event,
 }
 
-type Headers = Vec<Header>;
+#[derive(Serialize, PartialEq, Debug)]
+pub struct Headers(Vec<Header>);
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -42,21 +43,22 @@ pub enum Event {
     },
     BodyData {
         direction: Direction,
-        bytes: usize,
-        payload: BodyData,
-    },
-    Trailers {
-        direction: Direction,
-        entries: Headers,
-    },
-    BodyEnd {
-        direction: Direction,
-        seen: bool,
+        content: Option<BodyContent>,
+        trailers: Option<Headers>,
+        at_end: bool,
         total_bytes: usize,
     },
     Error {
+        direction: Direction,
         message: String,
     },
+}
+
+#[derive(Serialize, PartialEq, Debug)]
+pub struct BodyContent {
+    pub offset: usize,
+    pub length: usize,
+    pub payload: BodyChunk,
 }
 
 #[derive(Serialize, PartialEq, Debug)]
@@ -71,13 +73,13 @@ pub struct Header {
 pub enum InitialBody {
     NoBody,
     NotRead,
-    Partial(BodyData),
-    Complete(BodyData),
+    Partial(BodyChunk),
+    Complete(BodyChunk),
 }
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
-pub enum BodyData {
+pub enum BodyChunk {
     Text(String),
     #[serde(with = "base64_bytes")]
     Binary(Bytes),
@@ -85,13 +87,13 @@ pub enum BodyData {
 
 impl Event {
     pub fn from_request(request: http::request::Parts, body_data: body::FoundBodyData) -> Self {
-        let trailers = body_data.trailers().map(flatten_headers);
+        let trailers = body_data.trailers().map(Into::into);
 
         Self::Request {
             method: request.method,
             uri: request.uri.to_string(),
             version: request.version,
-            headers: flatten_headers(&request.headers),
+            headers: request.headers.into(),
             body: InitialBody::from_found(body_data),
             trailers,
         }
@@ -102,15 +104,15 @@ impl Event {
         body_data: body::FoundBodyData,
         elapsed: TimeDelta,
     ) -> Self {
-        let trailers = body_data.trailers().map(flatten_headers);
+        let trailers = body_data.trailers().map(Into::into);
 
         Self::Response {
             status: response.status,
             version: response.version,
-            headers: flatten_headers(&response.headers),
+            headers: response.headers.into(),
             elapsed_ms: elapsed.num_milliseconds(),
             body: InitialBody::from_found(body_data),
-            trailers,
+            trailers: trailers,
         }
     }
 }
@@ -130,24 +132,53 @@ impl InitialBody {
     }
 }
 
-impl From<Vec<u8>> for BodyData {
+impl From<Vec<u8>> for BodyChunk {
     fn from(value: Vec<u8>) -> Self {
         match String::from_utf8(value) {
-            Ok(str) => BodyData::Text(str),
-            Err(err) => BodyData::Binary(err.into_bytes().into()),
+            Ok(str) => BodyChunk::Text(str),
+            Err(err) => BodyChunk::Binary(err.into_bytes().into()),
         }
     }
 }
 
-impl From<&'static [u8]> for BodyData {
+impl From<&'static [u8]> for BodyChunk {
     fn from(value: &'static [u8]) -> Self {
         Vec::<u8>::from(value).into()
     }
 }
 
-impl<const N: usize> From<&'static [u8; N]> for BodyData {
+impl<const N: usize> From<&'static [u8; N]> for BodyChunk {
     fn from(value: &'static [u8; N]) -> Self {
         Vec::<u8>::from(value).into()
+    }
+}
+
+impl From<&http::HeaderMap> for Headers {
+    fn from(value: &http::HeaderMap) -> Self {
+        Headers(
+            value
+                .iter()
+                .map(|(name, value)| Header {
+                    name: name.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+        )
+    }
+}
+
+impl From<http::HeaderMap> for Headers {
+    fn from(value: http::HeaderMap) -> Self {
+        Headers(
+            value
+                .into_iter()
+                .filter_map(|(name, value)| name.map(|name| (name, value)))
+                .map(|(name, value)| Header {
+                    name: name,
+                    value: value,
+                })
+                .collect(),
+        )
     }
 }
 
