@@ -290,7 +290,7 @@ impl BufferedDataReporter {
     }
 
     fn build_body_data(&mut self, at_end: bool) -> BodyData {
-        let content = self.take_content();
+        let content = self.take_content(at_end);
         BodyData {
             content,
             trailers: self.trailers.take().map(Into::into),
@@ -299,7 +299,7 @@ impl BufferedDataReporter {
         }
     }
 
-    fn take_content(&mut self) -> Option<BodyContent> {
+    fn take_content(&mut self, at_end: bool) -> Option<BodyContent> {
         let to_send: Vec<u8>;
         {
             let mut buffer = self.body_buffer.lock().unwrap();
@@ -307,7 +307,9 @@ impl BufferedDataReporter {
                 return None;
             }
             to_send = mem::take(buffer.as_mut());
-            buffer.reserve(to_send.len());
+            if !at_end {
+                buffer.reserve(to_send.len());
+            }
         }
         let length = to_send.len();
         let content = BodyContent {
