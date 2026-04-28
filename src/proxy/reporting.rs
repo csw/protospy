@@ -9,7 +9,6 @@ use eyre::eyre;
 use http::HeaderMap;
 use hyper::body::Bytes;
 use serde::{Serialize, Serializer};
-use tokio::time::Instant;
 use tokio::{sync::mpsc, time::Duration};
 use uid::IdU64 as IdT;
 
@@ -238,6 +237,7 @@ impl BufferedDataReporter {
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        let mut data_pending = false;
         let flush_sleep = tokio::time::sleep(Duration::ZERO);
         tokio::pin!(flush_sleep);
 
@@ -247,10 +247,10 @@ impl BufferedDataReporter {
                     match event {
                         Some(BodyEvent::Data) => {
                             self.seen = true;
-                            if flush_sleep.is_elapsed() {
-                                flush_sleep.as_mut().reset(Instant::now() + BODY_FLUSH_INTERVAL);
+                            if !data_pending {
+                                data_pending = true;
+                                flush_sleep.set(tokio::time::sleep(BODY_FLUSH_INTERVAL));
                             }
-
                         },
                         Some(BodyEvent::Trailers(trailers)) => {
                             self.trailers = Some(trailers);
@@ -273,8 +273,10 @@ impl BufferedDataReporter {
                         }
                     }
                 },
-                () = &mut flush_sleep => {
+                () = flush_sleep.as_mut(), if data_pending => {
+                    eprintln!("flushing at {}", Utc::now());
                     self.send_data(false)?;
+                    data_pending = false;
                 }
             }
         }
@@ -352,7 +354,10 @@ fn serialize_id<S: Serializer>(id: &Id, s: S) -> StdResult<S::Ok, S::Error> {
 #[cfg(test)]
 mod tests {
 
+    use ntest::timeout;
+
     use super::*;
+    use crate::proxy::event::Event;
 
     #[derive(Debug)]
     struct EventCapturer {
@@ -375,8 +380,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_buffered_basic() {
-        use crate::proxy::event::Event;
-
         let events: Arc<Mutex<Vec<Event>>> = Arc::new(Mutex::new(Vec::new()));
         {
             let capturer = Box::new(EventCapturer::new(Arc::clone(&events)));
@@ -401,6 +404,55 @@ mod tests {
                         offset: 0,
                         length: 4,
                         payload: b"abcd".into()
+                    }),
+                    trailers: None,
+                    at_end: true,
+                    total_bytes: 4,
+                }
+                .into()
+            )
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    #[timeout(1000)]
+    async fn test_buffered_timer() {
+        let events: Arc<Mutex<Vec<Event>>> = Arc::new(Mutex::new(Vec::new()));
+        {
+            let capturer = Box::new(EventCapturer::new(Arc::clone(&events)));
+
+            let (collector, mut reporter) = create_buffered(capturer, Direction::Request, 0);
+            // TODO: time stuff
+            let reporter_task = tokio::task::spawn(async move { reporter.run().await });
+            {
+                let mut collector = collector;
+                collector.saw_data(&"ab".into()).unwrap();
+                tokio::time::sleep(BODY_FLUSH_INTERVAL * 2).await;
+                collector.saw_data(&"cd".into()).unwrap();
+                collector.saw_eof().unwrap();
+            }
+            reporter_task.await.unwrap().unwrap();
+        }
+
+        assert_eq!(
+            Arc::into_inner(events).unwrap().into_inner().unwrap(),
+            vec!(
+                BodyData {
+                    content: Some(BodyContent {
+                        offset: 0,
+                        length: 2,
+                        payload: b"ab".into()
+                    }),
+                    trailers: None,
+                    at_end: false,
+                    total_bytes: 2,
+                }
+                .into(),
+                BodyData {
+                    content: Some(BodyContent {
+                        offset: 2,
+                        length: 2,
+                        payload: b"cd".into()
                     }),
                     trailers: None,
                     at_end: true,
