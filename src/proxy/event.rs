@@ -22,7 +22,7 @@ pub struct EventMessage {
 pub struct Headers(Vec<Header>);
 
 #[derive(ts_rs::TS, Serialize, PartialEq, Debug)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", tag = "type")]
 pub enum Event {
     Request {
         #[serde(serialize_with = "serialize_as_str")]
@@ -81,6 +81,7 @@ pub struct Header {
 }
 
 #[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+#[serde(tag = "type")]
 pub enum InitialBody {
     NoBody,
     NotRead,
