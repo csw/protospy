@@ -28,3 +28,5 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --no-deps -- -D warnings
       - run: cargo test --all-features
+      - name: Check for outdated bindings
+        run: git diff --exit-code bindings && [[ $(git ls-files --others --exclude-standard bindings | wc -l) -eq 0 ]]
