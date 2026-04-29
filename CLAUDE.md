@@ -14,6 +14,8 @@ Other sub-components:
 
 Python code uses Python 3.14+ and `uv`. Each Python component is an independent project with its own virtualenv.
 
+Agents must not make any changes to the Rust code at any time.
+
 ## Commands
 
 ### Rust (root)
