@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+curl --request POST \
+  --url http://localhost:3000/movies/_search \
+  --header 'accept-encoding: ' \
+  --header 'content-type: application/json' \
+  --data '{}' \
+  -o /dev/null \
+  --no-progress-meter \
+  "$@"

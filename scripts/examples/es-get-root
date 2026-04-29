@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+curl --request GET \
+  --url http://localhost:3000/ \
+  -o /dev/null \
+  --no-progress-meter \
+  "$@"
