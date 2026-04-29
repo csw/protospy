@@ -1,11 +1,11 @@
 {
   "exchange": {
     "exchange_id": 2,
-    "timestamp": "2026-04-29T01:10:49.241099Z"
+    "timestamp": "2026-04-29T03:50:20.839155Z"
   },
   "direction": "Request",
   "event": {
-    "type": "request",
+    "type": "Request",
     "method": "POST",
     "uri": "/movies/_search",
     "version": "1.1",
@@ -24,7 +24,7 @@
       },
       {
         "name": "request-start-time",
-        "value": "1777425049239"
+        "value": "1777434620837"
       },
       {
         "name": "content-length",
