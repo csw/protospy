@@ -91,6 +91,7 @@ pub enum InitialBody {
 pub enum BodyChunk {
     Text(String),
     #[serde(with = "base64_bytes")]
+    #[ts(type = "string")]
     Binary(Bytes),
 }
 
