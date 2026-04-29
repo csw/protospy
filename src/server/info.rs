@@ -1,10 +1,12 @@
 use axum::{Json, extract::State};
+use chrono::prelude::*;
 use serde::Serialize;
 
 use crate::{proxy::group::ServiceEntry, server::router::AppState};
 
 #[derive(Serialize, Debug)]
 pub struct Info {
+    started_at: DateTime<Utc>,
     services: Vec<Service>,
 }
 
@@ -29,7 +31,10 @@ pub async fn get_info(State(state): State<AppState>) -> Json<Info> {
             subscribers: publisher.listener_count(),
         })
         .collect();
-    let info = Info { services };
+    let info = Info {
+        started_at: app.started_at,
+        services,
+    };
 
     Json(info)
 }

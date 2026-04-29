@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use chrono::prelude::*;
 use clap::{ArgAction, Parser};
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
@@ -107,6 +108,7 @@ pub async fn main() -> Result<()> {
 
 async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
     let app = Arc::new(App {
+        started_at: Utc::now(),
         proxy_group: Arc::clone(&proxy_group),
     });
     let router = crate::server::router::router(app);
