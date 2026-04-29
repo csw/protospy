@@ -1,0 +1,57 @@
+name: ui-ci
+
+on:
+  push:
+    paths:
+      - "ui/**"
+      - "bindings/**"
+      - ".github/workflows/ui-ci.yml"
+  pull_request:
+    paths:
+      - "ui/**"
+      - "bindings/**"
+      - ".github/workflows/ui-ci.yml"
+
+defaults:
+  run:
+    working-directory: ui
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm run test -- --run
