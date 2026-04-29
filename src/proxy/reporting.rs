@@ -20,10 +20,10 @@ use crate::proxy::{
     monitor::{self},
 };
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize)]
-struct IdInner(());
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+pub struct IdInner(());
 
-type Id = IdT<IdInner>;
+pub type Id = IdT<IdInner>;
 
 pub type Timestamp = DateTime<Utc>;
 
@@ -31,8 +31,8 @@ pub type Timestamp = DateTime<Utc>;
 pub struct ExchangeMeta {
     #[serde(serialize_with = "serialize_id")]
     #[ts(as = "u64")]
-    exchange_id: Id,
-    timestamp: Timestamp,
+    pub exchange_id: Id,
+    pub timestamp: Timestamp,
 }
 
 pub trait EventReporterService: Send + Sync + Debug {

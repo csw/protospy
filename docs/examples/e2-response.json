@@ -1,0 +1,40 @@
+{
+  "exchange": {
+    "exchange_id": 2,
+    "timestamp": "2026-04-29T01:10:49.241099Z"
+  },
+  "direction": "Response",
+  "event": {
+    "type": "response",
+    "status": "200",
+    "version": "1.1",
+    "headers": [
+      {
+        "name": "x-elastic-product",
+        "value": "Elasticsearch"
+      },
+      {
+        "name": "content-type",
+        "value": "application/json"
+      },
+      {
+        "name": "transfer-encoding",
+        "value": "chunked"
+      }
+    ],
+    "elapsed_ms": 5,
+    "body": {
+      "type": "Data",
+      "content": {
+        "offset": 0,
+        "length": 6853,
+        "payload": {
+          "text": "{\"took\":2,\"timed_out\":false,\"_shards\":{\"total\":1,\"successful\":1,\"skipped\":0,\"failed\":0},\"hits\":{\"total\":{\"value\":4803,\"relation\":\"eq\"},\"max_score\":1.0,\"hits\":[{\"_index\":\"movies\",\"_id\":\"19995\",\"_score\":1.0,\"_source\":{\"title\":\"Avatar\",\"overview\":\"In the 22nd century, a paraplegic Marine is dispatched to the moon Pandora on a unique mission, but becomes torn between following orders and protecting an alien civilization.\",\"tagline\":\"Enter the World of Pandora.\",\"release_date\":\"2009-12-10\",\"genres\":[\"Action\",\"Adventure\",\"Fantasy\",\"Science Fiction\"],\"director\":\"James Cameron\",\"vote_average\":7.2,\"vote_count\":11800,\"popularity\":150.437577,\"budget\":237000000,\"revenue\":2787965087,\"runtime\":162.0}},{\"_index\":\"movies\",\"_id\":\"285\",\"_score\":1.0,\"_source\":{\"title\":\"Pirates of the Caribbean: At World's End\",\"overview\":\"Captain Barbossa, long believed to be dead, has come back to life and is headed to the edge of the Earth with Will Turner and Elizabeth Swann. But nothing is quite as it seems.\",\"tagline\":\"At the end of the world, the adventure begins.\",\"release_date\":\"2007-05-19\",\"genres\":[\"Adventure\",\"Fantasy\",\"Action\"],\"director\":\"Gore Verbinski\",\"vote_average\":6.9,\"vote_count\":4500,\"popularity\":139.082615,\"budget\":300000000,\"revenue\":961000000,\"runtime\":169.0}},{\"_index\":\"movies\",\"_id\":\"206647\",\"_score\":1.0,\"_source\":{\"title\":\"Spectre\",\"overview\":\"A cryptic message from Bond’s past sends him on a trail to uncover a sinister organization. While M battles political forces to keep the secret service alive, Bond peels back the layers of deceit to reveal the terrible truth behind SPECTRE.\",\"tagline\":\"A Plan No One Escapes\",\"release_date\":\"2015-10-26\",\"genres\":[\"Action\",\"Adventure\",\"Crime\"],\"director\":\"Sam Mendes\",\"vote_average\":6.3,\"vote_count\":4466,\"popularity\":107.376788,\"budget\":245000000,\"revenue\":880674609,\"runtime\":148.0}},{\"_index\":\"movies\",\"_id\":\"49026\",\"_score\":1.0,\"_source\":{\"title\":\"The Dark Knight Rises\",\"overview\":\"Following the death of District Attorney Harvey Dent, Batman assumes responsibility for Dent's crimes to protect the late attorney's reputation and is subsequently hunted by the Gotham City Police Department. Eight years later, Batman encounters the mysterious Selina Kyle and the villainous Bane, a new terrorist leader who overwhelms Gotham's finest. The Dark Knight resurfaces to protect a city that has branded him an enemy.\",\"tagline\":\"The Legend Ends\",\"release_date\":\"2012-07-16\",\"genres\":[\"Action\",\"Crime\",\"Drama\",\"Thriller\"],\"director\":\"Christopher Nolan\",\"vote_average\":7.6,\"vote_count\":9106,\"popularity\":112.31295,\"budget\":250000000,\"revenue\":1084939099,\"runtime\":165.0}},{\"_index\":\"movies\",\"_id\":\"49529\",\"_score\":1.0,\"_source\":{\"title\":\"John Carter\",\"overview\":\"John Carter is a war-weary, former military captain who's inexplicably transported to the mysterious and exotic planet of Barsoom (Mars) and reluctantly becomes embroiled in an epic conflict. It's a world on the brink of collapse, and Carter rediscovers his humanity when he realizes the survival of Barsoom and its people rests in his hands.\",\"tagline\":\"Lost in our world, found in another.\",\"release_date\":\"2012-03-07\",\"genres\":[\"Action\",\"Adventure\",\"Science Fiction\"],\"director\":\"Andrew Stanton\",\"vote_average\":6.1,\"vote_count\":2124,\"popularity\":43.926995,\"budget\":260000000,\"revenue\":284139100,\"runtime\":132.0}},{\"_index\":\"movies\",\"_id\":\"559\",\"_score\":1.0,\"_source\":{\"title\":\"Spider-Man 3\",\"overview\":\"The seemingly invincible Spider-Man goes up against an all-new crop of villain – including the shape-shifting Sandman. While Spider-Man’s superpowers are altered by an alien organism, his alter ego, Peter Parker, deals with nemesis Eddie Brock and also gets caught up in a love triangle.\",\"tagline\":\"The battle within.\",\"release_date\":\"2007-05-01\",\"genres\":[\"Fantasy\",\"Action\",\"Adventure\"],\"director\":\"Sam Raimi\",\"vote_average\":5.9,\"vote_count\":3576,\"popularity\":115.699814,\"budget\":258000000,\"revenue\":890871626,\"runtime\":139.0}},{\"_index\":\"movies\",\"_id\":\"38757\",\"_score\":1.0,\"_source\":{\"title\":\"Tangled\",\"overview\":\"When the kingdom's most wanted-and most charming-bandit Flynn Rider hides out in a mysterious tower, he's taken hostage by Rapunzel, a beautiful and feisty tower-bound teen with 70 feet of magical, golden hair. Flynn's curious captor, who's looking for her ticket out of the tower where she's been locked away for years, strikes a deal with the handsome thief and the unlikely duo sets off on an action-packed escapade, complete with a super-cop horse, an over-protective chameleon and a gruff gang of pub thugs.\",\"tagline\":\"They're taking adventure to new lengths.\",\"release_date\":\"2010-11-24\",\"genres\":[\"Animation\",\"Family\"],\"director\":\"Byron Howard\",\"vote_average\":7.4,\"vote_count\":3330,\"popularity\":48.681969,\"budget\":260000000,\"revenue\":591794936,\"runtime\":100.0}},{\"_index\":\"movies\",\"_id\":\"99861\",\"_score\":1.0,\"_source\":{\"title\":\"Avengers: Age of Ultron\",\"overview\":\"When Tony Stark tries to jumpstart a dormant peacekeeping program, things go awry and Earth’s Mightiest Heroes are put to the ultimate test as the fate of the planet hangs in the balance. As the villainous Ultron emerges, it is up to The Avengers to stop him from enacting his terrible plans, and soon uneasy alliances and unexpected action pave the way for an epic and unique global adventure.\",\"tagline\":\"A New Age Has Come.\",\"release_date\":\"2015-04-22\",\"genres\":[\"Action\",\"Adventure\",\"Science Fiction\"],\"director\":\"Joss Whedon\",\"vote_average\":7.3,\"vote_count\":6767,\"popularity\":134.279229,\"budget\":280000000,\"revenue\":1405403694,\"runtime\":141.0}},{\"_index\":\"movies\",\"_id\":\"767\",\"_score\":1.0,\"_source\":{\"title\":\"Harry Potter and the Half-Blood Prince\",\"overview\":\"As Harry begins his sixth year at Hogwarts, he discovers an old book marked as 'Property of the Half-Blood Prince', and begins to learn more about Lord Voldemort's dark past.\",\"tagline\":\"Dark Secrets Revealed\",\"release_date\":\"2009-07-07\",\"genres\":[\"Adventure\",\"Fantasy\",\"Family\"],\"director\":\"David Yates\",\"vote_average\":7.4,\"vote_count\":5293,\"popularity\":98.885637,\"budget\":250000000,\"revenue\":933959197,\"runtime\":153.0}},{\"_index\":\"movies\",\"_id\":\"209112\",\"_score\":1.0,\"_source\":{\"title\":\"Batman v Superman: Dawn of Justice\",\"overview\":\"Fearing the actions of a god-like Super Hero left unchecked, Gotham City’s own formidable, forceful vigilante takes on Metropolis’s most revered, modern-day savior, while the world wrestles with what sort of hero it really needs. And with Batman and Superman at war with one another, a new threat quickly arises, putting mankind in greater danger than it’s ever known before.\",\"tagline\":\"Justice or revenge\",\"release_date\":\"2016-03-23\",\"genres\":[\"Action\",\"Adventure\",\"Fantasy\"],\"director\":\"Zack Snyder\",\"vote_average\":5.7,\"vote_count\":7004,\"popularity\":155.790452,\"budget\":250000000,\"revenue\":873260194,\"runtime\":151.0}}]}}"
+        }
+      },
+      "trailers": null,
+      "at_end": true,
+      "total_bytes": 6853
+    }
+  }
+}

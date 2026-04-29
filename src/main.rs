@@ -1,4 +1,6 @@
+use std::fs;
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clap::{ArgAction, Parser};
@@ -31,6 +33,8 @@ struct Args {
     tokio_console: bool,
     #[arg(short, long)]
     print_messages: bool,
+    #[arg(short, long, value_name = "DIR")]
+    record_examples: Option<PathBuf>,
     #[arg(long = "no-web", default_value_t = true, action = ArgAction::SetFalse)]
     web: bool,
 }
@@ -75,6 +79,10 @@ pub async fn main() -> Result<()> {
     let args = Args::parse();
     init_logging(args.tokio_console)?;
 
+    if let Some(out_dir) = &args.record_examples {
+        fs::create_dir_all(out_dir)?;
+    }
+
     let client = proxy::client::build();
     let proxy_group = Arc::new(create_group(&args, client)?);
 
@@ -84,9 +92,12 @@ pub async fn main() -> Result<()> {
 
     let mut proxy_join_set = proxy_group.start_services()?;
 
-    if args.print_messages {
-        for service in &proxy_group.services {
+    for service in &proxy_group.services {
+        if args.print_messages {
             start_logger(&mut proxy_join_set, service)?;
+        }
+        if let Some(out_dir) = &args.record_examples {
+            start_example_recorder(&mut proxy_join_set, service, out_dir)?;
         }
     }
 
@@ -110,6 +121,19 @@ fn start_logger(tasks: &mut JoinSet<Result<()>>, entry: &ServiceEntry) -> Result
         tasks,
         &monitor::logger_task_name(&entry.service.name),
         monitor::run_logger(entry.publisher.subscribe()),
+    )?;
+    Ok(())
+}
+
+fn start_example_recorder(
+    tasks: &mut JoinSet<Result<()>>,
+    entry: &ServiceEntry,
+    out_dir: &Path,
+) -> Result<()> {
+    spawn_instrumented_on(
+        tasks,
+        &format!("recorder({})", &entry.service.name),
+        monitor::run_writer(entry.publisher.subscribe(), out_dir.to_path_buf()),
     )?;
     Ok(())
 }
