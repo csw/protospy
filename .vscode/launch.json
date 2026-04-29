@@ -51,11 +51,16 @@
             "name": "Debug unit tests in executable 'protospy'",
             "type": "lldb",
             "request": "launch",
+            "cwd": "${workspaceFolder}",
             "cargo": {
                 "args": [
                     "test",
                     "--bin=protospy"
                 ]
+            },
+            "env": {
+                "RUST_BACKTRACE": "full",
+                "RUST_LIB_BACKTRACE": "full"
             }
         },
     ]
