@@ -46,7 +46,6 @@ pub enum Event {
         headers: Headers,
         elapsed_ms: i64,
         body: InitialBody,
-        trailers: Option<Headers>,
     },
     BodyData(BodyData),
     Error {
@@ -115,15 +114,12 @@ impl Event {
         body_data: body::FoundBodyData,
         elapsed: TimeDelta,
     ) -> Self {
-        let trailers = body_data.trailers().map(Into::into);
-
         Self::Response {
             status: response.status,
             version: response.version,
             headers: response.headers.into(),
             elapsed_ms: elapsed.num_milliseconds(),
             body: InitialBody::from_found(body_data),
-            trailers,
         }
     }
 }

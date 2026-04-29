@@ -1,7 +1,7 @@
 {
     "exchange": {
         "exchange_id": 1,
-        "timestamp": "2026-04-28T23:42:32.096976Z"
+        "timestamp": "2026-04-28T23:58:52.055092Z"
     },
     "direction": "Response",
     "event": {
@@ -26,7 +26,7 @@
                 "value": "327"
             }
         ],
-        "elapsed_ms": 26,
+        "elapsed_ms": 13,
         "body": {
             "type": "Data",
             "content": {
@@ -39,7 +39,6 @@
             "trailers": null,
             "at_end": true,
             "total_bytes": 327
-        },
-        "trailers": null
+        }
     }
 }

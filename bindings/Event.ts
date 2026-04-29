@@ -4,4 +4,4 @@ import type { Direction } from "./Direction";
 import type { Headers } from "./Headers";
 import type { InitialBody } from "./InitialBody";
 
-export type Event = { "type": "request", method: string, uri: string, version: string, headers: Headers, body: InitialBody, trailers: Headers | null, } | { "type": "response", status: string, version: string, headers: Headers, elapsed_ms: number, body: InitialBody, trailers: Headers | null, } | { "type": "bodydata" } & BodyData | { "type": "error", direction: Direction, message: string, };
+export type Event = { "type": "request", method: string, uri: string, version: string, headers: Headers, body: InitialBody, trailers: Headers | null, } | { "type": "response", status: string, version: string, headers: Headers, elapsed_ms: number, body: InitialBody, } | { "type": "bodydata" } & BodyData | { "type": "error", direction: Direction, message: string, };
