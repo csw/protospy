@@ -19,6 +19,7 @@ pub struct EventMessage {
 }
 
 #[derive(Serialize, PartialEq, Debug, ts_rs::TS)]
+#[ts(rename = "ProxyHeaders")]
 pub struct Headers(Vec<Header>);
 
 #[derive(ts_rs::TS, Serialize, PartialEq, Debug)]
