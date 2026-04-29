@@ -1,6 +1,7 @@
 use std::error::Error;
+use std::fmt::Debug;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use color_eyre::{Result, eyre::WrapErr};
 use http::{StatusCode, Uri, uri};
@@ -9,7 +10,9 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
-use tracing::{Instrument, error, info, instrument};
+use tokio::task::JoinSet;
+use tokio::time::Duration;
+use tracing::{Instrument, debug, error, info, instrument};
 
 use crate::proxy::{
     body::{self, ProxyResponse},
@@ -35,6 +38,8 @@ pub struct Service {
     pub client: Client,
     /// Event reporter.
     pub reporter_service: Arc<dyn EventReporterService>,
+    // /// JoinSet of tasks.
+    pub tasks: Arc<Mutex<JoinSet<Result<()>>>>,
 }
 
 impl Service {
@@ -51,6 +56,7 @@ impl Service {
             target,
             client,
             reporter_service,
+            tasks: Arc::new(Mutex::new(JoinSet::new())),
         }
     }
 
@@ -59,6 +65,9 @@ impl Service {
         // We create a TcpListener and bind it
         let listener: TcpListener = TcpListener::bind(self.addr).await?;
         info!("Listening");
+
+        let log_tasks = Arc::clone(&self.tasks);
+        tokio::spawn(async move { log_joined(log_tasks).await });
 
         // We start a loop to continuously accept incoming connections
         loop {
@@ -173,4 +182,20 @@ pub fn error_http_response(status: StatusCode, cause: errors::Cause) -> Result<P
         .header("x-cause", cause.to_string())
         .body(body::downstream::empty_response())
         .wrap_err("failed to build internal response")
+}
+
+async fn log_joined<T>(tasks: Arc<Mutex<JoinSet<Result<T>>>>)
+where
+    T: Debug + 'static,
+{
+    let mut ticker = tokio::time::interval(Duration::from_millis(100));
+    loop {
+        ticker.tick().await;
+        {
+            let mut tasks = tasks.lock().unwrap();
+            while let Some(res) = tasks.try_join_next() {
+                debug!(event = "task_exited", res = ?res);
+            }
+        }
+    }
 }

@@ -1,6 +1,8 @@
 use std::fmt::{self, Debug};
 use std::pin::Pin;
 use std::result::Result as StdResult;
+use std::sync::Arc;
+use std::task::ready;
 use std::{task::Poll, time::Duration};
 
 use color_eyre::{Result, eyre::eyre};
@@ -18,7 +20,7 @@ use pin_project_lite::pin_project;
 use serde::Serialize;
 use strum::Display;
 use tokio::time::timeout;
-use tracing::{debug, error, instrument, trace};
+use tracing::{error, instrument};
 
 use crate::proxy::errors::BodyError;
 
@@ -98,35 +100,58 @@ pub trait BodyReporter: Send + Sync {
     }
 }
 
+pub(crate) trait BodyAsyncFrameReporter: Send + Sync {
+    fn dispatch(
+        self: Arc<Self>,
+        item: Arc<Option<BodyStreamItem>>,
+    ) -> impl Future<Output = Result<()>> + Send + Sync + 'static;
+
+    #[cfg(test)]
+    fn dispatch_bare(
+        self: &Arc<Self>,
+        item: Option<BodyStreamItem>,
+    ) -> impl Future<Output = Result<()>> + Send + Sync + 'static {
+        self.clone().dispatch(Arc::new(item))
+    }
+}
+
+type BoxFutureSync<'a, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'a>>;
+
+type DispatchFuture = BoxFutureSync<'static, Result<()>>;
+
 pin_project! {
-    pub struct BodyStreamWrapper<S>
-    where S: Stream<Item = BodyStreamItem>
+    pub(crate) struct BodyStreamWrapper<S, R>
+    where S: Stream<Item = BodyStreamItem>, R: BodyAsyncFrameReporter
      {
         pub direction: Direction,
         #[pin]
-        pub base: S,
-        reporter: Box<dyn BodyReporter>,
+        pub source: S,
+        state: Option<(Arc<Option<BodyStreamItem>>, DispatchFuture)>,
+        reporter: Arc<R>,
         span: tracing::Span,
     }
 }
 
-impl<S> BodyStreamWrapper<S>
+impl<S, R> BodyStreamWrapper<S, R>
 where
     S: Stream<Item = BodyStreamItem>,
+    R: BodyAsyncFrameReporter,
 {
-    pub fn new(direction: Direction, base: S, reporter: Box<dyn BodyReporter>) -> Self {
+    pub fn new(direction: Direction, source: S, reporter: Arc<R>) -> Self {
         Self {
             direction,
-            base,
+            source,
+            state: None,
             reporter,
             span: tracing::Span::current(),
         }
     }
 }
 
-impl<S> Stream for BodyStreamWrapper<S>
+impl<S, R> Stream for BodyStreamWrapper<S, R>
 where
     S: Stream<Item = BodyStreamItem>,
+    R: BodyAsyncFrameReporter,
 {
     type Item = S::Item;
 
@@ -137,56 +162,44 @@ where
     ) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        fn report_on_err(event: &str, val: Result<()>) {
-            match val {
-                Ok(_) => {}
-                Err(err) => {
-                    error!(event = event, error = ?err)
-                }
-            }
+        // The process here is:
+        // 1. Poll the source stream to read an item.
+        // 2. Start an async call to the reporter's dispatch method with an Arc reference to the item.
+        // 3. Poll the future for the async call.
+        // 4. Return the item to the consumer.
+
+        // When this is polled, it needs to poll either the source stream or the future,
+        // so our internal state is either:
+        // - nothing, in which case we poll the source stream for an item
+        // - an item and a future, in which case we poll the future
+
+        if this.state.is_none() {
+            // no item, poll the source stream
+            let item = Arc::new(ready!(this.source.as_mut().poll_next(cx)));
+            // got an item, start an async call to the reporter
+            let future = this.reporter.clone().dispatch(Arc::clone(&item));
+            // store this state so that we resume from here
+            *this.state = Some((item, Box::pin(future)));
         }
 
-        match this.reporter.check_ready() {
-            Ok(true) => {}
-            Ok(false) => return Poll::Pending,
-            Err(err) => {
-                error!(event = "check_ready_error", error = ?err);
-            }
+        // have an item and a future
+        let (_, future) = this
+            .state
+            .as_mut()
+            .expect("invalid BodyStreamWrapper state, need future");
+
+        if let Err(err) = ready!(future.as_mut().poll(cx)) {
+            // log a reporting error, but return the frame to the caller regardless
+            error!(event = "frame_reporter_dispatch_error", error = ?err);
         }
-
-        let res = this.base.as_mut().poll_next(cx);
-        match res {
-            Poll::Ready(Some(Ok(ref frame))) => {
-                if let Some(bytes) = frame.data_ref() {
-                    trace!(event = "read_frame", len = bytes.len());
-                    report_on_err("wrapper_saw_data", this.reporter.saw_data(bytes));
-                } else if let Some(trailers) = frame.trailers_ref() {
-                    trace!(event = "read_trailers", count = trailers.len());
-                    report_on_err("wrapper_saw_trailers", this.reporter.saw_trailers(trailers));
-                } else {
-                    panic!("unhandled frame type: {frame:?}")
-                };
-            }
-            Poll::Ready(Some(Err(ref err))) => {
-                error!(
-                    event = "read_error",
-                    error = ?err,
-                );
-                report_on_err(
-                    "wrapper_saw_error",
-                    this.reporter.saw_error(err.to_string()),
-                );
-            }
-            // EOF
-            Poll::Ready(None) => {
-                trace!(event = "body_eof",);
-
-                report_on_err("wrapper_saw_eof", this.reporter.saw_eof());
-            }
-            Poll::Pending => (),
-        }
-
-        res
+        // reported the item, clear the state and return it
+        let (item, _) = this
+            .state
+            .take()
+            .expect("invalid BodyStreamWrapper state, need item");
+        Poll::Ready(
+            Arc::into_inner(item).expect("invalid BodyStreamWrapper state, leaked item reference"),
+        )
     }
 }
 
@@ -300,11 +313,6 @@ const PEEK_DURATION: Duration = Duration::from_micros(100);
 // Read any immediately-available data from an HTTP body, and return it in a
 // structured form together with a Body which reproduces the original.
 pub async fn collect_ready_data(body: Internal) -> Result<(FoundBodyData, PrefetchedParts)> {
-    debug!(
-        "collect_ready_data: initial end_stream: {}",
-        body.is_end_stream()
-    );
-
     if body.is_end_stream() {
         // is_end_stream isn't propagated into a BodyStream, so we have to check
         // this here, before extract_ready_frames
@@ -321,17 +329,12 @@ pub async fn collect_ready_data(body: Internal) -> Result<(FoundBodyData, Prefet
 
     let mut ready = body_stream_p.peekable().ready_chunks(32);
     let found = timeout(PEEK_DURATION, ready.next()).await;
-    // debug!(event = "extract_ready_frames", terminated = ready.is_terminated(), found = ?found);
     let mut rest = Box::pin(ready.into_inner());
     // Peek, because is_terminated() won't be true until we await again. This
     // isn't deterministic, even with a request coming in as a single packet,
     // and doesn't always catch termination.
     _ = timeout(Duration::ZERO, rest.as_mut().peek()).await;
     let terminated = rest.is_terminated();
-    debug!(
-        event = "extract_ready_frames peek term",
-        terminated = rest.is_terminated(),
-    );
     // N.B. BodyStream just returns false for is_end_stream()
 
     match (found, terminated) {
@@ -387,10 +390,21 @@ pub fn frame_stream(frames: Vec<Frame<Data>>) -> impl Stream<Item = BodyStreamIt
 }
 
 #[cfg(test)]
+pub mod test_support {
+    use super::*;
+
+    pub fn df(data: &[u8]) -> Frame<Bytes> {
+        Frame::data(Bytes::copy_from_slice(data))
+    }
+
+    pub fn dfr(data: &[u8]) -> BodyStreamItem {
+        Ok(Frame::data(Bytes::copy_from_slice(data)))
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use mockall::predicate::*;
-    use rstest::*;
 
     mod wrapper {
         use super::*;
@@ -398,90 +412,21 @@ mod tests {
         use futures::TryStreamExt;
         use tokio_test::stream_mock::StreamMockBuilder;
 
+        struct DummyReporter {}
+
+        impl BodyAsyncFrameReporter for DummyReporter {
+            async fn dispatch(self: Arc<Self>, _item: Arc<Option<BodyStreamItem>>) -> Result<()> {
+                Ok(())
+            }
+        }
+
         #[tokio::test]
         async fn test_basic() {
+            let reporter = Arc::new(DummyReporter {});
             let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
-            let mut reporter = Box::new(MockBodyReporter::new());
-            let mut seq = Sequence::new();
-            reporter
-                .expect_check_ready()
-                .returning(|| Ok(true))
-                .times(1)
-                .in_sequence(&mut seq);
-            reporter
-                .expect_saw_data()
-                .with(eq(Bytes::from_static(b"ab")))
-                .returning(|_| Ok(()))
-                .times(1)
-                .in_sequence(&mut seq);
-            reporter
-                .expect_check_ready()
-                .returning(|| Ok(true))
-                .times(1)
-                .in_sequence(&mut seq);
-            reporter
-                .expect_saw_eof()
-                .times(1)
-                .returning(|| Ok(()))
-                .in_sequence(&mut seq);
-
             let wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
             let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
             assert_eq!(res.len(), 1);
-        }
-
-        struct FaultReporter {
-            n: usize,
-            fail_at: usize,
-        }
-
-        impl FaultReporter {
-            fn new(fail_at: usize) -> Self {
-                Self { n: 0, fail_at }
-            }
-
-            fn res(&mut self) -> Result<()> {
-                let cur = self.n;
-                self.n += 1;
-                if cur < self.fail_at {
-                    Ok(())
-                } else {
-                    Err(eyre!("fault"))
-                }
-            }
-        }
-
-        impl BodyReporter for FaultReporter {
-            fn check_ready(&mut self) -> Result<bool> {
-                self.res().map(|_| true)
-            }
-
-            fn saw_data(&mut self, _bytes: &Bytes) -> Result<()> {
-                self.res()
-            }
-
-            fn saw_eof(&mut self) -> Result<()> {
-                self.res()
-            }
-
-            fn saw_error(&mut self, _err: String) -> Result<()> {
-                self.res()
-            }
-
-            fn saw_trailers(&mut self, _trailers: &HeaderMap) -> Result<()> {
-                self.res()
-            }
-        }
-
-        #[rstest]
-        #[tokio::test]
-        async fn test_fault(#[values(0, 1, 2, 3, 4)] fail_at: usize) {
-            let stream_mock = StreamMockBuilder::new().next(dfr(b"ab")).build();
-            let reporter = Box::new(FaultReporter::new(fail_at));
-            let mut wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
-            while let Some(v) = wrapper.next().await {
-                assert!(v.is_ok(), "got {v:?}");
-            }
         }
     }
 

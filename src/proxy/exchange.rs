@@ -25,7 +25,6 @@ pub struct Exchange {
     should_report: bool,
     meta: ExchangeMeta,
     conn: ConnInfo,
-    tasks: tokio::task::JoinSet<Result<()>>,
 }
 
 impl Exchange {
@@ -35,7 +34,6 @@ impl Exchange {
             should_report,
             meta: Default::default(),
             conn,
-            tasks: Default::default(),
         }
     }
 
@@ -197,16 +195,20 @@ impl Exchange {
         prefetched.assemble(|rest| {
             let (collector, mut data_reporter) =
                 reporting::create_buffered(reporter, direction, read_bytes);
-            spawn_instrumented_on(
-                &mut self.tasks,
-                &format!("track {} ({})", direction, self.conn.client),
-                async move { data_reporter.run().await },
-            )?;
-            Ok(body::BodyStreamWrapper::new(
-                direction,
-                rest,
-                Box::new(collector),
-            ))
+            {
+                let mut tasks = self.service.tasks.lock().unwrap();
+                spawn_instrumented_on(
+                    &mut tasks,
+                    &format!("track {} ({})", direction, self.conn.client),
+                    async move {
+                        let res = data_reporter.run().await;
+                        debug!("reporter exiting");
+                        res
+                    },
+                )?;
+            }
+            debug!("started reporter");
+            Ok(body::BodyStreamWrapper::new(direction, rest, collector))
         })
     }
 }
