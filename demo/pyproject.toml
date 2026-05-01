@@ -14,8 +14,8 @@ dependencies = [
     "opentelemetry-sdk>=1,<2",
     "opentelemetry-api>=1,<2",
     "opentelemetry-instrumentation-fastapi>=0,<1",
-    "opentelemetry-instrumentation-elasticsearch>=0,<1",
     "opentelemetry-exporter-otlp-proto-http>=1,<2",
+    "opentelemetry-instrumentation-aiohttp-client>=0.61b0",
 ]
 
 [dependency-groups]

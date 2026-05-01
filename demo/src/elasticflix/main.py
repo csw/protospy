@@ -12,6 +12,8 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+
 
 from elasticflix.config import settings
 
@@ -33,6 +35,8 @@ def _init_telemetry(app: FastAPI):
         provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
 
     trace.set_tracer_provider(provider)
+
+    AioHttpClientInstrumentor().instrument()
 
     # N.B. the Elasticsearch client automatically uses the OpenTelemetry installation configured here
 
