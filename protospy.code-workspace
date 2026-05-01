@@ -2,6 +2,7 @@
   "folders": [
     { "path": ".", "name": "protospy" },
     { "path": "conformance", "name": "conformance" },
-    { "path": "demo", "name": "demo" }
+    { "path": "demo", "name": "demo" },
+    { "path": "ui", "name": "ui" }
   ]
 }
