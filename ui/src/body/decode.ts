@@ -2,7 +2,7 @@ import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
 
 export interface DecodeResult {
-  kind: "json" | "text" | "binary";
+  kind: "json" | "jsonl" | "text" | "binary";
   text?: string;
   mediaType: string;
   size: number;
@@ -61,6 +61,32 @@ async function decompress(
   return concatenate(chunks);
 }
 
+const JSONL_TYPES = new Set([
+  "application/vnd.elasticsearch+x-ndjson",
+  "application/x-ndjson",
+  "application/ndjson",
+]);
+
+function isJsonlContentType(contentType: string): boolean {
+  const base = contentType.split(";")[0].trim().toLowerCase();
+  return JSONL_TYPES.has(base);
+}
+
+function formatJsonl(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l !== "");
+  const formatted = lines.map((line) => {
+    try {
+      return JSON.stringify(JSON.parse(line) as unknown, null, 2);
+    } catch {
+      return line;
+    }
+  });
+  return formatted.join("\n\n");
+}
+
 export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   const { chunks, totalBytes, contentType, contentEncoding } = body;
   const mediaType = contentType ?? "application/octet-stream";
@@ -90,7 +116,18 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   // Step 3: Decode bytes to text
   const text = new TextDecoder().decode(bytes);
 
-  // Step 4: Detect JSON
+  // Step 4: Detect JSONL — must precede generic JSON check because ndjson
+  // MIME types contain the substring "json" and would otherwise be mishandled
+  if (contentType != null && isJsonlContentType(contentType)) {
+    return {
+      kind: "jsonl",
+      text: formatJsonl(text),
+      mediaType,
+      size: totalBytes,
+    };
+  }
+
+  // Step 5: Detect JSON
   if (contentType?.toLowerCase().includes("json")) {
     try {
       const parsed: unknown = JSON.parse(text);
@@ -101,7 +138,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     }
   }
 
-  // Step 5: Detect binary content types
+  // Step 6: Detect binary content types
   const binaryPrefixes = [
     "image/",
     "audio/",
@@ -112,6 +149,6 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     return { kind: "binary", mediaType, size: totalBytes };
   }
 
-  // Step 6: Default to text
+  // Step 7: Default to text
   return { kind: "text", text, mediaType, size: totalBytes };
 }

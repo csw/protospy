@@ -13,7 +13,7 @@ type Token = Span | string;
  * Tokenize a single line of pretty-printed JSON into an array of
  * strings (unstyled) and Span objects (styled).
  */
-function tokenizeLine(line: string): Token[] {
+export function tokenizeLine(line: string): Token[] {
   const tokens: Token[] = [];
   let rest = line;
 

@@ -123,3 +123,108 @@ describe("decodeBody", () => {
     expect(result.mediaType).toBe("application/octet-stream");
   });
 });
+
+describe("decodeBody JSONL", () => {
+  it("application/vnd.elasticsearch+x-ndjson returns kind jsonl", async () => {
+    const line1 = JSON.stringify({ index: { _id: "1" } });
+    const line2 = JSON.stringify({ title: "Inception" });
+    const ndjsonText = `${line1}\n${line2}`;
+    const body: BodyState = {
+      chunks: [{ text: ndjsonText }],
+      atEnd: true,
+      totalBytes: ndjsonText.length,
+      contentType: "application/vnd.elasticsearch+x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+    expect(result.mediaType).toBe("application/vnd.elasticsearch+x-ndjson");
+    expect(result.text).toContain('"_id"');
+    expect(result.text).toContain('"title"');
+    // Records separated by blank line
+    expect(result.text).toContain("}\n\n{");
+  });
+
+  it("vnd.elasticsearch+x-ndjson with compatible-with param returns kind jsonl", async () => {
+    const line = JSON.stringify({ query: { match_all: {} } });
+    const body: BodyState = {
+      chunks: [{ text: line }],
+      atEnd: true,
+      totalBytes: line.length,
+      contentType: "application/vnd.elasticsearch+x-ndjson; compatible-with=9",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+    expect(result.mediaType).toBe(
+      "application/vnd.elasticsearch+x-ndjson; compatible-with=9",
+    );
+  });
+
+  it("application/x-ndjson returns kind jsonl", async () => {
+    const lines = [JSON.stringify({ a: 1 }), JSON.stringify({ b: 2 })].join(
+      "\n",
+    );
+    const body: BodyState = {
+      chunks: [{ text: lines }],
+      atEnd: true,
+      totalBytes: lines.length,
+      contentType: "application/x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+  });
+
+  it("application/ndjson returns kind jsonl", async () => {
+    const line = JSON.stringify({ ok: true });
+    const body: BodyState = {
+      chunks: [{ text: line }],
+      atEnd: true,
+      totalBytes: line.length,
+      contentType: "application/ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+  });
+
+  it("JSONL pretty-prints each record separated by a blank line", async () => {
+    const r1 = JSON.stringify({ id: 1 });
+    const r2 = JSON.stringify({ id: 2 });
+    const body: BodyState = {
+      chunks: [{ text: `${r1}\n${r2}` }],
+      atEnd: true,
+      totalBytes: r1.length + r2.length + 1,
+      contentType: "application/x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+    const expected = '{\n  "id": 1\n}\n\n{\n  "id": 2\n}';
+    expect(result.text).toBe(expected);
+  });
+
+  it("JSONL skips empty lines such as a trailing newline", async () => {
+    const line = JSON.stringify({ a: 1 });
+    const body: BodyState = {
+      chunks: [{ text: `${line}\n` }],
+      atEnd: true,
+      totalBytes: line.length + 1,
+      contentType: "application/x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+    expect(result.text).toBe('{\n  "a": 1\n}');
+  });
+
+  it("JSONL passes through lines that are not valid JSON", async () => {
+    const valid = JSON.stringify({ ok: true });
+    const invalid = "not-valid-json";
+    const body: BodyState = {
+      chunks: [{ text: `${valid}\n${invalid}` }],
+      atEnd: true,
+      totalBytes: valid.length + invalid.length + 1,
+      contentType: "application/x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("jsonl");
+    expect(result.text).toContain('"ok"');
+    expect(result.text).toContain("not-valid-json");
+  });
+});

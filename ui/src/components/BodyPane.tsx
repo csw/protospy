@@ -93,7 +93,7 @@ export function BodyPane({ title, body }: Props) {
 
         {!loading &&
           result != null &&
-          result.kind === "json" &&
+          (result.kind === "json" || result.kind === "jsonl") &&
           result.text != null && <JsonViewer text={result.text} />}
 
         {!loading &&
