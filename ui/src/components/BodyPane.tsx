@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
 import { formatSize } from "@ui/lib/utils";
+import { CopyButton } from "./CopyButton";
 import { EmptyState } from "./ui/EmptyState";
 import { SectionHeader } from "./ui/SectionHeader";
 import { JsonViewer } from "./JsonViewer";
@@ -64,15 +65,18 @@ export function BodyPane({ title, body }: Props) {
       <div className="flex items-center gap-3 px-3 h-7 shrink-0 bg-bg2 border-b border-border">
         <SectionHeader>{title}</SectionHeader>
         {result != null && (
-          <>
+          <span className="font-family-mono text-xs text-dim">
+            {result.mediaType}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {result != null && (
             <span className="font-family-mono text-xs text-dim">
-              {result.mediaType}
-            </span>
-            <span className="font-family-mono text-xs text-dim ml-auto">
               {formatSize(result.size)}
             </span>
-          </>
-        )}
+          )}
+          {body != null && <CopyButton text={result?.text} />}
+        </div>
       </div>
 
       {/* Body area */}
