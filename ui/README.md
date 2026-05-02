@@ -5,12 +5,12 @@ React + TypeScript frontend for the protospy HTTP monitoring proxy. Built with V
 ## Requirements
 
 - Node.js 22+
-- npm
+- pnpm 10+
 
 ## Setup
 
 ```sh
-npm install
+pnpm install
 ```
 
 ## Development
@@ -18,7 +18,7 @@ npm install
 Start the dev server (proxies API calls to the protospy backend on port 3100):
 
 ```sh
-npm run dev
+pnpm dev
 ```
 
 The UI is served at `http://localhost:5173`. Requests to `/info` and `/service/*` are forwarded to `http://localhost:3100`, so the protospy backend must be running for API calls to work.
@@ -29,16 +29,16 @@ To generate example traffic to observe in the UI, there are shell scripts in `..
 
 ## Commands
 
-| Command                | Description                          |
-| ---------------------- | ------------------------------------ |
-| `npm run dev`          | Start dev server with HMR            |
-| `npm run build`        | Production build (output: `dist/`)   |
-| `npm run preview`      | Preview the production build locally |
-| `npm run lint`         | Run ESLint                           |
-| `npm run format`       | Format with Prettier                 |
-| `npm run format:check` | Check formatting without writing     |
-| `npm run typecheck`    | Type-check without emitting          |
-| `npm test`             | Run unit tests with Vitest           |
+| Command             | Description                          |
+| ------------------- | ------------------------------------ |
+| `pnpm dev`          | Start dev server with HMR            |
+| `pnpm build`        | Production build (output: `dist/`)   |
+| `pnpm preview`      | Preview the production build locally |
+| `pnpm lint`         | Run ESLint                           |
+| `pnpm format`       | Format with Prettier                 |
+| `pnpm format:check` | Check formatting without writing     |
+| `pnpm typecheck`    | Type-check without emitting          |
+| `pnpm test`         | Run unit tests with Vitest           |
 
 ## Project Structure
 
