@@ -4,4 +4,4 @@ set dotenv-filename := ".env.dev"
 default: run
 
 run:
-   uv run uvicorn elasticflix.main:app --reload
+    uv run uvicorn elasticflix.main:app --reload
