@@ -12,7 +12,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::JoinSet;
 use tokio::time::Duration;
-use tracing::{Instrument, debug, error, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::proxy::{
     body::{self, ProxyResponse},
@@ -20,6 +20,7 @@ use crate::proxy::{
     reporting::EventReporterService,
 };
 use crate::proxy::{conn::ConnInfo, exchange::Exchange};
+use crate::tokio_util::spawn_instrumented;
 
 use super::client::Client;
 use super::errors;
@@ -87,26 +88,22 @@ impl Service {
         let io = TokioIo::new(stream);
         let server = Arc::clone(self);
 
-        tokio::task::Builder::new()
-            .name(format!("conn({}) {}", self.name, conn_info.client).as_str())
-            .spawn(
-                async move {
-                    if let Err(err) = http1::Builder::new()
-                        // `service_fn` converts our function in a `Service`
-                        .serve_connection(
-                            io,
-                            service_fn(move |req| {
-                                let server = Arc::clone(&server);
-                                server.proxy(req, conn_info.clone())
-                            }),
-                        )
-                        .await
-                    {
-                        error!("error serving connection: {:?}", err);
-                    }
-                }
-                .instrument(tracing::Span::current()),
-            )?;
+        spawn_instrumented(
+            &format!("conn({}) {}", self.name, conn_info.client),
+            async move {
+                http1::Builder::new()
+                    // `service_fn` converts our function in a `Service`
+                    .serve_connection(
+                        io,
+                        service_fn(move |req| {
+                            let server = Arc::clone(&server);
+                            server.proxy(req, conn_info.clone())
+                        }),
+                    )
+                    .await
+                    .wrap_err("error serving connection")
+            },
+        )?;
         Ok(())
     }
 
