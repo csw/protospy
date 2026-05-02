@@ -1,5 +1,5 @@
 use std::fs;
-use std::net::SocketAddr;
+use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -7,6 +7,7 @@ use chrono::prelude::*;
 use clap::{ArgAction, Parser};
 use color_eyre::{Result, config::Frame};
 use console_subscriber::ConsoleLayer;
+use eyre::eyre;
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::{info, level_filters::LevelFilter};
 use tracing_error::ErrorLayer;
@@ -28,21 +29,29 @@ pub(crate) mod tokio_util;
 #[command(version, about, long_about = None)]
 struct Args {
     /// Proxy definition
-    #[arg(long = "proxy", required = true)]
+    #[arg(long = "proxy", env = "PROXY", required = true, value_delimiter = ';')]
     proxies: Vec<ProxyConfig>,
-    #[arg(long)]
+    #[arg(
+        long = "listen",
+        env,
+        value_name = "ADDR",
+        default_value = "0.0.0.0:3100"
+    )]
+    listen: String,
+    #[arg(long, env)]
     tokio_console: bool,
-    #[arg(short, long)]
+    #[arg(short, long, env)]
     print_messages: bool,
-    #[arg(short, long, value_name = "DIR")]
+    #[arg(short, long, env, value_name = "DIR")]
     record_examples: Option<PathBuf>,
-    #[arg(long = "no-web", default_value_t = true, action = ArgAction::SetFalse)]
+    #[arg(long = "no-web", env, default_value_t = true, action = ArgAction::SetFalse)]
     web: bool,
 }
 
 #[derive(Debug, Clone)]
 struct ProxyConfig {
     name: String,
+    addr: String,
     port: u16,
     target: String,
 }
@@ -52,12 +61,14 @@ impl std::str::FromStr for ProxyConfig {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut name = None;
+        let mut addr: String = "[::]".into();
         let mut port = None;
         let mut target = None;
 
         for pair in s.split(',') {
             match pair.split_once('=') {
                 Some(("name", v)) => name = Some(v.to_string()),
+                Some(("addr", v)) => addr = v.to_string(),
                 Some(("port", v)) => {
                     port = Some(v.parse::<u16>().map_err(|e| format!("invalid port: {e}"))?);
                 }
@@ -69,6 +80,7 @@ impl std::str::FromStr for ProxyConfig {
 
         Ok(ProxyConfig {
             name: name.ok_or("missing name")?,
+            addr,
             port: port.ok_or("missing port")?,
             target: target.ok_or("missing target")?,
         })
@@ -88,7 +100,7 @@ pub async fn main() -> Result<()> {
     let proxy_group = Arc::new(create_group(&args, client)?);
 
     if args.web {
-        start_web(Arc::clone(&proxy_group)).await?;
+        start_web(&args.listen, Arc::clone(&proxy_group)).await?;
     }
 
     let mut proxy_join_set = proxy_group.start_services()?;
@@ -106,13 +118,15 @@ pub async fn main() -> Result<()> {
     join_res.unwrap()?
 }
 
-async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
+async fn start_web(listen_on: &str, proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
     let app = Arc::new(App {
         started_at: Utc::now(),
         proxy_group: Arc::clone(&proxy_group),
     });
     let router = crate::server::router::router(app);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(listen_on).await.unwrap();
+    let addr = listener.local_addr()?;
+    info!("Listening on {addr}");
     Ok(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
     }))
@@ -143,7 +157,12 @@ fn start_example_recorder(
 fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {
     let mut group = proxy::Group::new(client);
     for config in &args.proxies {
-        let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+        let addr_spec = format!("{}:{}", config.addr, config.port);
+        // TODO: improve error reporting here
+        let addr = addr_spec
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| eyre!("invalid listen address {addr_spec}"))?;
         group.add_service(&config.name, addr, &config.target)?;
     }
     Ok(group)

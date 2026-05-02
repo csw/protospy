@@ -19,3 +19,6 @@ run-watched $RUST_LOG="info,protospy=debug":
 
 record $RUST_LOG="info":
   cargo run -- --tokio-console --record-examples=docs/examples/ --proxy=name=es,port=3000,target=localhost:9200
+
+watch-clippy:
+  cargo watch -c clippy --all-targets --all-features --no-deps -- -D warnings
