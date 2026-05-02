@@ -4,4 +4,7 @@ set dotenv-filename := ".env.dev"
 default: run
 
 run:
-  npm run dev
+  pnpm dev
+
+build:
+  pnpm run build

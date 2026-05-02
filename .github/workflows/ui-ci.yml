@@ -21,37 +21,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: ui/package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: ui/package.json
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-      - run: npm ci
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - name: Format check
-        run: npm run format:check
+        run: pnpm run format:check
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
   typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: ui/package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: ui/package.json
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: ui/package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: ui/package.json
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-      - run: npm ci
-      - run: npm run test -- --run
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test -- --run
