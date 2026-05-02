@@ -4,5 +4,8 @@
     { "path": "conformance", "name": "conformance" },
     { "path": "demo", "name": "demo" },
     { "path": "ui", "name": "ui" }
-  ]
+  ],
+  "settings": {
+    "rust-analyzer.testExplorer": true
+  }
 }
