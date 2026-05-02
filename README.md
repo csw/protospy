@@ -1,11 +1,41 @@
 # protospy
 
-This will be a Rust monitoring proxy for development use, to give a live view of HTTP traffic between services with OpenTelemetry integration.
+This is a Rust monitoring proxy for development use, to give a live view of HTTP traffic between services with OpenTelemetry integration.
 
 It currently contains:
+ - protospy itself, a Rust application; see `src/`.
  - a Python demo application, ElasticFlix (see [its README.md](demo/README.md)), in `demo/`, which searches a movie database in Elasticsearch.
  - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
  - an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
+
+## Usage
+
+### Start services
+
+First, bring up the container services:
+
+```shell
+docker compose up -d elasticsearch jaeger demo
+```
+
+Then bring up protospy:
+```shell
+just run
+```
+
+And its UI:
+```shell
+just ui
+```
+
+### Observe traffic
+
+1. Go to the protospy interface at http://localhost:5173/.
+2. In another window, go to the demo Elasticflix application at http://localhost:5174/.
+3. Search for movies in Elasticflix and observe that traffic appears in protospy.
+4. Select HTTP exchanges and see their request and response bodies, as well as headers.
+
+OpenTelemetry data is available in Jaeger at http://localhost:16686/.
 
 ## Development
 

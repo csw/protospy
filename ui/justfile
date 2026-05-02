@@ -1,0 +1,7 @@
+set dotenv-load
+set dotenv-filename := ".env.dev"
+
+default: run
+
+run:
+  npm run dev
