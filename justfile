@@ -3,6 +3,7 @@ set dotenv-filename := ".env.dev"
 
 mod demo
 mod ui
+mod ui-svelte
 
 export RUST_BACKTRACE := "full"
 

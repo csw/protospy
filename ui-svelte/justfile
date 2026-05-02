@@ -1,0 +1,10 @@
+set dotenv-load
+set dotenv-filename := ".env.dev"
+
+default: run
+
+run:
+    pnpm dev
+
+build:
+    pnpm run build

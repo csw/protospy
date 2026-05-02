@@ -3,7 +3,8 @@
     { "path": ".", "name": "protospy" },
     { "path": "conformance", "name": "conformance" },
     { "path": "demo", "name": "demo" },
-    { "path": "ui", "name": "ui" }
+    { "path": "ui", "name": "ui" },
+    { "path": "ui-svelte", "name": "ui-svelte" }
   ],
   "settings": {
     "rust-analyzer.testExplorer": true
