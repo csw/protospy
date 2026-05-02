@@ -30,6 +30,8 @@ struct Args {
     /// Proxy definition
     #[arg(long = "proxy", required = true)]
     proxies: Vec<ProxyConfig>,
+    #[arg(long = "listen", value_name = "ADDR", default_value = "0.0.0.0:3100")]
+    listen: String,
     #[arg(long)]
     tokio_console: bool,
     #[arg(short, long)]
@@ -88,7 +90,7 @@ pub async fn main() -> Result<()> {
     let proxy_group = Arc::new(create_group(&args, client)?);
 
     if args.web {
-        start_web(Arc::clone(&proxy_group)).await?;
+        start_web(&args.listen, Arc::clone(&proxy_group)).await?;
     }
 
     let mut proxy_join_set = proxy_group.start_services()?;
@@ -106,13 +108,15 @@ pub async fn main() -> Result<()> {
     join_res.unwrap()?
 }
 
-async fn start_web(proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
+async fn start_web(listen_on: &str, proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
     let app = Arc::new(App {
         started_at: Utc::now(),
         proxy_group: Arc::clone(&proxy_group),
     });
     let router = crate::server::router::router(app);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3100").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(listen_on).await.unwrap();
+    let addr = listener.local_addr()?;
+    info!("Listening on {addr}");
     Ok(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
     }))
