@@ -9,8 +9,7 @@ on:
       - "src/**"
       - "ui/**"
       - "docker-compose.yaml"
-      - "demo/Dockerfile"
-      - "demo/.dockerignore"
+      - "demo/**"
       - ".github/workflows/docker-ci.yml"
   pull_request:
     paths:
@@ -20,8 +19,7 @@ on:
       - "src/**"
       - "ui/**"
       - "docker-compose.yaml"
-      - "demo/Dockerfile"
-      - "demo/.dockerignore"
+      - "demo/**"
       - ".github/workflows/docker-ci.yml"
 
 jobs:
