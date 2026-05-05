@@ -126,10 +126,26 @@ pin_project! {
         pub direction: Direction,
         #[pin]
         pub source: S,
-        state: Option<(Arc<Option<BodyStreamItem>>, DispatchFuture)>,
-        reporter: Arc<R>,
+        // The state held between reading a poll result from the stream and
+        // returning it to the consumer, while we wait for the
+        // asynchronous reporting operation to complete.
+        //
+        // If the state as a whole is Some, a poll result has been read from the
+        // stream,
+        state: Option<WrapperPollState>,
+        // The reporter, or None if it has errored out.
+        reporter: Option<Arc<R>>,
         span: tracing::Span,
     }
+}
+
+struct WrapperPollState {
+    /// The poll result read from the stream, wrapped in an Arc for passing to
+    /// the async reporting method.
+    poll_result: Arc<Option<BodyStreamItem>>,
+    /// The future from the call to the asynchronous reporting method, or None
+    /// if that was skipped due to
+    dispatch_future: Option<DispatchFuture>,
 }
 
 impl<S, R> BodyStreamWrapper<S, R>
@@ -142,7 +158,7 @@ where
             direction,
             source,
             state: None,
-            reporter,
+            reporter: Some(reporter),
             span: tracing::Span::current(),
         }
     }
@@ -163,10 +179,12 @@ where
         let mut this = self.project();
 
         // The process here is:
-        // 1. Poll the source stream to read an item.
-        // 2. Start an async call to the reporter's dispatch method with an Arc reference to the item.
+        // 1. Poll the source stream to read a result.
+        // 2. Start an async call to the reporter's dispatch method with an Arc reference to the result.
         // 3. Poll the future for the async call.
-        // 4. Return the item to the consumer.
+        // 4. Return the result to the consumer.
+
+        // The reporting will be skipped if a previous reporting call has failed.
 
         // When this is polled, it needs to poll either the source stream or the future,
         // so our internal state is either:
@@ -176,29 +194,45 @@ where
         if this.state.is_none() {
             // no item, poll the source stream
             let item = Arc::new(ready!(this.source.as_mut().poll_next(cx)));
-            // got an item, start an async call to the reporter
-            let future = this.reporter.clone().dispatch(Arc::clone(&item));
+            // got an item, start an async call to the reporter if needed
+            let future_opt = this.reporter.clone().map(|reporter| -> DispatchFuture {
+                Box::pin(reporter.dispatch(Arc::clone(&item)))
+            });
             // store this state so that we resume from here
-            *this.state = Some((item, Box::pin(future)));
+            *this.state = Some(WrapperPollState {
+                poll_result: item,
+                dispatch_future: future_opt,
+            });
         }
 
-        // have an item and a future
-        let (_, future) = this
+        // have a stream poll result and maybe a future
+        let WrapperPollState {
+            dispatch_future, ..
+        } = this
             .state
             .as_mut()
             .expect("invalid BodyStreamWrapper state, need future");
 
-        if let Err(err) = ready!(future.as_mut().poll(cx)) {
-            // log a reporting error, but return the frame to the caller regardless
+        // if we have a pending reporting call, poll it; this will propagate
+        // a Poll::Pending result
+        if let Some(future) = dispatch_future
+            && let Err(err) = ready!(future.as_mut().poll(cx))
+        {
+            // log a reporting error, but return the poll result to
+            // the caller regardless
             error!(event = "frame_reporter_dispatch_error", error = ?err);
+            // assume future reporting attempts will fail, and remove the reporter
+            // to skip them
+            this.reporter.take();
         }
-        // reported the item, clear the state and return it
-        let (item, _) = this
+        // reported the item if needed, clear the state and return it
+        let WrapperPollState { poll_result, .. } = this
             .state
             .take()
             .expect("invalid BodyStreamWrapper state, need item");
         Poll::Ready(
-            Arc::into_inner(item).expect("invalid BodyStreamWrapper state, leaked item reference"),
+            Arc::into_inner(poll_result)
+                .expect("invalid BodyStreamWrapper state, leaked item reference"),
         )
     }
 }
@@ -407,6 +441,8 @@ mod tests {
     use super::*;
 
     mod wrapper {
+        use std::sync::Mutex;
+
         use super::*;
 
         use futures::TryStreamExt;
@@ -420,6 +456,26 @@ mod tests {
             }
         }
 
+        struct DummyErrorReporter {
+            count: Mutex<u64>,
+        }
+
+        impl DummyErrorReporter {
+            fn new() -> Self {
+                Self {
+                    count: Mutex::new(0),
+                }
+            }
+        }
+
+        impl BodyAsyncFrameReporter for DummyErrorReporter {
+            async fn dispatch(self: Arc<Self>, _item: Arc<Option<BodyStreamItem>>) -> Result<()> {
+                let mut count = self.count.lock().unwrap();
+                *count += 1;
+                Err(eyre!("ouch"))
+            }
+        }
+
         #[tokio::test]
         async fn test_basic() {
             let reporter = Arc::new(DummyReporter {});
@@ -427,6 +483,24 @@ mod tests {
             let wrapper = BodyStreamWrapper::new(Direction::Request, stream_mock, reporter);
             let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
             assert_eq!(res.len(), 1);
+        }
+
+        /// Verify that data is passed through the BodyStreamWrapper even if the reporter returns errors.
+        #[tokio::test]
+        async fn test_errors() {
+            let reporter = Arc::new(DummyErrorReporter::new());
+            let stream_mock = StreamMockBuilder::new()
+                .next(dfr(b"ab"))
+                .next(dfr(b"cd"))
+                .build();
+            let wrapper =
+                BodyStreamWrapper::new(Direction::Request, stream_mock, Arc::clone(&reporter));
+            let res: Vec<Frame<Data>> = wrapper.try_collect().await.unwrap();
+            assert_eq!(res.len(), 2);
+            let err_count = *reporter.count.lock().unwrap();
+            // the error count should be 1, indicating that the wrapper didn't keep
+            // attempting to report frames
+            assert!(err_count == 1);
         }
     }
 

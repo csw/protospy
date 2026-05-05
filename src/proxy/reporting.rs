@@ -4,8 +4,7 @@ use std::sync::Arc;
 use std::{fmt::Debug, sync::Mutex};
 
 use chrono::prelude::*;
-use color_eyre::Result;
-use eyre::Context;
+use color_eyre::{Result, eyre::Context};
 use http::HeaderMap;
 use serde::{Serialize, Serializer};
 use tokio::{sync::mpsc, time::Duration};
@@ -158,7 +157,7 @@ impl BufferedDataCollector {
         }
     }
 
-    async fn send2(&self, event: BodyEvent) -> Result<()> {
+    async fn send(&self, event: BodyEvent) -> Result<()> {
         self.sender
             .send(event)
             .await
@@ -176,21 +175,21 @@ impl BodyAsyncFrameReporter for BufferedDataCollector {
                         let mut buffer = self.body_buffer.lock().unwrap();
                         buffer.extend_from_slice(bytes);
                     }
-                    self.send2(BodyEvent::Data).await
+                    self.send(BodyEvent::Data).await
                 } else if let Some(trailers) = frame.trailers_ref() {
                     // trailers
-                    self.send2(BodyEvent::Trailers(trailers.clone())).await
+                    self.send(BodyEvent::Trailers(trailers.clone())).await
                 } else {
                     panic!("unhandled frame type: {frame:?}")
                 }
             }
             Some(Err(err)) => {
                 // error
-                self.send2(BodyEvent::Error(err.to_string())).await
+                self.send(BodyEvent::Error(err.to_string())).await
             }
             None => {
                 // EOF
-                self.send2(BodyEvent::EOF).await
+                self.send(BodyEvent::EOF).await
             }
         }
     }
