@@ -14,6 +14,3 @@ __pycache__/
 # Tests
 tests/
 
-# Data (loaded separately, not baked into image)
-data/
-

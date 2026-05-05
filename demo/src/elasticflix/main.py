@@ -60,6 +60,11 @@ app = FastAPI(title="elasticflix", lifespan=lifespan)
 FastAPIInstrumentor().instrument_app(app)
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
