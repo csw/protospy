@@ -18,5 +18,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release && cp target/release/protospy .
 
 FROM debian:bookworm-20260421-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=rust-build /app/protospy /usr/local/bin/
 CMD ["protospy"]
