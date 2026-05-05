@@ -12,11 +12,11 @@ default:
 export PROXY__ES__PORT := "3000"
 export PROXY__ES__TARGET := "localhost:9200"
 
-run $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1":
-    cargo run -- --tokio-console -p
+run $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
+    cargo run
 
-run-watched $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1":
-    cargo watch -i docs -i conformance -i demo -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run -- --tokio-console -p 
+run-watched $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
+    cargo watch -i docs -i conformance -i demo -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run
 
 [env("RECORD_EXAMPLES", "docs/examples/")]
 [env("RUST_LOG", "info")]
