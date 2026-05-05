@@ -59,7 +59,7 @@ jobs:
           curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${ARCH}.tar.gz" \
             | sudo tar -xz -C /usr/local/bin caddy
       - name: Install HAProxy
-        run: sudo apt-get install -y haproxy
+        run: sudo apt-get update && sudo apt-get install -y haproxy
       - name: Run conformance tests
         run: uv run pytest -q --findings --junit-xml=results.xml
       - name: Upload test results
