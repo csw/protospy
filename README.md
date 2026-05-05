@@ -8,7 +8,7 @@ It currently contains:
  - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
  - an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
 
-## Usage
+## Demo usage
 
 ### Start services
 
@@ -37,14 +37,41 @@ just ui
 
 OpenTelemetry data is available in Jaeger at http://localhost:16686/.
 
+## Configuration
+
+protospy is designed to run containerized, with environment-variable-based 12-factor configuration. It can run multiple proxy services, each listening on its own port and forwarding traffic to its own target; these are named, with their settings under the `PROXY__<name>__` prefix, with double underscores.
+
+ Proxy settings:
+  - `PROXY__<name>__PORT`: port to listen on
+  - `PROXY__<name>__ADDR`: (optional) address to listen on, defaults to all (`[::]`)
+  - `PROXY__<name>__TARGET`: server to connect to as `host:port`, e.g. `db:9200`
+
+Server settings:
+  - `LISTEN_PORT`: port to listen on for UI
+  - `LISTEN_ADDR`: (optional) address to listen on for UI, defaults to all (`[::]`)
+  - `WEB`: enable UI web interface, defaults to true
+  - `PRINT_MESSAGES`: print HTTP exchanges to stdout
+
+Server settings for development:
+  - `TOKIO_CONSOLE`: enable monitoring with [tokio-console][]
+  - `RECORD_EXAMPLES`: write requests and responses to the specified directory, to generate e.g. `docs/examples/`
+
+[tokio-console]: https://github.com/tokio-rs/console
+
 ## Development
+
+See the READMEs of the supporting components for their own specifics:
+- [demo/README.md](demo/README.md)
+- [conformance/README.md](conformance/README.md)
+- [ui/README.md](ui/README.md)
 
 ### Dependencies
 
-- Rust (future)
+- Rust
 - Docker Compose
-- [uv](https://docs.astral.sh/uv/) for Python demo service in `demo/`
+- [just](https://just.systems)
 - [pre-commit](https://pre-commit.com)
+
 
 ### Setup
 

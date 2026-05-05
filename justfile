@@ -9,16 +9,19 @@ export RUST_BACKTRACE := "full"
 default:
     @just --list
 
-es_proxy_opt := "--proxy=name=es,port=3000,target=localhost:9200"
+export PROXY__ES__PORT := "3000"
+export PROXY__ES__TARGET := "localhost:9200"
 
-run $RUST_LOG="info,protospy=debug":
-    cargo run -- --tokio-console -p {{ es_proxy_opt }}
+run $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1":
+    cargo run -- --tokio-console -p
 
-run-watched $RUST_LOG="info,protospy=debug":
-    cargo watch -i docs -i conformance -i demo -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run -- --tokio-console -p {{ es_proxy_opt }}
+run-watched $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1":
+    cargo watch -i docs -i conformance -i demo -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run -- --tokio-console -p 
 
-record $RUST_LOG="info":
-    cargo run -- --tokio-console --record-examples=docs/examples/ {{ es_proxy_opt }}
+[env("RECORD_EXAMPLES", "docs/examples/")]
+[env("RUST_LOG", "info")]
+record:
+    cargo run --
 
 watch-clippy:
     cargo watch -c clippy --all-targets --all-features --no-deps -- -D warnings

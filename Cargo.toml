@@ -8,7 +8,6 @@ hyper = { version = "1", features = ["full"] }
 tokio = { version = "1", features = ["full"] }
 http-body-util = "0.1"
 hyper-util = { version = "0.1", features = ["full"] }
-clap = { version = "4.6.0", features = ["derive", "env"] }
 http = "1.4.0"
 pin-project-lite = "0.2.17"
 eyre = "0.6.12"
@@ -38,6 +37,7 @@ ts-rs = { version = "12.0.1", features = [
 ] }
 rust-embed = "8.11.0"
 mime_guess = "2.0.5"
+figment = { version = "0.10.19", features = ["env", "test"] }
 
 [profile.dev]
 panic = "abort"

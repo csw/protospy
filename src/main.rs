@@ -1,19 +1,19 @@
+use std::collections::HashMap;
 use std::fs;
-use std::net::ToSocketAddrs;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::prelude::*;
-use clap::{ArgAction, Parser};
-use color_eyre::{Result, config::Frame};
-use console_subscriber::ConsoleLayer;
+use color_eyre::Result;
 use eyre::eyre;
+use figment::{
+    Figment,
+    providers::{Env, Serialized},
+};
+use serde::{Deserialize, Serialize};
 use tokio::task::{JoinHandle, JoinSet};
-use tracing::{info, level_filters::LevelFilter};
-use tracing_error::ErrorLayer;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{self, EnvFilter};
-use tracing_subscriber::{prelude::*, registry::Registry};
+use tracing::{debug, info};
 
 use crate::proxy::client::Client;
 use crate::proxy::group::ServiceEntry;
@@ -21,96 +21,91 @@ use crate::proxy::monitor;
 use crate::server::App;
 use crate::tokio_util::spawn_instrumented_on;
 
+mod logging;
 pub mod proxy;
 pub mod server;
 pub(crate) mod tokio_util;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
+#[derive(Deserialize, Serialize, Debug)]
+struct Config {
     /// Proxy definition
-    #[arg(long = "proxy", env = "PROXY", required = true, value_delimiter = ';')]
-    proxies: Vec<ProxyConfig>,
-    #[arg(
-        long = "listen",
-        env,
-        value_name = "ADDR",
-        default_value = "0.0.0.0:3100"
-    )]
-    listen: String,
-    #[arg(long, env)]
+    proxy: HashMap<String, ProxyConfig>,
+    listen_addr: IpAddr,
+    listen_port: u16,
+    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
     tokio_console: bool,
-    #[arg(short, long, env)]
+    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
     print_messages: bool,
-    #[arg(short, long, env, value_name = "DIR")]
     record_examples: Option<PathBuf>,
-    #[arg(long = "no-web", env, default_value_t = true, action = ArgAction::SetFalse)]
+    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
     web: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 struct ProxyConfig {
-    name: String,
-    addr: String,
+    #[serde(default = "ProxyConfig::default_addr")]
+    addr: IpAddr,
     port: u16,
     target: String,
 }
 
-impl std::str::FromStr for ProxyConfig {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut name = None;
-        let mut addr: String = "[::]".into();
-        let mut port = None;
-        let mut target = None;
-
-        for pair in s.split(',') {
-            match pair.split_once('=') {
-                Some(("name", v)) => name = Some(v.to_string()),
-                Some(("addr", v)) => addr = v.to_string(),
-                Some(("port", v)) => {
-                    port = Some(v.parse::<u16>().map_err(|e| format!("invalid port: {e}"))?);
-                }
-                Some(("target", v)) => target = Some(v.to_string()),
-                Some((field, _)) => return Err(format!("unknown field: {field}")),
-                None => return Err(format!("invalid option: {pair}")),
-            }
+impl Config {
+    fn default() -> Self {
+        Self {
+            proxy: HashMap::new(),
+            listen_addr: Ipv6Addr::UNSPECIFIED.into(),
+            listen_port: 3100,
+            tokio_console: false,
+            print_messages: false,
+            record_examples: None,
+            web: true,
         }
+    }
+}
 
-        Ok(ProxyConfig {
-            name: name.ok_or("missing name")?,
-            addr,
-            port: port.ok_or("missing port")?,
-            target: target.ok_or("missing target")?,
-        })
+impl ProxyConfig {
+    fn default_addr() -> IpAddr {
+        Ipv6Addr::UNSPECIFIED.into()
     }
 }
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    let args = Args::parse();
-    init_logging(args.tokio_console)?;
+    let config: Config = Figment::new()
+        .merge(Serialized::defaults(Config::default()))
+        .merge(Env::raw().split("__"))
+        .extract()?;
 
-    if let Some(out_dir) = &args.record_examples {
+    logging::init(config.tokio_console)?;
+
+    if config.proxy.is_empty() {
+        return Err(eyre!("no proxies configured"));
+    }
+
+    if let Some(out_dir) = &config.record_examples {
         fs::create_dir_all(out_dir)?;
     }
 
     let client = proxy::client::build();
-    let proxy_group = Arc::new(create_group(&args, client)?);
+    let proxy_group = Arc::new(create_group(&config, client)?);
 
-    if args.web {
-        start_web(&args.listen, Arc::clone(&proxy_group)).await?;
+    if config.web {
+        start_web(
+            SocketAddr::new(config.listen_addr, config.listen_port),
+            Arc::clone(&proxy_group),
+        )
+        .await?;
     }
 
     let mut proxy_join_set = proxy_group.start_services()?;
 
-    for service in &proxy_group.services {
-        if args.print_messages {
-            start_logger(&mut proxy_join_set, service)?;
+    for service_entry in &proxy_group.services {
+        if config.print_messages {
+            start_event_printer(&mut proxy_join_set, service_entry)?;
+            debug!("printing messages for {}", service_entry.service.name);
         }
-        if let Some(out_dir) = &args.record_examples {
-            start_example_recorder(&mut proxy_join_set, service, out_dir)?;
+        if let Some(out_dir) = &config.record_examples {
+            start_example_recorder(&mut proxy_join_set, service_entry, out_dir)?;
         }
     }
 
@@ -118,13 +113,28 @@ pub async fn main() -> Result<()> {
     join_res.unwrap()?
 }
 
-async fn start_web(listen_on: &str, proxy_group: Arc<proxy::Group>) -> Result<JoinHandle<()>> {
+fn create_group(args: &Config, client: Client) -> Result<proxy::Group> {
+    let mut group = proxy::Group::new(client);
+    for (name, config) in &args.proxy {
+        group.add_service(
+            name,
+            SocketAddr::new(config.addr, config.port),
+            &config.target,
+        )?;
+    }
+    Ok(group)
+}
+
+async fn start_web(
+    listen_on: SocketAddr,
+    proxy_group: Arc<proxy::Group>,
+) -> Result<JoinHandle<()>> {
     let app = Arc::new(App {
         started_at: Utc::now(),
         proxy_group: Arc::clone(&proxy_group),
     });
     let router = crate::server::router::router(app);
-    let listener = tokio::net::TcpListener::bind(listen_on).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(listen_on).await?;
     let addr = listener.local_addr()?;
     info!("Listening on {addr}");
     Ok(tokio::spawn(async move {
@@ -132,7 +142,7 @@ async fn start_web(listen_on: &str, proxy_group: Arc<proxy::Group>) -> Result<Jo
     }))
 }
 
-fn start_logger(tasks: &mut JoinSet<Result<()>>, entry: &ServiceEntry) -> Result<()> {
+pub fn start_event_printer(tasks: &mut JoinSet<Result<()>>, entry: &ServiceEntry) -> Result<()> {
     spawn_instrumented_on(
         tasks,
         &monitor::logger_task_name(&entry.service.name),
@@ -152,54 +162,4 @@ fn start_example_recorder(
         monitor::run_writer(entry.publisher.subscribe(), out_dir.to_path_buf()),
     )?;
     Ok(())
-}
-
-fn create_group(args: &Args, client: Client) -> Result<proxy::Group> {
-    let mut group = proxy::Group::new(client);
-    for config in &args.proxies {
-        let addr_spec = format!("{}:{}", config.addr, config.port);
-        // TODO: improve error reporting here
-        let addr = addr_spec
-            .to_socket_addrs()?
-            .next()
-            .ok_or_else(|| eyre!("invalid listen address {addr_spec}"))?;
-        group.add_service(&config.name, addr, &config.target)?;
-    }
-    Ok(group)
-}
-
-/// Set up event logging and error reporting.
-fn init_logging(enable_console: bool) -> Result<()> {
-    // set up standard logging
-    let log_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env()?;
-    let log_layer = tracing_subscriber::fmt::layer().with_filter(log_filter);
-    let console_layer = enable_console.then(|| ConsoleLayer::builder().with_default_env().spawn());
-
-    // register tracing layers for logging and errors with color-eyre
-    Registry::default()
-        .with(ErrorLayer::default())
-        .with(log_layer)
-        .with(console_layer)
-        .init();
-
-    if enable_console {
-        info!("enabled tokio-console support");
-    }
-
-    // filter backtrace frames for only ours; otherwise we get about 50
-    // infrastructure frames.
-    color_eyre::config::HookBuilder::default()
-        .add_frame_filter(Box::new(&our_frames_filter))
-        .install()
-}
-
-fn our_frames_filter(frames: &mut Vec<&Frame>) {
-    frames.retain(|frame| {
-        frame
-            .name
-            .as_ref()
-            .is_some_and(|name| name.starts_with("protospy::"))
-    });
 }

@@ -360,7 +360,7 @@ backend h2c_backend
 def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[bytes]:
     """Start a protospy reverse proxy subprocess via cargo run.
 
-    When ``capture`` is true, ``--print-messages`` is passed so the binary
+    When ``capture`` is true, ``PRINT_MESSAGES=true`` is set so the binary
     spawns a logger task per service. Subscribing the logger keeps
     ``publisher.has_listeners()`` true, which forces the capture code path
     in ``Service::proxy()`` (exchange tracking and body prefetching). When
@@ -369,33 +369,29 @@ def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[by
     Returns the Popen handle. The caller is responsible for terminating it.
     Combined stdout and stderr are written to protospy.log in tmp_dir.
     """
-    # Build --proxy arguments for each upstream
-    proxy_args: list[str] = []
-
-    # Extract host:port from upstream URLs and build proxy config arguments
-    def add_proxy_arg(name: str, entry: ProxyEntry) -> None:
-        dial = _dial(entry.upstream)
-        proxy_args.append(f"--proxy=name={name},port={entry.listen_port},target={dial}")
-
-    add_proxy_arg("good", config.good)
-    add_proxy_arg("wire", config.wire)
-    add_proxy_arg("dead", config.dead)
-    if config.grpc is not None:
-        add_proxy_arg("grpc", config.grpc)
-    if config.h2c is not None:
-        add_proxy_arg("h2c", config.h2c)
-
-    cargo_args = ["cargo", "run", "--", "--no-web"]
-    if capture:
-        cargo_args.append("--print-messages")
-    cargo_args += proxy_args
-
-    log_path = config.tmp_dir / "protospy.log"
     env = os.environ.copy()
     env["RUST_BACKTRACE"] = "full"
+    env["WEB"] = "false"
+    if capture:
+        env["PRINT_MESSAGES"] = "true"
+
+    def add_proxy_env(name: str, entry: ProxyEntry) -> None:
+        key = name.upper()
+        env[f"PROXY__{key}__PORT"] = str(entry.listen_port)
+        env[f"PROXY__{key}__TARGET"] = _dial(entry.upstream)
+
+    add_proxy_env("good", config.good)
+    add_proxy_env("wire", config.wire)
+    add_proxy_env("dead", config.dead)
+    if config.grpc is not None:
+        add_proxy_env("grpc", config.grpc)
+    if config.h2c is not None:
+        add_proxy_env("h2c", config.h2c)
+
+    log_path = config.tmp_dir / "protospy.log"
     with open(log_path, "wb") as log_file:
         proc = subprocess.Popen(
-            cargo_args,
+            ["cargo", "run"],
             stdout=log_file,
             stderr=log_file,
             cwd=REPO_ROOT,
