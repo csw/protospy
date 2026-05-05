@@ -114,6 +114,14 @@ def _make_client(mock_es):
 # ---------------------------------------------------------------------------
 
 
+def test_health():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+
 def test_search_returns_json():
     mock_es = make_mock_es(msearch_response=MOCK_MSEARCH_RESPONSE)
     for client in _make_client(mock_es):
