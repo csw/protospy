@@ -43,11 +43,24 @@ jobs:
     needs: docker-build
     steps:
       - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: demo/uv.lock
+      - name: Install demo dependencies
+        run: uv sync --frozen
+        working-directory: demo
       - uses: hoverkraft-tech/compose-action@v2.5.0
         with:
           compose-file: ./docker-compose.yaml
           up-flags: --build --wait
+      - name: Load data
+        run: uv run python loader.py
+        working-directory: demo
+        env:
+          ELASTICSEARCH_URL: http://localhost:9200
       - name: Smoke test
         run: |
           curl -sf http://localhost:8001/health
           curl -sf http://localhost:3001/_cluster/health
+          curl -sf 'http://localhost:8001/search?q=test'
