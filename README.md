@@ -30,8 +30,8 @@ just ui
 
 ### Observe traffic
 
-1. Go to the protospy interface at http://localhost:5173/.
-2. In another window, go to the demo Elasticflix application at http://localhost:5174/.
+1. Go to the protospy interface at http://localhost:3101/.
+2. In another window, go to the demo Elasticflix application at http://localhost:8001/.
 3. Search for movies in Elasticflix and observe that traffic appears in protospy.
 4. Select HTTP exchanges and see their request and response bodies, as well as headers.
 
