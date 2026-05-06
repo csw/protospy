@@ -99,9 +99,12 @@ def test_upstream_drops_after_headers(
     """Proxy handles upstream closing immediately after sending headers (§9.3).
 
     WireServer /truncated-empty sends Content-Length: 1000 headers but
-    closes without sending any body. A streaming proxy has already started
-    forwarding the response, so the only correct signal is closing the
-    connection.
+    closes without sending any body. A streaming proxy that has already
+    forwarded the headers can only signal the failure by dropping the
+    connection. A buffering proxy that detects the close before forwarding
+    anything may instead return 502. RFC 9112 §9.5 requires treating a
+    premature close as an error but does not constrain how the proxy
+    signals that to its own client, so both outcomes are accepted.
     """
     url = tagged_url(
         f"{proxy.wire_url}/truncated-empty",
@@ -111,13 +114,16 @@ def test_upstream_drops_after_headers(
 
     assert_probe_result(
         result,
-        ConnectionDrop(),
+        [ConnectionDrop(), ClientExpectation(status=502)],
         test_id="upstream-drops-after-headers",
     )
 
+    outcome = (
+        "dropped connection" if result.status is None else f"returned {result.status}"
+    )
     findings.record(
         "upstream-drops-after-headers",
-        f"[{proxy_name}] Proxy dropped connection when upstream closed after headers",
+        f"[{proxy_name}] Proxy {outcome} when upstream closed after headers",
         level="finding",
     )
 
