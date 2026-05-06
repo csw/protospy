@@ -33,7 +33,7 @@ impl Group {
         }
     }
 
-    pub fn add_service(&mut self, name: &str, addr: SocketAddr, target: &Uri) -> Result<()> {
+    pub fn add_service(&mut self, name: &str, addr: SocketAddr, target: Uri) -> Result<()> {
         if self.by_name.contains_key(name) {
             return Err(eyre!("service {} already registered", name));
         }
@@ -42,7 +42,7 @@ impl Group {
         let service = Arc::new(Service::new(
             name.to_string(),
             addr,
-            Self::normalize_uri(target)?,
+            target,
             self.client.clone(),
             pub_factory,
         ));
@@ -50,18 +50,6 @@ impl Group {
         self.services.push(entry.clone());
         self.by_name.insert(name.to_string(), entry);
         Ok(())
-    }
-
-    /// Transform a user-specified URI to one with valid scheme and path.
-    fn normalize_uri(spec: &Uri) -> Result<Uri> {
-        let mut parts = spec.clone().into_parts();
-        if parts.scheme.is_none() {
-            parts.scheme = Some(http::uri::Scheme::HTTP);
-        }
-        if parts.path_and_query.is_none() {
-            parts.path_and_query = Some(http::uri::PathAndQuery::from_static("/"))
-        }
-        Ok(Uri::from_parts(parts)?)
     }
 
     pub fn start_services(&self) -> Result<JoinSet<Result<()>>> {

@@ -1,82 +1,30 @@
-use std::collections::HashMap;
 use std::fs;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 
 use chrono::prelude::*;
 use color_eyre::Result;
 use eyre::eyre;
-use figment::{
-    Figment,
-    providers::{Env, Serialized},
-};
-use http::Uri;
-use serde::{Deserialize, Serialize};
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::{debug, info};
 
+use crate::config::Config;
 use crate::proxy::client::Client;
 use crate::proxy::group::ServiceEntry;
 use crate::proxy::monitor;
 use crate::server::App;
 use crate::tokio_util::spawn_instrumented_on;
 
+mod config;
 mod logging;
 pub mod proxy;
 pub mod server;
 pub(crate) mod tokio_util;
 
-#[derive(Deserialize, Serialize, Debug)]
-struct Config {
-    /// Proxy definition
-    proxy: HashMap<String, ProxyConfig>,
-    listen_addr: IpAddr,
-    listen_port: u16,
-    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
-    tokio_console: bool,
-    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
-    print_messages: bool,
-    record_examples: Option<PathBuf>,
-    #[serde(deserialize_with = "figment::util::bool_from_str_or_int")]
-    web: bool,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-struct ProxyConfig {
-    #[serde(default = "ProxyConfig::default_addr")]
-    addr: IpAddr,
-    port: u16,
-    #[serde(with = "http_serde::uri")]
-    target: Uri,
-}
-
-impl Config {
-    fn default() -> Self {
-        Self {
-            proxy: HashMap::new(),
-            listen_addr: Ipv6Addr::UNSPECIFIED.into(),
-            listen_port: 3100,
-            tokio_console: false,
-            print_messages: false,
-            record_examples: None,
-            web: true,
-        }
-    }
-}
-
-impl ProxyConfig {
-    fn default_addr() -> IpAddr {
-        Ipv6Addr::UNSPECIFIED.into()
-    }
-}
-
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    let config: Config = Figment::new()
-        .merge(Serialized::defaults(Config::default()))
-        .merge(Env::raw().split("__"))
-        .extract()?;
+    let config = Config::from_env()?;
 
     logging::init(config.tokio_console)?;
 
@@ -115,13 +63,13 @@ pub async fn main() -> Result<()> {
     join_res.unwrap()?
 }
 
-fn create_group(args: &Config, client: Client) -> Result<proxy::Group> {
+fn create_group(args: &config::Config, client: Client) -> Result<proxy::Group> {
     let mut group = proxy::Group::new(client);
     for (name, config) in &args.proxy {
         group.add_service(
             name,
             SocketAddr::new(config.addr, config.port),
-            &config.target,
+            config.normalized_target()?,
         )?;
     }
     Ok(group)
