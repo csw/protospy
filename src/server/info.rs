@@ -27,7 +27,7 @@ pub async fn get_info(State(state): State<AppState>) -> Json<Info> {
         .map(|ServiceEntry { service, publisher }| Service {
             name: service.name.clone(),
             addr: service.addr.to_string(),
-            target: service.target.clone(),
+            target: service.target.to_string(),
             subscribers: publisher.listener_count(),
         })
         .collect();

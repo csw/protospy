@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
 use color_eyre::{Result, eyre::WrapErr};
-use http::{StatusCode, Uri, uri};
+use http::{StatusCode, Uri};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -34,7 +34,7 @@ pub struct Service {
     /// Listening socket address.
     pub addr: SocketAddr,
     /// Target URL.
-    pub target: String,
+    pub target: Uri,
     /// HTTP client.
     pub client: Client,
     /// Event reporter.
@@ -47,7 +47,7 @@ impl Service {
     pub fn new(
         name: String,
         addr: SocketAddr,
-        target: String,
+        target: Uri,
         client: Client,
         reporter_service: Arc<dyn EventReporterService>,
     ) -> Self {
@@ -79,7 +79,7 @@ impl Service {
 
     fn handle_connection(self: &Arc<Self>, stream: TcpStream) -> Result<()> {
         let conn_info = ConnInfo {
-            protocol: "http".to_string(),
+            protocol: self.target.scheme_str().expect("must have scheme").into(),
             client: stream.peer_addr()?,
         };
 
@@ -122,15 +122,9 @@ impl Service {
 
     /// Map the original request URI to the upstream server.
     pub fn map_uri(&self, req_uri: &Uri) -> Result<Uri> {
-        Ok(uri::Builder::new()
-            .scheme(http::uri::Scheme::HTTP)
-            .authority(self.target.as_str())
-            .path_and_query(
-                req_uri
-                    .path_and_query()
-                    .map_or("/", http::uri::PathAndQuery::as_str),
-            )
-            .build()?)
+        let mut parts = self.target.clone().into_parts();
+        parts.path_and_query = req_uri.path_and_query().cloned();
+        Ok(Uri::from_parts(parts)?)
     }
 
     /// Determine whether to capture this exchange.

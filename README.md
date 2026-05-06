@@ -44,7 +44,7 @@ protospy is designed to run containerized, with environment-variable-based 12-fa
  Proxy settings:
   - `PROXY__<name>__PORT`: port to listen on
   - `PROXY__<name>__ADDR`: (optional) address to listen on, defaults to all (`[::]`)
-  - `PROXY__<name>__TARGET`: server to connect to as `host:port`, e.g. `db:9200`
+  - `PROXY__<name>__TARGET`: URL to connect to; a bare `host:port`, e.g. `db:9200`, will be interpreted as an HTTP URL
 
 Server settings:
   - `LISTEN_PORT`: port to listen on for UI

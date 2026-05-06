@@ -10,7 +10,7 @@ default:
     @just --list
 
 export PROXY__ES__PORT := "3000"
-export PROXY__ES__TARGET := "localhost:9200"
+export PROXY__ES__TARGET := "http://localhost:9200/"
 
 run $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
     cargo run

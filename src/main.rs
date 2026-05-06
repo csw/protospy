@@ -11,6 +11,7 @@ use figment::{
     Figment,
     providers::{Env, Serialized},
 };
+use http::Uri;
 use serde::{Deserialize, Serialize};
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::{debug, info};
@@ -46,7 +47,8 @@ struct ProxyConfig {
     #[serde(default = "ProxyConfig::default_addr")]
     addr: IpAddr,
     port: u16,
-    target: String,
+    #[serde(with = "http_serde::uri")]
+    target: Uri,
 }
 
 impl Config {

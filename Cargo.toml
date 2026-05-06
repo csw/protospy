@@ -51,6 +51,7 @@ rustls = { version = "0.23.40", features = [
     "std",
     "tls12",
 ], default-features = false }
+http-serde = "2.1.1"
 
 [profile.dev]
 panic = "abort"

@@ -93,8 +93,13 @@ impl Exchange {
         let req_uri = request.uri();
 
         let target_uri = self.service.map_uri(req_uri)?;
-        let req_headers =
-            headers::request_headers(self.service.target.as_str(), &request, &self.conn)?;
+        let authority = self
+            .service
+            .target
+            .authority()
+            .expect("must have authority")
+            .as_str();
+        let req_headers = headers::request_headers(authority, &request, &self.conn)?;
         let (req_parts, req_body) = request.into_parts();
 
         let mut target_req_builder = Request::builder()
