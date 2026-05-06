@@ -24,4 +24,4 @@ record:
     cargo run --
 
 watch-clippy:
-    cargo watch -c clippy --all-targets --no-deps -- -D warnings
+    cargo watch -c clippy --all-targets --no-deps --target-dir target/clippy -- -D warnings

@@ -1,11 +1,28 @@
 {
   "folders": [
-    { "path": ".", "name": "protospy" },
-    { "path": "conformance", "name": "conformance" },
-    { "path": "demo", "name": "demo" },
-    { "path": "ui", "name": "ui" }
+    {
+      "path": ".",
+      "name": "protospy"
+    },
+    {
+      "path": "conformance",
+      "name": "conformance"
+    },
+    {
+      "path": "demo",
+      "name": "demo"
+    },
+    {
+      "path": "ui",
+      "name": "ui"
+    }
   ],
   "settings": {
-    "rust-analyzer.testExplorer": true
+    "rust-analyzer.testExplorer": true,
+    "rust-analyzer.cargo.targetDir": true,
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.runnables.extraEnv": {
+      "CARGO_TARGET_DIR": "target/rust-analyzer"
+    },
   }
 }
