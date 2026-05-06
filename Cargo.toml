@@ -38,6 +38,19 @@ ts-rs = { version = "12.0.1", features = [
 rust-embed = "8.11.0"
 mime_guess = "2.0.5"
 figment = { version = "0.10.19", features = ["env", "test"] }
+hyper-rustls = { version = "0.27.9", default-features = false, features = [
+    "webpki-tokio",
+    "http1",
+    "tls12",
+    "logging",
+    "ring",
+] }
+rustls = { version = "0.23.40", features = [
+    "logging",
+    "ring",
+    "std",
+    "tls12",
+], default-features = false }
 
 [profile.dev]
 panic = "abort"
