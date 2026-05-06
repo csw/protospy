@@ -20,9 +20,13 @@
   "settings": {
     "rust-analyzer.testExplorer": true,
     "rust-analyzer.cargo.targetDir": true,
+    "rust-analyzer.cargo.extraEnv": {
+      "RUSTC_BOOTSTRAP": "1"
+    },
     "rust-analyzer.check.command": "clippy",
     "rust-analyzer.runnables.extraEnv": {
-      "CARGO_TARGET_DIR": "target/rust-analyzer"
+      "CARGO_TARGET_DIR": "target/rust-analyzer",
+      "RUSTC_BOOTSTRAP": "1"
     },
   }
 }
