@@ -132,3 +132,37 @@ def test_stats_page(page: Page) -> None:
     page.locator("nav a", has_text="Stats").click()
     expect(page.locator("#results")).to_contain_text("Action")
     expect(page.locator("#results")).to_contain_text("Adventure")
+
+
+@pytest.mark.e2e
+def test_movie_detail_shows_more_like_this(page: Page) -> None:
+    """Clicking a movie card shows the More Like This panel."""
+    page.goto("/")
+    page.locator("#search-input").fill("star wars")
+    page.keyboard.press("Enter")
+    expect(
+        page.locator(".movie-card").filter(has_text="Star Wars (1977)")
+    ).to_be_visible()
+    page.locator(".movie-card").filter(has_text="Star Wars (1977)").click()
+    expect(page.locator("#detail")).to_contain_text("George Lucas")
+    expect(page.locator("#detail")).to_contain_text("1977")
+    expect(page.locator(".similar-panel")).to_be_visible()
+    expect(page.locator(".similar-heading")).to_contain_text("More Like This")
+    expect(page.locator(".similar-item")).to_have_count(1)
+
+
+@pytest.mark.e2e
+def test_more_like_this_navigation(page: Page) -> None:
+    """Clicking a similar item swaps the detail panel."""
+    page.goto("/")
+    page.locator("#search-input").fill("star wars")
+    page.keyboard.press("Enter")
+    expect(
+        page.locator(".movie-card").filter(has_text="Star Wars (1977)")
+    ).to_be_visible()
+    page.locator(".movie-card").filter(has_text="Star Wars (1977)").click()
+    expect(page.locator("#detail")).to_contain_text("George Lucas")
+    expect(page.locator(".similar-panel")).to_be_visible()
+    page.locator(".similar-item").first.click()
+    expect(page.locator(".detail-title")).not_to_have_text("Star Wars")
+    expect(page.locator(".similar-panel")).to_be_visible()

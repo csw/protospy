@@ -38,13 +38,15 @@ Each endpoint exercises a different ES query type — this variety is the whole 
 | Endpoint | ES Operation |
 |---|---|
 | `/search` | `_msearch` — two requests: `multi_match` hits + `terms` agg (genres) |
-| `/item/{id}` | `_doc/{id}` get-by-ID |
+| `/item/{id}` | `_doc/{id}` get-by-ID **plus** `_search` with `more_like_this` (run in parallel via `asyncio.gather`, sharing trace context) |
 | `/suggest` | `_search` with `match_bool_prefix` (operator=and) on `title` |
 | `/stats` | `_search` with `terms` agg (genres) + `histogram` agg (vote_average) |
 
+The `/item/{id}` endpoint is intentionally the only one that fans out to multiple ES calls under a single inbound request, allowing protospy to demonstrate its request grouping UI.
+
 ## UI Stack
 
-**HTMX** handles all server interactions — search, suggest, stats, and detail fetch. Every endpoint except `/` returns JSON by default and an HTML fragment when `HX-Request` is present:
+**HTMX** handles all server interactions — search, suggest, stats, detail fetch, and the "More Like This" strip within the detail view. Every endpoint except `/` returns JSON by default and an HTML fragment when `HX-Request` is present:
 
 ```python
 if request.headers.get("HX-Request"):
@@ -118,7 +120,7 @@ meta = ApiResponseMeta(
 raise NotFoundError(message="not found", meta=meta, body={"found": False})
 ```
 
-E2E tests live in `demo/tests/test_e2e.py`. They use Playwright against a real uvicorn subprocess (started by the session-scoped fixture in `conftest.py`). They require Elasticsearch running and the movies index loaded. Run with `uv run pytest -m e2e`.
+E2E tests live in `demo/tests/test_e2e.py`. They use Playwright against a real uvicorn subprocess (started by the session-scoped fixture in `conftest.py`). They require Elasticsearch running and the movies index loaded. Run with `uv run pytest -m e2e`. New tests cover the "More Like This" panel rendering (`test_movie_detail_shows_more_like_this`, `test_more_like_this_navigation` in E2E and `test_item_htmx_renders_similar`, `test_item_similar_failure_is_silent` in unit tests) and the chained-navigation flow where clicking a similar item fetches a new detail view.
 
 ## Code Quality
 

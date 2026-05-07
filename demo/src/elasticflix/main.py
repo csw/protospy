@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -110,20 +111,51 @@ async def search(request: Request, q: str = "", size: int = 20):
     return JSONResponse({"results": hits, "query": q, "genres": genres})
 
 
+async def _get_movie(es: AsyncElasticsearch, id: str):
+    try:
+        return await es.get(index=settings.elasticsearch_index, id=id)
+    except NotFoundError:
+        return None
+
+
+async def _get_similar(es: AsyncElasticsearch, id: str) -> list[dict]:
+    try:
+        body = {
+            "query": {
+                "more_like_this": {
+                    "fields": ["title", "overview", "tagline"],
+                    "like": [{"_index": settings.elasticsearch_index, "_id": id}],
+                    "min_term_freq": 1,
+                    "min_doc_freq": 2,
+                }
+            },
+            "_source": ["title", "release_date", "genres", "vote_average"],
+            "size": 6,
+        }
+        response = await es.search(index=settings.elasticsearch_index, body=body)
+        return [
+            {"_id": h["_id"], "_source": h["_source"]} for h in response["hits"]["hits"]
+        ]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 @app.get("/item/{id}")
 async def item(request: Request, id: str):
-    try:
-        response = await request.app.state.es.get(
-            index=settings.elasticsearch_index, id=id
-        )
-    except NotFoundError:
+    es = request.app.state.es
+    movie_resp, similar = await asyncio.gather(
+        _get_movie(es, id),
+        _get_similar(es, id),
+    )
+    if movie_resp is None:
         raise HTTPException(status_code=404, detail="Movie not found")
-
-    movie = response["_source"]
+    movie = movie_resp["_source"]
 
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(request, "item.html", {"movie": movie})
-    return JSONResponse(movie)
+        return templates.TemplateResponse(
+            request, "item.html", {"movie": movie, "similar": similar}
+        )
+    return JSONResponse({"movie": movie, "similar": similar})
 
 
 @app.get("/suggest")

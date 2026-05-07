@@ -56,6 +56,31 @@ MOCK_STATS_RESPONSE = {
     }
 }
 
+MOCK_SIMILAR_RESPONSE = {
+    "hits": {
+        "hits": [
+            {
+                "_id": "11",
+                "_source": {
+                    "title": "Star Wars",
+                    "release_date": "1977-05-25",
+                    "genres": ["Action"],
+                    "vote_average": 8.2,
+                },
+            },
+            {
+                "_id": "1891",
+                "_source": {
+                    "title": "The Empire Strikes Back",
+                    "release_date": "1980-05-17",
+                    "genres": ["Action"],
+                    "vote_average": 8.4,
+                },
+            },
+        ]
+    }
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -78,12 +103,15 @@ def make_mock_es(
     msearch_response=None,
     get_response=None,
     raise_not_found=False,
+    search_side_effect=None,
 ):
     mock_es = AsyncMock()
     if msearch_response is not None:
         mock_es.msearch.return_value = msearch_response
     if search_response is not None:
         mock_es.search.return_value = search_response
+    if search_side_effect is not None:
+        mock_es.search.side_effect = search_side_effect
     if raise_not_found:
         mock_es.get.side_effect = _not_found_error()
     elif get_response is not None:
@@ -155,20 +183,52 @@ def test_search_empty_q():
 
 
 def test_item_found():
-    mock_es = make_mock_es(get_response=MOCK_GET_RESPONSE)
+    mock_es = make_mock_es(
+        get_response=MOCK_GET_RESPONSE,
+        search_response=MOCK_SIMILAR_RESPONSE,
+    )
     for client in _make_client(mock_es):
         response = client.get("/item/16642")
         assert response.status_code == 200
         body = response.json()
-        assert "title" in body
-        assert body["title"] == "Days of Heaven"
+        assert body["movie"]["title"] == "Days of Heaven"
+        assert isinstance(body["similar"], list)
+        assert len(body["similar"]) == 2
 
 
 def test_item_not_found():
-    mock_es = make_mock_es(raise_not_found=True)
+    mock_es = make_mock_es(
+        raise_not_found=True,
+        search_response={"hits": {"hits": []}},
+    )
     for client in _make_client(mock_es):
         response = client.get("/item/missing")
         assert response.status_code == 404
+
+
+def test_item_htmx_renders_similar():
+    mock_es = make_mock_es(
+        get_response=MOCK_GET_RESPONSE,
+        search_response=MOCK_SIMILAR_RESPONSE,
+    )
+    for client in _make_client(mock_es):
+        response = client.get("/item/16642", headers={"HX-Request": "true"})
+        assert response.status_code == 200
+        assert "More Like This" in response.text
+        assert "Star Wars" in response.text
+
+
+def test_item_similar_failure_is_silent():
+    mock_es = make_mock_es(
+        get_response=MOCK_GET_RESPONSE,
+        search_side_effect=Exception("boom"),
+    )
+    for client in _make_client(mock_es):
+        response = client.get("/item/16642")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["similar"] == []
+        assert body["movie"]["title"] == "Days of Heaven"
 
 
 def test_suggest_returns_json():

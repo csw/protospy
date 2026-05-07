@@ -12,4 +12,21 @@
         {% if movie.revenue %}<dt>Revenue</dt><dd>${{ "{:,}".format(movie.revenue) }}</dd>{% endif %}
     </dl>
     {% if movie.overview %}<p class="detail-overview">{{ movie.overview }}</p>{% endif %}
+    {% if similar %}
+    <section class="similar-panel">
+        <h3 class="similar-heading">More Like This</h3>
+        <ul class="similar-list">
+            {% for s in similar %}
+            <li class="similar-item"
+                hx-get="/item/{{ s._id }}"
+                hx-target="#detail"
+                hx-swap="innerHTML"
+                style="cursor: pointer">
+                <span class="similar-item-title">{{ s._source.title }}</span>
+                <span class="similar-item-year">{{ s._source.release_date[:4] if s._source.release_date else "" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
 </div>
