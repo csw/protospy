@@ -3,8 +3,10 @@ set dotenv-filename := ".env.dev"
 
 default: run
 
+# Run the UI dev server
 run:
     pnpm dev
 
+# Build the UI
 build:
     pnpm run build

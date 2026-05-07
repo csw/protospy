@@ -17,6 +17,7 @@
             "env": {
                 "RUST_BACKTRACE": "1",
                 "RUST_LOG": "info,protospy=debug",
+                "RUSTC_BOOTSTRAP": "1",
                 "PRINT_MESSAGES": "1",
                 "PROXY__ES__PORT": "3000",
                 "PROXY__ES__TARGET": "localhost:9200",
@@ -36,6 +37,7 @@
             "env": {
                 "RUST_BACKTRACE": "full",
                 "RUST_LOG": "info,protospy=debug",
+                "RUSTC_BOOTSTRAP": "1",
                 "PRINT_MESSAGES": "1",
                 "PROXY__GOOD__PORT": "7400",
                 "PROXY__GOOD__TARGET": "127.0.0.1:7300",

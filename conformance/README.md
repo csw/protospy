@@ -53,10 +53,14 @@ Default ports:
 Start protospy in one terminal:
 
 ```shell
-cargo run -- \
-  --proxy=name=good,port=7400,target=127.0.0.1:7300 \
-  --proxy=name=wire,port=7401,target=127.0.0.1:7301 \
-  --proxy=name=dead,port=7402,target=127.0.0.1:7399
+PROXY__GOOD__PORT=7400 \
+PROXY__GOOD__TARGET=127.0.0.1:7300 \
+PROXY__WIRE__PORT=7401 \
+PROXY__WIRE__TARGET=127.0.0.1:7301 \
+PROXY__DEAD__PORT=7402 \
+PROXY__DEAD__TARGET=127.0.0.1:7399 \
+WEB=0 \
+cargo run
 ```
 
 Run the tests in another:

@@ -2,6 +2,7 @@
 name = "protospy"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 hyper = { version = "1", features = ["full"] }

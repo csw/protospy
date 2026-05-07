@@ -3,5 +3,6 @@ set dotenv-filename := ".env.dev"
 
 default: run
 
+# Run the demo application in dev configuration
 run:
     uv run uvicorn elasticflix.main:app --reload
