@@ -60,7 +60,17 @@ Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of 
 
 **When in doubt about how to use a tool or library, consult its documentation first — via Context7 or a web search. Do this before reading library source code, before trial-and-error, and before reasoning from first principles about implementation details. If something doesn't work as expected, your first action should be to look it up, not to read the source.**
 
-## Python Style
+## Delegating noisy investigation to subagents
+
+Repetitive, high-output investigation steps with low long-term value should be delegated to a subagent on a smaller model (e.g. Haiku) rather than run inline. Pulling raw `ps`/`lsof`/`netstat`/`grep`/log-tail output into the primary context burns the window fast and rarely retains anything worth keeping a turn later.
+
+Delegate when the work looks like:
+- "Which process is listening on port X?" — port/process/PID lookups
+- Sweeping logs, journals, or large command outputs for a needle
+- Repeated probing (try a command, inspect output, try another) where only the conclusion matters
+- Any loop where you find yourself running the same family of commands more than twice
+
+Brief the subagent with the specific question and ask it to report only the answer (e.g. "report the PID and command, under 50 words"). Keep inline only the steps whose full output you genuinely need to see.
 
 All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
 
