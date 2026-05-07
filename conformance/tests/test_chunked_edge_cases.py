@@ -30,6 +30,7 @@ from proxy_conformance.h11_client import (
     send_and_read_response,
     send_incomplete_chunked_request,
     send_invalid_chunk_size,
+    send_invalid_chunk_size_delay,
 )
 from proxy_conformance.types import (
     ClientExpectation,
@@ -385,7 +386,7 @@ def test_missing_final_chunk_response(
     )
 
 
-def test_invalid_chunk_size_request(
+def test_invalid_chunk_size_request_immediate(
     proxy: ProxyUrls,
     good_server: GoodServer,
     findings: Findings,
@@ -399,6 +400,58 @@ def test_invalid_chunk_size_request(
     quirk = apply_quirk(proxy_name, _INVALID_CHUNK_SIZE_REQUEST_QUIRKS)
 
     result = send_invalid_chunk_size(
+        host=proxy.good_host,
+        port=proxy.good_port,
+        path=tagged_url("/echo", "invalid-chunk-size-request"),
+    )
+
+    # Client-side assertion
+    effective_client = (
+        quirk.client if quirk and quirk.client else ClientExpectation(status=400)
+    )
+    _assert_raw_response(result, effective_client, test_id="invalid-chunk-size-request")
+
+    # Target-side assertion: default is no request forwarded
+    effective_target = (
+        quirk.target if quirk and quirk.target else TargetExpectation(no_request=True)
+    )
+    assert_probe_target(
+        good_server,
+        effective_target,
+        test_id="invalid-chunk-size-request",
+    )
+
+    actual = _describe_status(result.status if result else None)
+    _probe_finding(
+        findings,
+        "invalid-chunk-size-request",
+        proxy_name,
+        f"Proxy returned {actual} for invalid chunk size",
+        quirk=quirk,
+    )
+
+
+def test_invalid_chunk_size_request_delayed(
+    proxy: ProxyUrls,
+    good_server: GoodServer,
+    findings: Findings,
+    proxy_name: str,
+) -> None:
+    """Proxy returns error for request with invalid hex chunk size (§7.5), sent
+    after a delay.
+
+    RFC 9112 §7.1 requires chunk-size to be hex digits. Default: 400.
+    Caddy returns 502 (override quirk).
+    """
+    quirk = apply_quirk(proxy_name, _INVALID_CHUNK_SIZE_REQUEST_QUIRKS)
+
+    # N.B. this is 100 ms, comfortably in excess of proxy::body::PEEK_DURATION
+    # which is currently 100 usec. If that, or the poll behavior, changes, this
+    # may need to be adjusted.
+    chunk_delay = 0.1
+
+    result = send_invalid_chunk_size_delay(
+        chunk_delay=chunk_delay,
         host=proxy.good_host,
         port=proxy.good_port,
         path=tagged_url("/echo", "invalid-chunk-size-request"),

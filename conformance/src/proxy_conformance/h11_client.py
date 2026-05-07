@@ -9,6 +9,7 @@ response while it thinks the request body is still in progress.
 from __future__ import annotations
 
 import socket
+import time
 from dataclasses import dataclass
 
 import h11
@@ -389,6 +390,46 @@ def send_invalid_chunk_size(
                 )
             )
         )
+        # Send invalid chunk size field directly (bypasses h11)
+        sock.sendall(b"ZZZZ\r\nhello\r\n0\r\n\r\n")
+        return _read_response(sock)
+
+
+def send_invalid_chunk_size_delay(
+    chunk_delay: float,
+    host: str,
+    port: int,
+    path: str = "/",
+    timeout: float = 5.0,
+) -> RawResponse | None:
+    """Send a chunked POST with a non-hex chunk size field (ZZZZ\\r\\n), waiting before
+     sending the invalid chunk.
+
+    Bypasses h11 validation by writing raw bytes after the headers.
+    Returns the proxy's response, or None if the connection was closed.
+    """
+    conn = h11.Connection(our_role=h11.CLIENT)
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        sock.settimeout(timeout)
+        # Send valid request headers
+        sock.sendall(
+            conn.send(
+                h11.Request(
+                    method="POST",
+                    target=path,
+                    headers=[
+                        ("host", host),
+                        ("transfer-encoding", "chunked"),
+                    ],
+                )
+            )
+        )
+        # Send one properly-framed chunk. h11 produces the chunk
+        # length prefix and trailing CRLF.
+        sock.sendall(conn.send(h11.Data(data=b"deadbeef")))
+
+        time.sleep(chunk_delay)
         # Send invalid chunk size field directly (bypasses h11)
         sock.sendall(b"ZZZZ\r\nhello\r\n0\r\n\r\n")
         return _read_response(sock)
