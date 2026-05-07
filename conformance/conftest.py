@@ -17,8 +17,7 @@ def pytest_configure(config: pytest.Config) -> None:
     protospy instance can be configured to forward to known ports.
 
     tryfirst=True ensures this runs before xdist's trylast configure
-    and before xdist's pytest_cmdline_main resolves worker count from
-    config.option.numprocesses.
+    hook, which decides whether to register DSession.
     """
     proxy_value: str = str(config.getoption("--proxy", default=""))
     if "protospy-ext" not in [p.strip() for p in proxy_value.split(",")]:
@@ -26,7 +25,17 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Disable xdist: fixed ports conflict with multiple workers each
     # trying to bind the same target-server address.
+    #
+    # Why all three: pytest_cmdline_main (tryfirst for xdist) runs BEFORE
+    # pytest_configure, so xdist has already resolved "-n auto" to a worker
+    # count and populated config.option.tx by the time we run here.
+    # Resetting numprocesses alone is not enough — xdist's own trylast
+    # pytest_configure checks tx (not numprocesses) to decide whether to
+    # register DSession.  Clearing tx and dist prevents DSession from being
+    # registered, keeping the session single-process.
     config.option.numprocesses = 0
+    config.option.tx = []
+    config.option.dist = "no"
 
     # Apply fixed target-server port defaults unless the user overrode them.
     if config.getoption("--good-target-port", default=None) is None:
