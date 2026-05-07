@@ -66,10 +66,19 @@ def _wait_for_port(
     port: int,
     host: str = "127.0.0.1",
     timeout: float = 5.0,
+    proc: subprocess.Popen[bytes] | None = None,
 ) -> None:
-    """Block until a TCP connection to host:port succeeds."""
+    """Block until a TCP connection to host:port succeeds.
+
+    If ``proc`` is provided, raises ``TimeoutError`` immediately when the
+    process exits before the port opens, so a failed launch is reported
+    instead of silently waiting out the full timeout.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
+        if proc is not None and (rc := proc.poll()) is not None:
+            msg = f"process exited with code {rc} before port {port} opened"
+            raise TimeoutError(msg)
         try:
             with socket.create_connection((host, port), timeout=0.1):
                 return
@@ -77,6 +86,34 @@ def _wait_for_port(
             time.sleep(0.05)
     msg = f"Port {port} not available after {timeout}s"
     raise TimeoutError(msg)
+
+
+def _ensure_ports_free(ports: list[int], host: str = "127.0.0.1") -> None:
+    """Verify each port is bindable; raise RuntimeError if one is occupied.
+
+    Catches the common case where a stale proxy from a previous run is
+    holding our deterministic port slots. Without this, the test would
+    proceed to send traffic to that stale process.
+
+    ``SO_REUSEADDR`` is set so this probe matches the conditions under
+    which the real proxy will succeed. Without it, on Darwin/BSD a bind
+    fails with EADDRINUSE whenever any accepted-child socket on the same
+    local port lingers in ``TIME_WAIT`` from a previous module's traffic
+    -- even though the listen socket itself is gone and the proxy
+    (which sets ``SO_REUSEADDR`` when binding) would bind cleanly.
+    """
+    for port in ports:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind((host, port))
+            except OSError as exc:
+                msg = (
+                    f"Port {port} is already in use; likely a stale proxy "
+                    f"from a previous run. Find it with: "
+                    f"lsof -nP -iTCP:{port} -sTCP:LISTEN"
+                )
+                raise RuntimeError(msg) from exc
 
 
 def _parse_duration_ns(duration: str) -> int:
@@ -240,10 +277,11 @@ def start_caddy(
         ports.append(config.h2c.listen_port)
     for port in ports:
         try:
-            _wait_for_port(port)
+            _wait_for_port(port, proc=proc)
         except TimeoutError:
-            proc.terminate()
-            proc.wait(timeout=5)
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
             stderr = proc.stderr.read() if proc.stderr else b""
             msg = f"Caddy failed to start: {stderr.decode(errors='replace')}"
             raise RuntimeError(msg) from None
@@ -341,10 +379,11 @@ backend h2c_backend
         ports.append(config.h2c.listen_port)
     for port in ports:
         try:
-            _wait_for_port(port)
+            _wait_for_port(port, proc=proc)
         except TimeoutError:
-            proc.terminate()
-            proc.wait(timeout=5)
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
             stderr = proc.stderr.read() if proc.stderr else b""
             msg = f"HAProxy failed to start: {stderr.decode(errors='replace')}"
             raise RuntimeError(msg) from None
@@ -357,8 +396,18 @@ backend h2c_backend
 # ---------------------------------------------------------------------------
 
 
-def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[bytes]:
-    """Start a protospy reverse proxy subprocess via cargo run.
+def start_protospy(
+    config: ProxyConfig,
+    *,
+    capture: bool,
+    binary: Path,
+) -> subprocess.Popen[bytes]:
+    """Start a protospy reverse proxy subprocess.
+
+    Invokes the pre-built ``binary`` directly (rather than ``cargo run``)
+    so that ``proc.terminate()`` signals protospy itself; with ``cargo
+    run``, the binary is reparented to init when cargo exits and the test
+    leaks listening sockets across runs.
 
     When ``capture`` is true, ``PRINT_MESSAGES=true`` is set so the binary
     spawns a logger task per service. Subscribing the logger keeps
@@ -388,29 +437,35 @@ def start_protospy(config: ProxyConfig, *, capture: bool) -> subprocess.Popen[by
     if config.h2c is not None:
         add_proxy_env("h2c", config.h2c)
 
-    log_path = config.tmp_dir / "protospy.log"
-    with open(log_path, "wb") as log_file:
-        proc = subprocess.Popen(
-            ["cargo", "run"],
-            stdout=log_file,
-            stderr=log_file,
-            cwd=REPO_ROOT,
-            env=env,
-        )
-
-    # Wait for all ports to be available
     ports = [config.good.listen_port, config.wire.listen_port, config.dead.listen_port]
     if config.grpc is not None:
         ports.append(config.grpc.listen_port)
     if config.h2c is not None:
         ports.append(config.h2c.listen_port)
 
+    # Fail fast with a clear message if a stale process is already on
+    # one of our deterministic port slots, rather than letting tests
+    # silently send traffic to it.
+    _ensure_ports_free(ports)
+
+    log_path = config.tmp_dir / "protospy.log"
+    with open(log_path, "wb") as log_file:
+        proc = subprocess.Popen(
+            [str(binary)],
+            stdout=log_file,
+            stderr=log_file,
+            cwd=REPO_ROOT,
+            env=env,
+            start_new_session=True,
+        )
+
     for port in ports:
         try:
-            _wait_for_port(port)
+            _wait_for_port(port, proc=proc)
         except TimeoutError:
-            proc.terminate()
-            proc.wait(timeout=5)
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
             output = log_path.read_text(errors="replace") if log_path.exists() else ""
             msg = f"Protospy failed to start: {output}"
             raise RuntimeError(msg) from None
@@ -494,7 +549,9 @@ _SLOT_H2C = 5
 
 
 def _dispatch_start(
-    proxy_type: str, proxy_config: ProxyConfig
+    proxy_type: str,
+    proxy_config: ProxyConfig,
+    protospy_binary: Path | None,
 ) -> subprocess.Popen[bytes]:
     """Pick the launcher matching ``proxy_type`` and start the subprocess."""
     if proxy_type == "caddy":
@@ -502,7 +559,17 @@ def _dispatch_start(
     if proxy_type == "haproxy":
         return start_haproxy(proxy_config)
     if proxy_type in ("protospy-bypass", "protospy-capture"):
-        return start_protospy(proxy_config, capture=proxy_type == "protospy-capture")
+        if protospy_binary is None:
+            msg = (
+                f"protospy_binary is required to launch {proxy_type}; "
+                "ensure the protospy_binary fixture is in scope"
+            )
+            raise ValueError(msg)
+        return start_protospy(
+            proxy_config,
+            capture=proxy_type == "protospy-capture",
+            binary=protospy_binary,
+        )
     msg = f"No launcher for managed proxy type: {proxy_type!r}"
     raise ValueError(msg)
 
@@ -515,6 +582,7 @@ def _start_proxy_fixed(
     base_port: int,
     grpc_upstream: str = "",
     h2c_upstream: str = "",
+    protospy_binary: Path | None = None,
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Start proxy using deterministic ports derived from base_port.
 
@@ -544,7 +612,7 @@ def _start_proxy_fixed(
         grpc=grpc_entry,
         h2c=h2c_entry,
     )
-    proc = _dispatch_start(proxy_type, proxy_config)
+    proc = _dispatch_start(proxy_type, proxy_config, protospy_binary)
     return proc, make_proxy_urls(good, wire, dead, grpc=grpc_entry, h2c=h2c_entry)
 
 
@@ -556,6 +624,7 @@ def start_proxy(
     grpc_upstream: str = "",
     h2c_upstream: str = "",
     base_port: int | None = None,
+    protospy_binary: Path | None = None,
 ) -> tuple[subprocess.Popen[bytes], ProxyUrls]:
     """Allocate ports, start proxy with default timeouts, return (proc, urls).
 
@@ -585,6 +654,7 @@ def start_proxy(
             base_port,
             grpc_upstream=grpc_upstream,
             h2c_upstream=h2c_upstream,
+            protospy_binary=protospy_binary,
         )
 
     last_exc: RuntimeError | None = None
@@ -620,7 +690,7 @@ def start_proxy(
                 grpc=grpc_entry,
                 h2c=h2c_entry,
             )
-            proc = _dispatch_start(proxy_type, proxy_config)
+            proc = _dispatch_start(proxy_type, proxy_config, protospy_binary)
             return proc, make_proxy_urls(
                 good,
                 wire,

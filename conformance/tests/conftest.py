@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
-import sys
+import subprocess
 import urllib.parse
+import warnings
 from collections.abc import Generator
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -27,6 +29,7 @@ from proxy_conformance.targets import (
 from proxy_conformance.wire_server import WireServer, register_default_routes
 
 from .proxies import (
+    REPO_ROOT,
     ProxyUrls,
     start_proxy,
 )
@@ -66,6 +69,52 @@ def findings() -> Findings:
 def port_allocator(request: pytest.FixtureRequest) -> PortAllocator:
     worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
     return PortAllocator(worker_base_port(worker_id))
+
+
+@pytest.fixture(scope="session")
+def protospy_binary(
+    tmp_path_factory: pytest.TempPathFactory,
+    worker_id: str,
+) -> Path:
+    """Build protospy once per test run and return the debug binary path.
+
+    Running the binary directly (rather than via ``cargo run``) ensures
+    that ``proc.terminate()`` on teardown signals protospy itself.  With
+    ``cargo run`` the binary is reparented to init when cargo exits and
+    leaks listening sockets across runs.
+
+    With xdist, ``scope="session"`` fixtures still run once per worker.
+    Workers coordinate via a shared sentinel under the test run's root
+    tmp dir so only the first worker invokes cargo; the others wait on
+    the lock, see the sentinel, and reuse the binary.
+    ``RUSTC_BOOTSTRAP=1`` matches the rust-analyzer config, since
+    ``.cargo/config.toml`` enables the ``tokio_unstable`` cfg flag.
+    """
+    binary = REPO_ROOT / "target" / "debug" / "protospy"
+
+    def _build() -> None:
+        env = os.environ.copy()
+        env["RUSTC_BOOTSTRAP"] = "1"
+        subprocess.run(["cargo", "build"], cwd=REPO_ROOT, check=True, env=env)
+
+    if worker_id == "master":
+        _build()
+    else:
+        # tmp_path_factory.getbasetemp() is per-worker; .parent is the
+        # shared root for this pytest invocation.
+        shared_dir = tmp_path_factory.getbasetemp().parent
+        sentinel = shared_dir / "protospy-built"
+        lock_path = shared_dir / "protospy-build.lock"
+        with open(lock_path, "w") as lockfile:
+            fcntl.flock(lockfile, fcntl.LOCK_EX)
+            if not sentinel.exists():
+                _build()
+                sentinel.touch()
+
+    if not binary.exists():
+        msg = f"cargo build succeeded but binary not at {binary}"
+        raise RuntimeError(msg)
+    return binary
 
 
 def pytest_runtest_makereport(
@@ -423,6 +472,9 @@ def proxy(
         return
 
     tmp = tmp_path_factory.mktemp(proxy_type)
+    binary: Path | None = None
+    if proxy_family(proxy_type) == "protospy" and proxy_type != "protospy-ext":
+        binary = request.getfixturevalue("protospy_binary")
     proc, urls = start_proxy(
         proxy_type,
         good_server.url,
@@ -431,6 +483,7 @@ def proxy(
         grpc_upstream=grpc_server.url,
         h2c_upstream=h2c_server.url,
         base_port=port_allocator.proxy_base,
+        protospy_binary=binary,
     )
     if proxy_family(proxy_type) == "protospy" and proxy_type != "protospy-ext":
         _protospy_log_paths[request.module.__name__] = tmp / "protospy.log"
@@ -441,12 +494,16 @@ def proxy(
         try:
             _ = proc.wait(timeout=5)
         except TimeoutExpired:
-            print(
-                f"timeout expired stopping {proxy_type} proxy (pid {proc.pid}), "
-                "killing",
-                file=sys.stderr,
-            )
+            # SIGKILL still requires reaping before the kernel releases the
+            # listening sockets; without this the next test run races
+            # against port-in-use.
             proc.kill()
+            proc.wait()
+            warnings.warn(
+                f"{proxy_type} proxy (pid {proc.pid}) did not exit within "
+                "5s of SIGTERM; force-killed.",
+                stacklevel=2,
+            )
         _protospy_log_paths.pop(request.module.__name__, None)
 
 
