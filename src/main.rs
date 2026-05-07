@@ -6,6 +6,8 @@ use std::sync::Arc;
 use chrono::prelude::*;
 use color_eyre::Result;
 use eyre::eyre;
+use tokio::select;
+use tokio::signal::unix::SignalKind;
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::{debug, info};
 
@@ -27,6 +29,9 @@ pub async fn main() -> Result<()> {
     let config = Config::from_env()?;
 
     logging::init(config.tokio_console)?;
+
+    let mut shutdown_signal = tokio::signal::unix::signal(SignalKind::terminate())?;
+    let interrupt_signal = tokio::signal::ctrl_c();
 
     if config.proxy.is_empty() {
         return Err(eyre!("no proxies configured"));
@@ -59,8 +64,22 @@ pub async fn main() -> Result<()> {
         }
     }
 
-    let join_res = proxy_join_set.join_next().await;
-    join_res.unwrap()?
+    select! {
+        join_res = proxy_join_set.join_next() => {
+            join_res.unwrap()?
+        },
+        _ = shutdown_signal.recv() => {
+            info!("Exiting");
+            Ok(())
+        },
+        _ = interrupt_signal => {
+            info!("Exiting");
+            Ok(())
+        }
+    }
+
+    // let join_res = proxy_join_set.join_next().await;
+    // join_res.unwrap()?
 }
 
 fn create_group(args: &config::Config, client: Client) -> Result<proxy::Group> {
