@@ -87,14 +87,11 @@ def protospy_binary(
     Workers coordinate via a shared sentinel under the test run's root
     tmp dir so only the first worker invokes cargo; the others wait on
     the lock, see the sentinel, and reuse the binary.
-    ``RUSTC_BOOTSTRAP=1`` matches the rust-analyzer config, since
-    ``.cargo/config.toml`` enables the ``tokio_unstable`` cfg flag.
     """
     binary = REPO_ROOT / "target" / "debug" / "protospy"
 
     def _build() -> None:
         env = os.environ.copy()
-        env["RUSTC_BOOTSTRAP"] = "1"
         subprocess.run(["cargo", "build"], cwd=REPO_ROOT, check=True, env=env)
 
     if worker_id == "master":

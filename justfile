@@ -5,7 +5,6 @@ mod demo
 mod ui
 
 export RUST_BACKTRACE := "full"
-export RUSTC_BOOTSTRAP := "1"
 
 default:
     @just --list
@@ -13,9 +12,17 @@ default:
 export PROXY__ES__PORT := "3000"
 export PROXY__ES__TARGET := "http://localhost:9200/"
 
+[arg("release", long="release", short="r", value="1")]
+build release="":
+    cargo build {{ if release != "" { "--release" } else { "" } }}
+
 # Run protospy with default ES configuration
 run $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
-    cargo run
+    cargo build
+
+[arg("release", long="release", short="r", value="1")]
+run-direct release="" $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1": (build release)
+    ./target/{{ if release != "" { "release" } else { "debug" } }}/protospy
 
 # Run protospy with default ES configuration, restarting on code changes
 run-watched $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
