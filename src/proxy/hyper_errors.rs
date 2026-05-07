@@ -12,7 +12,7 @@ use crate::proxy::errors;
 
 /// Indicate whether this is a Hyper 'user error', i.e. a bad request.
 pub fn is_user_error(top: &hyper_util::client::legacy::Error) -> bool {
-    find_in_err_chain(top, |err: &hyper::Error| err.is_user())
+    errors::find_in_err_chain(top, |err: &hyper::Error| err.is_user()).is_some()
 }
 
 /// Return the appropriate internal error cause and response status for a hyper
@@ -85,24 +85,4 @@ fn hyper_error_flags(err: &hyper::Error) -> Vec<&'static str> {
         flags.push("timeout");
     }
     flags
-}
-
-fn find_in_err_chain<E: Error + 'static>(
-    err: &(dyn Error + 'static),
-    pred: fn(&E) -> bool,
-) -> bool {
-    let mut cur: &dyn Error = err;
-    loop {
-        if let Some(specific) = cur.downcast_ref::<E>()
-            && pred(specific)
-        {
-            return true;
-        }
-        match cur.source() {
-            Some(src) => {
-                cur = src;
-            }
-            None => return false,
-        }
-    }
 }

@@ -3,13 +3,14 @@ use std::sync::Arc;
 use chrono::{TimeDelta, prelude::*};
 use color_eyre::{Result, eyre::eyre};
 use http::{Request, Response};
-use tracing::debug;
+use tracing::{debug, error, instrument};
 
 use crate::{
     proxy::{
         Service,
         body::{self, ProxyResponse},
         conn::ConnInfo,
+        errors,
         event::Event,
         headers,
         reporting::{self, EventReporter, ExchangeMeta},
@@ -44,9 +45,17 @@ impl Exchange {
         let upstream_request = match self.build_upstream_request(incoming_request).await {
             Ok(request) => request,
             Err(err) => {
-                return service::internal_error_response(
-                    err.wrap_err("failed to build upstream request"),
-                );
+                return if let Some(hyper_err) = errors::find_in_eyre_chain::<hyper::Error>(&err) {
+                    error!(event = "request_body_error", error = ?err, cause = ?hyper_err);
+                    service::error_http_response(
+                        http::StatusCode::BAD_REQUEST,
+                        errors::Cause::RequestError,
+                    )
+                } else {
+                    service::internal_error_response(
+                        err.wrap_err("failed to build upstream request"),
+                    )
+                };
             }
         };
 
@@ -111,6 +120,7 @@ impl Exchange {
         Ok(target_req_builder.body(req_body)?)
     }
 
+    #[instrument(level = "info", skip_all)]
     async fn track_request(
         &mut self,
         mut reporter: Box<dyn EventReporter>,
@@ -168,6 +178,7 @@ impl Exchange {
         Ok(Response::from_parts(parts, body))
     }
 
+    #[instrument(level = "info", skip_all)]
     async fn track_response(
         &mut self,
         mut reporter: Box<dyn EventReporter>,
