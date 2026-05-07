@@ -68,7 +68,7 @@ jobs:
         with:
           name: conformance-results
           path: conformance/results.xml
-      - uses: dorny/test-reporter@v2.6.0
+      - uses: dorny/test-reporter@v3.0.0
         if: always()
         with:
           name: Conformance Tests

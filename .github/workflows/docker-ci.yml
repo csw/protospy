@@ -46,7 +46,7 @@ jobs:
           tags: protospy-demo:latest
           cache-from: type=gha,scope=demo
           cache-to: type=gha,scope=demo,mode=max
-      - uses: hoverkraft-tech/compose-action@v2.5.0
+      - uses: hoverkraft-tech/compose-action@v2.6.0
         with:
           compose-file: ./docker-compose.yaml
           up-flags: --wait

@@ -54,7 +54,7 @@ jobs:
       - run: uv sync --frozen --group dev
       - name: Run unit tests
         run: uv run pytest -v -m "not e2e" --junit-xml=unit-results.xml --cov --cov-report=xml:coverage.xml --cov=src
-      - uses: hoverkraft-tech/compose-action@v2.5.0
+      - uses: hoverkraft-tech/compose-action@v2.6.0
         with:
           compose-file: ./docker-compose.yaml
           services: elasticsearch
@@ -91,7 +91,7 @@ jobs:
         with:
           name: playwright-results
           path: demo/playwright-results/
-      - uses: dorny/test-reporter@v2.6.0
+      - uses: dorny/test-reporter@v3.0.0
         if: always()
         with:
           name: Tests
