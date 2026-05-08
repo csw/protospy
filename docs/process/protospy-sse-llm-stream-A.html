@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>protospy — SSE Sketch A — LLM stream as event log</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@400;500;600;700;900&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:   #f0ece0;
+  --bg2:  #e8e4d4;
+  --bg3:  #dedad0;
+  --ink:  #0a0a08;
+  --red:  #d4281e;
+  --blue: #1b3d8f;
+  --gold: #c09000;
+  --green:#2a7a2a;
+  --mid:  #c8c4b0;
+  --dim:  #7a7a68;
+  --chrome: 'Barlow Condensed', sans-serif;
+  --data:   'IBM Plex Mono', monospace;
+  --head:   'Archivo Black', sans-serif;
+
+  --j-key:    #1b3d8f;
+  --j-str:    #3a6b2a;
+  --j-num:    #8b2000;
+  --j-bool:   #7a4a00;
+  --j-punct:  #7a7a68;
+  --j-ln:     #b8b4a0;
+  --j-fold:   #c8c4b0;
+}
+
+body { background: #1e1c18; font-family: var(--chrome); padding: 1.5rem; }
+
+.page-title {
+  font-family: var(--head);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #4a4840;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.page-title::after { content:''; flex:1; height:1px; background:#2e2c28; }
+
+.app {
+  background: var(--bg);
+  border: 3px solid var(--ink);
+  border-top: 6px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  height: 720px;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.topbar {
+  height: 38px;
+  background: var(--ink);
+  border-bottom: 3px solid var(--red);
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  gap: 1.25rem;
+  flex-shrink: 0;
+}
+.logo { font-family: var(--head); font-size: 0.95rem; color: var(--bg); }
+.logo span { color: var(--red); }
+.topbar-path { font-family: var(--data); font-size: 0.6rem; color: #5a5850; margin-left: 0.5rem; }
+
+.mode-tabs { display: flex; margin-left: auto; gap: 2px; }
+.mode-tab {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.2rem 0.7rem;
+  color: #3a3830; cursor: pointer;
+  border: 1px solid #2a2820;
+}
+.mode-tab.active { background: var(--red); color: var(--bg); border-color: var(--red); }
+
+.body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+/* LEFT — request list */
+.req-list {
+  width: 260px; flex-shrink: 0;
+  border-right: 3px solid var(--ink);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+.list-toolbar {
+  height: 30px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.4rem;
+  flex-shrink: 0;
+}
+.filter-input {
+  flex: 1; font-family: var(--data); font-size: 0.58rem;
+  background: transparent; border: none; outline: none;
+  color: var(--ink); caret-color: var(--red);
+}
+.filter-input::placeholder { color: var(--mid); }
+.list-count {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.12em;
+  color: var(--dim); flex-shrink: 0;
+}
+
+.req-items { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.req-item {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--mid);
+  cursor: pointer; transition: background 0.06s;
+}
+.req-item:hover { background: var(--bg2); }
+.req-item.selected { background: var(--ink); }
+.req-item.selected * { color: var(--bg) !important; }
+
+.ri-top {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin-bottom: 0.1rem;
+}
+.ri-method {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.05rem 0.28rem; flex-shrink: 0;
+}
+.ri-method.get  { background: var(--ink); color: var(--bg); }
+.ri-method.post { background: var(--blue); color: var(--bg); }
+
+.req-item.selected .ri-method.get  { background: var(--bg); color: var(--ink); }
+.req-item.selected .ri-method.post { background: var(--bg); color: var(--blue); }
+
+.ri-status { font-family: var(--data); font-size: 0.56rem; font-weight: 500; }
+.ri-status.ok   { color: #1a5a1a; }
+.ri-status.err  { color: var(--red); }
+.req-item.selected .ri-status.ok { color: #70d070 !important; }
+
+.ri-ts { font-family: var(--data); font-size: 0.5rem; color: var(--dim); margin-left: auto; flex-shrink: 0; }
+.ri-path {
+  font-family: var(--data); font-size: 0.54rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 0.1rem;
+}
+.ri-meta { display: flex; gap: 0.5rem; align-items: center; }
+.ri-dur { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+.ri-size { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+
+/* SSE row badge */
+.ri-stream {
+  display: flex; align-items: center; gap: 0.35rem;
+  margin-top: 0.18rem;
+}
+.sse-badge {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.04rem 0.3rem;
+  background: var(--gold); color: var(--bg);
+  flex-shrink: 0;
+}
+.sse-badge.done { background: var(--green); }
+
+.sse-pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 0 rgba(192,144,0,0.6);
+  animation: pulse 1.6s infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192,144,0,0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(192,144,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(192,144,0,0); }
+}
+.req-item.selected .sse-pulse { background: var(--gold); }
+.req-item.selected .sse-badge { background: var(--gold) !important; color: var(--ink) !important; }
+.req-item.selected .sse-badge.done { background: var(--green) !important; color: var(--bg) !important; }
+
+.ri-evt-count { font-family: var(--data); font-size: 0.5rem; color: var(--ink); }
+.ri-evt-since { font-family: var(--data); font-size: 0.48rem; color: var(--dim); margin-left: auto; }
+
+/* RIGHT — inspector */
+.inspector { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+.context-bar {
+  height: 32px; background: var(--ink);
+  border-bottom: 2px solid var(--red);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 0.75rem;
+  flex-shrink: 0;
+}
+.ctx-method {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+}
+.ctx-method.post { background: var(--blue); color: var(--bg); }
+.ctx-path {
+  font-family: var(--data); font-size: 0.65rem;
+  color: var(--bg); flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ctx-chip {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid #3a3830;
+  color: #7a7870;
+  flex-shrink: 0;
+}
+.ctx-chip.ok   { border-color: #2a5a2a; color: #5a9a5a; }
+.ctx-chip.live { border-color: var(--gold); color: var(--gold); }
+.ctx-chip.live::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); margin-right: 0.3rem;
+  vertical-align: 0.05em;
+  animation: pulse 1.6s infinite;
+}
+
+.body-split { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+.body-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.body-pane + .body-pane { border-left: 3px solid var(--ink); }
+
+.pane-header {
+  height: 28px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.6rem;
+  flex-shrink: 0;
+}
+.pane-title {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.52rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--dim);
+}
+.pane-meta { font-family: var(--data); font-size: 0.5rem; color: var(--mid); }
+.pane-actions { display: flex; gap: 0.3rem; margin-left: auto; }
+.pane-btn {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+  background: transparent;
+  border: 1px solid var(--mid);
+  color: var(--dim);
+  cursor: pointer;
+}
+.pane-btn:hover { border-color: var(--ink); color: var(--ink); }
+.pane-btn.toggle-on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.json-view {
+  flex: 1; overflow: auto;
+  padding: 0.5rem 0;
+  font-family: var(--data); font-size: 0.6rem; line-height: 1.7;
+  background: var(--bg);
+  min-width: 0;
+}
+.json-line { display: flex; align-items: baseline; padding: 0 0.75rem 0 0; min-height: 1.7em; }
+.ln {
+  width: 32px; text-align: right;
+  color: var(--j-ln); padding-right: 1rem;
+  user-select: none; flex-shrink: 0;
+  font-size: 0.52rem;
+}
+.fold {
+  width: 14px; text-align: center;
+  color: var(--j-fold); padding-right: 4px;
+  user-select: none; flex-shrink: 0;
+  cursor: pointer; font-size: 0.58rem;
+}
+.jl { flex: 1; white-space: pre; overflow: hidden; }
+.jk  { color: var(--j-key); }
+.js  { color: var(--j-str); }
+.jn  { color: var(--j-num); }
+.jb  { color: var(--j-bool); }
+.jp  { color: var(--j-punct); }
+
+/* ── EVENT-LOG (Sketch A) ── */
+.stream-pane {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+  background: var(--bg);
+}
+
+.stream-toolbar {
+  height: 30px; background: var(--bg3);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0 0.6rem;
+  flex-shrink: 0;
+}
+.filter-pill {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.48rem; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--mid);
+  color: var(--dim);
+  cursor: pointer;
+}
+.filter-pill.on {
+  background: var(--ink); color: var(--bg); border-color: var(--ink);
+}
+.stream-search {
+  flex: 1; font-family: var(--data); font-size: 0.55rem;
+  background: transparent; border: none; outline: none;
+  color: var(--ink); caret-color: var(--red);
+}
+
+.evt-list {
+  flex: 1.1; overflow-y: auto;
+  border-bottom: 2px solid var(--ink);
+  background: var(--bg);
+}
+
+.evt-row {
+  display: grid;
+  grid-template-columns: 36px 50px 110px 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.18rem 0.6rem;
+  border-bottom: 1px solid var(--mid);
+  cursor: pointer;
+  font-family: var(--data); font-size: 0.55rem;
+}
+.evt-row:hover { background: var(--bg2); }
+.evt-row.selected { background: var(--ink); }
+.evt-row.selected * { color: var(--bg) !important; }
+
+.evt-idx { color: var(--dim); text-align: right; font-size: 0.5rem; }
+.evt-dt  { color: var(--dim); text-align: right; font-size: 0.5rem; }
+.evt-type {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.5rem; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.evt-type.t-start  { color: var(--blue); }
+.evt-type.t-block-start  { color: var(--blue); }
+.evt-type.t-delta  { color: var(--ink); }
+.evt-type.t-block-stop { color: var(--dim); }
+.evt-type.t-stop   { color: var(--green); }
+.evt-type.t-ping   { color: var(--dim); }
+.evt-preview {
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.evt-preview .pv-str { color: var(--j-str); }
+.evt-preview .pv-num { color: var(--j-num); }
+.evt-preview .pv-key { color: var(--j-key); }
+.evt-preview .pv-pct { color: var(--j-punct); }
+
+.evt-row.has-id::before {
+  content: ''; display: block; width: 0; height: 0;
+}
+
+.evt-trail {
+  padding: 0.4rem 0.6rem;
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--gold);
+  display: flex; align-items: center; gap: 0.4rem;
+  background: var(--bg);
+}
+.evt-trail .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  animation: pulse 1.6s infinite;
+}
+
+/* Detail subpane */
+.evt-detail {
+  flex: 1; display: flex; flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+.evt-detail-header {
+  height: 28px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.6rem;
+  flex-shrink: 0;
+}
+.evt-detail-key {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.5rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+}
+.evt-detail-val {
+  font-family: var(--data); font-size: 0.55rem;
+  color: var(--ink);
+}
+.evt-meta-line {
+  padding: 0.3rem 0.6rem;
+  background: var(--bg3);
+  border-bottom: 1px dashed var(--mid);
+  display: flex; gap: 1rem;
+  font-family: var(--data); font-size: 0.5rem;
+  color: var(--dim);
+}
+.evt-meta-line strong { color: var(--ink); font-weight: 500; }
+
+.statusbar {
+  height: 20px; background: var(--ink);
+  border-top: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 1.5rem;
+  flex-shrink: 0;
+}
+.sb-item {
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.48rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #3a3830;
+  display: flex; gap: 0.3rem; align-items: center;
+}
+.sb-item strong { font-weight: 700; color: #6a6858; }
+.sb-right { margin-left: auto; }
+
+.caption {
+  margin-top: 1rem;
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.8rem; color: #5a5850;
+  line-height: 1.65;
+  max-width: 100%;
+}
+.caption strong { font-weight: 700; color: #8a8878; }
+.caption code {
+  font-family: var(--data); font-size: 0.72rem;
+  color: #7a8878;
+  background: #2a2820; padding: 0 0.25rem;
+}
+
+.follow-pill {
+  position: absolute; bottom: 8px; right: 12px;
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 0.18rem 0.55rem;
+  background: var(--ink); color: var(--bg);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+.evt-list-wrap { position: relative; flex: 1.1; display: flex; flex-direction: column; min-height: 0; }
+</style>
+</head>
+<body>
+
+<div class="page-title">protospy · sse sketch A · llm streaming completion</div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">proto<span>spy</span></div>
+    <div class="topbar-path">→ api.anthropic.com:443</div>
+    <div class="mode-tabs">
+      <div class="mode-tab">stream</div>
+      <div class="mode-tab active">inspect</div>
+      <div class="mode-tab">routes</div>
+      <div class="mode-tab">traces</div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ══ LEFT: REQUEST LIST ══ -->
+    <div class="req-list">
+      <div class="list-toolbar">
+        <span style="font-family:var(--data);font-size:0.62rem;color:var(--dim)">~</span>
+        <input class="filter-input" placeholder="filter path…" value="">
+        <span class="list-count">14 req</span>
+      </div>
+
+      <div class="req-items">
+
+        <div class="req-item selected">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:22:01</span>
+          </div>
+          <div class="ri-path">/v1/messages</div>
+          <div class="ri-stream">
+            <span class="sse-pulse"></span>
+            <span class="sse-badge">live · sse</span>
+            <span class="ri-evt-count">47 evts</span>
+            <span class="ri-evt-since">+0.2s</span>
+          </div>
+        </div>
+
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:48</span>
+          </div>
+          <div class="ri-path">/v1/messages</div>
+          <div class="ri-stream">
+            <span class="sse-badge done">done · sse</span>
+            <span class="ri-evt-count">62 evts</span>
+            <span class="ri-evt-since">2.4s</span>
+          </div>
+        </div>
+
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:32</span>
+          </div>
+          <div class="ri-path">/v1/messages/count_tokens</div>
+          <div class="ri-meta">
+            <span class="ri-dur">38ms</span>
+            <span class="ri-size">req 412B / res 84B</span>
+          </div>
+        </div>
+
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method get">get</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:30</span>
+          </div>
+          <div class="ri-path">/v1/models</div>
+          <div class="ri-meta">
+            <span class="ri-dur">22ms</span>
+            <span class="ri-size">res 1.4K</span>
+          </div>
+        </div>
+
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:11</span>
+          </div>
+          <div class="ri-path">/v1/messages</div>
+          <div class="ri-stream">
+            <span class="sse-badge done">done · sse</span>
+            <span class="ri-evt-count">38 evts</span>
+            <span class="ri-evt-since">1.6s</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ RIGHT: INSPECTOR ══ -->
+    <div class="inspector">
+
+      <div class="context-bar">
+        <div class="ctx-method post">post</div>
+        <span class="ctx-path">/v1/messages</span>
+        <div class="ctx-chip ok">200 OK</div>
+        <div class="ctx-chip live">live · 47 evts</div>
+        <div class="ctx-chip">claude-opus-4-7</div>
+        <div class="ctx-chip">2.1s</div>
+      </div>
+
+      <div class="body-split">
+
+        <!-- REQUEST BODY -->
+        <div class="body-pane">
+          <div class="pane-header">
+            <span class="pane-title">request body</span>
+            <span class="pane-meta">application/json · 624 bytes</span>
+            <div class="pane-actions">
+              <button class="pane-btn">copy</button>
+            </div>
+          </div>
+
+          <div class="json-view">
+            <div class="json-line"><span class="ln">1</span><span class="fold">▾</span><span class="jl"><span class="jp">{</span></span></div>
+            <div class="json-line"><span class="ln">2</span><span class="fold"> </span><span class="jl">  <span class="jk">"model"</span><span class="jp">:</span>      <span class="js">"claude-opus-4-7"</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">3</span><span class="fold"> </span><span class="jl">  <span class="jk">"max_tokens"</span><span class="jp">:</span> <span class="jn">1024</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">4</span><span class="fold"> </span><span class="jl">  <span class="jk">"stream"</span><span class="jp">:</span>     <span class="jb">true</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">5</span><span class="fold"> </span><span class="jl">  <span class="jk">"system"</span><span class="jp">:</span>     <span class="js">"You are a helpful research assistant."</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">6</span><span class="fold">▾</span><span class="jl">  <span class="jk">"messages"</span><span class="jp">: [</span></span></div>
+            <div class="json-line"><span class="ln">7</span><span class="fold">▾</span><span class="jl">    <span class="jp">{</span></span></div>
+            <div class="json-line"><span class="ln">8</span><span class="fold"> </span><span class="jl">      <span class="jk">"role"</span><span class="jp">:</span>    <span class="js">"user"</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">9</span><span class="fold"> </span><span class="jl">      <span class="jk">"content"</span><span class="jp">:</span> <span class="js">"Summarize the differences between SSE and WebSockets."</span></span></div>
+            <div class="json-line"><span class="ln">10</span><span class="fold"> </span><span class="jl">    <span class="jp">}</span></span></div>
+            <div class="json-line"><span class="ln">11</span><span class="fold"> </span><span class="jl">  <span class="jp">]</span></span></div>
+            <div class="json-line"><span class="ln">12</span><span class="fold"> </span><span class="jl"><span class="jp">}</span></span></div>
+          </div>
+        </div>
+
+        <!-- RESPONSE: STREAM PANE -->
+        <div class="stream-pane">
+          <div class="pane-header">
+            <span class="pane-title">response · event stream</span>
+            <span class="pane-meta">text/event-stream · 47 events · 4,218 B</span>
+            <div class="pane-actions">
+              <button class="pane-btn toggle-on">follow</button>
+              <button class="pane-btn">copy raw</button>
+              <button class="pane-btn">save .jsonl</button>
+            </div>
+          </div>
+
+          <div class="stream-toolbar">
+            <span style="font-family:var(--chrome);font-weight:900;font-size:0.46rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--dim)">filter</span>
+            <span class="filter-pill on">all</span>
+            <span class="filter-pill">deltas</span>
+            <span class="filter-pill">non-delta</span>
+            <span class="filter-pill">errors</span>
+            <input class="stream-search" placeholder="search event data…">
+          </div>
+
+          <div class="evt-list-wrap">
+            <div class="evt-list">
+
+              <div class="evt-row">
+                <span class="evt-idx">#01</span>
+                <span class="evt-dt">+0ms</span>
+                <span class="evt-type t-start">message_start</span>
+                <span class="evt-preview"><span class="pv-key">message</span><span class="pv-pct">: {</span> id: <span class="pv-str">"msg_01ABCxyz…"</span>, model: <span class="pv-str">"claude-opus-4-7"</span> <span class="pv-pct">}</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#02</span>
+                <span class="evt-dt">+12ms</span>
+                <span class="evt-type t-block-start">content_block_start</span>
+                <span class="evt-preview">index <span class="pv-num">0</span><span class="pv-pct">,</span> <span class="pv-key">type</span><span class="pv-pct">:</span> <span class="pv-str">"text"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#03</span>
+                <span class="evt-dt">+44ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">"Server-Sent Events"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#04</span>
+                <span class="evt-dt">+22ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" (SSE) and WebSockets are"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#05</span>
+                <span class="evt-dt">+18ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" both ways to push data"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#06</span>
+                <span class="evt-dt">+24ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" from server to client, but they differ"</span></span>
+              </div>
+
+              <div class="evt-row selected">
+                <span class="evt-idx">#07</span>
+                <span class="evt-dt">+19ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" in several important ways:\n\n**Direction**: SSE"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#08</span>
+                <span class="evt-dt">+21ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" is one-way (server → client only),"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#09</span>
+                <span class="evt-dt">+1.0s</span>
+                <span class="evt-type t-ping">ping</span>
+                <span class="evt-preview"><span class="pv-pct">(no data)</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#10</span>
+                <span class="evt-dt">+38ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" while WebSockets are bidirectional."</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#11</span>
+                <span class="evt-dt">+22ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" **Transport**: SSE rides on plain HTTP"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#12</span>
+                <span class="evt-dt">+19ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">", whereas WebSockets upgrade to a"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#13</span>
+                <span class="evt-dt">+24ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" dedicated framed protocol."</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#14</span>
+                <span class="evt-dt">+23ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" **Reconnection**: SSE has built-in"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#15</span>
+                <span class="evt-dt">+19ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" auto-reconnect with Last-Event-ID;"</span></span>
+              </div>
+
+              <div class="evt-row">
+                <span class="evt-idx">#16</span>
+                <span class="evt-dt">+14ms</span>
+                <span class="evt-type t-delta">content_block_delta</span>
+                <span class="evt-preview"><span class="pv-pct">Δ</span> <span class="pv-str">" WebSockets leave that to the client."</span></span>
+              </div>
+
+              <div class="evt-trail">
+                <span class="dot"></span>
+                streaming · 31 more events received · awaiting message_stop
+              </div>
+
+            </div>
+            <div class="follow-pill">↓ following latest</div>
+          </div>
+
+          <!-- DETAIL SUBPANE -->
+          <div class="evt-detail">
+            <div class="evt-detail-header">
+              <span class="evt-detail-key">event #07</span>
+              <span class="evt-detail-val">content_block_delta</span>
+              <span style="margin-left:auto;font-family:var(--data);font-size:0.5rem;color:var(--dim)">id: msg_01ABCxyz · arrived 14:22:01.142 · +19ms</span>
+            </div>
+            <div class="evt-meta-line">
+              <span><strong>event:</strong> content_block_delta</span>
+              <span><strong>retry:</strong> —</span>
+              <span><strong>raw bytes:</strong> 142</span>
+            </div>
+            <div class="json-view">
+              <div class="json-line"><span class="ln">1</span><span class="fold">▾</span><span class="jl"><span class="jp">{</span></span></div>
+              <div class="json-line"><span class="ln">2</span><span class="fold"> </span><span class="jl">  <span class="jk">"type"</span><span class="jp">:</span>  <span class="js">"content_block_delta"</span><span class="jp">,</span></span></div>
+              <div class="json-line"><span class="ln">3</span><span class="fold"> </span><span class="jl">  <span class="jk">"index"</span><span class="jp">:</span> <span class="jn">0</span><span class="jp">,</span></span></div>
+              <div class="json-line"><span class="ln">4</span><span class="fold">▾</span><span class="jl">  <span class="jk">"delta"</span><span class="jp">: {</span></span></div>
+              <div class="json-line"><span class="ln">5</span><span class="fold"> </span><span class="jl">    <span class="jk">"type"</span><span class="jp">:</span> <span class="js">"text_delta"</span><span class="jp">,</span></span></div>
+              <div class="json-line"><span class="ln">6</span><span class="fold"> </span><span class="jl">    <span class="jk">"text"</span><span class="jp">:</span> <span class="js">" in several important ways:\n\n**Direction**: SSE"</span></span></div>
+              <div class="json-line"><span class="ln">7</span><span class="fold"> </span><span class="jl">  <span class="jp">}</span></span></div>
+              <div class="json-line"><span class="ln">8</span><span class="fold"> </span><span class="jl"><span class="jp">}</span></span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <div class="sb-item"><span>upstream</span><strong>api.anthropic.com</strong></div>
+    <div class="sb-item"><span>stream</span><strong>live · 47 evts · 4.2 KB</strong></div>
+    <div class="sb-item"><span>since open</span><strong>2.1s</strong></div>
+    <div class="sb-item sb-right"><strong>protospy</strong><span>v0.1.0-dev</span></div>
+  </div>
+
+</div>
+
+<div class="caption">
+  <strong>Sketch A — single-stream-as-event-log.</strong>
+  An SSE exchange occupies one row in the request list, with a live <code>● live · sse</code> badge, an event count, and a "time since last event" stamp. The row stays pinned to its arrival position; new HTTP exchanges still land above it in time order, but the row itself updates in place rather than thrashing the list.
+  <strong>The response pane is replaced by a two-tier stream viewer:</strong> a virtualized event log on top, and a per-event detail panel below. Each log row shows index, time-since-previous, the SSE <code>event:</code> type, and a one-line preview of the data (the leading delta string for text deltas; key fragments for structural events). The selected row's full payload renders as pretty JSON underneath.
+  <strong>Affordances built around the live nature:</strong> a <em>follow</em> toggle keeps the log auto-scrolled to the tail; a sticky "↓ following latest" pill lets you re-engage when you've scrolled away. The trail row at the bottom signals "still streaming" without requiring a scroll. A filter strip (all / deltas / non-delta / errors) lets you collapse the noise from <code>ping</code>/<code>content_block_delta</code> when you only want to inspect structural events.
+  <strong>Tradeoffs:</strong> the response pane now has two rendering modes (single-blob JSON vs. event log), driven by Content-Type. It scales well to thousands of events via virtualization, but it puts the assembled message — the thing a human actually wants to <em>read</em> — out of view. That's what Sketch E addresses.
+</div>
+
+</body>
+</html>

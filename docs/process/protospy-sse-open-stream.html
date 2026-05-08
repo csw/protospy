@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>protospy — SSE open-ended streams as list items</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@400;500;600;700;900&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:   #f0ece0;
+  --bg2:  #e8e4d4;
+  --bg3:  #dedad0;
+  --ink:  #0a0a08;
+  --red:  #d4281e;
+  --blue: #1b3d8f;
+  --gold: #c09000;
+  --green:#2a7a2a;
+  --teal: #1d6e7a;
+  --plum: #6f2a6a;
+  --mid:  #c8c4b0;
+  --dim:  #7a7a68;
+  --chrome: 'Barlow Condensed', sans-serif;
+  --data:   'IBM Plex Mono', monospace;
+  --head:   'Archivo Black', sans-serif;
+
+  --j-key:    #1b3d8f;
+  --j-str:    #3a6b2a;
+  --j-num:    #8b2000;
+  --j-bool:   #7a4a00;
+  --j-punct:  #7a7a68;
+  --j-ln:     #b8b4a0;
+  --j-fold:   #c8c4b0;
+
+  /* per-stream accent colors */
+  --stream-a: var(--gold);   /* /api/chat/stream */
+  --stream-b: var(--teal);   /* /api/metrics/live */
+}
+
+body { background: #1e1c18; font-family: var(--chrome); padding: 1.5rem; }
+
+.page-title {
+  font-family: var(--head); font-size: 0.7rem;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: #4a4840;
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 1rem;
+}
+.page-title::after { content:''; flex:1; height:1px; background:#2e2c28; }
+
+.app {
+  background: var(--bg);
+  border: 3px solid var(--ink);
+  border-top: 6px solid var(--ink);
+  display: flex; flex-direction: column;
+  height: 720px;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.topbar {
+  height: 38px; background: var(--ink);
+  border-bottom: 3px solid var(--red);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: 1.25rem;
+  flex-shrink: 0;
+}
+.logo { font-family: var(--head); font-size: 0.95rem; color: var(--bg); }
+.logo span { color: var(--red); }
+.topbar-path { font-family: var(--data); font-size: 0.6rem; color: #5a5850; margin-left: 0.5rem; }
+
+.mode-tabs { display: flex; margin-left: auto; gap: 2px; }
+.mode-tab {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.2rem 0.7rem;
+  color: #3a3830; cursor: pointer;
+  border: 1px solid #2a2820;
+}
+.mode-tab.active { background: var(--red); color: var(--bg); border-color: var(--red); }
+
+.body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+/* LEFT — list */
+.req-list {
+  width: 340px; flex-shrink: 0;
+  border-right: 3px solid var(--ink);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.list-toolbar {
+  height: 30px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.4rem;
+  flex-shrink: 0;
+}
+.filter-input {
+  flex: 1; font-family: var(--data); font-size: 0.58rem;
+  background: transparent; border: none; outline: none;
+  color: var(--ink); caret-color: var(--red);
+}
+.filter-input::placeholder { color: var(--mid); }
+.list-count {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.12em;
+  color: var(--dim); flex-shrink: 0;
+}
+
+/* Active streams legend strip */
+.streams-legend {
+  border-bottom: 2px solid var(--ink);
+  background: var(--bg3);
+  padding: 0.3rem 0.6rem;
+  display: flex; flex-direction: column; gap: 0.2rem;
+  flex-shrink: 0;
+}
+.streams-legend-label {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+}
+.legend-row {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-family: var(--data); font-size: 0.52rem;
+}
+.legend-swatch {
+  width: 10px; height: 10px;
+  flex-shrink: 0;
+}
+.legend-swatch.a { background: var(--stream-a); }
+.legend-swatch.b { background: var(--stream-b); }
+.legend-path { color: var(--ink); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-meta { color: var(--dim); font-size: 0.5rem; }
+.legend-pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  animation: pulse 1.6s infinite;
+}
+.legend-row.b .legend-pulse { background: var(--teal); }
+@keyframes pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.req-items { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+/* Generic list row */
+.row {
+  border-bottom: 1px solid var(--mid);
+  cursor: pointer;
+  transition: background 0.06s;
+  position: relative;
+}
+.row:hover { background: var(--bg2); }
+.row.selected { background: var(--ink); }
+.row.selected * { color: var(--bg) !important; }
+
+/* Exchange row (HTTP request/response) */
+.row.exchange {
+  padding: 0.35rem 0.6rem;
+}
+.ri-top {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin-bottom: 0.1rem;
+}
+.ri-method {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.05rem 0.28rem; flex-shrink: 0;
+}
+.ri-method.get  { background: var(--ink); color: var(--bg); }
+.ri-method.post { background: var(--blue); color: var(--bg); }
+.ri-method.put  { background: var(--gold); color: var(--bg); }
+.ri-method.del  { background: var(--red); color: var(--bg); }
+
+.row.selected .ri-method.get  { background: var(--bg); color: var(--ink); }
+.row.selected .ri-method.post { background: var(--bg); color: var(--blue); }
+.row.selected .ri-method.put  { background: var(--bg); color: var(--gold); }
+.row.selected .ri-method.del  { background: var(--bg); color: var(--red); }
+
+.ri-status { font-family: var(--data); font-size: 0.56rem; font-weight: 500; }
+.ri-status.ok   { color: #1a5a1a; }
+.ri-status.err  { color: var(--red); }
+.row.selected .ri-status.ok { color: #70d070 !important; }
+.row.selected .ri-status.err { color: #ff8070 !important; }
+
+.ri-ts { font-family: var(--data); font-size: 0.5rem; color: var(--dim); margin-left: auto; flex-shrink: 0; }
+.ri-path {
+  font-family: var(--data); font-size: 0.54rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 0.1rem;
+}
+.ri-meta { display: flex; gap: 0.5rem; align-items: center; }
+.ri-dur { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+.ri-size { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+
+/* Stream-open row — the request that opened the SSE stream */
+.row.stream-open {
+  padding: 0.35rem 0.6rem 0.35rem calc(0.6rem + 4px);
+  background: var(--bg);
+}
+.row.stream-open.s-a { border-left: 4px solid var(--stream-a); }
+.row.stream-open.s-b { border-left: 4px solid var(--stream-b); }
+
+.stream-badge {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.04rem 0.3rem;
+  color: var(--bg);
+  flex-shrink: 0;
+}
+.stream-badge.s-a { background: var(--stream-a); }
+.stream-badge.s-b { background: var(--stream-b); }
+.row.stream-open.selected .stream-badge.s-a { background: var(--stream-a) !important; color: var(--ink) !important; }
+.row.stream-open.selected .stream-badge.s-b { background: var(--stream-b) !important; color: var(--ink) !important; }
+
+.stream-meta { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+
+/* Event row — single SSE event from an open stream */
+.row.event {
+  padding: 0.18rem 0.6rem 0.18rem calc(0.6rem + 4px + 14px);
+  font-family: var(--data); font-size: 0.55rem;
+  display: flex; align-items: baseline; gap: 0.5rem;
+  background: var(--bg);
+}
+.row.event::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+}
+.row.event.s-a::before { background: var(--stream-a); }
+.row.event.s-b::before { background: var(--stream-b); }
+
+/* Faint gutter line between the colored bar and the event glyph */
+.row.event::after {
+  content: '';
+  position: absolute;
+  left: calc(0.6rem + 4px + 4px); top: 50%;
+  width: 6px; height: 1px;
+  background: var(--mid);
+}
+
+.evt-glyph {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+.evt-name {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.5rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.evt-name.t-message  { color: var(--blue); }
+.evt-name.t-presence { color: var(--green); }
+.evt-name.t-typing   { color: var(--dim); }
+.evt-name.t-metric   { color: var(--teal); }
+.evt-name.t-error    { color: var(--red); }
+
+.evt-preview {
+  flex: 1;
+  font-family: var(--data); font-size: 0.52rem;
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.evt-preview .pv-key { color: var(--j-key); }
+.evt-preview .pv-str { color: var(--j-str); }
+.evt-preview .pv-num { color: var(--j-num); }
+.evt-preview .pv-pct { color: var(--j-punct); }
+
+.evt-ts {
+  font-family: var(--data); font-size: 0.48rem;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+/* RIGHT — inspector */
+.inspector { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+.context-bar {
+  height: 32px; background: var(--ink);
+  border-bottom: 2px solid var(--red);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 0.75rem;
+  flex-shrink: 0;
+}
+.ctx-label {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.5rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--gold);
+  padding: 0.08rem 0.4rem;
+  border: 1px solid var(--gold);
+}
+.ctx-evtname {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--bg);
+}
+.ctx-parent {
+  font-family: var(--data); font-size: 0.55rem;
+  color: #8a8878;
+  flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ctx-parent strong { color: var(--bg); font-weight: 400; }
+.ctx-parent a { color: var(--gold); cursor: pointer; }
+
+.ctx-chip {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid #3a3830;
+  color: #7a7870;
+  flex-shrink: 0;
+}
+
+/* event detail layout: two stacked sections — fields + data */
+.evt-fields {
+  background: var(--bg3);
+  border-bottom: 2px solid var(--ink);
+  padding: 0.5rem 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem 1.5rem;
+  flex-shrink: 0;
+}
+.evt-field { display: flex; flex-direction: column; gap: 0.05rem; }
+.evt-field-key {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+}
+.evt-field-val {
+  font-family: var(--data); font-size: 0.6rem;
+  color: var(--ink);
+}
+
+.body-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+.pane-header {
+  height: 28px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.6rem;
+  flex-shrink: 0;
+}
+.pane-title {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.52rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--dim);
+}
+.pane-meta { font-family: var(--data); font-size: 0.5rem; color: var(--mid); }
+.pane-actions { display: flex; gap: 0.3rem; margin-left: auto; }
+.pane-btn {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+  background: transparent;
+  border: 1px solid var(--mid);
+  color: var(--dim);
+  cursor: pointer;
+}
+.pane-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+.json-view {
+  flex: 1; overflow: auto;
+  padding: 0.5rem 0;
+  font-family: var(--data); font-size: 0.6rem; line-height: 1.7;
+  background: var(--bg);
+  min-width: 0;
+}
+.json-line { display: flex; align-items: baseline; padding: 0 0.75rem 0 0; min-height: 1.7em; }
+.ln {
+  width: 32px; text-align: right;
+  color: var(--j-ln); padding-right: 1rem;
+  user-select: none; flex-shrink: 0;
+  font-size: 0.52rem;
+}
+.fold {
+  width: 14px; text-align: center;
+  color: var(--j-fold); padding-right: 4px;
+  user-select: none; flex-shrink: 0;
+  font-size: 0.58rem;
+}
+.jl { flex: 1; white-space: pre; overflow: hidden; }
+.jk  { color: var(--j-key); }
+.js  { color: var(--j-str); }
+.jn  { color: var(--j-num); }
+.jb  { color: var(--j-bool); }
+.jp  { color: var(--j-punct); }
+
+/* Wire-format strip — shown above raw JSON for a single SSE event */
+.wire-strip {
+  background: var(--bg2);
+  border-bottom: 1px dashed var(--mid);
+  padding: 0.4rem 0.75rem;
+  font-family: var(--data); font-size: 0.55rem;
+  color: var(--ink);
+  white-space: pre;
+  flex-shrink: 0;
+}
+.wire-strip .wf-key { color: var(--j-punct); }
+.wire-strip .wf-val { color: var(--ink); }
+
+/* sibling-events strip — quick hop to neighbors in this stream */
+.sibling-strip {
+  background: var(--bg);
+  border-bottom: 2px solid var(--ink);
+  padding: 0.3rem 0.6rem;
+  display: flex; gap: 0.3rem; align-items: center;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.sibling-label {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--dim);
+  flex-shrink: 0;
+  margin-right: 0.4rem;
+}
+.sibling-pill {
+  font-family: var(--data); font-size: 0.5rem;
+  padding: 0.06rem 0.35rem;
+  border: 1px solid var(--mid);
+  color: var(--dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sibling-pill:hover { border-color: var(--ink); color: var(--ink); }
+.sibling-pill.current {
+  background: var(--ink); color: var(--bg); border-color: var(--ink);
+}
+
+.statusbar {
+  height: 20px; background: var(--ink);
+  border-top: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 1.5rem;
+  flex-shrink: 0;
+}
+.sb-item {
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.48rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #3a3830;
+  display: flex; gap: 0.3rem; align-items: center;
+}
+.sb-item strong { font-weight: 700; color: #6a6858; }
+.sb-right { margin-left: auto; }
+
+.caption {
+  margin-top: 1rem;
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.8rem; color: #5a5850;
+  line-height: 1.65;
+  max-width: 100%;
+}
+.caption strong { font-weight: 700; color: #8a8878; }
+.caption code {
+  font-family: var(--data); font-size: 0.72rem;
+  color: #7a8878;
+  background: #2a2820; padding: 0 0.25rem;
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">protospy · open-ended sse · events as list items</div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">proto<span>spy</span></div>
+    <div class="topbar-path">→ chat-app:8080</div>
+    <div class="mode-tabs">
+      <div class="mode-tab">stream</div>
+      <div class="mode-tab active">inspect</div>
+      <div class="mode-tab">routes</div>
+      <div class="mode-tab">traces</div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ══ LEFT: LIST ══ -->
+    <div class="req-list">
+      <div class="list-toolbar">
+        <span style="font-family:var(--data);font-size:0.62rem;color:var(--dim)">~</span>
+        <input class="filter-input" placeholder="filter…" value="">
+        <span class="list-count">73 items</span>
+      </div>
+
+      <div class="streams-legend">
+        <div class="streams-legend-label">open streams · 2</div>
+        <div class="legend-row">
+          <div class="legend-swatch a"></div>
+          <span class="legend-path">/api/chat/stream</span>
+          <span class="legend-meta">38 evts · 4.2s ago</span>
+          <div class="legend-pulse"></div>
+        </div>
+        <div class="legend-row b">
+          <div class="legend-swatch b"></div>
+          <span class="legend-path">/api/metrics/live</span>
+          <span class="legend-meta">12 evts · 1.0s ago</span>
+          <div class="legend-pulse"></div>
+        </div>
+      </div>
+
+      <div class="req-items">
+
+        <!-- Newest first -->
+        <div class="row event s-b">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-metric">metric</span>
+          <span class="evt-preview"><span class="pv-key">cpu</span><span class="pv-pct">:</span> <span class="pv-num">0.41</span><span class="pv-pct">,</span> <span class="pv-key">rss_mb</span><span class="pv-pct">:</span> <span class="pv-num">312</span></span>
+          <span class="evt-ts">14:22:03</span>
+        </div>
+
+        <div class="row exchange">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">201</span>
+            <span class="ri-ts">14:22:02</span>
+          </div>
+          <div class="ri-path">/api/messages</div>
+          <div class="ri-meta">
+            <span class="ri-dur">28ms</span>
+            <span class="ri-size">req 184B / res 412B</span>
+          </div>
+        </div>
+
+        <div class="row event s-a selected">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-message">message</span>
+          <span class="evt-preview"><span class="pv-key">from</span><span class="pv-pct">:</span> <span class="pv-str">"alice@chat"</span><span class="pv-pct">,</span> <span class="pv-key">text</span><span class="pv-pct">:</span> <span class="pv-str">"Got it, I'll look at the…"</span></span>
+          <span class="evt-ts">14:22:02</span>
+        </div>
+
+        <div class="row event s-b">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-metric">metric</span>
+          <span class="evt-preview"><span class="pv-key">cpu</span><span class="pv-pct">:</span> <span class="pv-num">0.38</span><span class="pv-pct">,</span> <span class="pv-key">rss_mb</span><span class="pv-pct">:</span> <span class="pv-num">309</span></span>
+          <span class="evt-ts">14:22:02</span>
+        </div>
+
+        <div class="row event s-a">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-typing">typing</span>
+          <span class="evt-preview"><span class="pv-key">user</span><span class="pv-pct">:</span> <span class="pv-str">"alice@chat"</span></span>
+          <span class="evt-ts">14:22:01</span>
+        </div>
+
+        <div class="row exchange">
+          <div class="ri-top">
+            <div class="ri-method get">get</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:22:01</span>
+          </div>
+          <div class="ri-path">/api/users/me</div>
+          <div class="ri-meta">
+            <span class="ri-dur">12ms</span>
+            <span class="ri-size">res 482B</span>
+          </div>
+        </div>
+
+        <div class="row event s-a">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-presence">presence</span>
+          <span class="evt-preview"><span class="pv-key">user</span><span class="pv-pct">:</span> <span class="pv-str">"alice@chat"</span><span class="pv-pct">,</span> <span class="pv-key">status</span><span class="pv-pct">:</span> <span class="pv-str">"online"</span></span>
+          <span class="evt-ts">14:22:00</span>
+        </div>
+
+        <div class="row event s-b">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-metric">metric</span>
+          <span class="evt-preview"><span class="pv-key">cpu</span><span class="pv-pct">:</span> <span class="pv-num">0.36</span><span class="pv-pct">,</span> <span class="pv-key">rss_mb</span><span class="pv-pct">:</span> <span class="pv-num">307</span></span>
+          <span class="evt-ts">14:22:00</span>
+        </div>
+
+        <div class="row exchange">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">201</span>
+            <span class="ri-ts">14:21:59</span>
+          </div>
+          <div class="ri-path">/api/messages</div>
+          <div class="ri-meta">
+            <span class="ri-dur">31ms</span>
+            <span class="ri-size">req 142B / res 408B</span>
+          </div>
+        </div>
+
+        <div class="row event s-a">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-message">message</span>
+          <span class="evt-preview"><span class="pv-key">from</span><span class="pv-pct">:</span> <span class="pv-str">"bob@chat"</span><span class="pv-pct">,</span> <span class="pv-key">text</span><span class="pv-pct">:</span> <span class="pv-str">"Hey, ready for the demo?"</span></span>
+          <span class="evt-ts">14:21:58</span>
+        </div>
+
+        <div class="row event s-a">
+          <span class="evt-glyph">evt</span>
+          <span class="evt-name t-error">error</span>
+          <span class="evt-preview"><span class="pv-key">code</span><span class="pv-pct">:</span> <span class="pv-str">"throttled"</span><span class="pv-pct">,</span> <span class="pv-key">retry_in_ms</span><span class="pv-pct">:</span> <span class="pv-num">200</span></span>
+          <span class="evt-ts">14:21:55</span>
+        </div>
+
+        <!-- Stream-open rows: the requests that opened the SSE streams -->
+        <div class="row stream-open s-b">
+          <div class="ri-top">
+            <div class="ri-method get">get</div>
+            <span class="stream-badge s-b">sse open</span>
+            <span class="ri-ts">14:21:51</span>
+          </div>
+          <div class="ri-path">/api/metrics/live</div>
+          <div class="ri-meta">
+            <span class="stream-meta">12 evts so far · last +1.0s</span>
+          </div>
+        </div>
+
+        <div class="row stream-open s-a">
+          <div class="ri-top">
+            <div class="ri-method get">get</div>
+            <span class="stream-badge s-a">sse open</span>
+            <span class="ri-ts">14:21:50</span>
+          </div>
+          <div class="ri-path">/api/chat/stream</div>
+          <div class="ri-meta">
+            <span class="stream-meta">38 evts so far · last +0.2s</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ RIGHT: INSPECTOR ══ -->
+    <div class="inspector">
+
+      <div class="context-bar">
+        <span class="ctx-label">sse event</span>
+        <span class="ctx-evtname">message</span>
+        <span class="ctx-parent">from <strong>GET /api/chat/stream</strong> · opened 14:21:50 · <a>jump to stream ↑</a></span>
+        <div class="ctx-chip">#27 of 38</div>
+        <div class="ctx-chip">id: 0e1d4f</div>
+      </div>
+
+      <!-- structured SSE fields -->
+      <div class="evt-fields">
+        <div class="evt-field">
+          <span class="evt-field-key">event</span>
+          <span class="evt-field-val">message</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">id</span>
+          <span class="evt-field-val">0e1d4f</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">retry</span>
+          <span class="evt-field-val">—</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">arrived</span>
+          <span class="evt-field-val">14:22:02.418</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">since previous</span>
+          <span class="evt-field-val">+1.2s</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">since stream open</span>
+          <span class="evt-field-val">12.4s</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">data size</span>
+          <span class="evt-field-val">186 bytes</span>
+        </div>
+        <div class="evt-field">
+          <span class="evt-field-key">data format</span>
+          <span class="evt-field-val">application/json</span>
+        </div>
+      </div>
+
+      <!-- sibling-event strip — quick hop within /api/chat/stream -->
+      <div class="sibling-strip">
+        <span class="sibling-label">in this stream</span>
+        <span class="sibling-pill">← prev</span>
+        <span class="sibling-pill">#24 presence</span>
+        <span class="sibling-pill">#25 typing</span>
+        <span class="sibling-pill">#26 typing</span>
+        <span class="sibling-pill current">#27 message</span>
+        <span class="sibling-pill">#28 …</span>
+        <span class="sibling-pill">next →</span>
+        <span class="sibling-pill">all 38 →</span>
+      </div>
+
+      <div class="body-pane">
+        <div class="pane-header">
+          <span class="pane-title">event data</span>
+          <span class="pane-meta">application/json · 186 bytes</span>
+          <div class="pane-actions">
+            <button class="pane-btn">copy data</button>
+            <button class="pane-btn">copy raw</button>
+          </div>
+        </div>
+
+        <div class="wire-strip"><span class="wf-key">id:</span> <span class="wf-val">0e1d4f</span>
+<span class="wf-key">event:</span> <span class="wf-val">message</span>
+<span class="wf-key">data:</span> <span class="wf-val">{"from":"alice@chat","text":"Got it, I'll look at the proxy logs…","ts":"2026-05-08T14:22:02.418Z","room":"engineering"}</span></div>
+
+        <div class="json-view">
+          <div class="json-line"><span class="ln">1</span><span class="fold">▾</span><span class="jl"><span class="jp">{</span></span></div>
+          <div class="json-line"><span class="ln">2</span><span class="fold"> </span><span class="jl">  <span class="jk">"from"</span><span class="jp">:</span> <span class="js">"alice@chat"</span><span class="jp">,</span></span></div>
+          <div class="json-line"><span class="ln">3</span><span class="fold"> </span><span class="jl">  <span class="jk">"text"</span><span class="jp">:</span> <span class="js">"Got it, I'll look at the proxy logs and let you know what I find."</span><span class="jp">,</span></span></div>
+          <div class="json-line"><span class="ln">4</span><span class="fold"> </span><span class="jl">  <span class="jk">"ts"</span><span class="jp">:</span>   <span class="js">"2026-05-08T14:22:02.418Z"</span><span class="jp">,</span></span></div>
+          <div class="json-line"><span class="ln">5</span><span class="fold"> </span><span class="jl">  <span class="jk">"room"</span><span class="jp">:</span> <span class="js">"engineering"</span></span></div>
+          <div class="json-line"><span class="ln">6</span><span class="fold"> </span><span class="jl"><span class="jp">}</span></span></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <div class="sb-item"><span>upstream</span><strong>chat-app:8080</strong></div>
+    <div class="sb-item"><span>open streams</span><strong>2</strong></div>
+    <div class="sb-item"><span>events seen</span><strong>50</strong></div>
+    <div class="sb-item sb-right"><strong>protospy</strong><span>v0.1.0-dev</span></div>
+  </div>
+
+</div>
+
+<div class="caption">
+  <strong>Open-ended SSE — events interleaved with HTTP exchanges, chronologically.</strong>
+  Each SSE event becomes a first-class row in the main list, slotted into time order with regular HTTP exchanges. Two open streams (<code>/api/chat/stream</code> and <code>/api/metrics/live</code>) are tracked simultaneously and given distinct accent colors (gold and teal here); each event row carries a colored left bar that visually links it to its parent stream. The <em>open streams</em> legend at the top of the list names the streams and shows their event count and time-since-last so you can see them at a glance even when their bottom-most rows have scrolled out of view.
+  <strong>Two row shapes:</strong> exchange rows look exactly as before (method · status · path · timing). Event rows are denser — <code>evt · &lt;event-name&gt; · data preview · time</code> — and indented past the stream's accent stripe. The originating stream-open request appears as its own row at its arrival timestamp (the bottom two rows), so you can scroll to "when this stream started" naturally.
+  <strong>Selecting an event</strong> opens a stream-aware detail view: a context bar that names the parent and offers a quick "jump to stream ↑" link; a structured fields panel for the SSE wire-level metadata (<code>event</code>, <code>id</code>, <code>retry</code>, plus derived timing — since-previous, since-stream-open); a sibling strip for jumping forward and back through events <em>within the same stream</em> without losing your place in the chronological list; and the same wire/JSON body view used for ordinary responses.
+  <strong>Filtering and noise control:</strong> the toolbar's filter input would accept tokens like <code>stream:a</code>, <code>event:message</code>, or <code>!event:typing</code> to suppress chatty stream noise without hiding the underlying exchanges. A high-volume metrics stream can be collapsed to a "62 metric events …" group row when it dominates the view.
+  <strong>Why this works for open-ended streams (and not for LLM streams):</strong> here, each event is semantically meaningful on its own — a chat message, a presence change, a metric tick. Browsing them is the point. For an LLM completion, individual <code>content_block_delta</code> events aren't independently meaningful — a list of 200 fragments is noise, not signal — which is why Sketches A and E keep those events scoped inside one exchange row instead.
+</div>
+
+</body>
+</html>

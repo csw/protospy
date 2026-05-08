@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>protospy — SSE Sketch E — reconstructed view</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@400;500;600;700;900&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:   #f0ece0;
+  --bg2:  #e8e4d4;
+  --bg3:  #dedad0;
+  --ink:  #0a0a08;
+  --red:  #d4281e;
+  --blue: #1b3d8f;
+  --gold: #c09000;
+  --green:#2a7a2a;
+  --mid:  #c8c4b0;
+  --dim:  #7a7a68;
+  --chrome: 'Barlow Condensed', sans-serif;
+  --data:   'IBM Plex Mono', monospace;
+  --head:   'Archivo Black', sans-serif;
+
+  --j-key:    #1b3d8f;
+  --j-str:    #3a6b2a;
+  --j-num:    #8b2000;
+  --j-bool:   #7a4a00;
+  --j-punct:  #7a7a68;
+  --j-ln:     #b8b4a0;
+  --j-fold:   #c8c4b0;
+}
+
+body { background: #1e1c18; font-family: var(--chrome); padding: 1.5rem; }
+
+.page-title {
+  font-family: var(--head); font-size: 0.7rem;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: #4a4840;
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 1rem;
+}
+.page-title::after { content:''; flex:1; height:1px; background:#2e2c28; }
+
+.app {
+  background: var(--bg);
+  border: 3px solid var(--ink);
+  border-top: 6px solid var(--ink);
+  display: flex; flex-direction: column;
+  height: 720px;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.topbar {
+  height: 38px; background: var(--ink);
+  border-bottom: 3px solid var(--red);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: 1.25rem;
+  flex-shrink: 0;
+}
+.logo { font-family: var(--head); font-size: 0.95rem; color: var(--bg); }
+.logo span { color: var(--red); }
+.topbar-path { font-family: var(--data); font-size: 0.6rem; color: #5a5850; margin-left: 0.5rem; }
+
+.mode-tabs { display: flex; margin-left: auto; gap: 2px; }
+.mode-tab {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.2rem 0.7rem;
+  color: #3a3830; cursor: pointer;
+  border: 1px solid #2a2820;
+}
+.mode-tab.active { background: var(--red); color: var(--bg); border-color: var(--red); }
+
+.body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+/* LEFT — request list (same as A) */
+.req-list {
+  width: 260px; flex-shrink: 0;
+  border-right: 3px solid var(--ink);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+.list-toolbar {
+  height: 30px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.4rem;
+  flex-shrink: 0;
+}
+.filter-input {
+  flex: 1; font-family: var(--data); font-size: 0.58rem;
+  background: transparent; border: none; outline: none;
+  color: var(--ink); caret-color: var(--red);
+}
+.filter-input::placeholder { color: var(--mid); }
+.list-count {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.12em;
+  color: var(--dim); flex-shrink: 0;
+}
+.req-items { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.req-item {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--mid);
+  cursor: pointer; transition: background 0.06s;
+}
+.req-item:hover { background: var(--bg2); }
+.req-item.selected { background: var(--ink); }
+.req-item.selected * { color: var(--bg) !important; }
+.ri-top { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.1rem; }
+.ri-method {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.54rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.05rem 0.28rem; flex-shrink: 0;
+}
+.ri-method.get  { background: var(--ink); color: var(--bg); }
+.ri-method.post { background: var(--blue); color: var(--bg); }
+.req-item.selected .ri-method.get  { background: var(--bg); color: var(--ink); }
+.req-item.selected .ri-method.post { background: var(--bg); color: var(--blue); }
+.ri-status { font-family: var(--data); font-size: 0.56rem; font-weight: 500; }
+.ri-status.ok   { color: #1a5a1a; }
+.req-item.selected .ri-status.ok { color: #70d070 !important; }
+.ri-ts { font-family: var(--data); font-size: 0.5rem; color: var(--dim); margin-left: auto; flex-shrink: 0; }
+.ri-path {
+  font-family: var(--data); font-size: 0.54rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 0.1rem;
+}
+.ri-meta { display: flex; gap: 0.5rem; align-items: center; }
+.ri-dur { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+.ri-size { font-family: var(--data); font-size: 0.48rem; color: var(--dim); }
+.ri-stream { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.18rem; }
+.sse-badge {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.04rem 0.3rem;
+  background: var(--gold); color: var(--bg);
+  flex-shrink: 0;
+}
+.sse-badge.done { background: var(--green); }
+.sse-pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  animation: pulse 1.6s infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192,144,0,0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(192,144,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(192,144,0,0); }
+}
+.req-item.selected .sse-badge { background: var(--gold) !important; color: var(--ink) !important; }
+.req-item.selected .sse-badge.done { background: var(--green) !important; color: var(--bg) !important; }
+.ri-evt-count { font-family: var(--data); font-size: 0.5rem; color: var(--ink); }
+.ri-evt-since { font-family: var(--data); font-size: 0.48rem; color: var(--dim); margin-left: auto; }
+
+/* RIGHT — inspector */
+.inspector { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+.context-bar {
+  height: 32px; background: var(--ink);
+  border-bottom: 2px solid var(--red);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 0.75rem;
+  flex-shrink: 0;
+}
+.ctx-method {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+}
+.ctx-method.post { background: var(--blue); color: var(--bg); }
+.ctx-path {
+  font-family: var(--data); font-size: 0.65rem;
+  color: var(--bg); flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ctx-chip {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid #3a3830;
+  color: #7a7870;
+  flex-shrink: 0;
+}
+.ctx-chip.ok   { border-color: #2a5a2a; color: #5a9a5a; }
+.ctx-chip.live { border-color: var(--gold); color: var(--gold); }
+.ctx-chip.live::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); margin-right: 0.3rem;
+  vertical-align: 0.05em;
+  animation: pulse 1.6s infinite;
+}
+
+.body-split { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+.body-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.body-pane + .body-pane { border-left: 3px solid var(--ink); }
+
+.pane-header {
+  height: 28px; background: var(--bg2);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.6rem;
+  flex-shrink: 0;
+}
+.pane-title {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.52rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--dim);
+}
+.pane-meta { font-family: var(--data); font-size: 0.5rem; color: var(--mid); }
+.pane-actions { display: flex; gap: 0.3rem; margin-left: auto; }
+.pane-btn {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+  background: transparent;
+  border: 1px solid var(--mid);
+  color: var(--dim);
+  cursor: pointer;
+}
+.pane-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+/* ── VIEW SUBTABS (Reconstructed / Raw events) ── */
+.view-tabs {
+  height: 28px; background: var(--bg3);
+  border-bottom: 2px solid var(--ink);
+  display: flex; align-items: stretch;
+  flex-shrink: 0;
+}
+.view-tab {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.52rem; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 0 0.85rem;
+  color: var(--dim); cursor: pointer;
+  display: flex; align-items: center; gap: 0.4rem;
+  border-right: 1px solid var(--mid);
+}
+.view-tab.active {
+  background: var(--bg); color: var(--ink);
+  border-bottom: 2px solid var(--blue);
+  margin-bottom: -2px;
+}
+.view-tab .badge {
+  font-family: var(--data); font-size: 0.46rem;
+  background: var(--mid); color: var(--ink);
+  padding: 0.04rem 0.3rem;
+  letter-spacing: 0;
+}
+.view-tab.active .badge { background: var(--blue); color: var(--bg); }
+
+.view-tab .live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  animation: pulse 1.6s infinite;
+}
+
+.view-toolbar-spacer { flex: 1; }
+.view-toolbar-actions {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0 0.6rem;
+}
+
+/* RECONSTRUCTED VIEW */
+.reconstructed {
+  flex: 1; display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden; min-height: 0;
+}
+
+.recon-summary {
+  padding: 0.45rem 0.75rem;
+  background: var(--bg3);
+  border-bottom: 2px solid var(--ink);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem 1.5rem;
+  flex-shrink: 0;
+}
+.recon-cell { display: flex; flex-direction: column; gap: 0.1rem; }
+.recon-label {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.46rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+}
+.recon-value {
+  font-family: var(--data); font-size: 0.6rem;
+  color: var(--ink);
+}
+.recon-value.gold { color: var(--gold); }
+.recon-value.green { color: var(--green); }
+
+.recon-body {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-height: 0;
+}
+
+.recon-section {
+  border-bottom: 2px solid var(--ink);
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.recon-section:last-child { border-bottom: none; flex: 1; }
+.recon-section-header {
+  height: 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--mid);
+  display: flex; align-items: center;
+  padding: 0 0.6rem; gap: 0.6rem;
+  flex-shrink: 0;
+}
+.recon-section-title {
+  font-family: var(--chrome); font-weight: 900;
+  font-size: 0.5rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--dim);
+}
+.recon-section-meta {
+  font-family: var(--data); font-size: 0.5rem;
+  color: var(--mid);
+  margin-left: auto;
+}
+
+.recon-text {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  overflow: auto;
+  font-family: var(--data); font-size: 0.65rem;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--bg);
+  white-space: pre-wrap;
+  position: relative;
+}
+.recon-text strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.recon-text em {
+  font-style: italic;
+  color: var(--blue);
+}
+/* Subtle "this token came from a delta" hint — shown on hover toggle */
+.recon-text .delta-hint {
+  background: linear-gradient(180deg, transparent 0%, transparent 88%, rgba(192,144,0,0.55) 88%, rgba(192,144,0,0.55) 100%);
+}
+
+.cursor {
+  display: inline-block;
+  width: 6px; height: 0.85em;
+  background: var(--gold);
+  vertical-align: -0.05em;
+  margin-left: 1px;
+  animation: blink 1.1s steps(2,end) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.recon-meta-grid {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem 1.5rem;
+  font-family: var(--data); font-size: 0.55rem;
+  background: var(--bg);
+}
+.recon-meta-item { display: flex; flex-direction: column; gap: 0.05rem; }
+.recon-meta-key {
+  font-family: var(--chrome); font-weight: 700;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--dim);
+}
+.recon-meta-val { color: var(--ink); }
+
+/* progress bar showing stream consumption */
+.recon-progress {
+  height: 3px; background: var(--bg3);
+  flex-shrink: 0;
+  position: relative;
+}
+.recon-progress > .bar {
+  height: 100%;
+  background: var(--gold);
+  width: 76%;
+  animation: progress 3s ease-out forwards;
+}
+@keyframes progress { from { width: 0; } }
+
+/* JSON viewer (for raw fallback) */
+.json-view {
+  flex: 1; overflow: auto;
+  padding: 0.5rem 0;
+  font-family: var(--data); font-size: 0.6rem; line-height: 1.7;
+  background: var(--bg);
+  min-width: 0;
+}
+.json-line { display: flex; align-items: baseline; padding: 0 0.75rem 0 0; min-height: 1.7em; }
+.ln {
+  width: 32px; text-align: right;
+  color: var(--j-ln); padding-right: 1rem;
+  user-select: none; flex-shrink: 0;
+  font-size: 0.52rem;
+}
+.fold {
+  width: 14px; text-align: center;
+  color: var(--j-fold); padding-right: 4px;
+  user-select: none; flex-shrink: 0;
+  font-size: 0.58rem;
+}
+.jl { flex: 1; white-space: pre; overflow: hidden; }
+.jk  { color: var(--j-key); }
+.js  { color: var(--j-str); }
+.jn  { color: var(--j-num); }
+.jb  { color: var(--j-bool); }
+.jp  { color: var(--j-punct); }
+
+.statusbar {
+  height: 20px; background: var(--ink);
+  border-top: 2px solid var(--ink);
+  display: flex; align-items: center;
+  padding: 0 0.75rem; gap: 1.5rem;
+  flex-shrink: 0;
+}
+.sb-item {
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.48rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #3a3830;
+  display: flex; gap: 0.3rem; align-items: center;
+}
+.sb-item strong { font-weight: 700; color: #6a6858; }
+.sb-right { margin-left: auto; }
+
+.caption {
+  margin-top: 1rem;
+  font-family: var(--chrome); font-weight: 400;
+  font-size: 0.8rem; color: #5a5850;
+  line-height: 1.65;
+  max-width: 100%;
+}
+.caption strong { font-weight: 700; color: #8a8878; }
+.caption code {
+  font-family: var(--data); font-size: 0.72rem;
+  color: #7a8878;
+  background: #2a2820; padding: 0 0.25rem;
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">protospy · sse sketch E · reconstructed view for llm streams</div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">proto<span>spy</span></div>
+    <div class="topbar-path">→ api.anthropic.com:443</div>
+    <div class="mode-tabs">
+      <div class="mode-tab">stream</div>
+      <div class="mode-tab active">inspect</div>
+      <div class="mode-tab">routes</div>
+      <div class="mode-tab">traces</div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ══ LEFT: REQUEST LIST ══ -->
+    <div class="req-list">
+      <div class="list-toolbar">
+        <span style="font-family:var(--data);font-size:0.62rem;color:var(--dim)">~</span>
+        <input class="filter-input" placeholder="filter path…" value="">
+        <span class="list-count">14 req</span>
+      </div>
+
+      <div class="req-items">
+        <div class="req-item selected">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:22:01</span>
+          </div>
+          <div class="ri-path">/v1/messages</div>
+          <div class="ri-stream">
+            <span class="sse-pulse"></span>
+            <span class="sse-badge">live · sse</span>
+            <span class="ri-evt-count">47 evts</span>
+            <span class="ri-evt-since">+0.2s</span>
+          </div>
+        </div>
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:48</span>
+          </div>
+          <div class="ri-path">/v1/messages</div>
+          <div class="ri-stream">
+            <span class="sse-badge done">done · sse</span>
+            <span class="ri-evt-count">62 evts</span>
+            <span class="ri-evt-since">2.4s</span>
+          </div>
+        </div>
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method post">post</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:32</span>
+          </div>
+          <div class="ri-path">/v1/messages/count_tokens</div>
+          <div class="ri-meta">
+            <span class="ri-dur">38ms</span>
+            <span class="ri-size">req 412B / res 84B</span>
+          </div>
+        </div>
+        <div class="req-item">
+          <div class="ri-top">
+            <div class="ri-method get">get</div>
+            <span class="ri-status ok">200</span>
+            <span class="ri-ts">14:21:30</span>
+          </div>
+          <div class="ri-path">/v1/models</div>
+          <div class="ri-meta">
+            <span class="ri-dur">22ms</span>
+            <span class="ri-size">res 1.4K</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ RIGHT: INSPECTOR ══ -->
+    <div class="inspector">
+
+      <div class="context-bar">
+        <div class="ctx-method post">post</div>
+        <span class="ctx-path">/v1/messages</span>
+        <div class="ctx-chip ok">200 OK</div>
+        <div class="ctx-chip live">live · 47 evts</div>
+        <div class="ctx-chip">claude-opus-4-7</div>
+        <div class="ctx-chip">2.1s</div>
+      </div>
+
+      <div class="body-split">
+
+        <!-- REQUEST BODY (same as Sketch A) -->
+        <div class="body-pane">
+          <div class="pane-header">
+            <span class="pane-title">request body</span>
+            <span class="pane-meta">application/json · 624 bytes</span>
+            <div class="pane-actions">
+              <button class="pane-btn">copy</button>
+            </div>
+          </div>
+
+          <div class="json-view">
+            <div class="json-line"><span class="ln">1</span><span class="fold">▾</span><span class="jl"><span class="jp">{</span></span></div>
+            <div class="json-line"><span class="ln">2</span><span class="fold"> </span><span class="jl">  <span class="jk">"model"</span><span class="jp">:</span>      <span class="js">"claude-opus-4-7"</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">3</span><span class="fold"> </span><span class="jl">  <span class="jk">"max_tokens"</span><span class="jp">:</span> <span class="jn">1024</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">4</span><span class="fold"> </span><span class="jl">  <span class="jk">"stream"</span><span class="jp">:</span>     <span class="jb">true</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">5</span><span class="fold"> </span><span class="jl">  <span class="jk">"system"</span><span class="jp">:</span>     <span class="js">"You are a helpful research assistant."</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">6</span><span class="fold">▾</span><span class="jl">  <span class="jk">"messages"</span><span class="jp">: [</span></span></div>
+            <div class="json-line"><span class="ln">7</span><span class="fold">▾</span><span class="jl">    <span class="jp">{</span></span></div>
+            <div class="json-line"><span class="ln">8</span><span class="fold"> </span><span class="jl">      <span class="jk">"role"</span><span class="jp">:</span>    <span class="js">"user"</span><span class="jp">,</span></span></div>
+            <div class="json-line"><span class="ln">9</span><span class="fold"> </span><span class="jl">      <span class="jk">"content"</span><span class="jp">:</span> <span class="js">"Summarize the differences between SSE and WebSockets."</span></span></div>
+            <div class="json-line"><span class="ln">10</span><span class="fold"> </span><span class="jl">    <span class="jp">}</span></span></div>
+            <div class="json-line"><span class="ln">11</span><span class="fold"> </span><span class="jl">  <span class="jp">]</span></span></div>
+            <div class="json-line"><span class="ln">12</span><span class="fold"> </span><span class="jl"><span class="jp">}</span></span></div>
+          </div>
+        </div>
+
+        <!-- RESPONSE: TABBED RECONSTRUCTED + RAW -->
+        <div class="body-pane">
+          <div class="pane-header">
+            <span class="pane-title">response · sse stream</span>
+            <span class="pane-meta">text/event-stream · anthropic protocol</span>
+            <div class="pane-actions">
+              <button class="pane-btn">copy text</button>
+              <button class="pane-btn">copy json</button>
+              <button class="pane-btn">save .jsonl</button>
+            </div>
+          </div>
+
+          <div class="view-tabs">
+            <div class="view-tab active">
+              reconstructed
+              <span class="live-dot"></span>
+            </div>
+            <div class="view-tab">
+              raw events
+              <span class="badge">47</span>
+            </div>
+            <div class="view-tab">
+              wire format
+            </div>
+            <div class="view-toolbar-spacer"></div>
+            <div class="view-toolbar-actions">
+              <button class="pane-btn">show delta seams</button>
+            </div>
+          </div>
+
+          <div class="reconstructed">
+
+            <div class="recon-summary">
+              <div class="recon-cell">
+                <span class="recon-label">model</span>
+                <span class="recon-value">claude-opus-4-7</span>
+              </div>
+              <div class="recon-cell">
+                <span class="recon-label">role</span>
+                <span class="recon-value">assistant</span>
+              </div>
+              <div class="recon-cell">
+                <span class="recon-label">stop reason</span>
+                <span class="recon-value gold">— streaming —</span>
+              </div>
+              <div class="recon-cell">
+                <span class="recon-label">message id</span>
+                <span class="recon-value">msg_01ABCxyz</span>
+              </div>
+            </div>
+
+            <div class="recon-progress">
+              <div class="bar"></div>
+            </div>
+
+            <div class="recon-body">
+
+              <div class="recon-section" style="flex:1;">
+                <div class="recon-section-header">
+                  <span class="recon-section-title">content[0] · text</span>
+                  <span class="recon-section-meta">assembled from 31 deltas · 312 chars · 76 tokens (running)</span>
+                </div>
+                <div class="recon-text">Server-Sent Events (SSE) and WebSockets are both ways to push data from server to client, but they differ in several important ways:
+
+<strong>Direction</strong>: SSE is one-way (server → client only), while WebSockets are bidirectional. <strong>Transport</strong>: SSE rides on plain HTTP, whereas WebSockets upgrade to a dedicated framed protocol. <strong>Reconnection</strong>: SSE has built-in auto-reconnect with Last-Event-ID; WebSockets leave that to the client.<span class="cursor"></span></div>
+              </div>
+
+              <div class="recon-section" style="flex:0 0 auto;">
+                <div class="recon-section-header">
+                  <span class="recon-section-title">usage</span>
+                  <span class="recon-section-meta">last reported at message_delta · 14:22:03.120</span>
+                </div>
+                <div class="recon-meta-grid">
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">input tokens</span>
+                    <span class="recon-meta-val">28</span>
+                  </div>
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">output tokens (so far)</span>
+                    <span class="recon-meta-val">76</span>
+                  </div>
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">cache read</span>
+                    <span class="recon-meta-val">0</span>
+                  </div>
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">stop sequence</span>
+                    <span class="recon-meta-val">—</span>
+                  </div>
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">first byte</span>
+                    <span class="recon-meta-val">+312ms</span>
+                  </div>
+                  <div class="recon-meta-item">
+                    <span class="recon-meta-key">tokens/sec</span>
+                    <span class="recon-meta-val">36.2</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <div class="sb-item"><span>upstream</span><strong>api.anthropic.com</strong></div>
+    <div class="sb-item"><span>protocol</span><strong>anthropic streaming v1</strong></div>
+    <div class="sb-item"><span>state</span><strong>streaming · 76 tok</strong></div>
+    <div class="sb-item sb-right"><strong>protospy</strong><span>v0.1.0-dev</span></div>
+  </div>
+
+</div>
+
+<div class="caption">
+  <strong>Sketch E — reconstructed view, with raw events available behind a tab.</strong>
+  When protospy recognises a known streaming protocol (Anthropic <code>/v1/messages</code>, OpenAI <code>/v1/chat/completions</code>, Vertex, etc.) by Content-Type plus URL signature, it assembles the deltas into the artefact a human actually wants to read: the message text, the role, the stop reason, the usage block. Tabs above let you flip between <em>reconstructed</em>, <em>raw events</em> (Sketch A's event log), and <em>wire format</em> (the byte-exact <code>data:</code>/<code>event:</code>/<code>id:</code> lines).
+  <strong>What the reconstructed pane gives you:</strong> a summary header (model · role · stop reason · message id), a progress bar that fills as the stream completes, and one section per <code>content_block</code>. Text blocks render as wrap-flowed prose with markdown-ish emphasis; tool-use blocks would render as JSON forms; thinking blocks would be collapsible. A live cursor sits at the tail while the stream is open, and the stop-reason chip flips from gold ("streaming") to green ("end_turn") on close. Usage and timing are pulled from <code>message_delta</code> events as they arrive.
+  <strong>"Show delta seams"</strong> is an optional toggle: it underlines the text in faint gold at the boundaries between <code>content_block_delta</code> events, so you can audit exactly which tokens came from which event without leaving this view. For deeper inspection you switch to "raw events" — the same UI as Sketch A.
+  <strong>Tradeoffs:</strong> protocol-aware. The reconstructor needs to know about each provider's event vocabulary; unknown protocols fall back to "raw events" automatically. The win is large for the dominant use case (LLM streams) — you read the answer the way the API consumer's UI would render it, while keeping byte-level access one click away. This pairs well with Sketch A: A is the universal default; E layers on top when the protocol is recognised.
+</div>
+
+</body>
+</html>
