@@ -33,14 +33,15 @@ pub fn request_headers<T>(target: &str, req: &Request<T>, conn: &ConnInfo) -> Re
     req_h.clone_from(req.headers());
     req_h.insert(hyper::header::HOST, target.parse()?);
 
-    if let Some(conn_str) = req_h
-        .get(hyper::header::CONNECTION)
-        .and_then(|v| v.to_str().ok())
-        .map(&str::to_string)
-    {
-        for field in header_fields(&conn_str) {
-            req_h.remove(field);
-        }
+    let hop_headers: Vec<String> = req_h
+        .get_all(hyper::header::CONNECTION)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .map(|x| x.to_owned())
+        .collect();
+
+    for hop_header in hop_headers {
+        req_h.remove(hop_header);
     }
 
     for to_strip in STRIP_REQUEST_HEADERS.iter() {
@@ -98,11 +99,6 @@ fn format_ip_addr(addr: IpAddr) -> String {
 /// Generates a Via header value, e.g. '1.1 protospy'
 fn via_header(version: http::Version) -> Result<String> {
     Ok(format!("{} {}", http_version_num(version)?, SERVER_NAME))
-}
-
-/// Splits a comma-delimited header field, such as Connection.
-fn header_fields(val: &str) -> impl Iterator<Item = &str> {
-    val.split(',').map(str::trim)
 }
 
 /// Render an HTTP version as a bare number, e.g. 1.1, as needed for the Via
@@ -220,6 +216,29 @@ mod tests {
         fn test_res_strip_connection() {
             let h = basic_response_headers(&[
                 ("connection", "keep-alive"),
+                ("keep-alive", "timeout=5"),
+            ]);
+            assert!(!h.contains_key("connection"));
+            assert!(!h.contains_key("keep-alive"));
+        }
+
+        #[test]
+        fn test_res_strip_connection_multi_joined() {
+            let h = basic_response_headers(&[
+                ("connection", "keep-alive, transfer-encoding"),
+                ("transfer-encoding", "gzip"),
+                ("keep-alive", "timeout=5"),
+            ]);
+            assert!(!h.contains_key("connection"));
+            assert!(!h.contains_key("keep-alive"));
+        }
+
+        #[test]
+        fn test_res_strip_connection_multi_separate() {
+            let h = basic_response_headers(&[
+                ("connection", "keep-alive"),
+                ("connection", "transfer-encoding"),
+                ("transfer-encoding", "gzip"),
                 ("keep-alive", "timeout=5"),
             ]);
             assert!(!h.contains_key("connection"));
