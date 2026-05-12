@@ -71,44 +71,43 @@ async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
 
+async def _run_search(
+    es: AsyncElasticsearch, q: str, size: int
+) -> tuple[list[dict], list[dict]]:
+    query = {
+        "multi_match": {
+            "query": q,
+            "fields": ["title^2", "overview"],
+        }
+    }
+    response = await es.msearch(
+        body=[
+            {"index": settings.elasticsearch_index},
+            {"query": query, "size": size},
+            {"index": settings.elasticsearch_index},
+            {
+                "query": query,
+                "size": 0,
+                "aggs": {"genres": {"terms": {"field": "genres", "size": 10}}},
+            },
+        ]
+    )
+    hits_resp, facets_resp = response["responses"]
+    hits = [
+        {"_id": h["_id"], "_source": h["_source"]} for h in hits_resp["hits"]["hits"]
+    ]
+    genres = facets_resp.get("aggregations", {}).get("genres", {}).get("buckets", [])
+    return hits, genres
+
+
 @app.get("/search")
 async def search(request: Request, q: str = "", size: int = 20):
-    if not q:
-        hits: list[dict] = []
-        genres: list[dict] = []
-    else:
-        query = {
-            "multi_match": {
-                "query": q,
-                "fields": ["title^2", "overview"],
-            }
-        }
-        response = await request.app.state.es.msearch(
-            body=[
-                {"index": settings.elasticsearch_index},
-                {"query": query, "size": size},
-                {"index": settings.elasticsearch_index},
-                {
-                    "query": query,
-                    "size": 0,
-                    "aggs": {"genres": {"terms": {"field": "genres", "size": 10}}},
-                },
-            ]
-        )
-        hits_resp, facets_resp = response["responses"]
-        hits = [
-            {"_id": h["_id"], "_source": h["_source"]}
-            for h in hits_resp["hits"]["hits"]
-        ]
-        genres = (
-            facets_resp.get("aggregations", {}).get("genres", {}).get("buckets", [])
-        )
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request, "search.html", {"results": hits, "query": q, "genres": genres}
-        )
-    return JSONResponse({"results": hits, "query": q, "genres": genres})
+    ctx: dict = {"q": q}
+    if q:
+        hits, genres = await _run_search(request.app.state.es, q, size)
+        ctx["results"] = hits
+        ctx["genres"] = genres
+    return templates.TemplateResponse(request, "index.html", ctx)
 
 
 async def _get_movie(es: AsyncElasticsearch, id: str):
@@ -140,22 +139,36 @@ async def _get_similar(es: AsyncElasticsearch, id: str) -> list[dict]:
         return []
 
 
-@app.get("/item/{id}")
-async def item(request: Request, id: str):
+@app.get("/movie/{id}")
+async def movie(request: Request, id: str, q: str = "", size: int = 20):
     es = request.app.state.es
-    movie_resp, similar = await asyncio.gather(
-        _get_movie(es, id),
-        _get_similar(es, id),
-    )
+    if q:
+        movie_resp, similar, search_result = await asyncio.gather(
+            _get_movie(es, id),
+            _get_similar(es, id),
+            _run_search(es, q, size),
+        )
+        hits, genres = search_result
+    else:
+        movie_resp, similar = await asyncio.gather(
+            _get_movie(es, id),
+            _get_similar(es, id),
+        )
+        hits, genres = [], []
+
     if movie_resp is None:
         raise HTTPException(status_code=404, detail="Movie not found")
-    movie = movie_resp["_source"]
 
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request, "item.html", {"movie": movie, "similar": similar}
-        )
-    return JSONResponse({"movie": movie, "similar": similar})
+    ctx: dict = {
+        "q": q,
+        "movie": movie_resp["_source"],
+        "similar": similar,
+        "current_movie_id": id,
+    }
+    if q:
+        ctx["results"] = hits
+        ctx["genres"] = genres
+    return templates.TemplateResponse(request, "index.html", ctx)
 
 
 @app.get("/suggest")
@@ -199,12 +212,11 @@ async def stats(request: Request):
     )
     genres = response["aggregations"]["genres"]["buckets"]
     vote_histogram = response["aggregations"]["vote_histogram"]["buckets"]
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request, "stats.html", {"genres": genres, "vote_histogram": vote_histogram}
-        )
-    return JSONResponse({"genres": genres, "vote_histogram": vote_histogram})
+    return templates.TemplateResponse(
+        request,
+        "stats.html",
+        {"genres": genres, "vote_histogram": vote_histogram},
+    )
 
 
 if __name__ == "__main__":

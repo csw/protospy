@@ -1,3 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Stats</h1>
 {% set max_genre = genres | map(attribute='doc_count') | max if genres else 1 %}
 {% set max_votes = vote_histogram | map(attribute='doc_count') | max if vote_histogram else 1 %}
 <div class="stats-grid">
@@ -27,3 +30,4 @@
         {% endfor %}
     </div>
 </div>
+{% endblock %}

@@ -37,28 +37,32 @@ Each endpoint exercises a different ES query type — this variety is the whole 
 
 | Endpoint | ES Operation |
 |---|---|
-| `/search` | `_msearch` — two requests: `multi_match` hits + `terms` agg (genres) |
-| `/item/{id}` | `_doc/{id}` get-by-ID **plus** `_search` with `more_like_this` (run in parallel via `asyncio.gather`, sharing trace context) |
+| `/search?q=...` | `_msearch` — two requests: `multi_match` hits + `terms` agg (genres) |
+| `/movie/{id}?q=...` | `_doc/{id}` get-by-ID **plus** `_search` with `more_like_this` **plus** `_msearch` (when `q` is present) — all run in parallel via `asyncio.gather`, sharing trace context |
 | `/suggest` | `_search` with `match_bool_prefix` (operator=and) on `title` |
 | `/stats` | `_search` with `terms` agg (genres) + `histogram` agg (vote_average) |
 
-The `/item/{id}` endpoint is intentionally the only one that fans out to multiple ES calls under a single inbound request, allowing protospy to demonstrate its request grouping UI.
+The `/movie/{id}` endpoint is intentionally the heaviest fan-out: with `q` present, a single inbound request triggers three parallel ES calls, allowing protospy to demonstrate its request grouping UI.
 
 ## UI Stack
 
-**HTMX** handles all server interactions — search, suggest, stats, detail fetch, and the "More Like This" strip within the detail view. Every endpoint except `/` returns JSON by default and an HTML fragment when `HX-Request` is present:
+**Server-rendered pages, boosted with HTMX.** Three URLs each render a complete page:
+
+- `GET /` — home (search box only)
+- `GET /search?q=...` — home + results grid
+- `GET /movie/{id}?q=...` — home + results grid + detail panel
+
+`<body hx-boost="true">` makes every `<a>` click and `<form>` submission an XHR-driven body swap with `pushState` for the URL. Reload at any URL re-renders the same page (server is stateless), so back, forward, reload, and bookmark/deep-link all work natively without client-side state. The only fragment endpoint is `/suggest`, which returns a `<ul>` of suggestions for the autocomplete dropdown — a true XHR (no nav).
 
 ```python
-if request.headers.get("HX-Request"):
-    return templates.TemplateResponse(request, "template.html", {...})
-return JSONResponse({...})
+return templates.TemplateResponse(request, "index.html", ctx)
 ```
 
 Note: Starlette's `TemplateResponse` takes `request` as the **first** argument (not the template name).
 
-**Alpine.js** handles all local UI state — combobox keyboard navigation and dismiss, active card highlighting, and scroll-to-detail. New UI features should follow this split: server data → HTMX, client state → Alpine.
+**Alpine.js** handles only local UI state — combobox keyboard navigation, dismissal, and form-submit on suggestion click. New UI features should follow this split: server data → boosted nav (or HTMX for true XHR like `/suggest`); client state → Alpine.
 
-The `combobox` and `pageState` Alpine components are registered in `base.html` via `Alpine.data()` inside an `alpine:init` listener, placed before the deferred Alpine CDN script.
+The `combobox` Alpine component is registered in `base.html` via `Alpine.data()` inside an `alpine:init` listener, placed before the deferred Alpine CDN script.
 
 ## OTel Setup
 

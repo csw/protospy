@@ -150,27 +150,35 @@ def test_health():
         assert response.json() == {"status": "ok"}
 
 
-def test_search_returns_json():
+def test_index_renders_home():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Movie Search" in response.text
+        assert 'class="movie-card' not in response.text
+        assert 'class="detail-panel' not in response.text
+
+
+def test_search_renders_results_inline():
     mock_es = make_mock_es(msearch_response=MOCK_MSEARCH_RESPONSE)
     for client in _make_client(mock_es):
         response = client.get("/search?q=heaven")
         assert response.status_code == 200
-        body = response.json()
-        assert "results" in body
-        assert "query" in body
-        assert "genres" in body
-        assert body["query"] == "heaven"
-        assert len(body["results"]) == 1
-        assert body["genres"][0]["key"] == "Drama"
-
-
-def test_search_htmx_returns_html():
-    mock_es = make_mock_es(msearch_response=MOCK_MSEARCH_RESPONSE)
-    for client in _make_client(mock_es):
-        response = client.get("/search?q=heaven", headers={"HX-Request": "true"})
-        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Movie Search" in response.text
+        assert 'value="heaven"' in response.text
         assert "Days of Heaven" in response.text
         assert "Drama" in response.text
+
+
+def test_search_pre_populates_q():
+    mock_es = make_mock_es(msearch_response=MOCK_MSEARCH_RESPONSE)
+    for client in _make_client(mock_es):
+        response = client.get("/search?q=terminator")
+        assert response.status_code == 200
+        assert 'value="terminator"' in response.text
 
 
 def test_search_empty_q():
@@ -178,57 +186,61 @@ def test_search_empty_q():
     for client in _make_client(mock_es):
         response = client.get("/search?q=")
         assert response.status_code == 200
-        body = response.json()
-        assert body["results"] == []
+        assert "text/html" in response.headers["content-type"]
+        assert "Movie Search" in response.text
+        assert 'class="movie-card' not in response.text
 
 
-def test_item_found():
+def test_movie_renders_detail():
     mock_es = make_mock_es(
         get_response=MOCK_GET_RESPONSE,
         search_response=MOCK_SIMILAR_RESPONSE,
     )
     for client in _make_client(mock_es):
-        response = client.get("/item/16642")
+        response = client.get("/movie/16642")
         assert response.status_code == 200
-        body = response.json()
-        assert body["movie"]["title"] == "Days of Heaven"
-        assert isinstance(body["similar"], list)
-        assert len(body["similar"]) == 2
+        assert "text/html" in response.headers["content-type"]
+        assert "Days of Heaven" in response.text
+        assert "More Like This" in response.text
+        assert "Star Wars" in response.text
 
 
-def test_item_not_found():
+def test_movie_not_found():
     mock_es = make_mock_es(
         raise_not_found=True,
         search_response={"hits": {"hits": []}},
     )
     for client in _make_client(mock_es):
-        response = client.get("/item/missing")
+        response = client.get("/movie/missing")
         assert response.status_code == 404
 
 
-def test_item_htmx_renders_similar():
+def test_movie_with_q_renders_results_and_detail():
     mock_es = make_mock_es(
+        msearch_response=MOCK_MSEARCH_RESPONSE,
         get_response=MOCK_GET_RESPONSE,
         search_response=MOCK_SIMILAR_RESPONSE,
     )
     for client in _make_client(mock_es):
-        response = client.get("/item/16642", headers={"HX-Request": "true"})
+        response = client.get("/movie/16642?q=heaven")
         assert response.status_code == 200
+        assert 'value="heaven"' in response.text
+        assert "movie-card" in response.text
+        assert "detail-panel" in response.text
+        assert "Days of Heaven" in response.text
         assert "More Like This" in response.text
-        assert "Star Wars" in response.text
 
 
-def test_item_similar_failure_is_silent():
+def test_movie_similar_failure_is_silent():
     mock_es = make_mock_es(
         get_response=MOCK_GET_RESPONSE,
         search_side_effect=Exception("boom"),
     )
     for client in _make_client(mock_es):
-        response = client.get("/item/16642")
+        response = client.get("/movie/16642")
         assert response.status_code == 200
-        body = response.json()
-        assert body["similar"] == []
-        assert body["movie"]["title"] == "Days of Heaven"
+        assert "Days of Heaven" in response.text
+        assert "More Like This" not in response.text
 
 
 def test_suggest_returns_json():
@@ -242,6 +254,15 @@ def test_suggest_returns_json():
         assert "Days of Heaven" in body["suggestions"]
 
 
+def test_suggest_htmx_returns_html():
+    mock_es = make_mock_es(search_response=MOCK_SUGGEST_RESPONSE)
+    for client in _make_client(mock_es):
+        response = client.get("/suggest?q=days", headers={"HX-Request": "true"})
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Days of Heaven" in response.text
+
+
 def test_suggest_empty_q_skips_es():
     mock_es = make_mock_es()
     for client in _make_client(mock_es):
@@ -251,11 +272,11 @@ def test_suggest_empty_q_skips_es():
         mock_es.search.assert_not_called()
 
 
-def test_stats_returns_json():
+def test_stats_renders_html():
     mock_es = make_mock_es(search_response=MOCK_STATS_RESPONSE)
     for client in _make_client(mock_es):
         response = client.get("/stats")
         assert response.status_code == 200
-        body = response.json()
-        assert "genres" in body
-        assert "vote_histogram" in body
+        assert "text/html" in response.headers["content-type"]
+        assert "Drama" in response.text
+        assert "Top Genres" in response.text

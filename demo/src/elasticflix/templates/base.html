@@ -10,37 +10,16 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
     document.addEventListener('alpine:init', () => {
-        Alpine.data('pageState', () => ({
-            init() {
-                window.addEventListener('htmx:afterSwap', (e) => {
-                    if (e.detail.target.id === 'detail' && e.detail.target.children.length > 0) {
-                        const headerH = document.querySelector('header')?.offsetHeight ?? 0;
-                        const top = e.detail.target.getBoundingClientRect().top + window.scrollY - headerH - 16;
-                        window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
-                    }
-                });
-            },
-            selectCard(e) {
-                const card = e.target.closest('.movie-card');
-                if (!card) return;
-                this.$el.querySelectorAll('.movie-card.active').forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-            },
-        }));
-
         Alpine.data('combobox', () => ({
             open: false,
             activeIndex: -1,
             typedValue: '',
 
             init() {
-                window.addEventListener('htmx:afterSwap', (e) => {
-                    if (e.detail.target === this.$refs.list) {
-                        this.open = this.$refs.list.children.length > 0;
-                        this.activeIndex = -1;
-                        if (this.open) this.typedValue = this.$refs.input.value;
-                    }
-                    if (e.detail.target.id === 'results') this.dismiss();
+                this.$refs.list.addEventListener('htmx:afterSwap', () => {
+                    this.open = this.$refs.list.children.length > 0;
+                    this.activeIndex = -1;
+                    if (this.open) this.typedValue = this.$refs.input.value;
                 });
             },
 
@@ -81,7 +60,7 @@
             select(li) {
                 this.$refs.input.value = li.textContent.trim();
                 this.dismiss();
-                htmx.ajax('GET', '/search', {target: '#results', values: {q: this.$refs.input.value}});
+                this.$refs.input.form.requestSubmit();
             },
 
             selectActive() {
@@ -306,7 +285,7 @@
         .no-results { color: var(--text-muted); padding: 1rem 0; }
 
         /* ── Detail panel ── */
-        #detail:not(:empty) { margin-bottom: 2rem; }
+        .detail-panel { margin-bottom: 2rem; }
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateY(-6px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -434,12 +413,12 @@
         .bar-count { font-size: 0.75rem; color: var(--text-muted); min-width: 2.5rem; }
     </style>
 </head>
-<body>
+<body hx-boost="true" hx-swap="innerHTML scroll:top">
     <header>
         <div class="container">
             <nav>
                 <a href="/" class="logo">ELASTIC<span>FLIX</span></a>
-                <a href="/stats" hx-get="/stats" hx-target="#results" hx-push-url="false" class="nav-link">Stats</a>
+                <a href="/stats" class="nav-link">Stats</a>
             </nav>
         </div>
     </header>
