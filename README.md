@@ -87,6 +87,17 @@ pre-commit install -t pre-commit -t commit-msg
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+### Publishing to crates.io
+
+The published crate includes pre-built UI assets from `ui/dist/`. Use the justfile recipes to build the UI and publish in one step:
+
+```shell
+just publish-dry-run   # build UI, package crate, verify contents
+just publish           # build UI, dry-run, confirm, then upload
+```
+
+`just publish` runs a dry-run first, then prompts for confirmation before uploading. Pass `just --yes publish` to skip the prompt.
+
 ### devcontainers
 
 The repo includes a devcontainer configuration (`.devcontainer/devcontainer.json`) for Rust and Python development. It is tested with Zed on macOS with OrbStack.

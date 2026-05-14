@@ -48,3 +48,18 @@ record:
 # Run clippy, watching for code changes
 watch-clippy:
     cargo watch -c clippy --all-targets --no-deps --target-dir target/clippy -- -D warnings
+
+# Dry-run: build UI, package crate, but don't upload
+publish-dry-run: (ui::build)
+    cargo publish --dry-run
+
+# Build UI and publish to crates.io (with confirmation)
+publish: publish-dry-run
+    @echo ""
+    @just _confirm "Publish to crates.io?"
+    cargo publish
+
+[confirm("Are you sure?")]
+[private]
+_confirm message:
+    @echo "{{ message }}"
