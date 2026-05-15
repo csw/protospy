@@ -44,6 +44,27 @@ export function methodBadgeClass(method: string): string {
   }
 }
 
+export function methodTextClass(method: string): string {
+  switch (method.toUpperCase()) {
+    case "GET":
+      return "text-m-get";
+    case "POST":
+      return "text-m-post";
+    case "PUT":
+      return "text-m-put";
+    case "PATCH":
+      return "text-m-patch";
+    case "DELETE":
+      return "text-m-delete";
+    case "HEAD":
+      return "text-m-head";
+    case "OPTIONS":
+      return "text-m-opts";
+    default:
+      return "text-mid";
+  }
+}
+
 export function statusTextClass(
   status: string,
 ): "text-green" | "text-amber" | "text-red" {

@@ -3,8 +3,80 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUpDown, Rows3, TableProperties } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import { matchesFilter } from "@ui/lib/utils";
+import {
+  formatSize,
+  formatTime,
+  matchesFilter,
+  methodTextClass,
+  statusTextClass,
+  traceColor,
+} from "@ui/lib/utils";
 import { ExchangeListItem } from "./ExchangeListItem";
+
+const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
+
+interface TableRowProps {
+  exchange: Exchange;
+  selected: boolean;
+  onSelect: () => void;
+  density: "regular" | "compact";
+}
+
+function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
+  const method = exchange.method ?? "?";
+  const uri = exchange.uri ?? "/";
+  // Extract just the path (drop query string for display)
+  const path = uri.includes("?") ? uri.slice(0, uri.indexOf("?")) : uri;
+  const resSize = exchange.responseBody?.totalBytes ?? 0;
+
+  const rowHeight = density === "compact" ? 24 : 30;
+
+  const traceBarStyle: React.CSSProperties = exchange.traceId
+    ? { borderLeftColor: traceColor(exchange.traceId) }
+    : {};
+
+  return (
+    <button
+      onClick={onSelect}
+      className={[
+        "w-full text-left grid items-center border-b border-border",
+        "border-l-[3px] cursor-pointer transition-colors",
+        selected
+          ? "bg-bg-active border-l-accent"
+          : "bg-bg-pane hover:bg-bg-hover",
+      ].join(" ")}
+      style={{
+        gridTemplateColumns: TABLE_COLUMNS,
+        height: rowHeight,
+        ...(selected ? undefined : traceBarStyle),
+      }}
+      aria-selected={selected}
+    >
+      <span
+        className={`font-family-mono text-xs uppercase px-2 truncate ${methodTextClass(method)}`}
+      >
+        {method}
+      </span>
+      <span
+        className={`font-family-mono text-xs px-1 truncate ${exchange.status != null ? statusTextClass(exchange.status) : "text-dim"}`}
+      >
+        {exchange.status ?? "—"}
+      </span>
+      <span className="font-family-mono text-xs text-ink px-1 truncate">
+        {path}
+      </span>
+      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
+        {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
+      </span>
+      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
+        {formatSize(resSize)}
+      </span>
+      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
+        {formatTime(exchange.timestamp)}
+      </span>
+    </button>
+  );
+}
 
 export function ExchangeList() {
   const exchanges = useStore((s) => s.exchanges);
@@ -30,7 +102,14 @@ export function ExchangeList() {
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rowHeight = density === "compact" ? 58 : 74;
+  const rowHeight =
+    listMode === "table"
+      ? density === "compact"
+        ? 24
+        : 30
+      : density === "compact"
+        ? 58
+        : 74;
 
   const virtualizer = useVirtualizer({
     count: ordered.length,
@@ -153,11 +232,75 @@ export function ExchangeList() {
 
       {/* Content area */}
       {listMode === "table" ? (
-        <div className="flex-1 flex items-center justify-center bg-bg-pane">
-          <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-            Table view coming soon
-          </span>
-        </div>
+        <>
+          {/* Sticky table header */}
+          <div
+            className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent"
+            style={{ gridTemplateColumns: TABLE_COLUMNS }}
+          >
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-2">
+              Method
+            </span>
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1">
+              Status
+            </span>
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1">
+              Path
+            </span>
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+              Time
+            </span>
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+              Size
+            </span>
+            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-2 text-right">
+              When
+            </span>
+          </div>
+
+          {ordered.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center bg-bg-pane">
+              <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
+                {filter ? "No exchanges match" : "No exchanges"}
+              </span>
+            </div>
+          ) : (
+            /* Virtualized table rows */
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
+            >
+              <div
+                style={{
+                  height: virtualizer.getTotalSize(),
+                  position: "relative",
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const ex = ordered[virtualItem.index];
+                  return (
+                    <div
+                      key={ex.id}
+                      style={{
+                        position: "absolute",
+                        top: virtualItem.start,
+                        width: "100%",
+                        height: rowHeight,
+                      }}
+                    >
+                      <TableRow
+                        exchange={ex}
+                        selected={ex.id === selectedId}
+                        onSelect={() => setSelectedId(ex.id)}
+                        density={density}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       ) : ordered.length === 0 ? (
         <div className="flex-1 flex items-center justify-center bg-bg-pane">
           <span className="font-family-ui text-xs text-dim uppercase tracking-widest">

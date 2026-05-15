@@ -5,6 +5,7 @@ import { matchesFilter } from "@ui/lib/utils";
 import { EmptyState } from "./ui/EmptyState";
 import { ContextBar } from "./ContextBar";
 import { BodySplit } from "./BodySplit";
+import { TimingView } from "./TimingView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
@@ -141,7 +142,7 @@ export function Inspector() {
 
         {/* Timing tab */}
         <TabsContent value="timing" className="flex-1 overflow-auto mt-0">
-          <EmptyState>Timing view coming soon</EmptyState>
+          <TimingView exchange={exchange} />
         </TabsContent>
       </Tabs>
     </div>
