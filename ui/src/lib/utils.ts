@@ -1,44 +1,94 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+export function statusClass(
+  status: string | undefined,
+): "ok" | "redir" | "cli" | "srv" | "pending" | "err" {
+  if (status == null) return "pending";
+  const code = parseInt(status, 10);
+  if (isNaN(code)) return "err";
+  if (code >= 500) return "srv";
+  if (code >= 400) return "cli";
+  if (code >= 300) return "redir";
+  return "ok";
+}
+
 export function methodBadgeClass(method: string): string {
   switch (method.toUpperCase()) {
     case "GET":
-      return "bg-ink text-bg";
+      return "bg-m-get-bg text-m-get";
     case "POST":
-      return "bg-accent text-bg";
+      return "bg-m-post-bg text-m-post";
     case "PUT":
-      return "bg-gold text-bg";
-    case "DELETE":
-      return "bg-red text-bg";
+      return "bg-m-put-bg text-m-put";
     case "PATCH":
-      return "bg-green text-bg";
+      return "bg-m-patch-bg text-m-patch";
+    case "DELETE":
+      return "bg-m-delete-bg text-m-delete";
+    case "HEAD":
+      return "bg-m-head-bg text-m-head";
+    case "OPTIONS":
+      return "bg-m-opts-bg text-m-opts";
     default:
-      return "bg-mid text-bg";
+      return "bg-bg-sub text-mid";
   }
-}
-
-function parseStatusCode(status: string): number {
-  return parseInt(status, 10);
 }
 
 export function statusTextClass(
   status: string,
-): "text-green" | "text-gold" | "text-red" {
-  const code = parseStatusCode(status);
+): "text-green" | "text-amber" | "text-red" {
+  const code = parseInt(status, 10);
   if (code >= 200 && code < 300) return "text-green";
-  if (code >= 300 && code < 400) return "text-gold";
+  if (code >= 300 && code < 400) return "text-amber";
   return "text-red";
 }
 
 export function statusChipClass(
   status: string,
-): "border-green text-green" | "border-gold text-gold" | "border-red text-red" {
-  const code = parseStatusCode(status);
+):
+  | "border-green text-green"
+  | "border-amber text-amber"
+  | "border-red text-red" {
+  const code = parseInt(status, 10);
   if (code >= 200 && code < 300) return "border-green text-green";
-  if (code >= 300 && code < 400) return "border-gold text-gold";
+  if (code >= 300 && code < 400) return "border-amber text-amber";
   return "border-red text-red";
+}
+
+const TRACE_PALETTE = [
+  "oklch(0.66 0.17 30)", // orange
+  "oklch(0.66 0.14 95)", // gold
+  "oklch(0.66 0.17 150)", // green
+  "oklch(0.66 0.13 210)", // cyan
+  "oklch(0.60 0.18 260)", // blue
+  "oklch(0.58 0.21 300)", // purple
+  "oklch(0.64 0.20 350)", // magenta
+];
+
+export function traceColor(traceId: string): string {
+  let hash = 0;
+  for (let i = 0; i < traceId.length; i++) {
+    hash = ((hash << 5) - hash + traceId.charCodeAt(i)) | 0;
+  }
+  return TRACE_PALETTE[((hash % 7) + 7) % 7];
+}
+
+export function formatTime(timestamp: string): string {
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }

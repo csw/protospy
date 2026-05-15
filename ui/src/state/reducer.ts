@@ -28,6 +28,8 @@ export interface Exchange {
   responseBody?: BodyState;
   // Error
   error?: { direction: "Request" | "Response"; message: string };
+  // Trace
+  traceId?: string;
 }
 
 function getHeader(headers: ProxyHeaders, name: string): string | undefined {
@@ -96,6 +98,13 @@ export function apply(
     ex.version = event.version;
     ex.requestHeaders = event.headers;
     ex.requestBody = initialBodyToState(event.body, event.headers);
+    const tp = getHeader(event.headers, "traceparent");
+    if (tp) {
+      const parts = tp.split("-");
+      if (parts.length >= 2) {
+        ex.traceId = parts[1];
+      }
+    }
   } else if (event.type === "Response") {
     const ex = getOrCreate(exchanges, ids, id, timestamp);
     ex.status = event.status;

@@ -14,7 +14,7 @@ function HeaderTable({ headers }: { headers: ProxyHeaders }) {
         {headers.map((h, i) => (
           <tr
             key={i}
-            className="border-b border-border last:border-0 hover:bg-hl-bg"
+            className="border-b border-border last:border-0 hover:bg-bg-hl"
           >
             <td className="py-0.5 pr-4 text-accent whitespace-nowrap align-top w-48">
               {h.name}
@@ -41,7 +41,7 @@ export function HeadersDrawer({ requestHeaders, responseHeaders }: Props) {
       {/* Toggle */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 h-7 bg-bg2 hover:bg-bg3 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 h-7 bg-bg-sub hover:bg-bg-hover transition-colors text-left"
         aria-expanded={open}
       >
         <SectionHeader>Headers</SectionHeader>
@@ -50,7 +50,7 @@ export function HeadersDrawer({ requestHeaders, responseHeaders }: Props) {
 
       {/* Expanded content */}
       {open && (
-        <div className="px-3 py-2 bg-pane-bg overflow-auto max-h-56">
+        <div className="px-3 py-2 bg-bg-pane overflow-auto max-h-56">
           {requestHeaders != null && requestHeaders.length > 0 && (
             <div className="mb-3">
               <div className="mb-1">

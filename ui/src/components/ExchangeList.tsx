@@ -13,14 +13,14 @@ export function ExchangeList({ exchanges, selectedId, onSelect }: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden border-r border-border">
       {/* Toolbar */}
-      <div className="flex items-center px-3 h-7 shrink-0 bg-bg2 border-b border-border-strong">
+      <div className="flex items-center px-3 h-7 shrink-0 bg-bg-sub border-b border-border-strong">
         <SectionHeader>
           {exchanges.length} exchange{exchanges.length !== 1 ? "s" : ""}
         </SectionHeader>
       </div>
 
       {/* Scrollable list */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-pane-bg">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane">
         {exchanges.length === 0 ? (
           <EmptyState>No exchanges</EmptyState>
         ) : (

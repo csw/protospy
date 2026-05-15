@@ -21,7 +21,7 @@ export function QueryParamsStrip({ uri }: Props) {
   if (params.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-1 bg-bg2 border-b border-border shrink-0">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-1 bg-bg-sub border-b border-border shrink-0">
       {params.map(({ key, value }, i) => (
         <span key={i} className="font-family-mono text-sm whitespace-nowrap">
           <span className="text-accent">{key}</span>

@@ -42,7 +42,7 @@ export function ExchangeListItem({ exchange, selected, onSelect }: Props) {
       className={[
         "w-full text-left px-2 py-1.5 border-b border-border",
         "flex flex-col gap-0.5 cursor-pointer transition-colors",
-        selected ? "bg-ink text-bg" : "bg-pane-bg hover:bg-hl-bg text-ink",
+        selected ? "bg-accent text-bg" : "bg-bg-pane hover:bg-bg-hl text-ink",
         isError && !selected ? "border-l-2 border-l-red" : "",
       ]
         .filter(Boolean)

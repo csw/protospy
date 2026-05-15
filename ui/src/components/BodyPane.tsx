@@ -62,7 +62,7 @@ export function BodyPane({ title, body }: Props) {
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       {/* Header row */}
-      <div className="flex items-center gap-3 px-3 h-7 shrink-0 bg-bg2 border-b border-border">
+      <div className="flex items-center gap-3 px-3 h-7 shrink-0 bg-bg-sub border-b border-border">
         <SectionHeader>{title}</SectionHeader>
         {result != null && (
           <span className="font-family-mono text-xs text-dim">
@@ -80,7 +80,7 @@ export function BodyPane({ title, body }: Props) {
       </div>
 
       {/* Body area */}
-      <div className="flex-1 overflow-auto bg-pane-bg">
+      <div className="flex-1 overflow-auto bg-bg-pane">
         {loading && <EmptyState>Decoding…</EmptyState>}
 
         {!loading && body != null && !body.atEnd && (

@@ -90,7 +90,7 @@ export function JsonViewer({ text }: Props) {
         const lineNum = i + 1;
         const tokens = tokenizeLine(line);
         return (
-          <div key={lineNum} className="flex hover:bg-hl-bg">
+          <div key={lineNum} className="flex hover:bg-bg-hl">
             <span className="select-none w-10 shrink-0 text-right pr-3 text-j-ln">
               {lineNum}
             </span>
