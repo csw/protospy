@@ -490,3 +490,386 @@ describe("Multiple exchanges", () => {
     expect(exchanges.get(2)!.status).toBe("500 Internal Server Error");
   });
 });
+
+// ---------------------------------------------------------------------------
+// traceparent parsing
+// ---------------------------------------------------------------------------
+
+// Helper: build a Request EventMessage with the given headers.
+function requestWithHeaders(headers: ProxyHeaders): EventMessage {
+  return {
+    exchange: BASE_META,
+    direction: "Request",
+    event: {
+      type: "Request",
+      method: "GET",
+      uri: "/",
+      version: "HTTP/1.1",
+      headers,
+      body: { type: "NoBody" },
+    },
+  };
+}
+
+describe("traceparent parsing", () => {
+  it("extracts traceId from a well-formed W3C traceparent", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const traceparent =
+      "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: traceparent }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("0af7651916cd43dd8448eb211c80319c");
+  });
+
+  it("accepts a wrong version byte and still extracts the second dash-separated field", () => {
+    // Documents current behavior: the reducer does not validate the version
+    // byte. It splits on "-" and takes parts[1] verbatim.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const traceparent =
+      "01-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: traceparent }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("0af7651916cd43dd8448eb211c80319c");
+  });
+
+  it("extracts parts[1] from a malformed traceparent with only two dashes", () => {
+    // Documents current behavior: there's no shape validation. As long as
+    // there are at least two parts (one dash), parts[1] is set as the
+    // traceId — even if it's clearly not 32 hex chars.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: "00-abc-def" }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("abc");
+  });
+
+  it("leaves traceId unset when the traceparent has no dashes", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: "no-dashes-here" }]),
+    );
+    // "no-dashes-here" splits to ["no", "dashes", "here"] (3 parts) — so
+    // parts[1] = "dashes" is taken. Use a truly dashless value to exercise
+    // the parts.length < 2 branch.
+    expect(exchanges.get(1)!.traceId).toBe("dashes");
+
+    const exchanges2 = makeExchanges();
+    const ids2 = makeIds();
+    apply(
+      exchanges2,
+      ids2,
+      requestWithHeaders([{ name: "traceparent", value: "single-token" }]),
+    );
+    // "single-token" → 2 parts, so traceId = "token" (still set).
+    expect(exchanges2.get(1)!.traceId).toBe("token");
+
+    const exchanges3 = makeExchanges();
+    const ids3 = makeIds();
+    apply(
+      exchanges3,
+      ids3,
+      requestWithHeaders([{ name: "traceparent", value: "singletoken" }]),
+    );
+    // No dashes at all → parts.length === 1, branch is skipped, traceId
+    // stays undefined.
+    expect(exchanges3.get(1)!.traceId).toBeUndefined();
+  });
+
+  it("leaves traceId unset when the traceparent header is missing", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, requestWithHeaders([]));
+    expect(exchanges.get(1)!.traceId).toBeUndefined();
+  });
+
+  it("leaves traceId unset when the traceparent value is empty", () => {
+    // Empty string is falsy, so the `if (tp)` guard skips parsing entirely.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: "" }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBeUndefined();
+  });
+
+  it("preserves case verbatim — lowercase hex is kept lowercase", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const lower = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: lower }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("0af7651916cd43dd8448eb211c80319c");
+  });
+
+  it("preserves case verbatim — uppercase hex is not normalised", () => {
+    // Documents current behavior: traceId is stored as-typed, without case
+    // normalization. The W3C spec mandates lowercase, but the reducer does
+    // not enforce or coerce it.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const upper = "00-0AF7651916CD43DD8448EB211C80319C-B7AD6B7169203331-01";
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([{ name: "traceparent", value: upper }]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("0AF7651916CD43DD8448EB211C80319C");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getHeader semantics (exercised via the reducer's body.contentType / traceId)
+// ---------------------------------------------------------------------------
+
+describe("getHeader semantics", () => {
+  it("matches header names case-insensitively (lowercased name still picked up)", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "Request",
+        method: "POST",
+        uri: "/",
+        version: "HTTP/1.1",
+        headers: [{ name: "content-type", value: "application/json" }],
+        body: { type: "NotRead" },
+      },
+    });
+    expect(exchanges.get(1)!.requestBody!.contentType).toBe("application/json");
+  });
+
+  it("matches header names case-insensitively (mixed-case name still picked up)", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "Request",
+        method: "POST",
+        uri: "/",
+        version: "HTTP/1.1",
+        headers: [{ name: "CoNtEnT-TyPe", value: "text/html" }],
+        body: { type: "NotRead" },
+      },
+    });
+    expect(exchanges.get(1)!.requestBody!.contentType).toBe("text/html");
+  });
+
+  it("returns the FIRST occurrence when a header appears multiple times", () => {
+    // Documents current behavior: getHeader uses Array.prototype.find, which
+    // returns the first matching element. If a header is duplicated (which
+    // is unusual but legal for some headers), the first value wins.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "Request",
+        method: "POST",
+        uri: "/",
+        version: "HTTP/1.1",
+        headers: [
+          { name: "Content-Type", value: "first/value" },
+          { name: "Content-Type", value: "second/value" },
+        ],
+        body: { type: "NotRead" },
+      },
+    });
+    expect(exchanges.get(1)!.requestBody!.contentType).toBe("first/value");
+  });
+
+  it("uses the first traceparent when the header is duplicated", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const first = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
+    const second = "00-cccccccccccccccccccccccccccccccc-dddddddddddddddd-01";
+    apply(
+      exchanges,
+      ids,
+      requestWithHeaders([
+        { name: "traceparent", value: first },
+        { name: "traceparent", value: second },
+      ]),
+    );
+    expect(exchanges.get(1)!.traceId).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BodyData with out-of-order content.offset
+// ---------------------------------------------------------------------------
+
+describe("BodyData ordering", () => {
+  it("appends chunks in arrival order regardless of content.offset", () => {
+    // Documents current behavior: the reducer does NOT sort or otherwise
+    // re-order chunks by `content.offset`. The first BodyData event whose
+    // payload arrives is the first chunk in `body.chunks`, even if its
+    // offset says it belongs later in the stream. Downstream code (e.g.
+    // body decoding) is responsible for any reassembly — the reducer just
+    // accumulates.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    // Arrives "later" first: offset 5
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "BodyData",
+        content: { offset: 5, length: 5, payload: { text: "world" } },
+        trailers: null,
+        at_end: false,
+        total_bytes: 10,
+      },
+    });
+    // Then "earlier" chunk: offset 0
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "BodyData",
+        content: { offset: 0, length: 5, payload: { text: "hello" } },
+        trailers: null,
+        at_end: true,
+        total_bytes: 10,
+      },
+    });
+
+    const body = exchanges.get(1)!.responseBody!;
+    expect(body.chunks).toEqual([{ text: "world" }, { text: "hello" }]);
+    expect(body.atEnd).toBe(true);
+    expect(body.totalBytes).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Response event with no elapsed_ms
+// ---------------------------------------------------------------------------
+
+describe("Response event missing elapsed_ms", () => {
+  it("leaves elapsedMs undefined when the event omits elapsed_ms", () => {
+    // The TS binding types `elapsed_ms` as required, but in practice the
+    // reducer just copies the field through. If a malformed event arrives
+    // missing `elapsed_ms`, `ex.elapsedMs` ends up undefined rather than
+    // being defaulted to 0 or NaN. Cast through `unknown` to bypass the
+    // binding's required-field constraint.
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    const msg = {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: [],
+        body: { type: "NoBody" },
+      },
+    } as unknown as EventMessage;
+    apply(exchanges, ids, msg);
+
+    const ex = exchanges.get(1)!;
+    expect(ex.status).toBe("200 OK");
+    expect(ex.elapsedMs).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error event after a completed exchange
+// ---------------------------------------------------------------------------
+
+describe("Error event after a completed exchange", () => {
+  it("sets the error and preserves all earlier request/response fields", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+
+    // Full Request
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "Request",
+        method: "POST",
+        uri: "/api/upload",
+        version: "HTTP/1.1",
+        headers: [
+          { name: "Content-Type", value: "application/json" },
+          {
+            name: "traceparent",
+            value: "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+          },
+        ],
+        body: { type: "NotRead" },
+      },
+    });
+    // Full Response
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: CONTENT_TYPE_JSON,
+        elapsed_ms: 73,
+        body: {
+          type: "Data",
+          content: { offset: 0, length: 2, payload: { text: "ok" } },
+          trailers: null,
+          at_end: true,
+          total_bytes: 2,
+        },
+      },
+    });
+    // Then a trailing Error event (e.g. trailer-time failure, or a late
+    // signal from the proxy).
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Error",
+        direction: "Response",
+        message: "stream closed unexpectedly",
+      },
+    });
+
+    const ex = exchanges.get(1)!;
+    expect(ex.error).toEqual({
+      direction: "Response",
+      message: "stream closed unexpectedly",
+    });
+    // Request fields preserved.
+    expect(ex.method).toBe("POST");
+    expect(ex.uri).toBe("/api/upload");
+    expect(ex.version).toBe("HTTP/1.1");
+    expect(ex.traceId).toBe("0af7651916cd43dd8448eb211c80319c");
+    // Response fields preserved.
+    expect(ex.status).toBe("200 OK");
+    expect(ex.elapsedMs).toBe(73);
+    expect(ex.responseBody?.chunks).toEqual([{ text: "ok" }]);
+    expect(ex.responseBody?.atEnd).toBe(true);
+    expect(ex.responseBody?.totalBytes).toBe(2);
+  });
+});

@@ -29,26 +29,47 @@ To generate example traffic to observe in the UI, there are shell scripts in `..
 
 ## Commands
 
-| Command             | Description                          |
-| ------------------- | ------------------------------------ |
-| `pnpm dev`          | Start dev server with HMR            |
-| `pnpm build`        | Production build (output: `dist/`)   |
-| `pnpm preview`      | Preview the production build locally |
-| `pnpm lint`         | Run ESLint                           |
-| `pnpm format`       | Format with Prettier                 |
-| `pnpm format:check` | Check formatting without writing     |
-| `pnpm typecheck`    | Type-check without emitting          |
-| `pnpm test`         | Run unit tests with Vitest           |
+| Command                    | Description                                         |
+| -------------------------- | --------------------------------------------------- |
+| `pnpm dev`                 | Start dev server with HMR                           |
+| `pnpm build`               | Production build (output: `dist/`)                  |
+| `pnpm preview`             | Preview the production build locally                |
+| `pnpm lint`                | Run ESLint                                          |
+| `pnpm format`              | Format with Prettier                                |
+| `pnpm format:check`        | Check formatting without writing                    |
+| `pnpm typecheck`           | Type-check without emitting                         |
+| `pnpm test`                | Run unit + component tests with Vitest              |
+| `pnpm test:coverage`       | Vitest run with v8 coverage report (`coverage/`)    |
+| `pnpm test:browser`        | Playwright UI tests (requires `playwright install`) |
+| `pnpm test:browser:headed` | Playwright UI tests with a visible browser          |
 
 ## Project Structure
 
 ```
 src/
   api/          # Typed fetch wrappers (fetchInfo, subscribeToEvents)
-  components/   # Reusable UI components
-  theme/        # Theme definitions and tokens
+  body/         # Body decoding (compression, JSON/JSONL) and SSE parsing
+  components/   # React components (incl. components/ui/ shadcn primitives)
+  hooks/        # Extracted hooks (e.g. useDecodeBody)
+  lib/utils.ts  # Pure helpers — formatters, matchers, splitUri, traceColor
+  state/        # Zustand store and the EventMessage reducer
+  test/         # setup.ts (jest-dom) and fixtures.ts (shared with browser tests)
+  theme/        # Tailwind tokens and theme bootstrap helpers
+  __tests__/    # Vitest tests (.test.ts → node; .test.tsx → jsdom)
   App.tsx       # Root component
-  main.tsx      # Entry point
+  main.tsx      # Entry point — theme bootstrap + render
+browser/        # Playwright specs and fixtures/helpers (UI tests, not full-stack e2e)
+docs/agents/ui/ # Coverage audit + test-plan handoff (repo-level docs/)
 ```
 
-The `@bindings/` path alias points to `../bindings/`, which contains shared TypeScript types generated from the Rust backend.
+The `@bindings/` path alias points to `../bindings/` (TypeScript types generated from the Rust backend); `@ui/` points to `./src/`.
+
+## Testing
+
+`pnpm test` runs Vitest (unit + component); `pnpm test:browser` runs Playwright UI tests against the dev server (rendering, layout, and interaction — not a true full-stack end-to-end suite). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy. The audit and test-plan in `docs/agents/ui/` lay out what's covered and what isn't.
+
+## React Compiler
+
+This project does not run [React Compiler](https://react.dev/learn/react-compiler) — `@vitejs/plugin-react` is configured without `babel-plugin-react-compiler`. However, `eslint-plugin-react-hooks@7` bundles the compiler's static checks, so its diagnostics surface during `pnpm lint` even without the build-time transform.
+
+The `react-hooks/incompatible-library` warnings on `useVirtualizer` (TanStack Virtual) are suppressed at the call sites with an explanatory comment: the compiler would bail out on those components rather than risk caching stale closures, and since we don't run the compiler the bail-out has no effect. The suppressions should be revisited if React Compiler is ever adopted here.

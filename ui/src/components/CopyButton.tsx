@@ -16,7 +16,13 @@ export function CopyButton({ text }: Props) {
 
   function handleClick() {
     if (text == null) return;
-    void navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {
+      setCopied(false);
+      if (timerRef.current != null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    });
     setCopied(true);
     if (timerRef.current != null) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 2000);

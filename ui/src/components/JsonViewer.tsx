@@ -1,6 +1,12 @@
+import { useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
 interface Props {
   text: string;
 }
+
+// `text-xs` (12px) + `leading-5` (20px) — each line renders as a 20px row.
+const ROW_HEIGHT = 20;
 
 interface Span {
   cls: string;
@@ -79,35 +85,74 @@ export function tokenizeLine(line: string): Token[] {
 }
 
 export function JsonViewer({ text }: Props) {
-  const lines = text.split("\n");
+  const lines = useMemo(() => text.split("\n"), [text]);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Virtualize the line list. A 2 MB pretty-printed JSON is ~100K lines, and
+  // mounting every row blocks the main thread for seconds. Rendering only the
+  // visible window keeps the DOM small (~50 rows) regardless of body size.
+  //
+  // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`)
+  // because its methods close over mutable instance state. Safe to ignore here:
+  // we don't enable the compiler in this build, and the returned methods are
+  // consumed inline in this render — they're never handed to a memoized child.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: lines.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
 
   return (
     <div
+      ref={parentRef}
       className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
+      style={{ contain: "strict" }}
       aria-label="JSON viewer"
     >
-      {lines.map((line, i) => {
-        const lineNum = i + 1;
-        const tokens = tokenizeLine(line);
-        return (
-          <div key={lineNum} className="flex hover:bg-hl-bg">
-            <span className="select-none w-10 shrink-0 text-right pr-3 text-j-ln">
-              {lineNum}
-            </span>
-            <span className="flex-1 whitespace-pre">
-              {tokens.map((tok, ti) =>
-                typeof tok === "string" ? (
-                  tok
-                ) : (
-                  <span key={ti} className={tok.cls}>
-                    {tok.text}
-                  </span>
-                ),
-              )}
-            </span>
-          </div>
-        );
-      })}
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: "relative",
+          width: "100%",
+        }}
+      >
+        {virtualizer.getVirtualItems().map((vRow) => {
+          const i = vRow.index;
+          const lineNum = i + 1;
+          const tokens = tokenizeLine(lines[i]);
+          return (
+            <div
+              key={lineNum}
+              className="flex hover:bg-bg-hl"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: vRow.size,
+                transform: `translateY(${vRow.start}px)`,
+              }}
+            >
+              <span className="select-none w-10 shrink-0 text-right pr-3 text-j-ln">
+                {lineNum}
+              </span>
+              <span className="flex-1 whitespace-pre">
+                {tokens.map((tok, ti) =>
+                  typeof tok === "string" ? (
+                    tok
+                  ) : (
+                    <span key={ti} className={tok.cls}>
+                      {tok.text}
+                    </span>
+                  ),
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
