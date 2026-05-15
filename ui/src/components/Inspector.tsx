@@ -9,6 +9,9 @@ import { TimingView } from "./TimingView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
+const tabTriggerClass =
+  "h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent";
+
 function HeaderTable({ headers }: { headers: ProxyHeaders }) {
   return (
     <div className="overflow-auto p-3">
@@ -57,6 +60,15 @@ export function Inspector() {
   const currentIdx =
     exchange != null ? ordered.findIndex((ex) => ex.id === exchange.id) : -1;
 
+  const isMsearch =
+    exchange?.uri?.includes("_msearch") ||
+    exchange?.uri?.includes("_mget") ||
+    false;
+
+  // Derive effective tab: fall back to "bodies" if "pairs" is active but not applicable
+  const effectiveTab =
+    activeTab === "pairs" && !isMsearch ? "bodies" : activeTab;
+
   if (exchange == null) {
     return (
       <div className="flex-1 bg-bg-pane overflow-hidden">
@@ -83,7 +95,7 @@ export function Inspector() {
 
       {/* Tabs */}
       <Tabs
-        value={activeTab}
+        value={effectiveTab}
         onValueChange={setActiveTab}
         className="flex flex-col flex-1 overflow-hidden gap-0"
       >
@@ -92,28 +104,21 @@ export function Inspector() {
           variant="line"
           className="h-8 w-full justify-start rounded-none border-b border-border bg-bg-sub px-2 gap-0"
         >
-          <TabsTrigger
-            value="bodies"
-            className="h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent"
-          >
+          <TabsTrigger value="bodies" className={tabTriggerClass}>
             {isStream ? "Stream" : "Bodies"}
           </TabsTrigger>
-          <TabsTrigger
-            value="req-headers"
-            className="h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent"
-          >
+          {isMsearch && (
+            <TabsTrigger value="pairs" className={tabTriggerClass}>
+              Pairs
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="req-headers" className={tabTriggerClass}>
             Req headers ({reqHeaders.length})
           </TabsTrigger>
-          <TabsTrigger
-            value="res-headers"
-            className="h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent"
-          >
+          <TabsTrigger value="res-headers" className={tabTriggerClass}>
             Res headers ({resHeaders.length})
           </TabsTrigger>
-          <TabsTrigger
-            value="timing"
-            className="h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent"
-          >
+          <TabsTrigger value="timing" className={tabTriggerClass}>
             Timing
           </TabsTrigger>
         </TabsList>
@@ -125,6 +130,13 @@ export function Inspector() {
         >
           <BodySplit exchange={exchange} />
         </TabsContent>
+
+        {/* Pairs tab (msearch/mget only) */}
+        {isMsearch && (
+          <TabsContent value="pairs" className="flex-1 overflow-auto mt-0">
+            <EmptyState>Paired view coming soon</EmptyState>
+          </TabsContent>
+        )}
 
         {/* Req headers tab */}
         <TabsContent value="req-headers" className="flex-1 overflow-auto mt-0">

@@ -12,3 +12,4 @@ docker-compose.override.*
 /.claude/worktrees/
 /skills-lock.json
 .DS_Store
+.pnpm-store

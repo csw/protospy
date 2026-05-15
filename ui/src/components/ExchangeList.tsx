@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, Rows3, TableProperties } from "lucide-react";
+import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
@@ -89,6 +89,7 @@ export function ExchangeList() {
   const density = useStore((s) => s.density);
   const listMode = useStore((s) => s.listMode);
   const setListMode = useStore((s) => s.setListMode);
+  const traceGroupOn = useStore((s) => s.traceGroupOn);
   const cmdKOpen = useStore((s) => s.cmdKOpen);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
 
@@ -99,6 +100,9 @@ export function ExchangeList() {
     .filter((ex) => matchesFilter(ex, filter));
 
   const ordered = order === "newest" ? [...filtered].reverse() : filtered;
+
+  // Whether any visible exchange has a traceId (for trace rail placeholder)
+  const hasTraces = ordered.some((ex) => ex.traceId != null);
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -179,10 +183,17 @@ export function ExchangeList() {
     <div className="flex flex-col h-full overflow-hidden border-r border-border">
       {/* Toolbar */}
       <div className="flex items-center px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        {/* Left: label */}
+        {/* Left: label + trace group indicator */}
         <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-widest">
           Exchanges
         </span>
+        {traceGroupOn && (
+          <Layers
+            size={12}
+            className="ml-1.5 text-accent"
+            aria-label="Trace grouping active"
+          />
+        )}
 
         {/* Right: controls */}
         <div className="flex items-center gap-1.5 ml-auto">
@@ -265,38 +276,45 @@ export function ExchangeList() {
               </span>
             </div>
           ) : (
-            /* Virtualized table rows */
-            <div
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
-            >
+            /* Trace rail + virtualized table rows */
+            <div className="flex flex-1 overflow-hidden">
+              {/* Trace rail placeholder */}
+              {hasTraces && (
+                <div className="w-3 shrink-0 bg-bg-pane border-r border-border" />
+              )}
+              {/* Scrollable rows */}
               <div
-                style={{
-                  height: virtualizer.getTotalSize(),
-                  position: "relative",
-                }}
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
               >
-                {virtualizer.getVirtualItems().map((virtualItem) => {
-                  const ex = ordered[virtualItem.index];
-                  return (
-                    <div
-                      key={ex.id}
-                      style={{
-                        position: "absolute",
-                        top: virtualItem.start,
-                        width: "100%",
-                        height: rowHeight,
-                      }}
-                    >
-                      <TableRow
-                        exchange={ex}
-                        selected={ex.id === selectedId}
-                        onSelect={() => setSelectedId(ex.id)}
-                        density={density}
-                      />
-                    </div>
-                  );
-                })}
+                <div
+                  style={{
+                    height: virtualizer.getTotalSize(),
+                    position: "relative",
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                    const ex = ordered[virtualItem.index];
+                    return (
+                      <div
+                        key={ex.id}
+                        style={{
+                          position: "absolute",
+                          top: virtualItem.start,
+                          width: "100%",
+                          height: rowHeight,
+                        }}
+                      >
+                        <TableRow
+                          exchange={ex}
+                          selected={ex.id === selectedId}
+                          onSelect={() => setSelectedId(ex.id)}
+                          density={density}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -308,35 +326,45 @@ export function ExchangeList() {
           </span>
         </div>
       ) : (
-        /* Virtualized scrollable list */
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
-        >
+        /* Trace rail + virtualized scrollable list */
+        <div className="flex flex-1 overflow-hidden">
+          {/* Trace rail placeholder */}
+          {hasTraces && (
+            <div className="w-3 shrink-0 bg-bg-pane border-r border-border" />
+          )}
+          {/* Scrollable list */}
           <div
-            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
           >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
-              const ex = ordered[virtualItem.index];
-              return (
-                <div
-                  key={ex.id}
-                  style={{
-                    position: "absolute",
-                    top: virtualItem.start,
-                    width: "100%",
-                    height: rowHeight,
-                  }}
-                >
-                  <ExchangeListItem
-                    exchange={ex}
-                    selected={ex.id === selectedId}
-                    onSelect={() => setSelectedId(ex.id)}
-                    density={density}
-                  />
-                </div>
-              );
-            })}
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const ex = ordered[virtualItem.index];
+                return (
+                  <div
+                    key={ex.id}
+                    style={{
+                      position: "absolute",
+                      top: virtualItem.start,
+                      width: "100%",
+                      height: rowHeight,
+                    }}
+                  >
+                    <ExchangeListItem
+                      exchange={ex}
+                      selected={ex.id === selectedId}
+                      onSelect={() => setSelectedId(ex.id)}
+                      density={density}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
