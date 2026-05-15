@@ -92,3 +92,15 @@ export function formatTime(timestamp: string): string {
     second: "2-digit",
   });
 }
+
+export function matchesFilter(
+  ex: { method?: string; uri?: string; status?: string },
+  filter: string,
+): boolean {
+  if (!filter) return true;
+  const q = filter.toLowerCase();
+  const method = (ex.method ?? "").toLowerCase();
+  const uri = (ex.uri ?? "").toLowerCase();
+  const status = (ex.status ?? "").toLowerCase();
+  return method.includes(q) || uri.includes(q) || status.includes(q);
+}

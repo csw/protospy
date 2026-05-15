@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import { useStore } from "@ui/state/store";
-import { traceColor } from "@ui/lib/utils";
+import { matchesFilter, traceColor } from "@ui/lib/utils";
 
 export function FilterBar() {
   const filter = useStore((s) => s.filter);
@@ -8,6 +8,15 @@ export function FilterBar() {
   const traceFilter = useStore((s) => s.traceFilter);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
   const ids = useStore((s) => s.ids);
+  const exchanges = useStore((s) => s.exchanges);
+
+  const totalCount = ids.length;
+  const filteredCount = filter
+    ? ids.filter((id) => {
+        const ex = exchanges.get(id);
+        return ex != null && matchesFilter(ex, filter);
+      }).length
+    : totalCount;
 
   function traceLabel(id: string): string {
     if (id.length >= 8) {
@@ -61,7 +70,9 @@ export function FilterBar() {
 
       {/* Exchange count */}
       <span className="font-family-mono text-xs text-dim shrink-0 ml-auto">
-        {ids.length} exchange{ids.length !== 1 ? "s" : ""}
+        {filter
+          ? `${filteredCount} of ${totalCount}`
+          : `${totalCount} exchange${totalCount !== 1 ? "s" : ""}`}
       </span>
     </div>
   );
