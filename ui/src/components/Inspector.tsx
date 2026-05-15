@@ -65,6 +65,10 @@ export function Inspector() {
     );
   }
 
+  const isStream = exchange.responseBody?.contentType
+    ?.toLowerCase()
+    ?.startsWith("text/event-stream");
+
   const reqHeaders = exchange.requestHeaders ?? [];
   const resHeaders = exchange.responseHeaders ?? [];
 
@@ -92,7 +96,7 @@ export function Inspector() {
             value="bodies"
             className="h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent"
           >
-            Bodies
+            {isStream ? "Stream" : "Bodies"}
           </TabsTrigger>
           <TabsTrigger
             value="req-headers"
