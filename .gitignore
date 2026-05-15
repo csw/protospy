@@ -11,3 +11,4 @@ docker-compose.override.*
 /.claude/skills/
 /.claude/worktrees/
 /skills-lock.json
+.DS_Store
