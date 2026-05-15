@@ -6,20 +6,19 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Project Overview
 
-`protospy` consists of several components: the root protospy project and several secondary components in subdirectories. The root, `protospy`, is a Rust HTTP monitoring proxy, not yet implemented, which will function as a transparent reverse proxy for development purposes, allowing a user to interactively monitor traffic. It uses Cargo edition 2024 and is only a skeleton.
+`protospy` is a Rust HTTP monitoring proxy, which functions as a transparent reverse proxy for development purposes, allowing a user to interactively monitor traffic with a React UI. It uses Cargo edition 2024. This is human-written; agents should not attempt to write or modify any Rust code.
 
-Other sub-components:
- - `conformance/` contains an HTTP reverse proxy conformance test suite in Python to validate protospy's behavior, with well-known proxies as references. See `docs/conformance-tests.md` for general information and `docs/conformance-test-catalog.md` for the catalog of tested behaviors. Tests are in `conformance/tests/`, infrastructure is in `conformance/src/proxy_conformance/`.
- - `demo/` contains a Python project called `elasticflix` (Python 3.14+, managed with `uv`) intended to show movies from Elasticsearch, to provide realistic traffic for protospy. Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach. 
+Sub-components are self-contained subprojects with their own virtualenvs, package definitions (uv or pnpm), dependencies, READMEs, CLAUDE.md files, etc. **Read the subproject's CLAUDE.md when working in it:**
 
-Python code uses Python 3.14+ and `uv`. Each Python component is an independent project with its own virtualenv.
+- `conformance/` — HTTP reverse proxy conformance test suite (Python). See `conformance/CLAUDE.md`.
+- `demo/` — elasticflix demo app for realistic traffic (Python 3.14+, uv). See `demo/CLAUDE.md`.
+- `ui/` — React/TypeScript UI for traffic inspection. See `ui/CLAUDE.md`.
 
 Agents must not make any changes to the Rust code at any time.
 
-## Commands
+## Commands (Rust root)
 
-### Rust (root)
-```
+```bash
 cargo build          # build
 cargo run            # run
 cargo test           # run all tests
@@ -27,30 +26,7 @@ cargo test <name>    # run a single test by name
 cargo clippy         # lint
 ```
 
-### Python demo (`demo/`)
-```
-uv run uvicorn elasticflix.main:app --reload   # run the demo
-uv add <package>        # add a dependency
-uv run ruff check .     # lint
-uv run ruff format .    # format
-uv run pyright .        # type check
-uv run pytest -q        # run tests (always pass -q when running as an agent)
-uvx vulture src         # check for dead code (run from demo/)
-```
-
-### Python conformance suite (`conformance/`)
-```
-cd conformance
-uv run pytest -q                   # run tests (default: both caddy and haproxy)
-uv run pytest -q --proxy caddy     # run against Caddy only
-uv run pytest -q --proxy haproxy   # run against HAProxy only
-uv run pytest -q --findings        # show proxy behavioral findings
-uv run ruff check .                # lint
-uv run ruff format .               # format
-uv run pyright .                   # type check
-```
-
-Run all commands using Python, directly or indirectly, with `uv run` from the appropriate project subdirectory (`demo/` or `conformance/`).
+For subproject commands, see the subproject's CLAUDE.md.
 
 ### GitHub
 
@@ -59,6 +35,13 @@ Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of 
 ## Documentation
 
 **When in doubt about how to use a tool or library, consult its documentation first — via Context7 or a web search. Do this before reading library source code, before trial-and-error, and before reasoning from first principles about implementation details. If something doesn't work as expected, your first action should be to look it up, not to read the source.**
+
+## Specific guidelines
+
+There are specific agent guidelines in `docs/agents/`; read them when working with the relevant kind of code.
+
+- `docs/agents/python.md`: when working with Python
+- `docs/agents/testing.md`: when writing or maintaining tests
 
 ## Delegating noisy investigation to subagents
 
@@ -72,55 +55,23 @@ Delegate when the work looks like:
 
 Brief the subagent with the specific question and ask it to report only the answer (e.g. "report the PID and command, under 50 words"). Keep inline only the steps whose full output you genuinely need to see.
 
-All Python code in this repo (both `demo/` and `conformance/`) uses ruff's default line length of **88 characters**. Write code to fit within this limit from the start — break strings, argument lists, and expressions across lines proactively rather than writing long lines and fixing them afterward.
-
-Ruff formats multi-exception `except` clauses without parentheses: `except A, B:` rather than `except (A, B):`. This is valid Python 3.14 syntax (the comma produces a tuple expression) and is ruff's preferred style. Do not add parentheses to fight the formatter.
-
 ## Code Quality Requirements
 
-Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `demo/` or `conformance/`:
-
-```bash
-cd <package>       # demo/ or conformance/
-uv run ruff check .
-uv run ruff format .
-uv run pyright .
-uv run pytest -q
-```
-
-Do not report "done" or commit until these are all clean.
-
-## Writing Tests
-
-When writing or maintaining tests, read `docs/agents/testing.md`.
-
-## CI
-
-When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
-
-## Committing
-
-**Before committing any Python changes under `demo/` or `conformance/`, run the full quality check sequence** (ruff check, ruff format, pyright, pytest -q) and confirm all pass. This applies even to trivial changes like type annotations. See [Code Quality Requirements](#code-quality-requirements).
+Before reporting a unit of work as complete or committing code changes, ensure the code quality checks pass. Each subproject's CLAUDE.md lists the specific commands to run. This applies even to trivial changes like type annotations.
 
 **Any code path not covered by the test suite must be executed manually before committing.** For example, if you change a CLI `main()` function, start the server and confirm it runs. Do not rely on linting or type-checking alone as a substitute for actually running the code.
 
+## Committing
+
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <description>
 ```
 
-Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use `demo` or `devcontainer` where it helps. Examples:
+Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use it where it helps (e.g. `demo`, `conformance`, `ui`).
 
-```
-feat(demo): add autocomplete to search input
-fix(demo): fix TemplateResponse argument order
-build(demo): pin major versions for all dependencies
-chore: add .worktrees/ to .gitignore
-docs(demo): add README
-```
-
-Always commit `demo/uv.lock` alongside any changes to `demo/pyproject.toml` or installed packages. A pre-commit hook (`uv-lock`) will fail if the lockfile is out of date.
+Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
 ## Versioning dependencies
 
@@ -133,3 +84,7 @@ When adding any dependency — Python packages, npm packages, GitHub Actions, CD
 - **Docker images** (`docker-compose.yaml`): pin to a specific version tag, e.g. `elasticsearch:9.3.1`. Never use `:latest`.
 
 When you add a dependency you are uncertain about the current version of, look it up rather than guessing.
+
+## CI
+
+When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
