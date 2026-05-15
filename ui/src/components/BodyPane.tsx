@@ -4,7 +4,6 @@ import { decodeBody, type DecodeResult } from "@ui/body/decode";
 import { formatSize } from "@ui/lib/utils";
 import { CopyButton } from "./CopyButton";
 import { EmptyState } from "./ui/EmptyState";
-import { SectionHeader } from "./ui/SectionHeader";
 import { JsonViewer } from "./JsonViewer";
 
 interface Props {
@@ -61,9 +60,11 @@ export function BodyPane({ title, body }: Props) {
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-center gap-3 px-3 h-7 shrink-0 bg-bg-sub border-b border-border">
-        <SectionHeader>{title}</SectionHeader>
+      {/* Pane head (30px) */}
+      <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
+        <span className="font-family-ui text-xs font-semibold text-ink-2">
+          {title}
+        </span>
         {result != null && (
           <span className="font-family-mono text-xs text-dim">
             {result.mediaType}

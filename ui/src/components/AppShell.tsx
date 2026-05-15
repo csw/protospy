@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { useStore } from "@ui/state/store";
-import type { Exchange } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
 import type { Info } from "@ui/api/info";
 import { subscribeToEvents } from "@ui/api/sse";
@@ -12,12 +11,10 @@ import { Inspector } from "./Inspector";
 import { StatusBar } from "./StatusBar";
 
 export function AppShell() {
-  const exchanges = useStore((s) => s.exchanges);
   const applyEvent = useStore((s) => s.applyEvent);
   const setConnection = useStore((s) => s.setConnection);
   const setService = useStore((s) => s.setService);
   const service = useStore((s) => s.service);
-  const selectedId = useStore((s) => s.selectedId);
 
   const [info, setInfo] = useState<Info | null>(null);
 
@@ -57,11 +54,6 @@ export function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service]);
 
-  // Derive selected exchange for Inspector. No auto-select fallback — if nothing
-  // is selected, Inspector shows its empty state.
-  const selectedExchange: Exchange | null =
-    selectedId != null ? (exchanges.get(selectedId) ?? null) : null;
-
   function handleSwitchService(name: string) {
     setService(name);
   }
@@ -79,7 +71,7 @@ export function AppShell() {
         </Panel>
         <Separator className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors" />
         <Panel>
-          <Inspector exchange={selectedExchange} />
+          <Inspector />
         </Panel>
       </Group>
       <StatusBar />
