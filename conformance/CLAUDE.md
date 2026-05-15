@@ -14,7 +14,7 @@ uv run ruff format .               # format
 uv run pyright .                   # type check
 ```
 
-Run all commands from `conformance/` using `uv run`.
+Run all commands from `conformance/` using `uv run`. When starting work here, run `cd conformance/` once as your first command — the shell working directory persists across Bash calls, so you won't need to prefix every command with `cd conformance/ &&`.
 
 ## Architecture
 

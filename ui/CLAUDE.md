@@ -1,5 +1,7 @@
 # CLAUDE.md — protospy UI
 
+When starting work here, run `cd ui/` once as your first command — the shell working directory persists across Bash calls, so you won't need to prefix every command with `cd ui/ &&`.
+
 ## Commands
 
 ```bash
