@@ -9,6 +9,7 @@ import { FilterBar } from "./FilterBar";
 import { ExchangeList } from "./ExchangeList";
 import { Inspector } from "./Inspector";
 import { StatusBar } from "./StatusBar";
+import { CommandPalette } from "./CommandPalette";
 
 export function AppShell() {
   const applyEvent = useStore((s) => s.applyEvent);
@@ -75,6 +76,7 @@ export function AppShell() {
         </Panel>
       </Group>
       <StatusBar />
+      <CommandPalette />
     </div>
   );
 }
