@@ -2,6 +2,8 @@
 
 You MUST follow these guidelines when writing or maintaining tests, particularly for the conformance test suite.
 
+For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the project split (`.test.ts` → node, `.test.tsx` → jsdom), shared fixture location (`src/test/fixtures.ts`), jest-dom matchers, coverage-threshold policy, and the e2e injection harness. `docs/agents/ui/test-coverage-review.md` and `docs/agents/ui/test-plan.md` are the audit and handoff for the v2 UI.
+
 ## Conformance tests
 
 The conformance test suite needs to be able to run against a pre-existing protospy instance, for the sake of debuggability. You can assume it will have an appropriate configuration in that case, but the test suite must not rely on starting protospy itself. (Protospy is not yet implemented, but allow for this in test suite design.)

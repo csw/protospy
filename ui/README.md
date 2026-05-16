@@ -29,26 +29,41 @@ To generate example traffic to observe in the UI, there are shell scripts in `..
 
 ## Commands
 
-| Command             | Description                          |
-| ------------------- | ------------------------------------ |
-| `pnpm dev`          | Start dev server with HMR            |
-| `pnpm build`        | Production build (output: `dist/`)   |
-| `pnpm preview`      | Preview the production build locally |
-| `pnpm lint`         | Run ESLint                           |
-| `pnpm format`       | Format with Prettier                 |
-| `pnpm format:check` | Check formatting without writing     |
-| `pnpm typecheck`    | Type-check without emitting          |
-| `pnpm test`         | Run unit tests with Vitest           |
+| Command                | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `pnpm dev`             | Start dev server with HMR                        |
+| `pnpm build`           | Production build (output: `dist/`)               |
+| `pnpm preview`         | Preview the production build locally             |
+| `pnpm lint`            | Run ESLint                                       |
+| `pnpm format`          | Format with Prettier                             |
+| `pnpm format:check`    | Check formatting without writing                 |
+| `pnpm typecheck`       | Type-check without emitting                      |
+| `pnpm test`            | Run unit + component tests with Vitest           |
+| `pnpm test:coverage`   | Vitest run with v8 coverage report (`coverage/`) |
+| `pnpm test:e2e`        | Playwright e2e (requires `playwright install`)   |
+| `pnpm test:e2e:headed` | Playwright e2e with a visible browser            |
 
 ## Project Structure
 
 ```
 src/
   api/          # Typed fetch wrappers (fetchInfo, subscribeToEvents)
-  components/   # Reusable UI components
-  theme/        # Theme definitions and tokens
+  body/         # Body decoding (compression, JSON/JSONL) and SSE parsing
+  components/   # React components (incl. components/ui/ shadcn primitives)
+  hooks/        # Extracted hooks (e.g. useDecodeBody)
+  lib/utils.ts  # Pure helpers — formatters, matchers, splitUri, traceColor
+  state/        # Zustand store and the EventMessage reducer
+  test/         # setup.ts (jest-dom) and fixtures.ts (shared with e2e)
+  theme/        # Tailwind tokens and theme bootstrap helpers
+  __tests__/    # Vitest tests (.test.ts → node; .test.tsx → jsdom)
   App.tsx       # Root component
-  main.tsx      # Entry point
+  main.tsx      # Entry point — theme bootstrap + render
+e2e/            # Playwright specs and fixtures/helpers
+docs/agents/ui/ # Coverage audit + test-plan handoff (repo-level docs/)
 ```
 
-The `@bindings/` path alias points to `../bindings/`, which contains shared TypeScript types generated from the Rust backend.
+The `@bindings/` path alias points to `../bindings/` (TypeScript types generated from the Rust backend); `@ui/` points to `./src/`.
+
+## Testing
+
+`pnpm test` runs Vitest (unit + component); `pnpm test:e2e` runs Playwright (integration through the real DOM). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy. The audit and test-plan in `docs/agents/ui/` lay out what's covered and what isn't.
