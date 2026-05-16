@@ -1,7 +1,13 @@
 import { ChevronLeft, ChevronRight, Copy, ExternalLink } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import { statusTextClass, traceColor } from "@ui/lib/utils";
+import {
+  parseQueryParams,
+  shortenTraceId,
+  splitUri,
+  statusTextClass,
+  traceColor,
+} from "@ui/lib/utils";
 import { MethodBadge } from "./ui/MethodBadge";
 import {
   Tooltip,
@@ -16,19 +22,6 @@ interface Props {
   currentIdx: number;
 }
 
-function parseQueryParams(uri: string): Array<{ key: string; value: string }> {
-  const qIdx = uri.indexOf("?");
-  if (qIdx === -1) return [];
-  try {
-    const usp = new URLSearchParams(uri.slice(qIdx + 1));
-    const params: Array<{ key: string; value: string }> = [];
-    usp.forEach((value, key) => params.push({ key, value }));
-    return params;
-  } catch {
-    return [];
-  }
-}
-
 export function ContextBar({ exchange, ordered, currentIdx }: Props) {
   const setSelectedId = useStore((s) => s.setSelectedId);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
@@ -38,7 +31,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
   const uri = exchange.uri ?? "/";
 
   // Path + query params
-  const pathOnly = uri.includes("?") ? uri.slice(0, uri.indexOf("?")) : uri;
+  const { path: pathOnly } = splitUri(uri);
   const queryParams = parseQueryParams(uri);
 
   // Prev/next in filtered+ordered list
@@ -50,10 +43,13 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
 
   // Next matching (same method + path, ignoring query)
   function findNextMatching(): number | null {
-    const path = uri.split("?")[0];
     for (let i = currentIdx + 1; i < ordered.length; i++) {
       const ex = ordered[i];
-      if (ex.method === method && ex.uri?.split("?")[0] === path) {
+      if (
+        ex.method === method &&
+        ex.uri != null &&
+        splitUri(ex.uri).path === pathOnly
+      ) {
         return ex.id;
       }
     }
@@ -82,10 +78,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
 
   // Trace pill helpers
   const traceId = exchange.traceId;
-  const shortTrace =
-    traceId != null && traceId.length > 8
-      ? traceId.slice(0, 4) + "…" + traceId.slice(-4)
-      : (traceId ?? "");
+  const shortTrace = traceId != null ? shortenTraceId(traceId) : "";
 
   function copyTraceId() {
     if (traceId == null) return;

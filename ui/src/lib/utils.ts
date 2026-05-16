@@ -125,3 +125,36 @@ export function matchesFilter(
   const status = (ex.status ?? "").toLowerCase();
   return method.includes(q) || uri.includes(q) || status.includes(q);
 }
+
+export function splitUri(uri: string): { path: string; query: string } {
+  const q = uri.indexOf("?");
+  if (q === -1) return { path: uri, query: "" };
+  return { path: uri.slice(0, q), query: uri.slice(q) };
+}
+
+export function parseQueryParams(
+  uri: string,
+): Array<{ key: string; value: string }> {
+  const qIdx = uri.indexOf("?");
+  if (qIdx === -1) return [];
+  try {
+    const usp = new URLSearchParams(uri.slice(qIdx + 1));
+    const params: Array<{ key: string; value: string }> = [];
+    usp.forEach((value, key) => params.push({ key, value }));
+    return params;
+  } catch {
+    return [];
+  }
+}
+
+export function shortenTraceId(id: string): string {
+  if (id.length >= 8) {
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+  return id;
+}
+
+export function isBulkOperation(uri: string | undefined | null): boolean {
+  if (uri == null) return false;
+  return uri.includes("_msearch") || uri.includes("_mget");
+}

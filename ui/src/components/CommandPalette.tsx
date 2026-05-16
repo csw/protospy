@@ -1,6 +1,11 @@
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import { formatTime, statusTextClass, traceColor } from "@ui/lib/utils";
+import {
+  formatTime,
+  splitUri,
+  statusTextClass,
+  traceColor,
+} from "@ui/lib/utils";
 import {
   CommandDialog,
   CommandInput,
@@ -179,9 +184,7 @@ export function CommandPalette() {
           {allExchanges.map((ex) => {
             const method = ex.method ?? "?";
             const uri = ex.uri ?? "/";
-            const path = uri.includes("?")
-              ? uri.slice(0, uri.indexOf("?"))
-              : uri;
+            const { path } = splitUri(uri);
             const itemValue = `${method} ${ex.status ?? ""} ${uri} ${ex.id}`;
 
             return (

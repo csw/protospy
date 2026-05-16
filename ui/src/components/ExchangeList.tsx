@@ -8,6 +8,7 @@ import {
   formatTime,
   matchesFilter,
   methodTextClass,
+  splitUri,
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
@@ -25,8 +26,7 @@ interface TableRowProps {
 function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
-  // Extract just the path (drop query string for display)
-  const path = uri.includes("?") ? uri.slice(0, uri.indexOf("?")) : uri;
+  const { path } = splitUri(uri);
   const resSize = exchange.responseBody?.totalBytes ?? 0;
 
   const rowHeight = density === "compact" ? 24 : 30;

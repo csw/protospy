@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import { useStore } from "@ui/state/store";
-import { matchesFilter, traceColor } from "@ui/lib/utils";
+import { matchesFilter, shortenTraceId, traceColor } from "@ui/lib/utils";
 
 export function FilterBar() {
   const filter = useStore((s) => s.filter);
@@ -17,13 +17,6 @@ export function FilterBar() {
         return ex != null && matchesFilter(ex, filter);
       }).length
     : totalCount;
-
-  function traceLabel(id: string): string {
-    if (id.length >= 8) {
-      return `trace ${id.slice(0, 4)}…${id.slice(-4)}`;
-    }
-    return `trace ${id}`;
-  }
 
   return (
     <div className="flex items-center h-[36px] bg-bg-pane border-b border-border px-3 gap-2 shrink-0">
@@ -56,7 +49,7 @@ export function FilterBar() {
             style={{ backgroundColor: traceColor(traceFilter) }}
           />
           <span className="font-family-mono text-xs text-accent-ink">
-            {traceLabel(traceFilter)}
+            trace {shortenTraceId(traceFilter)}
           </span>
           <button
             onClick={() => setTraceFilter(null)}
