@@ -255,3 +255,70 @@ describe("extractAnthropicTranscript", () => {
     expect(result.isComplete).toBe(false);
   });
 });
+
+describe("parseSSEBody field-parsing robustness", () => {
+  it("preserves colons in the value (splits only on the first colon)", () => {
+    const text = "data: a:b:c\n\n";
+    const events = parseSSEBody(text);
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toBe("a:b:c");
+  });
+
+  it("drops blocks whose only line lacks a colon (no data accumulated)", () => {
+    // Per implementation: lines without a colon are skipped entirely, so a
+    // block consisting solely of such a line produces no event.
+    const text = "hello\n\n";
+    const events = parseSSEBody(text);
+    expect(events).toEqual([]);
+  });
+
+  it("ignores blocks that contain only a comment line", () => {
+    const text = ": this is a comment\n\n";
+    const events = parseSSEBody(text);
+    expect(events).toEqual([]);
+  });
+
+  it("concatenates multiple consecutive data lines with newline", () => {
+    const text = "data: alpha\ndata: beta\ndata: gamma\n\n";
+    const events = parseSSEBody(text);
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toBe("alpha\nbeta\ngamma");
+  });
+});
+
+describe("extractAnthropicTranscript edge cases", () => {
+  function makeEvent(
+    type: string,
+    data: Record<string, unknown>,
+    index: number,
+  ): SSEEvent {
+    const dataStr = JSON.stringify(data);
+    return {
+      type,
+      data: dataStr,
+      parsedData: data,
+      index,
+    };
+  }
+
+  it("skips content_block_delta whose delta is missing a type", () => {
+    const events: SSEEvent[] = [
+      makeEvent(
+        "content_block_delta",
+        { delta: { text: "should be ignored" } },
+        0,
+      ),
+    ];
+    const result = extractAnthropicTranscript(events);
+    expect(result.text).toBe("");
+  });
+
+  it("handles message_start with no message field gracefully", () => {
+    const events: SSEEvent[] = [
+      makeEvent("message_start", { type: "message_start" }, 0),
+    ];
+    const result = extractAnthropicTranscript(events);
+    expect(result.model).toBeUndefined();
+    expect(result.messageId).toBeUndefined();
+  });
+});
