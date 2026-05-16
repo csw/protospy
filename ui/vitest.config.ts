@@ -14,5 +14,6 @@ export default defineConfig({
   test: {
     environment: "node",
     passWithNoTests: true,
+    exclude: ["e2e/**", "node_modules/**"],
   },
 });

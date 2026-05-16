@@ -3,3 +3,5 @@ dist/**/*
 !dist/.keep
 dist-ssr/
 *.local
+test-results/
+playwright-report/

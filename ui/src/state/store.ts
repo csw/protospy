@@ -117,3 +117,7 @@ export const useStore = create<StoreState>()((set) => ({
       return { darkMode: next };
     }),
 }));
+
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__test_store = useStore;
+}
