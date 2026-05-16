@@ -106,7 +106,7 @@ export function traceColor(traceId: string): string {
 
 export function formatTime(timestamp: string): string {
   const d = new Date(timestamp);
-  return d.toLocaleTimeString("en-US", {
+  return d.toLocaleTimeString(undefined, {
     hour12: false,
     hour: "2-digit",
     minute: "2-digit",
