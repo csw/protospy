@@ -27,14 +27,14 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor locked from the initial v2 baseline (statements 29.98%,
-      // branches 15.92%, functions 13.21%, lines 33.33%) with a small
+      // Floor ratcheted after the P0 test batch (statements 46.04%,
+      // branches 30.01%, functions 29.95%, lines 49.17%) with a small
       // margin. Ratchet these up as the test-plan tasks land.
       thresholds: {
-        statements: 28,
-        branches: 14,
-        functions: 11,
-        lines: 31,
+        statements: 44,
+        branches: 28,
+        functions: 27,
+        lines: 47,
       },
     },
     projects: [
