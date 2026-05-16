@@ -15,5 +15,10 @@ export async function fetchInfo(): Promise<Info> {
   if (!res.ok) {
     throw new Error(`/info returned ${res.status}`);
   }
-  return res.json() as Promise<Info>;
+  try {
+    return (await res.json()) as Info;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`/info returned invalid JSON: ${msg}`);
+  }
 }
