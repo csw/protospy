@@ -27,14 +27,14 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after the P0 test batch (statements 46.04%,
-      // branches 30.01%, functions 29.95%, lines 49.17%) with a small
+      // Floor ratcheted after the P1 test batch (statements 59.07%,
+      // branches 41.51%, functions 48.24%, lines 60.5%) with a small
       // margin. Ratchet these up as the test-plan tasks land.
       thresholds: {
-        statements: 44,
-        branches: 28,
-        functions: 27,
-        lines: 47,
+        statements: 57,
+        branches: 39,
+        functions: 46,
+        lines: 58,
       },
     },
     projects: [
