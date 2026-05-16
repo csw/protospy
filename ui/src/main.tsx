@@ -6,15 +6,15 @@ import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/jetbrains-mono/700.css";
 import "./theme/tailwind.css";
+import { applyThemeToDOM, resolveInitialDarkMode } from "./theme/applyTheme";
+import { useStore } from "./state/store";
 import App from "./App.tsx";
 
-// Initialize theme before render to prevent flash
-const saved = localStorage.getItem("theme");
-const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-document.documentElement.setAttribute(
-  "data-theme",
-  saved ?? (prefersDark ? "dark" : "light"),
-);
+// Apply theme before render to prevent flash, and sync the store so any
+// component reading darkMode on first paint sees the resolved value.
+const isDark = resolveInitialDarkMode();
+applyThemeToDOM(isDark);
+useStore.setState({ darkMode: isDark });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
