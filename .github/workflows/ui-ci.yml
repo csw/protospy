@@ -71,7 +71,7 @@ jobs:
           path: ui/coverage/
           retention-days: 14
 
-  test-e2e:
+  test-browser:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -90,7 +90,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('ui/pnpm-lock.yaml') }}
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm run test:e2e
+      - run: pnpm run test:browser
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

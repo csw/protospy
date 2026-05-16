@@ -12,13 +12,13 @@ TASK per coverage gap, executable independently.
   execute one.
 - After each batch, run `pnpm test:coverage` and ratchet the
   thresholds in `ui/vitest.config.ts` upward toward the new floor.
-- All tasks land under `ui/src/__tests__/` (Vitest) or `ui/e2e/`
+- All tasks land under `ui/src/__tests__/` (Vitest) or `ui/browser/`
   (Playwright). The Vitest project is auto-selected by file
   extension — `.test.ts` runs under `node`, `.test.tsx` under `jsdom`
   (with `@testing-library/jest-dom` matchers wired in).
 - The shared fixture builders live at `ui/src/test/fixtures.ts`. Unit
-  tests import directly from `@ui/test/fixtures`; e2e specs continue
-  to import from `./fixtures/exchanges` (it re-exports).
+  tests import directly from `@ui/test/fixtures`; browser specs
+  continue to import from `./fixtures/exchanges` (it re-exports).
 - Any module that touches `localStorage`, `window`, or `document` at
   import time must be tested under the `jsdom` project — that means
   `.test.tsx` extension or a manually-overridden environment.
@@ -32,9 +32,12 @@ TASK per coverage gap, executable independently.
   File: `*.test.tsx`. Use `@testing-library/jest-dom` matchers
   (`toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`,
   `toBeDisabled`, etc.).
-- **E2E test**: Playwright spec under `ui/e2e/`. Uses the shared
-  helpers in `ui/e2e/helpers/inject.ts`
-  (`waitForStore`, `resetStore`, `injectExchanges`, `getStoreState`).
+- **Browser test**: Playwright spec under `ui/browser/`. Codifies a
+  manual UI-verification process (rendering, layout, interaction) —
+  not a true end-to-end suite (network is stubbed; state is injected
+  into the store via `window.__test_store`). Uses the shared helpers
+  in `ui/browser/helpers/inject.ts` (`waitForStore`, `resetStore`,
+  `injectExchanges`, `getStoreState`).
 
 ## Acceptance bar for any task
 
@@ -320,12 +323,12 @@ assert with jest-dom matchers.
 
 ---
 
-## P2 — E2E coverage gaps
+## P2 — Browser-test coverage gaps
 
 ### TASK-040 — SSE reconnection visible in UI
 
-- **Type**: e2e
-- **Test file**: `ui/e2e/sse-reconnect.spec.ts` (new)
+- **Type**: browser
+- **Test file**: `ui/browser/sse-reconnect.spec.ts` (new)
 - **Setup**:
   - Use `page.route("/service/*/events", ...)` to return one response
     that aborts mid-stream, then a second that opens successfully.
@@ -335,8 +338,8 @@ assert with jest-dom matchers.
 
 ### TASK-041 — Large body rendering
 
-- **Test file**: extend `ui/e2e/inspector.spec.ts` or new
-  `ui/e2e/body-large.spec.ts`
+- **Test file**: extend `ui/browser/inspector.spec.ts` or new
+  `ui/browser/body-large.spec.ts`
 - **Setup**: inject an exchange whose response body is 2 MB of
   generated JSON.
 - **Cases**:
@@ -347,7 +350,7 @@ assert with jest-dom matchers.
 
 ### TASK-042 — Binary body
 
-- **Test file**: `ui/e2e/body-binary.spec.ts`
+- **Test file**: `ui/browser/body-binary.spec.ts`
 - **Setup**: inject a response with `Content-Type:
   application/octet-stream` and `payload.bytes` (base64) instead of
   text.
@@ -357,7 +360,7 @@ assert with jest-dom matchers.
 
 ### TASK-043 — Compressed body (gzip)
 
-- **Test file**: `ui/e2e/body-gzip.spec.ts`
+- **Test file**: `ui/browser/body-gzip.spec.ts`
 - **Setup**: inject a response with `Content-Encoding: gzip` and a
   gzipped JSON payload (reuse the fixture from
   `body.decode.test.ts`).
@@ -366,7 +369,7 @@ assert with jest-dom matchers.
 
 ### TASK-044 — Multi-event Stream tab
 
-- **Test file**: extend `ui/e2e/inspector.spec.ts`
+- **Test file**: extend `ui/browser/inspector.spec.ts`
 - **Setup**: inject an SSE exchange with N events (the existing
   `makeSSEResponse` only supplies one chunk; you'll need a variant
   builder).
@@ -376,7 +379,7 @@ assert with jest-dom matchers.
 
 ### TASK-045 — Multi-filter intersection
 
-- **Test file**: extend `ui/e2e/filter.spec.ts`
+- **Test file**: extend `ui/browser/filter.spec.ts`
 - **Cases**:
   - Type a method substring AND set a trace filter — list shrinks to
     the intersection.
@@ -385,7 +388,7 @@ assert with jest-dom matchers.
 
 ### TASK-046 — Resize boundaries
 
-- **Test file**: extend `ui/e2e/layout.spec.ts`
+- **Test file**: extend `ui/browser/layout.spec.ts`
 - **Cases**:
   - Drag the separator to the leftmost edge — list panel clamps at
     its `minSize`.
@@ -395,7 +398,7 @@ assert with jest-dom matchers.
 
 ### TASK-047 — Service selection
 
-- **Test file**: `ui/e2e/service-select.spec.ts`
+- **Test file**: `ui/browser/service-select.spec.ts`
 - **Setup**: mock `/info` to return two services.
 - **Cases**:
   - First service is auto-selected on load.
@@ -405,7 +408,7 @@ assert with jest-dom matchers.
 
 ### TASK-048 — localStorage persistence across reload
 
-- **Test file**: `ui/e2e/persistence.spec.ts`
+- **Test file**: `ui/browser/persistence.spec.ts`
 - **Cases**:
   - Toggle dark mode → reload → still dark.
   - Toggle back → reload → light again.
@@ -415,7 +418,7 @@ assert with jest-dom matchers.
 
 ### TASK-049 — Relative timestamps update
 
-- **Test file**: `ui/e2e/timestamps.spec.ts`
+- **Test file**: `ui/browser/timestamps.spec.ts`
 - **Setup**: inject an exchange with a fixed timestamp; advance the
   page clock with `page.clock.fastForward()`.
 - **Cases**:
@@ -423,7 +426,7 @@ assert with jest-dom matchers.
 
 ### TASK-050 — Accessibility smoke (soft-fail)
 
-- **Test file**: `ui/e2e/a11y.spec.ts`
+- **Test file**: `ui/browser/a11y.spec.ts`
 - **Setup**: add `@axe-core/playwright` (`pnpm add -D
   @axe-core/playwright`).
 - **Cases**:
@@ -434,11 +437,11 @@ assert with jest-dom matchers.
 
 ---
 
-## P2 — E2E de-flake
+## P2 — Browser-test de-flake
 
 ### TASK-060 — Remove `waitForTimeout(500)` in `layout.spec.ts`
 
-- **Where**: `ui/e2e/layout.spec.ts` (the virtual-scroll test around
+- **Where**: `ui/browser/layout.spec.ts` (the virtual-scroll test around
   line 49 — currently waits 500ms then counts DOM nodes).
 - **Fix**: replace with `expect.poll(() =>
   page.locator('[aria-selected]').count(), { timeout: 5000 })`
@@ -446,7 +449,7 @@ assert with jest-dom matchers.
 
 ### TASK-061 — Replace computed-style color assertions with class checks
 
-- **Where**: `ui/e2e/theme.spec.ts`, `ui/e2e/exchange-list.spec.ts`
+- **Where**: `ui/browser/theme.spec.ts`, `ui/browser/exchange-list.spec.ts`
 - **Fix**: instead of asserting `getComputedStyle(el).color` against
   a literal RGB string, assert
   `expect(el).toHaveClass(/text-(green|red|amber)/)`. jest-dom's
@@ -466,7 +469,7 @@ or fix-in-follow-up.
   `reconnecting` → `open` correctly. But there's no exponential
   backoff, no give-up after N failures, no `failed` status.
 - **Recommendation**: write TASK-040 first with the current behavior
-  pinned. If the e2e demands an observable backoff signal, refactor
+  pinned. If the browser-test demands an observable backoff signal, refactor
   then.
 
 ### KI-002 — `CopyButton.tsx` swallows clipboard rejection
@@ -499,7 +502,7 @@ or fix-in-follow-up.
 
 ### KI-006 — `window.__test_store` exposed in dev
 
-- **State**: needed by the e2e harness for state injection. Removing
+- **State**: needed by the browser-test harness for state injection. Removing
   it requires re-architecting injection.
 - **Recommendation**: leave alone. Tighten the typed surface only if
   the harness gets reshaped.

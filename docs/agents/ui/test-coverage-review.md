@@ -3,7 +3,7 @@
 ## Scope
 
 The v2 rewrite of the protospy UI (under `ui/`) shipped on the `ui-v2`
-branch with a new Playwright e2e suite alongside the unit tests
+branch with a new Playwright browser-test suite alongside the unit tests
 preserved from v1. This document audits coverage on `ui-v2` and the
 small refactor branch built on top of it, identifies gaps, and points
 at the companion **[test plan](./test-plan.md)** for the handoff.
@@ -52,16 +52,23 @@ and `useDecodeBody` are reachable from unit tests without DOM setup.
   Baseline thresholds locked at the v2 floor minus a small margin
   (stmt 28 / branch 14 / fn 11 / line 31). The test-plan tasks ratchet
   these up.
-- E2E fixtures relocated to `src/test/fixtures.ts` so unit tests can
-  reuse them. `e2e/fixtures/exchanges.ts` becomes a one-line re-export.
+- Browser-test fixtures relocated to `src/test/fixtures.ts` so unit
+  tests can reuse them. `browser/fixtures/exchanges.ts` becomes a
+  one-line re-export.
+- Playwright suite renamed `e2e/` → `browser/` (with the npm script
+  `test:browser` and CI job `test-browser`). The directory name is
+  now honest about what the suite is — UI rendering / layout /
+  interaction — and reserves `e2e/` for a future true full-stack
+  suite if one ever lands.
 - Playwright config: CI retries=2, workers=1, trace on first retry,
   screenshot/video on failure, HTML + GitHub reporters on CI.
 - `ui-ci.yml`: cache `~/.cache/ms-playwright` keyed on the lockfile;
-  e2e artifact upload restricted to `failure()` and extended to
-  include `test-results/`; unit `test` job promoted to run
+  browser-test artifact upload restricted to `failure()` and extended
+  to include `test-results/`; unit `test` job promoted to run
   `pnpm run test:coverage` and upload the coverage report as an
-  artifact. The e2e job was already wired in on `ui-v2`; only the
-  cache, artifact conditions, and reporter polish are new.
+  artifact. The browser job was already wired in on `ui-v2` (as
+  `test-e2e`); only the rename, cache, artifact conditions, and
+  reporter polish are new.
 - `.prettierignore` updated so `pnpm format` no longer churns the
   lockfile or report directories.
 
@@ -90,9 +97,9 @@ Per-file highlights:
 | `hooks/useDecodeBody.ts`         | **0**   | newly extracted, no tests yet                      |
 | All other components             | 0       | rely entirely on the Playwright suite              |
 
-## What the e2e suite covers
+## What the browser-test suite covers
 
-The Playwright suite (`ui/e2e/*.spec.ts`, 72 tests) exercises:
+The Playwright suite (`ui/browser/*.spec.ts`, 72 tests) exercises:
 
 - Filter bar — method/path/status filtering, case insensitivity, clear,
   count display, trace-filter chip.
@@ -112,14 +119,15 @@ The Playwright suite (`ui/e2e/*.spec.ts`, 72 tests) exercises:
 - Context bar — method/status/path, prev/next nav, disabled-edge
   states, trace pill, query param strip, elapsed pill.
 
-**Honest framing**: the suite is really an *integration* suite using
-Playwright. Tests inject `EventMessage`s directly into the store via
+**Framing**: the suite codifies a manual verification process for UI
+rendering, layout, and interaction. It is not an end-to-end suite.
+Tests inject `EventMessage`s directly into the store via
 `window.__test_store.applyEvent(...)` and stub `/info` and
 `/service/.../events` via `page.route`. The real EventSource code path,
-SSE reconnection, and any actual network behavior are never exercised
-end-to-end. The framing is correct for what the suite is designed to
-do (verify rendering against known store state), but it should not be
-mistaken for "true e2e".
+SSE reconnection, and any actual network behavior are never exercised.
+The directory name (`browser/`) reflects this scope; the previous
+`e2e/` name was misleading. A separate true end-to-end suite could
+live under `e2e/` in the future without conflict.
 
 ## Gaps
 
@@ -162,7 +170,7 @@ criteria.
 - `JsonViewer.tsx` `tokenizeLine` — string escapes (`\"`, `\\`, `\n`,
   `\uXXXX`), scientific notation, brackets `[]`.
 
-### E2E gaps
+### Browser-test gaps
 
 - SSE reconnection: simulate connection drop via `page.route`, verify
   status pill cycles `open → reconnecting → open`.
@@ -185,7 +193,7 @@ criteria.
 - Accessibility smoke: `@axe-core/playwright` scan on initial load and
   with an inspector open. Soft-fail initially.
 
-### E2E flake risks to de-flake
+### Browser-test flake risks to de-flake
 
 - `layout.spec.ts` uses `await page.waitForTimeout(500)` to wait for
   virtual scroll to settle. Replace with `expect.poll()` against
@@ -205,7 +213,7 @@ known issue so the next session can decide per item.
   `EventSource` reconnects natively and the code already emits
   `reconnecting` → `open`, so this works, but there's no diagnostic
   signal when reconnect fails repeatedly. Worth revisiting once the
-  e2e reconnect test exists.
+  browser-test reconnect spec exists.
 - `CopyButton.tsx` swallows `navigator.clipboard.writeText` rejections
   and still shows "Copied!". Either route through an error UI or log.
 - `lib/utils.ts` `formatTime` hardcodes `en-US`. Switch to `undefined`
@@ -215,8 +223,8 @@ known issue so the next session can decide per item.
   hook once a use-case forces it.
 - `api/info.ts` doesn't catch `.json()` parse errors. Two-line fix;
   defer to a follow-up.
-- `window.__test_store` exposed on dev — needed by the current e2e
-  harness; keep until the harness is reshaped.
+- `window.__test_store` exposed on dev — needed by the current
+  browser-test harness; keep until the harness is reshaped.
 
 ## Tooling gaps observed but not addressed
 
