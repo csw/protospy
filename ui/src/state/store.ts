@@ -1,15 +1,9 @@
 import { create } from "zustand";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { ConnectionStatus } from "@ui/api/sse";
+import { applyThemeToDOM, persistDarkMode } from "@ui/theme/applyTheme";
 import { apply } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
-
-function initDarkMode(): boolean {
-  const saved = localStorage.getItem("theme");
-  if (saved === "dark") return true;
-  if (saved === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
 
 interface StoreState {
   exchanges: Map<number, import("./reducer").Exchange>;
@@ -66,7 +60,7 @@ export const useStore = create<StoreState>()((set) => ({
   density: "regular",
   traceGroupOn: false,
   cmdKOpen: false,
-  darkMode: initDarkMode(),
+  darkMode: false,
 
   // Core actions
   applyEvent: (msg) =>
@@ -109,11 +103,8 @@ export const useStore = create<StoreState>()((set) => ({
   toggleDarkMode: () =>
     set((state) => {
       const next = !state.darkMode;
-      document.documentElement.setAttribute(
-        "data-theme",
-        next ? "dark" : "light",
-      );
-      localStorage.setItem("theme", next ? "dark" : "light");
+      applyThemeToDOM(next);
+      persistDarkMode(next);
       return { darkMode: next };
     }),
 }));

@@ -3,3 +3,7 @@ dist/
 dist-ssr/
 *.local
 ../bindings/
+pnpm-lock.yaml
+coverage/
+playwright-report/
+test-results/

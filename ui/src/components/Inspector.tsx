@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import { matchesFilter } from "@ui/lib/utils";
+import { isBulkOperation, matchesFilter } from "@ui/lib/utils";
 import { EmptyState } from "./ui/EmptyState";
 import { ContextBar } from "./ContextBar";
 import { BodySplit } from "./BodySplit";
@@ -60,10 +60,7 @@ export function Inspector() {
   const currentIdx =
     exchange != null ? ordered.findIndex((ex) => ex.id === exchange.id) : -1;
 
-  const isMsearch =
-    exchange?.uri?.includes("_msearch") ||
-    exchange?.uri?.includes("_mget") ||
-    false;
+  const isMsearch = isBulkOperation(exchange?.uri);
 
   // Derive effective tab: fall back to "bodies" if "pairs" is active but not applicable
   const effectiveTab =

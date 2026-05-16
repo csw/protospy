@@ -3,13 +3,15 @@
 ## Commands
 
 ```bash
-pnpm dev           # start dev server
-pnpm build         # production build (output: dist/)
-pnpm add <package> # add a dependency
-pnpm format        # format
-pnpm lint          # lint
-pnpm typecheck     # type check
-pnpm test          # run tests
+pnpm dev             # start dev server
+pnpm build           # production build (output: dist/)
+pnpm add <package>   # add a dependency
+pnpm format          # format
+pnpm lint            # lint
+pnpm typecheck       # type check
+pnpm test            # run unit + component tests (Vitest)
+pnpm test:coverage   # run with v8 coverage report
+pnpm test:browser    # run Playwright browser tests (browsers must be installed)
 ```
 
 ## Manual Testing
@@ -26,6 +28,62 @@ pnpm format
 pnpm typecheck
 pnpm test
 ```
+
+If you changed code under `src/`, also run `pnpm test:coverage`. Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
+
+## Testing
+
+### Layout
+
+```
+src/
+  __tests__/           # Vitest unit + component tests
+  test/
+    setup.ts           # jsdom-project setup (jest-dom matchers)
+    fixtures.ts        # shared EventMessage builders (imported by both unit and browser)
+  hooks/               # extracted hooks (testable in isolation)
+  lib/utils.ts         # pure helpers — formatters, matchers, splitUri, etc.
+  theme/applyTheme.ts  # pure helpers — applyThemeToDOM, resolveInitialDarkMode
+
+browser/
+  *.spec.ts            # Playwright browser tests (UI rendering, layout, interaction)
+  fixtures/exchanges.ts  # one-line re-export of src/test/fixtures.ts
+  helpers/inject.ts    # waitForStore, resetStore, injectExchanges, getStoreState
+```
+
+### Test types
+
+| Type      | File                | Vitest project | Environment | Use for                                                                  |
+| --------- | ------------------- | -------------- | ----------- | ------------------------------------------------------------------------ |
+| Unit      | `*.test.ts`         | `node`         | node        | Pure functions: formatters, parsers, reducers, decoders.                 |
+| Component | `*.test.tsx`        | `jsdom`        | jsdom       | React components + hooks. jest-dom matchers available.                   |
+| Browser   | `browser/*.spec.ts` | (Playwright)   | chromium    | UI rendering, layout, interaction through real DOM + store. Not network. |
+
+Vitest auto-selects the project from file extension. **Any module that touches `localStorage`, `window`, or `document` at import time must be tested under `jsdom`** (`.test.tsx` extension). This includes anything that transitively imports `state/store.ts` — though after the v2 refactor the store no longer side-effects at import.
+
+`@testing-library/jest-dom@^6` matchers are auto-imported via `src/test/setup.ts` for the `jsdom` project — use `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, etc. instead of raw DOM querying.
+
+### Browser test scope and framing
+
+The `browser/` suite uses Playwright to codify a manual verification process for UI rendering, layout, and interaction. It is **not** an end-to-end suite — tests inject `EventMessage`s directly into the Zustand store via `window.__test_store.applyEvent(...)` and stub `/info` and `/service/.../events` via `page.route`. The real `EventSource` code path is never exercised. Reconnection / large-body / compressed-body / SSE-stream behavior is **not** covered by `browser/` — those gaps go in `src/__tests__/` or need a dedicated browser test that drives `page.route` honestly.
+
+The directory is called `browser/` rather than `e2e/` for two reasons: (1) it names the execution context accurately, and (2) it reserves `e2e/` for a future true full-stack suite if one ever lands.
+
+The `__test_store` dev-mode window exposure in `state/store.ts` is intentional and load-bearing for the browser harness; do not remove it.
+
+### Fixtures
+
+Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
+
+### Coverage thresholds
+
+`vitest.config.ts` locks a floor in `test.coverage.thresholds`. The numbers are intentionally below current measured coverage; the policy is **ratchet upward**, never down. After landing a batch of tests, run `pnpm test:coverage` and raise the thresholds to the new numbers (minus a small margin) in the same commit. `coverage/`, `playwright-report/`, and `test-results/` are gitignored.
+
+shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.tsx`), CSS tokens (`theme/**`), and the `test/` and `__tests__/` directories are excluded from coverage — see the `exclude` list in the config before adding a new top-level src directory.
+
+### Test plan and coverage audit
+
+`docs/agents/ui/test-coverage-review.md` audits what's covered and what isn't. `docs/agents/ui/test-plan.md` lists discrete TASK items (P0–P2) for adding the missing tests, each with target file, cases, and acceptance criteria. When picking up a test-writing task, start there.
 
 ## Versioning dependencies
 
@@ -45,3 +103,5 @@ feat(ui): add request detail sidebar
 fix(ui): fix SSE reconnection on network error
 refactor(ui): extract theme tokens
 ```
+
+`pnpm format` ignores `pnpm-lock.yaml` and the generated `coverage/`, `playwright-report/`, `test-results/` directories (see `.prettierignore`); eslint ignores them too (see `eslint.config.js`). Don't add tests or source files into those directories.

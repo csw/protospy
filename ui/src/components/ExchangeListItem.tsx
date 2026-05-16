@@ -2,6 +2,7 @@ import type { Exchange } from "@ui/state/reducer";
 import {
   formatSize,
   formatTime,
+  splitUri,
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
@@ -12,12 +13,6 @@ interface Props {
   selected: boolean;
   onSelect: () => void;
   density: "regular" | "compact";
-}
-
-function splitUri(uri: string): { path: string; query: string } {
-  const q = uri.indexOf("?");
-  if (q === -1) return { path: uri, query: "" };
-  return { path: uri.slice(0, q), query: uri.slice(q) };
 }
 
 export function ExchangeListItem({
