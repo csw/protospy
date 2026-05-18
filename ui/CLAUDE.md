@@ -2,6 +2,8 @@
 
 When starting work here, run `cd ui/` once as your first command — the shell working directory persists across Bash calls, so you won't need to prefix every command with `cd ui/ &&`.
 
+If `CLAUDE.local.md` exists in this directory, read it for additional local guidance.
+
 ## Commands
 
 ```bash
