@@ -42,6 +42,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 
 - `docs/agents/python.md`: when working with Python
 - `docs/agents/testing.md`: when writing or maintaining tests
+- `docs/agents/sandbox.md`: when a sandboxed command fails with a TLS, keychain, or Mach-port error, or when setting up Monitor / background polling
 
 ## Delegating noisy investigation to subagents
 
