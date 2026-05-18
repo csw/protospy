@@ -52,6 +52,9 @@ watch-clippy:
 coverage:
     cargo tarpaulin --target-dir target/coverage --out Html --skip-clean
 
+audit:
+    cargo audit
+
 # Dry-run: build UI, package crate, but don't upload
 publish-dry-run: ui::build
     cargo publish --dry-run

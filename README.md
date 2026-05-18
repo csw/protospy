@@ -86,6 +86,7 @@ pre-commit install -t pre-commit -t commit-msg
 #### Rust tools
 
 ```shell
+cargo install cargo-audit --locked
 cargo install cargo-tarpaulin --locked
 ```
 
