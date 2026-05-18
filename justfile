@@ -49,8 +49,11 @@ record:
 watch-clippy:
     cargo watch -c clippy --all-targets --no-deps --target-dir target/clippy -- -D warnings
 
+coverage:
+    cargo tarpaulin --target-dir target/coverage --out Html --skip-clean
+
 # Dry-run: build UI, package crate, but don't upload
-publish-dry-run: (ui::build)
+publish-dry-run: ui::build
     cargo publish --dry-run
 
 # Build UI and publish to crates.io (with confirmation)

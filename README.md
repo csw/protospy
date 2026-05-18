@@ -83,6 +83,12 @@ This uses [pre-commit](https://pre-commit.com) for commit validation. If necessa
 pre-commit install -t pre-commit -t commit-msg
 ```
 
+#### Rust tools
+
+```shell
+cargo install cargo-tarpaulin --locked
+```
+
 ### Conventions
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/).
