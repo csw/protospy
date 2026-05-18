@@ -12,12 +12,6 @@
     ]
   },
   "sandbox": {
-    "enabled": true,
-    "autoAllowBashIfSandboxed": true,
-    "filesystem": {
-      "allowWrite": ["~/.cache/uv", "~/.cargo", "~/.cache/pre-commit"],
-      "denyRead": ["~/.ssh/id_rsa", "~/.ssh/id_ed25519", "~/.aws/credentials"]
-    },
     "network": {
       "allowedDomains": [
         "crates.io",
@@ -28,8 +22,7 @@
         "astral.sh",
         "github.com",
         "api.github.com"
-      ],
-      "allowLocalBinding": true
+      ]
     }
   }
 }
