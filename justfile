@@ -11,6 +11,7 @@ default:
 
 export PROXY__ES__PORT := "3000"
 export PROXY__ES__TARGET := "http://localhost:9200/"
+export PROXY__ES__PROTOCOL := "Elasticsearch"
 
 [arg("release", long="release", short="r", value="1")]
 build release="":

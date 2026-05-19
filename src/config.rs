@@ -11,6 +11,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::proxy;
+
 const LEVEL_SEPARATOR: &str = "__";
 
 #[derive(Deserialize, Serialize, PartialEq, Debug)]
@@ -35,6 +37,7 @@ pub struct ProxyConfig {
     pub port: u16,
     #[serde(with = "http_serde::uri")]
     pub target: Uri,
+    pub protocol: Option<proxy::Protocol>,
 }
 
 impl Config {
@@ -146,6 +149,7 @@ mod tests {
             PROXY__BAR__TARGET=https://example.com/
             PROXY__BAZ__PORT=1600
             PROXY__BAZ__TARGET=https://other.com/
+            PROXY__BAZ__PROTOCOL=Elasticsearch
 "#,
             |config| {
                 assert_eq!(
@@ -157,6 +161,7 @@ mod tests {
                                 addr: Ipv6Addr::LOCALHOST.into(),
                                 port: 9200,
                                 target: "mydb:9200".parse().unwrap(),
+                                protocol: None,
                             }
                         ),
                         (
@@ -165,6 +170,7 @@ mod tests {
                                 addr: "1.2.3.4".parse().unwrap(),
                                 port: 80,
                                 target: "https://example.com".parse().unwrap(),
+                                protocol: None,
                             }
                         ),
                         (
@@ -175,6 +181,7 @@ mod tests {
                                 addr: Ipv6Addr::UNSPECIFIED.into(),
                                 port: 1600,
                                 target: "https://other.com".parse().unwrap(),
+                                protocol: Some(proxy::Protocol::Elasticsearch),
                             }
                         )
                     ])

@@ -6,7 +6,8 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::{
     proxy::{
-        Service, client::Client, monitor::Publisher, reporting::PublisherEventReporterService,
+        Protocol, Service, client::Client, monitor::Publisher,
+        reporting::PublisherEventReporterService,
     },
     tokio_util,
 };
@@ -33,7 +34,13 @@ impl Group {
         }
     }
 
-    pub fn add_service(&mut self, name: &str, addr: SocketAddr, target: Uri) -> Result<()> {
+    pub fn add_service(
+        &mut self,
+        name: &str,
+        addr: SocketAddr,
+        protocol: Option<Protocol>,
+        target: Uri,
+    ) -> Result<()> {
         if self.by_name.contains_key(name) {
             return Err(eyre!("service {} already registered", name));
         }
@@ -43,6 +50,7 @@ impl Group {
             name.to_string(),
             addr,
             target,
+            protocol,
             self.client.clone(),
             pub_factory,
         ));

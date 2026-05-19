@@ -14,6 +14,7 @@ use tokio::task::JoinSet;
 use tokio::time::Duration;
 use tracing::{debug, error, info, instrument};
 
+use crate::proxy::Protocol;
 use crate::proxy::{
     body::{self, ProxyResponse},
     hyper_errors,
@@ -35,6 +36,8 @@ pub struct Service {
     pub addr: SocketAddr,
     /// Target URL.
     pub target: Uri,
+    /// Application protocol.
+    pub protocol: Option<Protocol>,
     /// HTTP client.
     pub client: Client,
     /// Event reporter.
@@ -48,6 +51,7 @@ impl Service {
         name: String,
         addr: SocketAddr,
         target: Uri,
+        protocol: Option<Protocol>,
         client: Client,
         reporter_service: Arc<dyn EventReporterService>,
     ) -> Self {
@@ -55,6 +59,7 @@ impl Service {
             name,
             addr,
             target,
+            protocol,
             client,
             reporter_service,
             tasks: Arc::new(Mutex::new(JoinSet::new())),

@@ -8,8 +8,10 @@ pub mod group;
 pub mod headers;
 pub mod hyper_errors;
 pub mod monitor;
+pub mod protocol;
 pub mod reporting;
 pub mod service;
 
 pub type Service = self::service::Service;
 pub type Group = self::group::Group;
+pub type Protocol = self::protocol::Protocol;

@@ -30,6 +30,7 @@ services:
       - RUST_BACKTRACE=1
       - PROXY__ES__PORT=3000
       - PROXY__ES__TARGET=elasticsearch:9200
+      - PROXY__ES__PROTOCOL=Elasticsearch
     healthcheck:
       test: curl -sf http://localhost:3100/info | jq -e '.services[] | select(.name == "es")'
       interval: 10s

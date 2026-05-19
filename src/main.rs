@@ -88,6 +88,7 @@ fn create_group(args: &config::Config, client: Client) -> Result<proxy::Group> {
         group.add_service(
             name,
             SocketAddr::new(config.addr, config.port),
+            config.protocol.clone(),
             config.normalized_target()?,
         )?;
     }
