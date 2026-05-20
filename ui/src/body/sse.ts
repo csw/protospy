@@ -1,3 +1,6 @@
+import type { BodyChunk } from "@bindings/BodyChunk";
+import type { BodyState } from "@ui/state/reducer";
+
 export interface SSEEvent {
   type: string; // from "event:" field, default "message"
   data: string; // from "data:" field(s), concatenated
@@ -46,6 +49,30 @@ export function parseSSEBody(text: string): SSEEvent[] {
   }
 
   return events;
+}
+
+export function chunksToText(body: BodyState): string {
+  const arrays = body.chunks.map((chunk: BodyChunk) => {
+    if ("text" in chunk) {
+      return new TextEncoder().encode(chunk.text);
+    } else {
+      const raw = atob(chunk.binary);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) {
+        bytes[i] = raw.charCodeAt(i);
+      }
+      return bytes;
+    }
+  });
+
+  const totalLength = arrays.reduce((sum, a) => sum + a.byteLength, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    combined.set(arr, offset);
+    offset += arr.byteLength;
+  }
+  return new TextDecoder().decode(combined);
 }
 
 export function extractAnthropicTranscript(events: SSEEvent[]): {

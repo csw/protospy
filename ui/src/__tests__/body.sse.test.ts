@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { parseSSEBody, extractAnthropicTranscript } from "@ui/body/sse";
+import {
+  parseSSEBody,
+  extractAnthropicTranscript,
+  chunksToText,
+} from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
+import type { BodyState } from "@ui/state/reducer";
 
 describe("parseSSEBody", () => {
   it("returns empty array for empty string", () => {
@@ -320,5 +325,48 @@ describe("extractAnthropicTranscript edge cases", () => {
     const result = extractAnthropicTranscript(events);
     expect(result.model).toBeUndefined();
     expect(result.messageId).toBeUndefined();
+  });
+});
+
+describe("chunksToText", () => {
+  it("returns empty string for a body with no chunks", () => {
+    const body: BodyState = { chunks: [], atEnd: true, totalBytes: 0 };
+    expect(chunksToText(body)).toBe("");
+  });
+
+  it("decodes a single text chunk", () => {
+    const body: BodyState = {
+      chunks: [{ text: "hello" }],
+      atEnd: true,
+      totalBytes: 5,
+    };
+    expect(chunksToText(body)).toBe("hello");
+  });
+
+  it("concatenates multiple text chunks in order", () => {
+    const body: BodyState = {
+      chunks: [{ text: "foo" }, { text: "bar" }],
+      atEnd: true,
+      totalBytes: 6,
+    };
+    expect(chunksToText(body)).toBe("foobar");
+  });
+
+  it("decodes a base64 binary chunk to UTF-8", () => {
+    const body: BodyState = {
+      chunks: [{ binary: "aGVsbG8=" }],
+      atEnd: true,
+      totalBytes: 5,
+    };
+    expect(chunksToText(body)).toBe("hello");
+  });
+
+  it("mixes text and binary chunks", () => {
+    const body: BodyState = {
+      chunks: [{ text: "hello " }, { binary: "d29ybGQ=" }],
+      atEnd: true,
+      totalBytes: 11,
+    };
+    expect(chunksToText(body)).toBe("hello world");
   });
 });
