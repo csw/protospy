@@ -1,9 +1,12 @@
+import type { Protocol } from "@bindings/Protocol";
 import type { Exchange } from "@ui/state/reducer";
 import { BodyPane } from "./BodyPane";
 import { StreamView } from "./StreamView";
+import { ChatStreamView } from "./anthropic/ChatStreamView";
 
 interface Props {
   exchange: Exchange;
+  protocol: Protocol | null;
 }
 
 function isSSE(exchange: Exchange): boolean {
@@ -11,7 +14,7 @@ function isSSE(exchange: Exchange): boolean {
   return ct.startsWith("text/event-stream");
 }
 
-export function BodySplit({ exchange }: Props) {
+export function BodySplit({ exchange, protocol }: Props) {
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -20,7 +23,11 @@ export function BodySplit({ exchange }: Props) {
       <div className="w-px bg-border shrink-0" />
       <div className="flex-1 overflow-hidden">
         {isSSE(exchange) ? (
-          <StreamView exchange={exchange} />
+          protocol === "Anthropic" ? (
+            <ChatStreamView exchange={exchange} />
+          ) : (
+            <StreamView exchange={exchange} />
+          )
         ) : (
           <BodyPane title="Response" body={exchange.responseBody} />
         )}
