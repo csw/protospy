@@ -623,12 +623,12 @@ _Note: Tests 4.3 and 4.4 use GoodServer's `/headers` endpoint to set custom resp
 **Target expectation:** Request received
 **Client expectation:** Trailer fields present
 
-#### 7.3 — Missing final chunk in request (client-side error)
-**Spec:** RFC 9112 §7.1
-**Description:** Client sends a chunked request but closes the connection without the final zero-length chunk. The proxy should detect this as a malformed request.
-**Request:** (h11 client) POST /incomplete with chunked body, omit final chunk, close connection
-**Target expectation:** Depends on proxy — may or may not receive a partial request
-**Client expectation:** Error status. Protospy: 400. Caddy: 502 (streams to upstream, which rejects). See proxy-specific expectations infrastructure note.
+#### 7.3 — Incomplete chunked request: wire-level forwarding
+**Spec:** RFC 9112 §8 (handling incomplete messages), §7.1 (chunked syntax)
+**Description:** Client sends a chunked request but closes the connection without the final zero-length chunk — an _incomplete_ request message (RFC 9112 §8). Tested at the wire level with a WireServer backend that reads to EOF and then sends an early 200. Two things are checked: (A) the proxy must not silently "repair" the encoding by appending a terminal `0\r\n\r\n` to the bytes it forwards; (B) because the request is incomplete, RFC 9112 §8 lets the proxy (acting as a server) _either_ send an error response before closing _or_ relay the backend's early 200 — so the client-facing outcome is recorded, not asserted to a single value.
+**Request:** (h11 client) POST to a WireServer route with chunked body, omit final chunk, close connection
+**Target expectation:** Either no forwarding (proxy rejects first) or partial body with no appended terminal chunk
+**Client expectation:** Any of: relayed early 200, 5xx (e.g. 502), or connection drop — all conformant per RFC 9112 §8. Caddy returns 200 or 502 non-deterministically (race between client-context cancellation and upstream EOF; see `docs/process/findings-caddy-pool-state-behavior.md`); HAProxy typically drops the connection.
 
 #### 7.4 — Missing final chunk in response (upstream-side error)
 **Spec:** RFC 9112 §7.1

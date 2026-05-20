@@ -388,6 +388,49 @@ def gated_chunks(
     return handler
 
 
+def incomplete_request_target(received: list[bytes]) -> Handler:
+    """Accept an incomplete chunked request and respond immediately after headers.
+
+    Dispatched as soon as headers arrive (``dispatch_after_headers=True``).
+    Reads all bytes until EOF, records them in ``received``, then sends a
+    200 response. Enables two assertions:
+
+    - Scenario A: verify the proxy forwards raw chunk framing without adding
+      the terminal ``0\\r\\n\\r\\n`` (no encoding repair).
+    - Scenario B: observe how the proxy handles the early 200 for a request
+      whose body was never fully received. Per RFC 9112 §8 the proxy MAY relay
+      it or send an error response, so the client-facing outcome is recorded
+      rather than asserted.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        buf = b""
+        conn.settimeout(2.0)
+        try:
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        received.append(buf)
+        conn.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+
+    handler.dispatch_after_headers = True  # type: ignore[attr-defined]
+    return handler
+
+
 def delayed_100(_delay_seconds: float) -> Handler:
     """Stub: delayed 100-continue response handler.
 
@@ -508,6 +551,8 @@ class WireServer:
             if event is h11.NEED_DATA:
                 data = conn.recv(65536)
                 if not data:
+                    if request is not None:
+                        break  # EOF before EndOfMessage — dispatch with partial body
                     return
                 h11_conn.receive_data(data)
             elif isinstance(event, h11.Request):
@@ -520,6 +565,11 @@ class WireServer:
                     n.lower() == b"expect" and b"100-continue" in v.lower()
                     for n, v in request.headers
                 ):
+                    break
+                # Dispatch early if the registered handler requests it.
+                _route_path = request.target.decode().split("?", 1)[0]
+                _candidate = self._routes.get(_route_path)
+                if getattr(_candidate, "dispatch_after_headers", False):
                     break
             elif isinstance(event, h11.Data):
                 body += event.data

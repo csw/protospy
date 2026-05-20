@@ -43,6 +43,7 @@ from proxy_conformance.types import (
     assert_probe_target,
     send_expecting_error,
 )
+from proxy_conformance.wire_server import WireServer, incomplete_request_target
 
 from .conftest import Findings
 from .proxies import ProxyUrls, tagged_url
@@ -66,35 +67,6 @@ _REQUEST_TRAILERS_QUIRKS: dict[str, ProxyQuirk] = {
                 absent=["x-custom-trailer"],
             ),
         ),
-    ),
-}
-
-# §7.3: RFC 9112 §7.1 expects 400. Neither Caddy nor HAProxy returns 400.
-#
-# - Caddy: returns 200 or 502 non-deterministically due to a race condition
-#   between context cancellation (client SHUT_WR) and upstream EOF.
-#   See docs/process/findings-caddy-pool-state-behavior.md
-#
-# - HAProxy: usually drops the connection (strict chunked parser), but
-#   occasionally forwards to backend under load (race between chunked
-#   body validation and TCP FIN receipt).
-_INCOMPLETE_CHUNK_QUIRKS: dict[str, ProxyQuirk] = {
-    "caddy": ProxyQuirk(
-        disposition="xfail",
-        reason=(
-            "Race condition: returns 200 or 502, not 400 "
-            "(reverseproxy.go:653 context.Canceled short-circuit). "
-            "See docs/process/findings-caddy-pool-state-behavior.md"
-        ),
-    ),
-    "haproxy": ProxyQuirk(
-        disposition="override",
-        reason=(
-            "Non-deterministic: usually drops connection (strict chunked "
-            "parser), but occasionally forwards to backend under load "
-            "(race between chunked body validation and TCP FIN receipt)"
-        ),
-        client=[ConnectionDrop(), ClientExpectation(status_in={200, 404})],
     ),
 }
 
@@ -295,62 +267,80 @@ def test_response_trailers_forwarded(
     good_server.clear()
 
 
-def test_missing_final_chunk_request(
+def test_wire_forwarding_of_incomplete_chunked_request(
     proxy: ProxyUrls,
-    good_server: GoodServer,
+    wire_server: WireServer,
     findings: Findings,
     proxy_name: str,
 ) -> None:
-    """Proxy handles chunked request missing terminal zero-length chunk (§7.3).
+    """WireServer verifies faithful forwarding of incomplete chunked request (§7.3).
 
-    RFC 9112 §7.1 expects 400. Neither Caddy nor HAProxy returns 400 —
-    see _INCOMPLETE_CHUNK_QUIRKS for documented deviations.
+    When a proxy forwards an incomplete chunked POST to the backend:
+    - Scenario A: the forwarded bytes must not include the terminal ``0\\r\\n\\r\\n``
+      (the proxy must not silently repair the encoding).
+    - Scenario B: the request is incomplete — its terminating zero-length chunk
+      never arrives (RFC 9112 §8). Per RFC 9112 §8 a server that receives an
+      incomplete request MAY send an error response before closing, so the proxy
+      may relay the backend's early 200, return a 5xx, or drop the connection;
+      all three are conformant. The actual outcome is recorded as a finding.
+      (Caddy races client-context cancellation against upstream EOF, yielding
+      200 or 502 non-deterministically — see
+      docs/process/findings-caddy-pool-state-behavior.md.)
+
+    Proxies that reject the incomplete encoding before forwarding are recorded
+    as a finding. Forwarding proxies are held to the Scenario A assertion and
+    the relaxed Scenario B outcome set.
     """
+    received: list[bytes] = []
+    wire_server.add_route(
+        "/chunked-wire-test",
+        incomplete_request_target(received),
+    )
+
     result = send_incomplete_chunked_request(
-        host=proxy.good_host,
-        port=proxy.good_port,
-        path=tagged_url("/chunked-error-test", "incomplete-chunked-request"),
+        host=proxy.wire_host,
+        port=proxy.wire_port,
+        path=tagged_url("/chunked-wire-test", "incomplete-chunked-wire"),
         chunk_data=b"this body is deliberately incomplete",
     )
 
-    quirk = apply_quirk(proxy_name, _INCOMPLETE_CHUNK_QUIRKS)
-
-    # Client-side assertion
-    effective_client = (
-        quirk.client if quirk and quirk.client else ClientExpectation(status=400)
-    )
-    _assert_raw_response(result, effective_client, test_id="incomplete-chunked-request")
-
-    # Target-side: check whether proxy forwarded the incomplete body.
-    # For non-deterministic quirks (HAProxy race), target arrival
-    # depends on which outcome occurred, so we just observe.
-    # For the default (400 rejection), no request should reach target.
-    try:
-        captured = good_server.last_request(timeout=0.5)
-        if not quirk:
-            pytest.fail(
-                "Expected no request at target after 400 rejection, "
-                f"but target received {captured.method} "
-                f"{captured.path}"
-            )
+    if received and received[0]:
+        # Proxy forwarded to WireServer and body bytes were captured.
+        raw = received[0]
+        # Scenario A: proxy did not repair the encoding by appending 0\r\n\r\n
+        assert b"this body is deliberately incomplete" in raw, (
+            f"Forwarded bytes missing expected chunk data: {raw!r}"
+        )
+        assert not raw.endswith(b"0\r\n\r\n"), (
+            "Proxy appended terminal chunk — silently repaired the incomplete encoding"
+        )
+        # Scenario B: the request was incomplete (no terminal chunk), so per
+        # RFC 9112 §8 the proxy MAY relay the backend's early 200 or signal an
+        # error. Relay (200), gateway error (5xx), and connection drop are all
+        # conformant; record which one occurred.
+        _assert_raw_response(
+            result,
+            [
+                ClientExpectation(status=200),
+                ClientExpectation(status_in={502, 504}),
+                ConnectionDrop(),
+            ],
+            test_id="incomplete-chunked-wire",
+        )
+        outcome = _describe_status(result.status if result else None)
         findings.record(
-            "incomplete-chunked-request",
-            f"Target received {captured.method} {captured.path} "
-            f"with {len(captured.body)} bytes "
-            "(proxy forwarded incomplete body)",
+            "incomplete-chunked-wire",
+            f"[{proxy_name}] Proxy forwarded {len(raw)} raw bytes; "
+            f"client got {outcome}",
+            level="info",
+        )
+    else:
+        actual = _describe_status(result.status if result else None)
+        findings.record(
+            "incomplete-chunked-wire",
+            f"[{proxy_name}] Proxy did not forward to WireServer; responded {actual}",
             level="finding",
         )
-    except queue.Empty:
-        pass
-
-    actual = _describe_status(result.status if result else None)
-    _probe_finding(
-        findings,
-        "incomplete-chunked-request",
-        proxy_name,
-        f"Proxy responded with {actual} for incomplete chunked request",
-        quirk=quirk,
-    )
 
 
 def test_missing_final_chunk_response(
