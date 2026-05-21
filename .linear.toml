@@ -1,0 +1,6 @@
+# linear cli
+# https://github.com/schpet/linear-cli
+
+workspace = "protospy"
+team_id = "PRO"
+issue_sort = "priority"
