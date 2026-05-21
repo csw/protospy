@@ -41,6 +41,31 @@ pnpm test
 
 If you changed code under `src/`, also run `pnpm test:coverage`. Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
 
+## Test-Writing Requirements
+
+**Every change to code under `src/` or `browser/` must include corresponding tests.** Do not consider a feature, bug fix, or refactor complete until it has test coverage. Shipping code without tests — even if the existing suite still passes — is a recurring failure mode and is not acceptable.
+
+### Which test type to write
+
+| What you changed                                                                     | Test type      | File pattern               |
+| ------------------------------------------------------------------------------------ | -------------- | -------------------------- |
+| Pure function (formatter, parser, reducer, decoder, utility)                         | Unit test      | `src/__tests__/*.test.ts`  |
+| React component or hook (rendering, state, user interaction)                         | Component test | `src/__tests__/*.test.tsx` |
+| Visual layout, cross-component interaction, or behavior that depends on real DOM/CSS | Browser test   | `browser/*.spec.ts`        |
+
+When a change spans categories, write the cheapest test that covers the behavior — prefer unit over component, component over browser. But if the behavior under test requires the real DOM or layout, don't force it into a unit test.
+
+### What "covered" means
+
+- New exported functions or components must have at least one test exercising their primary behavior.
+- Bug fixes must include a test that would have caught the bug (the "regression test" rule).
+- Refactors that change observable behavior (even subtly — e.g. a different empty-state message) must update or add assertions covering the new behavior.
+- If a change is purely internal (renaming a local variable, reformatting) and no observable behavior changed, no new test is needed — but the existing suite must still pass.
+
+### Common failure mode
+
+Agents have repeatedly shipped UI features with zero test coverage, requiring expensive backfill passes after the fact. The root cause is treating "tests pass" as sufficient when the real bar is "tests _exist_ for the code I wrote." If you are about to commit and have not written or updated any test file, stop and ask yourself what you missed.
+
 ## Testing
 
 ### Layout
