@@ -48,20 +48,14 @@ from proxy_conformance.wire_server import WireServer, incomplete_request_target
 from .conftest import Findings
 from .proxies import ProxyUrls, tagged_url
 
-# §7.1: Both Caddy and HAProxy strip request trailers.
+# §7.1: Request trailer quirks — verified empirically via WireServer.
+# Previous claims that both proxies strip trailers were unverified
+# (GoodServer can't observe request trailers). Now using WireServer
+# which captures trailers from h11's EndOfMessage.headers.
 _REQUEST_TRAILERS_QUIRKS: dict[str, ProxyQuirk] = {
     "caddy": ProxyQuirk(
         disposition="override",
         reason="Caddy strips request trailers",
-        target=TargetExpectation(
-            headers=HeaderExpectation(
-                absent=["x-custom-trailer"],
-            ),
-        ),
-    ),
-    "haproxy": ProxyQuirk(
-        disposition="override",
-        reason="HAProxy strips request trailers",
         target=TargetExpectation(
             headers=HeaderExpectation(
                 absent=["x-custom-trailer"],
@@ -184,19 +178,21 @@ def _assert_raw_response(
 @pytest.mark.xfail_for("protospy")
 def test_request_trailers_forwarded(
     proxy: ProxyUrls,
-    good_server: GoodServer,
+    wire_server: WireServer,
     findings: Findings,
     proxy_name: str,
 ) -> None:
     """Proxy forwards request trailers to the target (§7.1).
 
     RFC 9110 §6.5.1 allows request trailers. Default expectation: trailers
-    are forwarded. Both Caddy and HAProxy strip them (override quirk).
+    are forwarded. Uses WireServer (not GoodServer) because h11 captures
+    trailers from EndOfMessage.headers, while aiohttp's request.headers
+    only exposes the initial header section.
     """
     quirk = apply_quirk(proxy_name, _REQUEST_TRAILERS_QUIRKS)
 
-    host = proxy.good_host
-    port = proxy.good_port
+    host = proxy.wire_host
+    port = proxy.wire_port
     path = tagged_url("/echo", "request-trailers")
 
     _send_chunked_with_trailers(
@@ -207,25 +203,27 @@ def test_request_trailers_forwarded(
         [("x-custom-trailer", "trailer-value")],
     )
 
-    # Default target expectation: trailer is forwarded.
-    default_target = TargetExpectation(
-        headers=HeaderExpectation(
-            present={"x-custom-trailer": "trailer-value"},
-        ),
-    )
-    effective_target = quirk.target if quirk and quirk.target else default_target
-    assert_probe_target(
-        good_server,
-        effective_target,
-        test_id="request-trailers",
-        timeout=1.0,
-    )
+    captured = wire_server.last_request(timeout=2.0)
+
+    trailer_present = "x-custom-trailer" in captured.trailers
+    if quirk and quirk.target:
+        absent_list = quirk.target.headers.absent
+        if "x-custom-trailer" in absent_list:
+            assert not trailer_present, (
+                "Expected trailer x-custom-trailer to be absent "
+                f"but found: {captured.trailers}"
+            )
+    else:
+        assert trailer_present, (
+            "Expected trailer x-custom-trailer to be present "
+            f"but trailers were: {captured.trailers}"
+        )
 
     _probe_finding(
         findings,
         "request-trailers",
         proxy_name,
-        "Proxy handled request trailers",
+        f"Proxy {'forwarded' if trailer_present else 'stripped'} request trailers",
         quirk=quirk,
     )
 
@@ -511,17 +509,18 @@ def test_invalid_chunk_size_response(
 
 def test_trailer_announce_header(
     proxy: ProxyUrls,
-    good_server: GoodServer,
+    wire_server: WireServer,
     findings: Findings,
     proxy_name: str,
 ) -> None:
     """Proxy forwards the Trailer announcement header (§7.7).
 
     The Trailer header announces which headers will follow the body.
-    Both Caddy and HAProxy forward this header.
+    Uses WireServer to verify both the Trailer announcement header
+    and actual trailer delivery.
     """
-    host = proxy.good_host
-    port = proxy.good_port
+    host = proxy.wire_host
+    port = proxy.wire_port
     path = tagged_url("/echo", "trailer-announce-header")
 
     _send_chunked_with_trailers(
@@ -533,16 +532,26 @@ def test_trailer_announce_header(
         announce=True,
     )
 
-    captured = good_server.last_request(timeout=1.0)
+    captured = wire_server.last_request(timeout=2.0)
     trailer_header = captured.header_values("trailer")
+    trailer_delivered = "x-my-trailer" in captured.trailers
 
     assert trailer_header, "Expected Trailer announcement header to be forwarded"
 
-    findings.record(
-        "trailer-announce-header",
-        f"[{proxy_name}] Proxy forwarded Trailer announcement: {trailer_header}",
-        level="info",
-    )
+    if trailer_delivered:
+        findings.record(
+            "trailer-announce-header",
+            f"[{proxy_name}] Proxy forwarded Trailer announcement "
+            f"({trailer_header}) and delivered actual trailer",
+            level="info",
+        )
+    else:
+        findings.record(
+            "trailer-announce-header",
+            f"[{proxy_name}] Proxy forwarded Trailer announcement "
+            f"({trailer_header}) but stripped actual trailer",
+            level="finding",
+        )
 
 
 class TestH11ClientIntegration:

@@ -635,6 +635,7 @@ class WireServer:
         h11_conn = h11.Connection(our_role=h11.SERVER)
         request: h11.Request | None = None
         body = b""
+        trailers: dict[str, list[str]] = {}
 
         while True:
             event = h11_conn.next_event()
@@ -664,6 +665,10 @@ class WireServer:
             elif isinstance(event, h11.Data):
                 body += event.data
             elif isinstance(event, h11.EndOfMessage):
+                for name, value in event.headers:
+                    trailers.setdefault(name.decode().lower(), []).append(
+                        value.decode()
+                    )
                 break
             elif event is h11.PAUSED:
                 # e.g. Expect: 100-continue — stop reading, let handler decide.
@@ -698,6 +703,7 @@ class WireServer:
             path=target,
             headers=headers,
             body=body,
+            trailers=trailers,
         )
         self.requests.put(captured)
         if self.log_requests:

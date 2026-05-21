@@ -44,6 +44,7 @@ class CapturedRequest:
     path: str
     headers: dict[str, list[str]]
     body: bytes
+    trailers: dict[str, list[str]] = field(default_factory=dict)
 
     def header_values(self, name: str) -> list[str]:
         """Get all values for a header name (case-insensitive)."""
