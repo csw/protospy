@@ -44,6 +44,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/testing.md`: when writing or maintaining tests
 - `docs/agents/sandbox.md`: when a sandboxed command fails with a TLS, keychain, or Mach-port error, or when setting up Monitor / background polling
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
+- `docs/agents/worktrees.md`: when using the `using-git-worktrees` skill
 
 ## Delegating noisy investigation to subagents
 
