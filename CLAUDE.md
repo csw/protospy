@@ -10,9 +10,9 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 Sub-components are self-contained subprojects with their own virtualenvs, package definitions (uv or pnpm), dependencies, READMEs, CLAUDE.md files, etc. **Read the subproject's CLAUDE.md when working in it:**
 
-- `conformance/` — HTTP reverse proxy conformance test suite (Python). See `conformance/CLAUDE.md`.
-- `demo/` — elasticflix demo app for realistic traffic (Python 3.14+, uv). See `demo/CLAUDE.md`.
-- `ui/` — React/TypeScript UI for traffic inspection. See `ui/CLAUDE.md`.
+- `conformance/` — HTTP reverse proxy conformance test suite (Python). See `conformance/CLAUDE.md` and `conformance/ARCHITECTURE.md`.
+- `demo/` — elasticflix demo app for realistic traffic (Python 3.14+, uv). See `demo/CLAUDE.md` and `demo/ARCHITECTURE.md`.
+- `ui/` — React/TypeScript UI for traffic inspection. See `ui/CLAUDE.md` and `ui/ARCHITECTURE.md`.
 
 Agents must not make any changes to the Rust code at any time.
 
