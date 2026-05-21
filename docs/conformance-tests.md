@@ -43,11 +43,25 @@ A quirk or default expectation can be a single `Outcome` or a list of them (ORed
 
 For example, when a reference proxy has racy behavior (sometimes drops the connection, sometimes returns a status code), the quirk lists all observed outcomes. The test fails if an *unexpected* outcome appears.
 
-### Streaming proxy implications
+### Streaming vs. buffering proxy implications
 
-A streaming proxy forwards response headers and body incrementally. Once it has started forwarding, it cannot retroactively return a 5xx status. When the upstream fails mid-response (truncated body, missing final chunk, stall after partial data), the only correct signal is closing the connection. Default expectations for these tests should be `ConnectionDrop`, not `ClientExpectation(status=502)`.
+Whether the proxy has started forwarding the response determines what error signals are available:
 
-Tests where the upstream fails *before* the proxy starts forwarding (unreachable, garbage response, pre-response stall) can and should expect a proper error status.
+- **After forwarding starts (streaming):** The proxy has already sent response headers to the client. If the upstream then fails mid-body (truncated body, missing final chunk, stall after partial data), the proxy cannot retroactively send a 5xx status. The only option is closing the connection (`ConnectionDrop`).
+- **Before forwarding starts (buffering or early failure):** The proxy has not committed to a response. It can detect the upstream error and return a proper status like 502 Bad Gateway.
+
+Default expectations for mid-response failures should accept both outcomes: `[ConnectionDrop(), ClientExpectation(status=502)]`. A buffering proxy that detects the error before forwarding is equally correct to a streaming proxy that drops the connection. Tests where the upstream fails *before* the proxy starts forwarding (unreachable, garbage response, pre-response stall) can and should expect a proper error status only.
+
+### Wire-level vs. client-response testing
+
+When the client-facing outcome is non-deterministic — the RFC permits multiple valid responses, or the proxy's buffering strategy makes the status code unpredictable — prefer wire-level inspection via WireServer over client-response assertions.
+
+The pattern (established in [PRO-77](https://linear.app/protospy/issue/PRO-77)):
+1. Register a programmable WireServer handler that captures what the proxy actually forwarded (headers, body bytes, trailers, timing).
+2. Assert on the **wire-level protocol property** — the thing the RFC actually requires (e.g., "proxy forwarded the request to the backend," "proxy did not send body bytes after receiving 417").
+3. Record the client-facing outcome as a **finding** rather than asserting on it.
+
+This approach is preferred for incomplete-message tests, error-path tests, timeout tests, and any scenario where the client-visible status depends on proxy-internal buffering or timing decisions. Examples: `test_client_body_stall` (§10.4), `test_417_forwarded` (§8.3), `test_request_trailers_forwarded` (§7.1).
 
 ### Findings
 
@@ -58,15 +72,60 @@ Findings are recorded via `findings.record(test_id, message, level)` and shown w
 
 Findings exist alongside assertions. A test that records a finding must still assert.
 
+### Assertion philosophy: defaults vs. RFC permission space
+
+Default expectations express what we consider correct behavior for a well-behaved streaming proxy, not the full set of RFC-permitted outcomes. When a reference proxy deviates from the default, that deviation is documented as a quirk. This is intentional — the defaults define a quality bar, and quirks track where real proxies fall short or differ.
+
+However, some test scenarios have a genuinely broad correct-outcome set where no single behavior is "more correct." For example, when a client sends request headers but never sends the promised body (§10.4), the RFC permits 200, 400, 408, 504, or connection close depending on the proxy's timeout strategy. In these cases:
+
+- Assert on **wire-level protocol properties** (what the proxy forwarded, what bytes reached the backend).
+- Accept the full conformant status set for client-facing outcomes, or record them as findings.
+- Do not create quirks for every proxy — if the default must list every proxy as a quirk, the default is wrong.
+
+The heuristic: if both reference proxies need quirks and the "default" behavior doesn't match any real proxy, the test is over-asserting. Widen the default or switch to wire-level testing.
+
+### Quirk reliability
+
+Quirks are calibrated empirically by running tests against reference proxies. Two sources of unreliability:
+
+1. **Quirks from broken tests.** If a quirk was added to make a flawed test pass, it captures the proxy's behavior under incorrect test conditions, not correct ones. When the test is fixed, the quirk may need to change or be removed. (Example: trailer tests using GoodServer, which can't observe request trailers, led to incorrect "strips trailers" quirks for HAProxy.)
+2. **Non-deterministic behavior.** Some proxy behaviors are low-frequency race conditions that surface only under CI load. Quirks calibrated from local runs may be incomplete.
+
+Wire-level tests are more resilient to both problems: they assert on forwarded bytes (deterministic) and record client-facing outcomes as findings (tolerant of non-determinism).
+
 ## Components
 
 ### GoodServer
 
+`GoodServer` (`src/proxy_conformance/good_server.py`) is a well-behaved aiohttp target server. It runs in a background thread and provides endpoint-based routing for common test scenarios: echo, status codes, redirects, custom response headers, chunked and content-length bodies, gzip, trailers, and WebSocket. Every request is captured for out-of-band retrieval via `last_request()`.
+
+Use GoodServer when the test needs a **conformant** upstream that responds normally. It backs all httpx-based tests (request/response forwarding, hop-by-hop headers, body framing, etc.).
+
+**Limitation:** aiohttp's `request.headers` only exposes the initial HTTP header section. GoodServer cannot observe HTTP/1.1 request trailers — use WireServer for trailer tests.
+
 ### WireServer
+
+`WireServer` (`src/proxy_conformance/wire_server.py`) is a programmable raw HTTP server built on h11. It accepts a single connection at a time and dispatches to registered route handlers that have full control over the raw HTTP exchange — they can send malformed responses, stall mid-body, close connections early, send 1xx informational responses, or capture exactly what bytes the proxy forwarded.
+
+Use WireServer when the test needs to:
+- **Send non-conformant responses** (truncated bodies, invalid chunks, missing headers).
+- **Observe wire-level protocol properties** (what headers/body/trailers the proxy forwarded, whether the proxy modified encoding).
+- **Control timing** (stall before response, stall mid-body, delay to trigger proxy timeouts).
+- **Inspect request trailers** — h11's `EndOfMessage.headers` captures HTTP/1.1 trailers that aiohttp cannot see.
+
+WireServer handlers use `threading.Event` and shared mutable state for cross-thread signaling, allowing tests to make assertions about what the proxy forwarded independently of the client-facing response.
 
 ### httpx tests for conformant HTTP interactions
 
+Tests using `httpx.Client` exercise the proxy's handling of well-formed HTTP traffic. httpx sends conformant requests and parses conformant responses, making it suitable for testing request/response forwarding, header handling, body framing, redirects, and other scenarios where both client and server follow the protocol.
+
+These tests typically route through GoodServer and assert on the response status, headers, and body. They are the bulk of the suite (categories 1–6, 11–14).
+
 ### h11 tests for HTTP misbehavior and low-level control
+
+Tests using the h11 raw client (`src/proxy_conformance/h11_client.py`) or raw sockets exercise scenarios that require sending or receiving non-standard HTTP. h11 gives byte-level control over what is sent to the proxy, allowing tests to send malformed requests, incomplete messages, oversized headers, or HTTP/1.1 features that httpx abstracts away (chunked encoding with trailers, Expect: 100-continue flows).
+
+These tests cover edge cases (category 7), 100-continue (category 8), upstream error handling (category 9), timeouts (category 10), and protocol violations (category 15–16). They often pair with WireServer to verify both what the proxy received from the client and what it forwarded to the backend.
 
 ## Targets
 
