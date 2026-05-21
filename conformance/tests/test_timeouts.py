@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import socket
 import subprocess
+import threading
 from collections.abc import Generator
 from pathlib import Path
 
@@ -28,12 +29,10 @@ from proxy_conformance.targets import proxy_family
 from proxy_conformance.types import (
     ClientExpectation,
     ConnectionDrop,
-    ProxyQuirk,
-    apply_quirk,
     assert_probe_result,
     send_expecting_error,
 )
-from proxy_conformance.wire_server import WireServer
+from proxy_conformance.wire_server import WireServer, body_stall_target
 
 from .conftest import Findings
 from .proxies import (
@@ -47,25 +46,6 @@ from .proxies import (
 )
 
 _TIMEOUT_START_RETRIES = 3
-
-# §10.4: Client body stall — behavior varies widely.
-# Caddy forwards headers immediately, backend responds with 200 (no body wait).
-# HAProxy's strict parser returns 400 Bad Request.
-_CLIENT_BODY_STALL_QUIRKS: dict[str, ProxyQuirk] = {
-    "caddy": ProxyQuirk(
-        disposition="override",
-        reason=(
-            "Caddy forwards headers immediately without waiting "
-            "for body; backend responds 200"
-        ),
-        client=ClientExpectation(status=200),
-    ),
-    "haproxy": ProxyQuirk(
-        disposition="override",
-        reason="HAProxy returns 400 Bad Request for missing body",
-        client=ClientExpectation(status=400),
-    ),
-}
 
 
 def _start_timeout_proxy(
@@ -226,32 +206,47 @@ def _parse_status_from_raw(response_bytes: bytes) -> int | None:
     return None
 
 
+def _describe_status(status: int | None) -> str:
+    return f"status {status}" if status is not None else "connection close"
+
+
 def test_client_body_stall(
     timeout_proxy: ProxyUrls,
+    wire_server: WireServer,
     findings: Findings,
     proxy_name: str,
 ) -> None:
     """Proxy handles client stalling after sending request headers (§10.4).
 
-    Sends request headers with Content-Length but no body. Default: proxy
-    should respond with 408 Request Timeout or close the connection.
+    Uses WireServer to inspect what the proxy forwards when the client
+    sends request headers with Content-Length: 100 but never sends body
+    bytes. The wire-level property is whether the proxy forwards the
+    request to the backend before the body arrives. The client-facing
+    status is non-deterministic — 200, 400, 408, 504, and connection
+    close are all conformant depending on the proxy's timeout strategy —
+    so it is recorded as a finding rather than asserted.
     """
-    quirk = apply_quirk(proxy_name, _CLIENT_BODY_STALL_QUIRKS)
+    request_arrived = threading.Event()
+    received_body: list[bytes] = []
+    wire_server.add_route(
+        "/client-body-stall-target",
+        body_stall_target(request_arrived, received_body),
+    )
 
     host = timeout_proxy.wire_host
     port = timeout_proxy.wire_port
+    path = tagged_url("/client-body-stall-target", "client-body-stall")
 
     sock = socket.create_connection((host, port), timeout=5.0)
     try:
-        request_headers = (
-            f"POST {tagged_url('/echo', 'client-body-stall')}"
-            f" HTTP/1.1\r\n"
+        raw_request = (
+            f"POST {path} HTTP/1.1\r\n"
             f"Host: {host}:{port}\r\n"
             f"Content-Length: 100\r\n"
             f"Content-Type: application/octet-stream\r\n"
             f"\r\n"
         )
-        sock.sendall(request_headers.encode())
+        sock.sendall(raw_request.encode())
         sock.settimeout(4.0)
         response_bytes = b""
         try:
@@ -266,24 +261,28 @@ def test_client_body_stall(
         sock.close()
 
     status = _parse_status_from_raw(response_bytes)
+    forwarded = request_arrived.wait(timeout=0.5)
 
-    if quirk and quirk.client is not None:
-        assert isinstance(quirk.client, ClientExpectation)
-        if quirk.client.status is not None:
-            assert status == quirk.client.status, (
-                f"Expected {quirk.client.status}, got {status}"
-            )
+    if forwarded:
+        body_len = len(received_body[0]) if received_body else 0
+        findings.record(
+            "client-body-stall",
+            f"[{proxy_name}] Proxy forwarded request to backend "
+            f"({body_len} body bytes); "
+            f"client got {_describe_status(status)}",
+            level="finding",
+        )
     else:
-        # Default: 408 or connection close
-        assert status is None or status == 408, (
-            f"Expected 408 or connection close, got {status}"
+        findings.record(
+            "client-body-stall",
+            f"[{proxy_name}] Proxy did not forward to backend; "
+            f"client got {_describe_status(status)}",
+            level="finding",
         )
 
-    actual = f"status {status}" if status else "connection close"
-    findings.record(
-        "client-body-stall",
-        f"[{proxy_name}] Proxy responded with {actual} during client body stall",
-        level="finding",
+    assert status is None or status in {200, 400, 408, 504}, (
+        f"Unexpected client status {status} "
+        "(expected 200, 400, 408, 504, or connection close)"
     )
 
 

@@ -431,6 +431,48 @@ def incomplete_request_target(received: list[bytes]) -> Handler:
     return handler
 
 
+def body_stall_target(
+    request_arrived: threading.Event,
+    received_body: list[bytes],
+) -> Handler:
+    """Accept a request whose body may never arrive and respond 200.
+
+    Dispatched as soon as headers arrive (``dispatch_after_headers=True``).
+    Reads any available body bytes with a short timeout, records them in
+    ``received_body``, sets ``request_arrived``, then sends a 200
+    response.  Used by the client-body-stall test to observe whether
+    the proxy forwards the request before the client body is complete.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        _h11_conn: h11.Connection,
+    ) -> None:
+        buf = _body
+        conn.settimeout(1.0)
+        try:
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        received_body.append(buf)
+        request_arrived.set()
+        conn.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+
+    handler.dispatch_after_headers = True  # type: ignore[attr-defined]
+    return handler
+
+
 def delayed_100(_delay_seconds: float) -> Handler:
     """Stub: delayed 100-continue response handler.
 
