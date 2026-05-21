@@ -66,13 +66,15 @@ Before reporting a unit of work as complete or committing code changes, ensure t
 
 ## Committing
 
-All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
+All commit messages **and PR titles** must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```text
 <type>(<scope>): <description>
 ```
 
 Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use it where it helps (e.g. `demo`, `conformance`, `ui`).
+
+PR titles matter because GitHub uses them as the default squash-merge commit message. A CI check enforces this — a non-conforming title will block the merge.
 
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
