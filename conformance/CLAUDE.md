@@ -18,7 +18,13 @@ Run all commands from `conformance/` using `uv run`. When starting work here, ru
 
 ## Architecture
 
-Tests are in `tests/`, infrastructure is in `src/proxy_conformance/`. See `docs/conformance-tests.md` for general information and `docs/conformance-test-catalog.md` for the catalog of tested behaviors.
+Tests are in `tests/`, infrastructure is in `src/proxy_conformance/`. See:
+
+- `docs/conformance-tests.md` — testing concept, assertion policy, quirks, findings model.
+- `docs/conformance-test-catalog.md` — catalog of tested behaviors (categories 1–19).
+- `conformance/ARCHITECTURE.md` — **code-level architecture**: module roles, fixture wiring, file map, channel taxonomy. Read this before working on the harness.
+
+**Keep-up-to-date rule:** When you change harness code or directory structure, update BOTH `conformance/ARCHITECTURE.md` AND the `## Architecture` section of `conformance/README.md` to reflect the change. Both docs must stay in sync with the code.
 
 ## Code Quality Requirements
 

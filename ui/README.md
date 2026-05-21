@@ -43,30 +43,41 @@ To generate example traffic to observe in the UI, there are shell scripts in `..
 | `pnpm test:browser`        | Playwright UI tests (requires `playwright install`) |
 | `pnpm test:browser:headed` | Playwright UI tests with a visible browser          |
 
-## Project Structure
+## Architecture
+
+For the full deep dive (data flow, type shapes, patterns, per-directory map), see [`ARCHITECTURE.md`](./ARCHITECTURE.md). A summary:
+
+**Stack:** React 19 + TypeScript, built with Vite; Tailwind CSS v4 for styling; Zustand for state; TanStack Virtual for list/JSON virtualization; shadcn/ui (Radix + cmdk) for UI primitives; Vitest + Playwright for tests.
+
+**Data flow:** On mount the app fetches `/info` to discover services, then opens an SSE `EventSource` at `/service/<name>/events`. Each `exchange-report` event is parsed into an `EventMessage` and fed to the store's `applyEvent`, whose pure reducer (`state/reducer.ts`) reassembles request/response **exchanges** keyed by exchange id. Components subscribe to store slices and render a virtualized list of exchanges (left) and a detail inspector (right). Bodies are decoded lazily by `body/` (chunk concatenation, gzip/deflate decompression, JSON/JSONL/SSE detection) once complete.
+
+**Key patterns:** the store is a thin shell over a pure reducer; formatting/classification/theming live as pure helpers in `lib/` and `theme/`; the visible list is derived (not stored); lists and JSON are virtualized; in dev the store is exposed on `window.__test_store` for the browser test harness.
+
+**Structure overview:**
 
 ```
 src/
-  api/          # Typed fetch wrappers (fetchInfo, subscribeToEvents)
+  api/          # /info fetch + SSE EventSource subscription
   body/         # Body decoding (compression, JSON/JSONL) and SSE parsing
-  components/   # React components (incl. components/ui/ shadcn primitives)
+  anthropic/    # Anthropic SSE → chat transcript extraction
+  state/        # Zustand store + pure EventMessage reducer (Exchange shapes)
+  protocol/     # Protocol-aware UI gating (ES/OpenSearch bulk ops)
   hooks/        # Extracted hooks (e.g. useDecodeBody)
   lib/utils.ts  # Pure helpers — formatters, matchers, splitUri, traceColor
-  state/        # Zustand store and the EventMessage reducer
-  test/         # setup.ts (jest-dom) and fixtures.ts (shared with browser tests)
+  components/   # React components (incl. components/ui/ shadcn primitives, components/anthropic/)
   theme/        # Tailwind tokens and theme bootstrap helpers
+  test/         # setup.ts (jest-dom) and fixtures.ts (shared with browser tests)
   __tests__/    # Vitest tests (.test.ts → node; .test.tsx → jsdom)
   App.tsx       # Root component
   main.tsx      # Entry point — theme bootstrap + render
 browser/        # Playwright specs and fixtures/helpers (UI tests, not full-stack e2e)
-docs/agents/ui/ # Coverage audit + test-plan handoff (repo-level docs/)
 ```
 
 The `@bindings/` path alias points to `../bindings/` (TypeScript types generated from the Rust backend); `@ui/` points to `./src/`.
 
 ## Testing
 
-`pnpm test` runs Vitest (unit + component); `pnpm test:browser` runs Playwright UI tests against the dev server (rendering, layout, and interaction — not a true full-stack end-to-end suite). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy. The audit and test-plan in `docs/agents/ui/` lay out what's covered and what isn't.
+`pnpm test` runs Vitest (unit + component); `pnpm test:browser` runs Playwright UI tests against the dev server (rendering, layout, and interaction — not a true full-stack end-to-end suite). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy.
 
 ## React Compiler
 

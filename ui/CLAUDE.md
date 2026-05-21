@@ -4,6 +4,12 @@ When starting work here, run `cd ui/` once as your first command — the shell w
 
 If `CLAUDE.local.md` exists in this directory, read it for additional local guidance.
 
+## Architecture
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the deep architecture reference — libraries, the SSE → store → render data flow, type shapes, design patterns, and a per-directory file map. Read it before making non-trivial changes to the app.
+
+**Keep it current:** when you change the UI's architecture, stack, data flow, or directory structure, update **both** `ARCHITECTURE.md` and the `## Architecture` section of `README.md` in the same change.
+
 ## Commands
 
 ```bash
@@ -95,10 +101,6 @@ Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`,
 `vitest.config.ts` locks a floor in `test.coverage.thresholds`. The numbers are intentionally below current measured coverage; the policy is **ratchet upward**, never down. After landing a batch of tests, run `pnpm test:coverage` and raise the thresholds to the new numbers (minus a small margin) in the same commit. `coverage/`, `playwright-report/`, and `test-results/` are gitignored.
 
 shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.tsx`), CSS tokens (`theme/**`), and the `test/` and `__tests__/` directories are excluded from coverage — see the `exclude` list in the config before adding a new top-level src directory.
-
-### Test plan and coverage audit
-
-`docs/agents/ui/test-coverage-review.md` audits what's covered and what isn't. `docs/agents/ui/test-plan.md` lists discrete TASK items (P0–P2) for adding the missing tests, each with target file, cases, and acceptance criteria. When picking up a test-writing task, start there.
 
 ## Versioning dependencies
 

@@ -4,6 +4,18 @@ See:
 - Overview: [docs/conformance-tests.md](../docs/conformance-tests.md)
 - Test catalog: [docs/conformance-test-catalog.md](../docs/conformance-test-catalog.md)
 
+## Architecture
+
+The suite runs the same battery of HTTP-behavior tests against multiple proxies — Caddy, HAProxy, and protospy — to verify protospy is a correct transparent reverse proxy. The reference proxies validate both protospy and the tests themselves: any deviation from their behavior signals either a protospy bug or a broken test.
+
+**The conformance tests in `tests/` are the primary deliverable.** `tests/test_hop_by_hop.py`, `test_forwarding_headers.py`, `test_chunked_edge_cases.py`, and the other `test_*.py` files are the product of this subproject — the HTTP conformance coverage. `tests/` also contains two infrastructure unit tests (`test_assertions.py`, `test_good_server.py`) and two infrastructure support files (`conftest.py`, `proxies.py`) that are not conformance tests.
+
+The `src/proxy_conformance/` package provides the harness: target servers (`GoodServer`, `WireServer`, `H2cServer`, `GrpcServer`), the structured `ProxyTestCase`/`ProxyQuirk` assertion model, a low-level h11 client for protocol-violation tests, and port-allocation utilities.
+
+Each test is parametrized over the selected proxy list (`--proxy`). For each proxy, a subprocess is started, requests are sent through it, and both the client-side response and the captured request at the target server are asserted.
+
+For code-level details — module roles, fixture wiring, file map, channel taxonomy — see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Development
 
 ### Running tests
