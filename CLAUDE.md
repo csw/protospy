@@ -54,6 +54,13 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
 - `docs/agents/worktrees.md`: when using the `using-git-worktrees` skill
 
+## File creation
+
+Use the Write tool to create files and the Edit tool to modify them. Do not use shell constructs like `cat >
+path << 'EOF'`, `echo "..." > path`, or other Bash-based file writing. These create complex compound commands
+that trigger permission prompts because the shell syntax can't be statically verified. The Write and Edit
+tools exist for this purpose and don't have that problem.
+
 ## Delegating noisy investigation to subagents
 
 Repetitive, high-output investigation steps with low long-term value should be delegated to a subagent on a smaller model (e.g. Haiku) rather than run inline. Pulling raw `ps`/`lsof`/`netstat`/`grep`/log-tail output into the primary context burns the window fast and rarely retains anything worth keeping a turn later.
