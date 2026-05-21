@@ -71,7 +71,10 @@ _REQUEST_TRAILERS_QUIRKS: dict[str, ProxyQuirk] = {
 }
 
 # §7.5: Caddy returns 502 instead of 400 for invalid chunk size.
-# HAProxy non-deterministically returns 400 or drops the connection.
+# HAProxy behavior is variant-dependent: immediate invalid chunk → always
+# 400; delayed invalid chunk (valid chunk first, then invalid) → always
+# connection drop. Both variants share a single quirk accepting either
+# outcome because the test IDs are shared.
 _INVALID_CHUNK_SIZE_REQUEST_QUIRKS: dict[str, ProxyQuirk] = {
     "caddy": ProxyQuirk(
         disposition="override",
@@ -82,8 +85,8 @@ _INVALID_CHUNK_SIZE_REQUEST_QUIRKS: dict[str, ProxyQuirk] = {
     "haproxy": ProxyQuirk(
         disposition="override",
         reason=(
-            "Non-deterministic: returns 400 or drops connection "
-            "(race between chunked parser and TCP close)"
+            "Variant-dependent: immediate invalid chunk → 400, "
+            "delayed invalid chunk → connection drop"
         ),
         client=[ClientExpectation(status=400), ConnectionDrop()],
         target=TargetExpectation(no_request=True),

@@ -57,7 +57,7 @@ Two headers listed in §7.6.1 have exceptions elsewhere in the RFC that explicit
 - `TE`: §10.1.4 allows forwarding `TE: trailers`
 - `Proxy-Authorization`: §11.7.1 allows relaying credentials to the next proxy
 
-Neither Caddy nor HAProxy strips these — the tests record observed behavior as findings rather than asserting removal.
+Neither strips TE. Caddy strips Proxy-Authorization; HAProxy forwards it. The tests record observed behavior as findings rather than asserting removal.
 
 The proxy must also not forward headers listed in the `Connection` header's value (e.g., `Connection: X-Custom` means strip `X-Custom`).
 

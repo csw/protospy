@@ -45,7 +45,7 @@ def test_upstream_unreachable(
     """Proxy returns 5xx when upstream is unreachable (§9.1).
 
     Uses the dead proxy endpoint which forwards to a port with nothing bound.
-    RFC 7231 §6.6.3 recommends 502 Bad Gateway.
+    RFC 9110 §15.6.3 recommends 502 Bad Gateway.
     """
     url = tagged_url(proxy.dead_url, "upstream-unreachable")
     result = send_expecting_error(client, url)
