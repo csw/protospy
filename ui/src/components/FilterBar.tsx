@@ -11,10 +11,15 @@ export function FilterBar() {
   const exchanges = useStore((s) => s.exchanges);
 
   const totalCount = ids.length;
-  const filteredCount = filter
+  const isFiltered = filter.length > 0 || traceFilter != null;
+  const filteredCount = isFiltered
     ? ids.filter((id) => {
         const ex = exchanges.get(id);
-        return ex != null && matchesFilter(ex, filter);
+        return (
+          ex != null &&
+          matchesFilter(ex, filter) &&
+          (traceFilter == null || ex.traceId === traceFilter)
+        );
       }).length
     : totalCount;
 
@@ -63,7 +68,7 @@ export function FilterBar() {
 
       {/* Exchange count */}
       <span className="font-family-mono text-xs text-dim shrink-0 ml-auto">
-        {filter
+        {isFiltered
           ? `${filteredCount} of ${totalCount}`
           : `${totalCount} exchange${totalCount !== 1 ? "s" : ""}`}
       </span>

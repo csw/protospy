@@ -43,6 +43,7 @@ export function Inspector() {
   const ids = useStore((s) => s.ids);
   const selectedId = useStore((s) => s.selectedId);
   const filter = useStore((s) => s.filter);
+  const traceFilter = useStore((s) => s.traceFilter);
   const order = useStore((s) => s.order);
   const protocol = useStore((s) => s.protocol);
 
@@ -56,7 +57,8 @@ export function Inspector() {
   const filtered = ids
     .map((id) => exchanges.get(id))
     .filter((ex): ex is Exchange => ex != null)
-    .filter((ex) => matchesFilter(ex, filter));
+    .filter((ex) => matchesFilter(ex, filter))
+    .filter((ex) => traceFilter == null || ex.traceId === traceFilter);
   const ordered = order === "newest" ? [...filtered].reverse() : filtered;
 
   const currentIdx =
