@@ -2,7 +2,7 @@
 
 This project uses Linear for issue tracking. The team key is `PRO`, so issue IDs take the form `PRO-NNN` (e.g. `PRO-50`). When the user references a ticket like `PRO-50`, it is a Linear issue identifier.
 
-The `linear` CLI is available and authenticated. The `api.linear.app` domain is allowlisted in `.claude/settings.json`, so no sandbox bypass is needed.
+The `linear` CLI is available and authenticated. A wrapper at `~/bin/linear` ensures it works inside the Claude Code sandbox (the Deno HTTP client used by the CLI conflicts with the sandbox's SOCKS5 proxy; the wrapper strips `ALL_PROXY` so traffic routes through the HTTP proxy instead).
 
 For full CLI documentation, invoke the `linear-cli` skill.
 
