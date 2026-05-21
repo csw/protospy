@@ -47,7 +47,7 @@ This is the key section. End to end:
 
 ### 1. Bootstrap (`main.tsx` → `App.tsx` → `AppShell`)
 
-`main.tsx` resolves dark mode (`resolveInitialDarkMode`), applies the theme to `<html data-theme>` **before** render to avoid a flash, syncs `darkMode` into the store, then renders `<App/>` (which is just `<AppShell/>`) into `#root`. `index.html` also has an inline pre-React script that sets `data-theme` from `localStorage`/media query, so the first paint is already themed.
+`main.tsx` reads the persisted dark-mode preference from the Zustand `persist` storage key (`protospy-ui-prefs`) and applies the theme to `<html data-theme>` **before** render to avoid a flash, then renders `<App/>` (which is just `<AppShell/>`) into `#root`. `index.html` also has an inline pre-React script that sets `data-theme` from `localStorage`/media query, so the first paint is already themed.
 
 ### 2. Backend discovery + subscription (`api/` + `AppShell`)
 
@@ -106,7 +106,7 @@ type Event =
 
 `InitialBody` is normalized to the local `BodyState` (`{ chunks, atEnd, totalBytes, contentType?, contentEncoding? }`) by `initialBodyToState`, which pulls `content-type`/`content-encoding` off the headers at reduce time so decoders don't have to re-scan headers. `NoBody` → `undefined`; `NotRead` → empty-but-present body.
 
-The store also holds all **UI state**: `selectedId`, `filter`, `traceFilter`, `hoverTraceId`, `listMode` (`rows`/`table`), `listWidth`, `order` (`newest`/`oldest`), `density`, `traceGroupOn`, `cmdKOpen`, `darkMode`, plus `connection`, `service`, `protocol`. Each has a plain setter. `toggleDarkMode` additionally calls `applyThemeToDOM` + `persistDarkMode` as a side effect.
+The store also holds all **UI state**: `selectedId`, `filter`, `traceFilter`, `hoverTraceId`, `listMode` (`rows`/`table`), `listWidth`, `order` (`newest`/`oldest`), `density`, `traceGroupOn`, `cmdKOpen`, `darkMode`, plus `connection`, `service`, `protocol`. Each has a plain setter. `toggleDarkMode` additionally calls `applyThemeToDOM` as a side effect. The store uses Zustand's `persist` middleware to save UI preferences (`listWidth`, `density`, `order`, `listMode`, `traceGroupOn`, `darkMode`) to `localStorage` under the key `protospy-ui-prefs`, with `partialize` to exclude transient state.
 
 ### 5. Render (`components/`)
 
@@ -148,18 +148,18 @@ ui/
     api/            # Backend access. info.ts (fetchInfo, /info, Info type); sse.ts (subscribeToEvents, EventSource, ConnectionStatus)
     body/           # Pure body decoding. decode.ts (chunks→bytes→decompress→classify json/jsonl/text/binary); sse.ts (parseSSEBody, chunksToText)
     anthropic/      # transcript.ts — folds an SSE event stream into an Anthropic chat transcript summary
-    state/          # store.ts (Zustand store + UI state + dev __test_store); reducer.ts (pure apply(), Exchange/BodyState shapes)
+    state/          # store.ts (Zustand store + persist middleware + UI state + dev __test_store); reducer.ts (pure apply(), Exchange/BodyState shapes)
     protocol/       # index.ts — protocol-aware UI gating; showPairsTab() (ES/OpenSearch bulk ops only)
     hooks/          # useDecodeBody.ts — async decode-on-complete hook used by BodyPane
     lib/            # utils.ts — pure helpers: cn, formatSize, status/method class mappers, traceColor, formatTime, matchesFilter, splitUri, parseQueryParams, shortenTraceId, isBulkOperation
-    theme/          # tailwind.css (@theme tokens + dark variant); applyTheme.ts (applyThemeToDOM, resolveInitialDarkMode, persistDarkMode)
+    theme/          # tailwind.css (@theme tokens + dark variant); applyTheme.ts (applyThemeToDOM)
     components/     # App components (AppShell, TopBar, FilterBar, ExchangeList, ExchangeListItem, Inspector, ContextBar, BodySplit, BodyPane, StreamView, JsonViewer, TimingView, StatusBar, CommandPalette, CopyButton)
       ui/           # shadcn/ui primitives (Radix/cmdk wrappers): button, dialog, popover, tabs, tooltip, dropdown-menu, command, scroll-area, separator + EmptyState, MethodBadge
       anthropic/    # ChatStreamView.tsx — Anthropic SSE/chat-transcript renderer
     test/           # setup.ts (jest-dom for jsdom project); fixtures.ts (shared EventMessage builders)
     __tests__/      # Vitest tests — *.test.ts (node) and *.test.tsx (jsdom)
     App.tsx         # Root component (renders AppShell)
-    main.tsx        # Entry point — fonts + theme bootstrap + createRoot render
+    main.tsx        # Entry point — fonts + early dark-mode bootstrap from persist key + createRoot render
     vite-env.d.ts   # Vite ambient types
   browser/          # Playwright specs (*.spec.ts) + fixtures/exchanges.ts (re-export of src/test/fixtures.ts) + helpers/inject.ts
   index.html        # HTML shell; inline pre-React theme script; mounts /src/main.tsx

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { useStore } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
@@ -17,6 +17,20 @@ export function AppShell() {
   const setService = useStore((s) => s.setService);
   const setProtocol = useStore((s) => s.setProtocol);
   const service = useStore((s) => s.service);
+  const listMode = useStore((s) => s.listMode);
+  const listWidth = useStore((s) => s.listWidth);
+  const setListWidth = useStore((s) => s.setListWidth);
+
+  const dragging = useRef(false);
+
+  const handleListPanelResize = useCallback(
+    (size: { inPixels: number }) => {
+      if (dragging.current) {
+        setListWidth(listMode, size.inPixels);
+      }
+    },
+    [listMode, setListWidth],
+  );
 
   const [info, setInfo] = useState<Info | null>(null);
 
@@ -71,10 +85,22 @@ export function AppShell() {
       />
       <FilterBar />
       <Group orientation="horizontal" className="flex-1 overflow-hidden">
-        <Panel defaultSize={300} minSize={200}>
+        <Panel
+          defaultSize={listWidth[listMode]}
+          minSize={200}
+          onResize={handleListPanelResize}
+        >
           <ExchangeList />
         </Panel>
-        <Separator className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors" />
+        <Separator
+          className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors"
+          onPointerDown={() => {
+            dragging.current = true;
+          }}
+          onPointerUp={() => {
+            dragging.current = false;
+          }}
+        />
         <Panel>
           <Inspector />
         </Panel>

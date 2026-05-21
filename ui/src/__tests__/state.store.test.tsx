@@ -136,11 +136,12 @@ describe("state/store", () => {
       expect(document.documentElement.getAttribute("data-theme")).toBe("light");
     });
 
-    it('persists "dark"/"light" to localStorage["theme"]', () => {
+    it("persists darkMode to localStorage via persist middleware", () => {
       useStore.getState().toggleDarkMode();
-      expect(localStorage.getItem("theme")).toBe("dark");
-      useStore.getState().toggleDarkMode();
-      expect(localStorage.getItem("theme")).toBe("light");
+      const stored = JSON.parse(
+        localStorage.getItem("protospy-ui-prefs") ?? "{}",
+      );
+      expect(stored.state.darkMode).toBe(true);
     });
   });
 
@@ -178,6 +179,78 @@ describe("state/store", () => {
       expect(useStore.getState().protocol).toBe("Anthropic");
       useStore.getState().setProtocol(null);
       expect(useStore.getState().protocol).toBeNull();
+    });
+  });
+
+  describe("persist middleware", () => {
+    it("persists UI preferences to localStorage under protospy-ui-prefs", () => {
+      useStore.getState().setDensity("compact");
+      useStore.getState().setOrder("oldest");
+      useStore.getState().setListMode("table");
+      useStore.getState().toggleTraceGroup();
+      useStore.getState().setListWidth("rows", 500);
+
+      const stored = JSON.parse(
+        localStorage.getItem("protospy-ui-prefs") ?? "{}",
+      );
+      expect(stored.state).toMatchObject({
+        density: "compact",
+        order: "oldest",
+        listMode: "table",
+        traceGroupOn: true,
+        listWidth: { rows: 500, table: 720 },
+      });
+    });
+
+    it("does not persist ephemeral state like filter or selectedId", () => {
+      useStore.getState().setFilter("GET /api");
+      useStore.getState().setSelectedId(42);
+      useStore.getState().setCmdKOpen(true);
+
+      const stored = JSON.parse(
+        localStorage.getItem("protospy-ui-prefs") ?? "{}",
+      );
+      expect(stored.state).not.toHaveProperty("filter");
+      expect(stored.state).not.toHaveProperty("selectedId");
+      expect(stored.state).not.toHaveProperty("cmdKOpen");
+      expect(stored.state).not.toHaveProperty("exchanges");
+    });
+
+    it("rehydrates persisted preferences from localStorage", async () => {
+      useStore.setState(useStore.getInitialState(), true);
+
+      // Set localStorage after resetting state so the persist subscriber's
+      // write of defaults doesn't overwrite our test data.
+      localStorage.setItem(
+        "protospy-ui-prefs",
+        JSON.stringify({
+          state: {
+            density: "compact",
+            order: "oldest",
+            listMode: "table",
+            listWidth: { rows: 340, table: 999 },
+            traceGroupOn: true,
+            darkMode: true,
+          },
+          version: 0,
+        }),
+      );
+
+      await new Promise<void>((resolve) => {
+        const unsub = useStore.persist.onFinishHydration(() => {
+          unsub();
+          resolve();
+        });
+        useStore.persist.rehydrate();
+      });
+
+      const state = useStore.getState();
+      expect(state.density).toBe("compact");
+      expect(state.order).toBe("oldest");
+      expect(state.listMode).toBe("table");
+      expect(state.listWidth.table).toBe(999);
+      expect(state.traceGroupOn).toBe(true);
+      expect(state.darkMode).toBe(true);
     });
   });
 });

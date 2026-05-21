@@ -6,15 +6,22 @@ import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/jetbrains-mono/700.css";
 import "./theme/tailwind.css";
-import { applyThemeToDOM, resolveInitialDarkMode } from "./theme/applyTheme";
-import { useStore } from "./state/store";
+import { applyThemeToDOM } from "./theme/applyTheme";
+import "./state/store";
 import App from "./App.tsx";
 
-// Apply theme before render to prevent flash, and sync the store so any
-// component reading darkMode on first paint sees the resolved value.
-const isDark = resolveInitialDarkMode();
-applyThemeToDOM(isDark);
-useStore.setState({ darkMode: isDark });
+// Apply theme before first paint to prevent flash. The persist middleware
+// will hydrate the store asynchronously, but the DOM attribute must be set
+// synchronously from the raw localStorage value.
+try {
+  const raw = localStorage.getItem("protospy-ui-prefs");
+  if (raw) {
+    const { state } = JSON.parse(raw);
+    if (state?.darkMode) applyThemeToDOM(true);
+  }
+} catch {
+  // corrupt or missing — fall through to light default
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

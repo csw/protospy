@@ -2,7 +2,13 @@ import type { Page } from "@playwright/test";
 
 export async function waitForStore(page: Page) {
   await page.waitForFunction(
-    () => (window as Record<string, unknown>).__test_store != null,
+    () => {
+      const store = (window as Record<string, unknown>).__test_store;
+      if (store == null) return false;
+      // Wait for persist middleware hydration to complete
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (store as any).persist?.hasHydrated?.() ?? true;
+    },
     { timeout: 10_000 },
   );
 }
