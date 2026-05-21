@@ -47,3 +47,18 @@ The test suite should run in under 15 seconds. Parallelize if needed. Avoid writ
 Tests should be deterministic. Prefer explicit synchronization to relying on timeouts that 'should work' or on timing measurements. NEVER write a test that will block indefinitely if an invariant isn't met. Synchronization in a test MUST have a reasonable timeout (60 seconds max), and MUST be checked for timeout so that the test will fail.
 
 Flaky tests are unacceptable.
+
+### Reproducing CI-only timing failures locally
+
+CI runners have fewer CPU resources than development machines, which can surface race conditions that never reproduce locally. On macOS, use `taskpolicy -b` to constrain a process tree to background QoS (efficiency cores only, lowest scheduling priority):
+
+```bash
+taskpolicy -b uv run pytest -q --proxy protospy -k 'test_name'
+```
+
+This typically produces a 4-6x slowdown, closely approximating CI's constrained environment. Useful for:
+- Verifying a flaky-test fix actually holds under resource pressure
+- Reproducing timing-dependent failures (BrokenPipeError, connection races) that only appear in CI
+- Stress-testing with a loop: `for i in $(seq 1 30); do taskpolicy -b uv run pytest ...; done`
+
+Note: `taskpolicy -b` requires running outside the Claude Code sandbox (`dangerouslyDisableSandbox: true`) because the sandbox blocks `setpriority()`.
