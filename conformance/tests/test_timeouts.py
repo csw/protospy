@@ -182,11 +182,13 @@ def test_upstream_body_stall(
     findings: Findings,
     proxy_name: str,
 ) -> None:
-    """Proxy drops connection when upstream stalls mid-body (§10.3).
+    """Proxy handles upstream stalling mid-body (§10.3).
 
     WireServer /stall/mid-body sends headers + 100 bytes then stalls 3s.
-    A streaming proxy has already started forwarding, so the only correct
-    signal is closing the connection.
+    A streaming proxy that has already started forwarding can only signal
+    the failure by dropping the connection. A buffering proxy that
+    detects the timeout before forwarding may return 502 instead. Both
+    outcomes are accepted.
     """
     url = tagged_url(
         f"{timeout_proxy.wire_url}/stall/mid-body",
@@ -194,11 +196,18 @@ def test_upstream_body_stall(
     )
     result = send_expecting_error(timeout_client, url)
 
-    assert_probe_result(result, ConnectionDrop(), test_id="upstream-body-stall")
+    assert_probe_result(
+        result,
+        [ConnectionDrop(), ClientExpectation(status=502)],
+        test_id="upstream-body-stall",
+    )
 
+    outcome = (
+        "dropped connection" if result.status is None else f"returned {result.status}"
+    )
     findings.record(
         "upstream-body-stall",
-        f"[{proxy_name}] Proxy dropped connection during upstream body stall",
+        f"[{proxy_name}] Proxy {outcome} during upstream body stall",
         level="finding",
     )
 

@@ -349,12 +349,13 @@ def test_missing_final_chunk_response(
     findings: Findings,
     proxy_name: str,
 ) -> None:
-    """Proxy drops connection for response missing terminal chunk (§7.4).
+    """Proxy handles response missing terminal chunk (§7.4).
 
     WireServer /missing-final-chunk sends valid chunk data but closes
-    without the terminal 0-length chunk. A streaming proxy has already
-    started forwarding, so the only correct signal is closing the
-    connection.
+    without the terminal 0-length chunk. A streaming proxy that has
+    already started forwarding can only signal the failure by dropping
+    the connection. A buffering proxy that detects the close before
+    forwarding may return 502 instead. Both outcomes are accepted.
     """
     url = tagged_url(
         f"{proxy.wire_url}/missing-final-chunk",
@@ -364,15 +365,18 @@ def test_missing_final_chunk_response(
 
     assert_probe_result(
         result,
-        ConnectionDrop(),
+        [ConnectionDrop(), ClientExpectation(status=502)],
         test_id="missing-final-chunk-response",
     )
 
+    outcome = (
+        "dropped connection" if result.status is None else f"returned {result.status}"
+    )
     _probe_finding(
         findings,
         "missing-final-chunk-response",
         proxy_name,
-        "Proxy dropped connection for missing final chunk",
+        f"Proxy {outcome} for missing final chunk",
     )
 
 
