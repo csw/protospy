@@ -78,6 +78,21 @@ PR titles matter because GitHub uses them as the default squash-merge commit mes
 
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
+### Running git in a different directory
+
+Never use `cd /path && git ...` — this triggers an "untrusted hooks" approval prompt. Use `git -C` instead:
+
+```bash
+# Good
+git -C /path/to/dir add file.txt
+git -C /path/to/dir commit -m "message"
+
+# Bad — triggers approval prompt
+cd /path/to/dir && git add file.txt && git commit -m "message"
+```
+
+If you are already in the target directory, run git commands directly with no `cd` prefix.
+
 ## Versioning dependencies
 
 When adding any dependency — Python packages, npm packages, GitHub Actions, CDN scripts, pre-commit hooks, Docker images, etc. — use the **current version** at the time of addition and pin it:

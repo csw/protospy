@@ -22,7 +22,8 @@
         "astral.sh",
         "github.com",
         "api.github.com",
-        "api.linear.app"
+        "api.linear.app",
+        "registry.npmjs.org"
       ]
     }
   }
