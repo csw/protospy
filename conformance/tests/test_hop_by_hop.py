@@ -139,7 +139,8 @@ HOP_BY_HOP_TESTS: list[ProxyTestCase] = [
     #   - TE: §10.1.4 "A proxy MAY forward a TE … with a value of 'trailers'"
     #   - Proxy-Authorization: §11.7.1 "A proxy MAY relay the credentials …
     #     to the next proxy"
-    # Neither Caddy nor HAProxy strips them.  See findings-based tests below.
+    # Neither strips TE. Caddy strips Proxy-Authorization; HAProxy
+    # forwards it. See findings-based tests below.
     ProxyTestCase(
         id="3.6-response-hop-by-hop-stripped",
         spec_ref="RFC 9110 §7.6.1",
@@ -284,8 +285,8 @@ def test_proxy_authorization_handling(
     """Proxy-Authorization forwarding behaviour (RFC 9110 §7.6.1 vs §11.7.1).
 
     §7.6.1 lists Proxy-Authorization as hop-by-hop, but §11.7.1 says a
-    proxy MAY relay credentials to the next proxy.  Neither Caddy nor
-    HAProxy strips it.
+    proxy MAY relay credentials to the next proxy. Caddy strips
+    Proxy-Authorization; HAProxy forwards it.
     """
     response = client.get(
         tagged_url(

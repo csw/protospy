@@ -45,7 +45,7 @@ def test_upstream_unreachable(
     """Proxy returns 5xx when upstream is unreachable (§9.1).
 
     Uses the dead proxy endpoint which forwards to a port with nothing bound.
-    RFC 7231 §6.6.3 recommends 502 Bad Gateway.
+    RFC 9110 §15.6.3 recommends 502 Bad Gateway.
     """
     url = tagged_url(proxy.dead_url, "upstream-unreachable")
     result = send_expecting_error(client, url)
@@ -166,16 +166,25 @@ def test_upstream_content_length_mismatch(
     """Proxy handles upstream sending fewer bytes than Content-Length (§9.5).
 
     WireServer /truncated promises 1000 bytes but sends only 500.
-    A streaming proxy has already started forwarding the response,
-    so the only correct signal is closing the connection.
+    A streaming proxy that has already started forwarding can only
+    signal the failure by dropping the connection. A buffering proxy
+    that detects the close before forwarding may return 502 instead.
+    Both outcomes are accepted per RFC 9112 §9.5.
     """
     url = tagged_url(f"{proxy.wire_url}/truncated", "truncated-body")
     result = send_expecting_error(client, url)
 
-    assert_probe_result(result, ConnectionDrop(), test_id="truncated-body")
+    assert_probe_result(
+        result,
+        [ConnectionDrop(), ClientExpectation(status=502)],
+        test_id="truncated-body",
+    )
 
+    outcome = (
+        "dropped connection" if result.status is None else f"returned {result.status}"
+    )
     findings.record(
         "truncated-body",
-        f"[{proxy_name}] Proxy dropped connection for truncated body (RFC 9112 §6.3)",
+        f"[{proxy_name}] Proxy {outcome} for truncated body (RFC 9112 §6.3)",
         level="finding",
     )

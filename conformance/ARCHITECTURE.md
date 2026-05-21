@@ -123,6 +123,7 @@ conformance/
 ├── src/proxy_conformance/  # installable package — the harness infrastructure
 │   ├── targets.py          # proxy taxonomy: MANAGED_PROXIES, ALL_PROXIES, PROXY_FAMILIES
 │   ├── types.py            # ProxyTestCase, ProxyQuirk, Outcome, assertion helpers
+│   ├── captured.py         # CapturedRequest: shared request-capture dataclass
 │   ├── good_server.py      # GoodServer: aiohttp target with route-based endpoints
 │   ├── wire_server.py      # WireServer: h11 target for programmable raw responses
 │   ├── h2c_server.py       # H2cServer: cleartext HTTP/2 target (hyper-h2)
@@ -208,6 +209,10 @@ Core dataclasses and assertion helpers:
 - `apply_quirk()` — used by tests that don't use `ProxyTestCase`; calls `pytest.skip`/`pytest.xfail` or returns the override quirk.
 - `send_expecting_error()` / `assert_probe_result()` — for tests where the proxy may drop the connection.
 - `ProbeResult` — a minimally-parsed response-or-drop result.
+
+### `src/proxy_conformance/captured.py`
+
+`CapturedRequest` is a shared dataclass representing an HTTP request as observed by a target server. Both `GoodServer` and `WireServer` produce `CapturedRequest` instances (WireServer via its `WireCapturedRequest` subclass which adds wire-only fields like `trailers`). Lives in its own module to avoid peer dependencies between the server implementations.
 
 ### `src/proxy_conformance/good_server.py`
 

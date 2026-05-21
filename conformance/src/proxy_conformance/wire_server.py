@@ -24,9 +24,17 @@ from typing import Annotated
 import h11
 import typer
 
-from proxy_conformance.good_server import CapturedRequest
+from proxy_conformance.captured import CapturedRequest
 from proxy_conformance.net import find_free_port
 from proxy_conformance.request_logging import log_request
+
+
+@dataclass
+class WireCapturedRequest(CapturedRequest):
+    """CapturedRequest extended with fields only observable at the wire level."""
+
+    trailers: dict[str, list[str]] = field(default_factory=dict)
+
 
 Handler = Callable[[h11.Request, bytes, socket.socket, h11.Connection], None]
 
@@ -236,6 +244,54 @@ def reject_expect() -> Handler:
     return handler
 
 
+def reject_expect_capturing(
+    request_arrived: threading.Event,
+    body_after_417: list[bytes],
+) -> Handler:
+    """100-continue handler: reject with 417 and capture any body bytes.
+
+    Sends 417 immediately without sending 100, then waits briefly to see
+    if the proxy forwards body bytes after the rejection. Records what
+    was received in ``body_after_417`` and signals ``request_arrived``.
+
+    Used by the 417-forwarding wire-level test to verify the proxy does
+    not forward the client body after the upstream rejects with 417.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        request_arrived.set()
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=417,
+                    headers=[("content-length", "0")],
+                )
+            )
+        )
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
+        buf = b""
+        conn.settimeout(1.0)
+        try:
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        body_after_417.append(buf)
+
+    return handler
+
+
 def silent_close() -> Handler:
     """Accept and parse the request, then close without sending any response.
 
@@ -431,6 +487,53 @@ def incomplete_request_target(received: list[bytes]) -> Handler:
     return handler
 
 
+def body_stall_target(
+    request_arrived: threading.Event,
+    received_body: list[bytes],
+) -> Handler:
+    """Accept a request whose body may never arrive and respond 200.
+
+    Dispatched as soon as headers arrive (``dispatch_after_headers=True``).
+    Reads any available body bytes with a short timeout, records them in
+    ``received_body``, sets ``request_arrived``, then sends a 200
+    response.  Used by the client-body-stall test to observe whether
+    the proxy forwards the request before the client body is complete.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        # Drain any body bytes h11 buffered beyond the headers before
+        # the early dispatch.  Without this, bytes that arrived in the
+        # same TCP segment as the request headers would be invisible to
+        # the subsequent conn.recv() calls.
+        trailing, _ = h11_conn.trailing_data
+        buf = _body + trailing
+        conn.settimeout(1.0)
+        try:
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        received_body.append(buf)
+        request_arrived.set()
+        conn.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+
+    handler.dispatch_after_headers = True  # type: ignore[attr-defined]
+    return handler
+
+
 def delayed_100(_delay_seconds: float) -> Handler:
     """Stub: delayed 100-continue response handler.
 
@@ -464,7 +567,7 @@ class WireServer:
     host: str = "127.0.0.1"
     port: int = field(default_factory=find_free_port)
     log_requests: bool = False
-    requests: queue.Queue[CapturedRequest] = field(default_factory=queue.Queue)
+    requests: queue.Queue[WireCapturedRequest] = field(default_factory=queue.Queue)
     _routes: dict[str, Handler] = field(default_factory=dict, repr=False)
     _server_sock: socket.socket | None = field(default=None, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
@@ -498,7 +601,7 @@ class WireServer:
         if self._thread:
             self._thread.join(timeout=5)
 
-    def last_request(self, timeout: float = 2.0) -> CapturedRequest:
+    def last_request(self, timeout: float = 2.0) -> WireCapturedRequest:
         """Retrieve the next captured request. Blocks until available.
 
         Raises queue.Empty if no request arrives within the timeout.
@@ -545,6 +648,7 @@ class WireServer:
         h11_conn = h11.Connection(our_role=h11.SERVER)
         request: h11.Request | None = None
         body = b""
+        trailers: dict[str, list[str]] = {}
 
         while True:
             event = h11_conn.next_event()
@@ -574,6 +678,10 @@ class WireServer:
             elif isinstance(event, h11.Data):
                 body += event.data
             elif isinstance(event, h11.EndOfMessage):
+                for name, value in event.headers:
+                    trailers.setdefault(name.decode().lower(), []).append(
+                        value.decode()
+                    )
                 break
             elif event is h11.PAUSED:
                 # e.g. Expect: 100-continue — stop reading, let handler decide.
@@ -603,11 +711,12 @@ class WireServer:
         for name, value in request.headers:
             headers.setdefault(name.decode().lower(), []).append(value.decode())
 
-        captured = CapturedRequest(
+        captured = WireCapturedRequest(
             method=request.method.decode(),
             path=target,
             headers=headers,
             body=body,
+            trailers=trailers,
         )
         self.requests.put(captured)
         if self.log_requests:

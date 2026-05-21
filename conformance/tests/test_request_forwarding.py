@@ -9,7 +9,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from proxy_conformance.good_server import CapturedRequest, GoodServer
+from proxy_conformance.captured import CapturedRequest
+from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import send_raw_request_line
 from proxy_conformance.types import (
     ClientExpectation,
