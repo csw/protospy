@@ -21,7 +21,8 @@
         "files.pythonhosted.org",
         "astral.sh",
         "github.com",
-        "api.github.com"
+        "api.github.com",
+        "api.linear.app"
       ]
     }
   }
