@@ -14,3 +14,4 @@ docker-compose.override.*
 /skills-lock.json
 .DS_Store
 .pnpm-store
+.vscode/
