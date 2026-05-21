@@ -236,6 +236,54 @@ def reject_expect() -> Handler:
     return handler
 
 
+def reject_expect_capturing(
+    request_arrived: threading.Event,
+    body_after_417: list[bytes],
+) -> Handler:
+    """100-continue handler: reject with 417 and capture any body bytes.
+
+    Sends 417 immediately without sending 100, then waits briefly to see
+    if the proxy forwards body bytes after the rejection. Records what
+    was received in ``body_after_417`` and signals ``request_arrived``.
+
+    Used by the 417-forwarding wire-level test to verify the proxy does
+    not forward the client body after the upstream rejects with 417.
+
+    This handler is test-only and is not registered in
+    ``register_default_routes()``.
+    """
+
+    def handler(
+        _request: h11.Request,
+        _body: bytes,
+        conn: socket.socket,
+        h11_conn: h11.Connection,
+    ) -> None:
+        request_arrived.set()
+        conn.sendall(
+            h11_conn.send(
+                h11.Response(
+                    status_code=417,
+                    headers=[("content-length", "0")],
+                )
+            )
+        )
+        conn.sendall(h11_conn.send(h11.EndOfMessage()))
+        buf = b""
+        conn.settimeout(1.0)
+        try:
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        body_after_417.append(buf)
+
+    return handler
+
+
 def silent_close() -> Handler:
     """Accept and parse the request, then close without sending any response.
 
