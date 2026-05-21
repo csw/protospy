@@ -6,6 +6,26 @@ The `linear` CLI is available and authenticated. A wrapper at `~/bin/linear` ens
 
 For full CLI documentation, invoke the `linear-cli` skill.
 
+## Read-only access — what you can and cannot do
+
+The CLI is configured with **read-only access**. You can look up issue
+details but you cannot create, update, or close issues via the API.
+
+Do not attempt `linear issue update`, `linear issue create`, or any
+write operation. They will fail with a scope error.
+
+**To close or update an issue**: link your work via commit messages or
+PR descriptions (see "Linking work to issues" below). Linear's GitHub
+integration handles status transitions automatically — branch push
+moves issues to In Progress, merge moves them to Done.
+
+**To create a new issue**: use `/pm:capture` with a short description.
+This routes through the project's PM agent, which handles labeling,
+project assignment, deduplication, and ticket shaping. Use this for
+separate discoveries (a bug you stumbled across, a missing test, a new
+issue) — not for scope questions about your current task, which should
+go to the user interactively.
+
 ## Getting issue details
 
 ```bash
@@ -42,6 +62,9 @@ Top-level fields present in the JSON: `identifier`, `title`, `description`, `url
 
 ## Linking work to issues
 
+This is how issues get moved through their workflow. There is no API
+path for status changes — commit and PR linking is the mechanism.
+
 When working on a branch that covers a single issue, the branch name
 handles linking automatically (branch names include the issue ID).
 
@@ -71,23 +94,3 @@ Use `fixes` when the commit or PR fully resolves the issue — Linear will
 move it to Done on merge. Use `refs` when the work is partial progress
 or related but doesn't complete the issue. Use your judgment; most work
 that directly addresses a ticket will be `fixes`.
-
-## Creating and updating issues
-
-Do not create or update Linear issues directly. The CLI is configured
-with read-only access.
-
-If you discover something ticket-worthy that is separate from your
-current task (a bug you stumbled across, a missing test, a new issue),
-use `/pm:capture` with a short description. This routes through the
-project's PM agent, which handles labeling, project assignment,
-deduplication, and ticket shaping.
-
-If you have a question about the scope or intent of the work you are
-currently doing, ask the user directly. Do not use `/pm:capture` as a
-substitute for interactive clarification.
-
-To link your work to an existing issue, use commit message magic words
-(see above). Linear's GitHub integration handles status transitions
-automatically — branch push moves issues to In Progress, merge moves
-them to Done.
