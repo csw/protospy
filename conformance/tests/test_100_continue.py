@@ -11,7 +11,7 @@ import threading
 import urllib.parse
 
 from proxy_conformance.h11_client import (
-    _parse_raw_response,
+    parse_raw_response,
     send_with_expect_continue,
 )
 from proxy_conformance.wire_server import WireServer, reject_expect_capturing
@@ -179,7 +179,7 @@ class TestUpstreamRejectsExpect:
         remaining = response_bytes
         while remaining:
             try:
-                parsed = _parse_raw_response(remaining)
+                parsed = parse_raw_response(remaining)
             except ValueError:
                 break
             if parsed.status < 200:
@@ -203,11 +203,13 @@ class TestUpstreamRejectsExpect:
                 f"rejection: {body_after_417[0]!r}"
             )
 
-        # Client-side: 417 or connection close are both conformant.
-        # The proxy closing the connection after relaying 417 is
-        # valid per RFC 9110 §10.1.1.
-        assert client_status is None or client_status == 417, (
-            f"Expected 417 or connection close, got {client_status}"
+        # Client-side: 417, 502, or connection close are all conformant.
+        # 417 = proxy relayed the upstream rejection directly.
+        # 502 = proxy encountered an error (e.g. BrokenPipeError) while
+        #   relaying the rejection, per RFC 9110 §15.6.3.
+        # None (connection close) = valid per RFC 9112 §9.5.
+        assert client_status is None or client_status in {417, 502}, (
+            f"Expected 417, 502, or connection close, got {client_status}"
         )
 
         if client_status == 417:
@@ -215,6 +217,12 @@ class TestUpstreamRejectsExpect:
                 "upstream-rejects-expect",
                 f"[{proxy_name}] Proxy forwarded 417 to client",
                 level="info",
+            )
+        elif client_status == 502:
+            findings.record(
+                "upstream-rejects-expect",
+                f"[{proxy_name}] Proxy returned 502 after upstream 417 rejection",
+                level="finding",
             )
         else:
             findings.record(

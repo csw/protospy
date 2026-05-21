@@ -24,9 +24,17 @@ from typing import Annotated
 import h11
 import typer
 
-from proxy_conformance.good_server import CapturedRequest
+from proxy_conformance.captured import CapturedRequest
 from proxy_conformance.net import find_free_port
 from proxy_conformance.request_logging import log_request
+
+
+@dataclass
+class WireCapturedRequest(CapturedRequest):
+    """CapturedRequest extended with fields only observable at the wire level."""
+
+    trailers: dict[str, list[str]] = field(default_factory=dict)
+
 
 Handler = Callable[[h11.Request, bytes, socket.socket, h11.Connection], None]
 
@@ -499,9 +507,14 @@ def body_stall_target(
         _request: h11.Request,
         _body: bytes,
         conn: socket.socket,
-        _h11_conn: h11.Connection,
+        h11_conn: h11.Connection,
     ) -> None:
-        buf = _body
+        # Drain any body bytes h11 buffered beyond the headers before
+        # the early dispatch.  Without this, bytes that arrived in the
+        # same TCP segment as the request headers would be invisible to
+        # the subsequent conn.recv() calls.
+        trailing, _ = h11_conn.trailing_data
+        buf = _body + trailing
         conn.settimeout(1.0)
         try:
             while True:
@@ -554,7 +567,7 @@ class WireServer:
     host: str = "127.0.0.1"
     port: int = field(default_factory=find_free_port)
     log_requests: bool = False
-    requests: queue.Queue[CapturedRequest] = field(default_factory=queue.Queue)
+    requests: queue.Queue[WireCapturedRequest] = field(default_factory=queue.Queue)
     _routes: dict[str, Handler] = field(default_factory=dict, repr=False)
     _server_sock: socket.socket | None = field(default=None, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
@@ -588,7 +601,7 @@ class WireServer:
         if self._thread:
             self._thread.join(timeout=5)
 
-    def last_request(self, timeout: float = 2.0) -> CapturedRequest:
+    def last_request(self, timeout: float = 2.0) -> WireCapturedRequest:
         """Retrieve the next captured request. Blocks until available.
 
         Raises queue.Empty if no request arrives within the timeout.
@@ -698,7 +711,7 @@ class WireServer:
         for name, value in request.headers:
             headers.setdefault(name.decode().lower(), []).append(value.decode())
 
-        captured = CapturedRequest(
+        captured = WireCapturedRequest(
             method=request.method.decode(),
             path=target,
             headers=headers,

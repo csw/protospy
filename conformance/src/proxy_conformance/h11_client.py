@@ -86,7 +86,7 @@ def send_incomplete_chunked_request(
     if not response_bytes:
         return None
 
-    return _parse_raw_response(response_bytes)
+    return parse_raw_response(response_bytes)
 
 
 def send_with_expect_continue(
@@ -360,7 +360,7 @@ def _read_response(sock: socket.socket) -> RawResponse | None:
     if not response_bytes:
         return None
 
-    return _parse_raw_response(response_bytes)
+    return parse_raw_response(response_bytes)
 
 
 def send_invalid_chunk_size(
@@ -527,7 +527,7 @@ def parse_chunked_trailers(
     return trailers
 
 
-def _parse_raw_response(data: bytes) -> RawResponse:
+def parse_raw_response(data: bytes) -> RawResponse:
     """Parse a raw HTTP/1.1 response into status, headers, and body.
 
     This is intentionally minimal — just enough to extract the status

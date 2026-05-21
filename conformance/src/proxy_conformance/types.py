@@ -21,7 +21,8 @@ import httpx
 import pytest
 
 from proxy_conformance import httpx_util
-from proxy_conformance.good_server import CapturedRequest, GoodServer
+from proxy_conformance.captured import CapturedRequest
+from proxy_conformance.good_server import GoodServer
 from proxy_conformance.targets import proxy_family
 
 log = logging.getLogger("conformance")
