@@ -177,16 +177,30 @@ def send_with_expect_continue(
                     )
 
             # Received 100 — send body, then read final response.
-            sock.sendall(conn.send(h11.Data(data=body)))
-            sock.sendall(conn.send(h11.EndOfMessage()))
+            # Pre-compute both sends so h11 transitions to DONE
+            # regardless of whether the socket write succeeds.  The
+            # proxy may have already forwarded a final response and
+            # closed the connection (e.g. upstream replied without
+            # reading the body), so BrokenPipeError is expected.
+            outgoing = conn.send(h11.Data(data=body))
+            outgoing += conn.send(h11.EndOfMessage())
+            try:
+                sock.sendall(outgoing)
+            except BrokenPipeError, ConnectionResetError:
+                pass
 
         # Read final response (and optional leading InformationalResponse).
+        # The proxy may have already closed the connection after sending
+        # the response, so handle EOF and resets gracefully.
         final_response: h11.Response | None = None
         final_body = b""
         while True:
             event = conn.next_event()
             if event is h11.NEED_DATA:
-                data = sock.recv(65536)
+                try:
+                    data = sock.recv(65536)
+                except ConnectionResetError, OSError:
+                    break
                 conn.receive_data(data)
             elif isinstance(event, h11.InformationalResponse):
                 got_100 = True
@@ -194,7 +208,7 @@ def send_with_expect_continue(
                 final_response = event
             elif isinstance(event, h11.Data):
                 final_body += event.data
-            elif isinstance(event, h11.EndOfMessage):
+            elif isinstance(event, (h11.EndOfMessage, h11.ConnectionClosed)):
                 break
 
         if final_response is None:
