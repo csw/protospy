@@ -47,15 +47,16 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ## Endpoints
 
-All endpoints return JSON by default. When called by HTMX (with the `HX-Request` header), they return an HTML fragment instead — the UI and the REST API share the same URLs.
+Most endpoints return a full HTML page (`hx-boost` swaps the `<body>`, so the UI feels like a SPA without a client-side router). The one exception is `/suggest`, which checks the `HX-Request` header and returns an HTML fragment for HTMX or JSON for direct API calls.
 
 | Endpoint | Description |
 |---|---|
 | `GET /` | Search UI shell |
 | `GET /search?q=<term>&size=20` | Full-text search (title + overview) |
-| `GET /item/<id>` | Movie detail by Elasticsearch document ID |
-| `GET /suggest?q=<terms>` | Title autocomplete (multi-word, match_bool_prefix) |
+| `GET /movie/{id}?q=<term>` | Movie detail by Elasticsearch document ID (plus "More Like This"; `q` re-renders search results alongside) |
+| `GET /suggest?q=<terms>` | Title autocomplete (multi-word, match_bool_prefix) — HTML fragment or JSON |
 | `GET /stats` | Genre counts and vote distribution |
+| `GET /health` | Health check (no Elasticsearch call) |
 
 FastAPI's auto-generated API docs are available at [http://localhost:8000/docs](http://localhost:8000/docs).
 
@@ -72,6 +73,34 @@ All settings can be overridden via environment variables:
 | `DEBUG` | `false` | Log OTel spans to console |
 | `HOST` | `0.0.0.0` | Uvicorn bind host |
 | `PORT` | `8000` | Uvicorn bind port |
+
+## Architecture
+
+**Libraries/tools at a glance:** FastAPI + uvicorn, Jinja2 templates, `elasticsearch[async]` (9.x),
+`pydantic-settings`, OpenTelemetry SDK + OTLP exporter + FastAPI/aiohttp instrumentation,
+HTMX 2.0.4 and Alpine.js 3.15.8 (both via CDN), pytest + pytest-playwright, ruff, pyright, uv.
+
+**General design:** All endpoints return full-page HTML via `Jinja2Templates.TemplateResponse`.
+HTMX's `hx-boost` on `<body>` turns every link click and form submission into an XHR body swap
+with `pushState`, so back/forward/reload/deep-link all work without client-side state. The one
+exception is `GET /suggest`, which checks for the `HX-Request` header and returns either an HTML
+fragment (for HTMX) or JSON (for direct API calls). Configuration comes from environment variables
+via a `pydantic-settings` singleton. OpenTelemetry tracing is initialised in the FastAPI lifespan
+and exports to an OTLP endpoint only when `OTLP_ENDPOINT` is set.
+
+**Key patterns:** `asyncio.gather` fan-out in `/movie/{id}` fires two or three parallel ES calls
+per request (get-by-ID + `more_like_this`, optionally + `_msearch`), producing the grouped-request
+display in protospy. Each endpoint exercises a distinct ES query type: `_msearch` with aggregations
+(`/search`), `more_like_this` + `_msearch` fan-out (`/movie/{id}`), `match_bool_prefix`
+(`/suggest`), and aggregations-only (`/stats`).
+
+**Structure overview:** `src/elasticflix/main.py` holds the FastAPI app and all route handlers;
+`src/elasticflix/config.py` is the settings singleton; `src/elasticflix/templates/` holds the
+Jinja2 templates; `loader.py` is a standalone bulk-indexing script; `tests/` contains unit tests
+(mocked ES) and Playwright E2E tests.
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full architecture reference (file map, ES query
+pattern details, testing internals, etc.).
 
 ## Development
 

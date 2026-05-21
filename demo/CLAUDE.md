@@ -18,7 +18,11 @@ Run all commands from `demo/` using `uv run`. When starting work here, run `cd d
 
 ## Architecture
 
-Demo source lives at `demo/src/elasticflix/`. See `docs/demo-dev.md` at the repo root for development notes — keep it up to date when changing the demo app's architecture, stack, query patterns, or testing approach.
+Demo source lives at `demo/src/elasticflix/`. See `demo/ARCHITECTURE.md` for the full architecture
+reference (file map, ES query patterns, testing internals, etc.).
+
+When changing the demo app's architecture, stack, query patterns, or testing approach, you **must**
+keep both `demo/ARCHITECTURE.md` **and** the `## Architecture` section of `demo/README.md` current.
 
 ## Code Quality Requirements
 
