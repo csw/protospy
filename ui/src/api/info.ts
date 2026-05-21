@@ -1,9 +1,5 @@
-export interface Service {
-  name: string;
-  addr: string;
-  target: string;
-  subscribers: number;
-}
+export type { Service } from "@bindings/Service";
+import type { Service } from "@bindings/Service";
 
 export interface Info {
   started_at: string;

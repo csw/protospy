@@ -15,6 +15,7 @@ export function AppShell() {
   const applyEvent = useStore((s) => s.applyEvent);
   const setConnection = useStore((s) => s.setConnection);
   const setService = useStore((s) => s.setService);
+  const setProtocol = useStore((s) => s.setProtocol);
   const service = useStore((s) => s.service);
 
   const [info, setInfo] = useState<Info | null>(null);
@@ -30,6 +31,7 @@ export function AppShell() {
         const svc = fetchedInfo.services[0];
         if (svc == null) return;
         setService(svc.name);
+        setProtocol(svc.protocol);
       })
       .catch(() => {
         // /info failed — stay in "connecting" state, will retry on page refresh
@@ -38,7 +40,7 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [setService]);
+  }, [setService, setProtocol]);
 
   // Effect B: subscribe to SSE whenever service changes
   useEffect(() => {
@@ -57,6 +59,8 @@ export function AppShell() {
 
   function handleSwitchService(name: string) {
     setService(name);
+    const svc = info?.services.find((s) => s.name === name);
+    setProtocol(svc?.protocol ?? null);
   }
 
   return (

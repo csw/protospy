@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import { isBulkOperation, matchesFilter } from "@ui/lib/utils";
+import { matchesFilter } from "@ui/lib/utils";
+import { showPairsTab } from "@ui/protocol";
 import { EmptyState } from "./ui/EmptyState";
 import { ContextBar } from "./ContextBar";
 import { BodySplit } from "./BodySplit";
@@ -43,6 +44,7 @@ export function Inspector() {
   const selectedId = useStore((s) => s.selectedId);
   const filter = useStore((s) => s.filter);
   const order = useStore((s) => s.order);
+  const protocol = useStore((s) => s.protocol);
 
   const [activeTab, setActiveTab] = useState("bodies");
 
@@ -60,7 +62,7 @@ export function Inspector() {
   const currentIdx =
     exchange != null ? ordered.findIndex((ex) => ex.id === exchange.id) : -1;
 
-  const isMsearch = isBulkOperation(exchange?.uri);
+  const isMsearch = showPairsTab(protocol, exchange?.uri);
 
   // Derive effective tab: fall back to "bodies" if "pairs" is active but not applicable
   const effectiveTab =
@@ -125,7 +127,7 @@ export function Inspector() {
           value="bodies"
           className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
         >
-          <BodySplit exchange={exchange} />
+          <BodySplit exchange={exchange} protocol={protocol} />
         </TabsContent>
 
         {/* Pairs tab (msearch/mget only) */}

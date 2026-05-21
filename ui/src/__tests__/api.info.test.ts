@@ -14,6 +14,7 @@ describe("fetchInfo", () => {
           name: "es",
           addr: "0.0.0.0:3000",
           target: "localhost:9200",
+          protocol: null,
           subscribers: 0,
         },
       ],

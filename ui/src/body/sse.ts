@@ -1,3 +1,6 @@
+import type { BodyChunk } from "@bindings/BodyChunk";
+import type { BodyState } from "@ui/state/reducer";
+
 export interface SSEEvent {
   type: string; // from "event:" field, default "message"
   data: string; // from "data:" field(s), concatenated
@@ -48,52 +51,26 @@ export function parseSSEBody(text: string): SSEEvent[] {
   return events;
 }
 
-export function extractAnthropicTranscript(events: SSEEvent[]): {
-  text: string;
-  model?: string;
-  messageId?: string;
-  stopReason?: string;
-  usage?: { input_tokens?: number; output_tokens?: number };
-  isComplete: boolean;
-} {
-  let text = "";
-  let model: string | undefined;
-  let messageId: string | undefined;
-  let stopReason: string | undefined;
-  let usage: { input_tokens?: number; output_tokens?: number } | undefined;
-  let isComplete = false;
-
-  for (const event of events) {
-    if (!event.parsedData || typeof event.parsedData !== "object") continue;
-    const d = event.parsedData as Record<string, unknown>;
-
-    if (event.type === "message_start") {
-      const msg = d.message as Record<string, unknown> | undefined;
-      if (msg) {
-        model = msg.model as string | undefined;
-        messageId = msg.id as string | undefined;
+export function chunksToText(body: BodyState): string {
+  const arrays = body.chunks.map((chunk: BodyChunk) => {
+    if ("text" in chunk) {
+      return new TextEncoder().encode(chunk.text);
+    } else {
+      const raw = atob(chunk.binary);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) {
+        bytes[i] = raw.charCodeAt(i);
       }
-    } else if (event.type === "content_block_delta") {
-      const delta = d.delta as Record<string, unknown> | undefined;
-      if (delta?.type === "text_delta") {
-        text += (delta.text as string) ?? "";
-      }
-    } else if (event.type === "message_delta") {
-      const delta = d.delta as Record<string, unknown> | undefined;
-      if (delta?.stop_reason) {
-        stopReason = delta.stop_reason as string;
-      }
-      const u = d.usage as Record<string, unknown> | undefined;
-      if (u) {
-        usage = {
-          input_tokens: u.input_tokens as number | undefined,
-          output_tokens: u.output_tokens as number | undefined,
-        };
-      }
-    } else if (event.type === "message_stop") {
-      isComplete = true;
+      return bytes;
     }
-  }
+  });
 
-  return { text, model, messageId, stopReason, usage, isComplete };
+  const totalLength = arrays.reduce((sum, a) => sum + a.byteLength, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    combined.set(arr, offset);
+    offset += arr.byteLength;
+  }
+  return new TextDecoder().decode(combined);
 }

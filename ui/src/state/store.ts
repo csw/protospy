@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { EventMessage } from "@bindings/EventMessage";
+import type { Protocol } from "@bindings/Protocol";
 import type { ConnectionStatus } from "@ui/api/sse";
 import { applyThemeToDOM, persistDarkMode } from "@ui/theme/applyTheme";
 import { apply } from "./reducer";
@@ -10,6 +11,8 @@ interface StoreState {
   ids: number[];
   connection: ConnectionStatus;
   service: string | null;
+  protocol: Protocol | null;
+  setProtocol: (protocol: Protocol | null) => void;
 
   // UI state
   selectedId: number | null;
@@ -48,6 +51,7 @@ export const useStore = create<StoreState>()((set) => ({
   ids: [],
   connection: "connecting",
   service: null,
+  protocol: null,
 
   // UI state defaults
   selectedId: null,
@@ -74,6 +78,8 @@ export const useStore = create<StoreState>()((set) => ({
   setConnection: (status) => set({ connection: status }),
 
   setService: (name) => set({ service: name }),
+
+  setProtocol: (protocol) => set({ protocol }),
 
   // UI actions
   setSelectedId: (id) => set({ selectedId: id }),

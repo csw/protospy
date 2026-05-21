@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import {
+  injectExchanges,
+  resetStore,
+  setStoreProtocol,
+  waitForStore,
+} from "./helpers/inject";
 import {
   makeGetRequest,
   makeResponse,
@@ -243,6 +248,7 @@ test.describe("Inspector — Stream tab", () => {
 
 test.describe("Inspector — Pairs tab", () => {
   test("7.1 Pairs tab appears for _msearch requests", async ({ page }) => {
+    await setStoreProtocol(page, "Elasticsearch");
     await injectExchanges(page, [
       makeMsearchRequest(1),
       makeResponse(1, "200 OK", '{"responses":[]}'),

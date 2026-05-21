@@ -35,3 +35,14 @@ export async function getStoreState(page: Page, key: string) {
     return store.getState()[k];
   }, key);
 }
+
+export async function setStoreProtocol(
+  page: Page,
+  protocol: "Elasticsearch" | "OpenSearch" | null,
+) {
+  await page.evaluate((p) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (window as any).__test_store;
+    store.getState().setProtocol(p);
+  }, protocol);
+}

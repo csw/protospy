@@ -28,6 +28,7 @@ describe("state/store", () => {
       expect(state.density).toBe("regular");
       expect(state.traceGroupOn).toBe(false);
       expect(state.cmdKOpen).toBe(false);
+      expect(useStore.getState().protocol).toBeNull();
     });
 
     it("has darkMode === false at creation", () => {
@@ -167,6 +168,16 @@ describe("state/store", () => {
     it("setService updates the service name", () => {
       useStore.getState().setService("elasticflix");
       expect(useStore.getState().service).toBe("elasticflix");
+    });
+  });
+
+  describe("setProtocol", () => {
+    it("setProtocol updates protocol and setProtocol(null) clears it", () => {
+      const store = useStore.getState();
+      store.setProtocol("Anthropic");
+      expect(useStore.getState().protocol).toBe("Anthropic");
+      useStore.getState().setProtocol(null);
+      expect(useStore.getState().protocol).toBeNull();
     });
   });
 });
