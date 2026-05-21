@@ -84,6 +84,7 @@ export function ExchangeList() {
   const selectedId = useStore((s) => s.selectedId);
   const setSelectedId = useStore((s) => s.setSelectedId);
   const filter = useStore((s) => s.filter);
+  const traceFilter = useStore((s) => s.traceFilter);
   const order = useStore((s) => s.order);
   const setOrder = useStore((s) => s.setOrder);
   const density = useStore((s) => s.density);
@@ -97,7 +98,8 @@ export function ExchangeList() {
   const filtered = ids
     .map((id) => exchanges.get(id))
     .filter((ex): ex is Exchange => ex != null)
-    .filter((ex) => matchesFilter(ex, filter));
+    .filter((ex) => matchesFilter(ex, filter))
+    .filter((ex) => traceFilter == null || ex.traceId === traceFilter);
 
   const ordered = order === "newest" ? [...filtered].reverse() : filtered;
 
@@ -278,7 +280,7 @@ export function ExchangeList() {
           {ordered.length === 0 ? (
             <div className="flex-1 flex items-center justify-center bg-bg-pane">
               <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-                {filter ? "No exchanges match" : "No exchanges"}
+                {filter || traceFilter ? "No exchanges match" : "No exchanges"}
               </span>
             </div>
           ) : (
@@ -328,7 +330,7 @@ export function ExchangeList() {
       ) : ordered.length === 0 ? (
         <div className="flex-1 flex items-center justify-center bg-bg-pane">
           <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-            {filter ? "No exchanges match" : "No exchanges"}
+            {filter || traceFilter ? "No exchanges match" : "No exchanges"}
           </span>
         </div>
       ) : (

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
 import { FilterBar } from "@ui/components/FilterBar";
 import { useStore } from "@ui/state/store";
-import { makeGetRequest } from "@ui/test/fixtures";
+import { makeGetRequest, makeRequestWithTrace } from "@ui/test/fixtures";
 import { shortenTraceId } from "@ui/lib/utils";
 
 describe("FilterBar", () => {
@@ -125,6 +125,42 @@ describe("FilterBar", () => {
       useStore.getState().setFilter("test");
       render(<FilterBar />);
       expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    });
+
+    it("shows 'M of N' when traceFilter is set", () => {
+      const traceA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      useStore
+        .getState()
+        .applyEvent(
+          makeRequestWithTrace(1, traceA, "/api/a") as unknown as EventMessage,
+        );
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(2, "/api/b") as unknown as EventMessage);
+      useStore.getState().setTraceFilter(traceA);
+      render(<FilterBar />);
+      expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    });
+
+    it("shows intersection count when both text filter and traceFilter are set", () => {
+      const traceA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      useStore
+        .getState()
+        .applyEvent(
+          makeRequestWithTrace(1, traceA, "/api/a") as unknown as EventMessage,
+        );
+      useStore
+        .getState()
+        .applyEvent(
+          makeRequestWithTrace(2, traceA, "/api/b") as unknown as EventMessage,
+        );
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(3, "/api/a") as unknown as EventMessage);
+      useStore.getState().setFilter("/api/a");
+      useStore.getState().setTraceFilter(traceA);
+      render(<FilterBar />);
+      expect(screen.getByText("1 of 3")).toBeInTheDocument();
     });
   });
 });

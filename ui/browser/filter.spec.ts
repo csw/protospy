@@ -159,11 +159,7 @@ test.describe("Filter bar", () => {
     await expect(page.getByText("2 of 5", { exact: true })).toBeVisible();
   });
 
-  // The trace-filter chip in FilterBar renders + clears, but `traceFilter`
-  // is not yet applied by ExchangeList / CommandPalette / Inspector — see
-  // KI-008 in docs/agents/ui/test-plan.md. Skipped until the filter is wired
-  // through the derivation pipeline; once that lands, drop `.skip`.
-  test.skip("9. method filter AND trace filter narrow to the intersection", async ({
+  test("9. method filter AND trace filter narrow to the intersection", async ({
     page,
   }) => {
     const traceA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
