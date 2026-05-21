@@ -20,7 +20,6 @@ import urllib.parse
 
 import h11
 import httpx
-import pytest
 
 from proxy_conformance.good_server import GoodServer
 from proxy_conformance.h11_client import (
@@ -175,7 +174,6 @@ def _assert_raw_response(
     assert_probe_result(probe, expected, test_id=test_id)
 
 
-@pytest.mark.xfail_for("protospy")
 def test_request_trailers_forwarded(
     proxy: ProxyUrls,
     wire_server: WireServer,
