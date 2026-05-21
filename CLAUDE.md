@@ -34,7 +34,14 @@ Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of 
 
 ## Documentation
 
-**When in doubt about how to use a tool or library, consult its documentation first — via Context7 or a web search. Do this before reading library source code, before trial-and-error, and before reasoning from first principles about implementation details. If something doesn't work as expected, your first action should be to look it up, not to read the source.**
+**Consult documentation before reasoning from first principles.** Use Context7 or a web search to look up:
+
+- How to use a tool, library, or API — before reading source, before trial-and-error
+- The conventional approach to a common problem — before designing a solution
+
+Many problems you encounter are standard: dark mode persistence, form validation, auth flows, state hydration, error boundaries. Millions of applications have solved them with the same tools you're using. When you recognize a problem as standard, your first move is to look up how it's conventionally done — not to reason about it from your training data, which may be wrong or outdated.
+
+**The test:** if you're about to propose an approach and you haven't consulted any external source, stop. If the problem involves a well-known library doing a well-known thing, look it up first. Your confidence that you know the answer is not evidence that you do.
 
 ## Specific guidelines
 
@@ -44,6 +51,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/testing.md`: when writing or maintaining tests
 - `docs/agents/sandbox.md`: when a sandboxed command fails with a TLS, keychain, or Mach-port error, or when setting up Monitor / background polling
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
+- `docs/agents/design.md`: when proposing a technical approach or making design decisions
 - `docs/agents/worktrees.md`: when using the `using-git-worktrees` skill
 
 ## Delegating noisy investigation to subagents
