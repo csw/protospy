@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import {
+  Group,
+  Panel,
+  Separator,
+  type PanelSize,
+} from "react-resizable-panels";
 import { useStore } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
 import type { Info } from "@ui/api/info";
@@ -21,11 +26,14 @@ export function AppShell() {
   const listWidth = useStore((s) => s.listWidth);
   const setListWidth = useStore((s) => s.setListWidth);
 
-  const dragging = useRef(false);
+  // Pixel-based persistence via Zustand rather than useDefaultLayout, which
+  // stores percentage-based Layout objects incompatible with fixed-width,
+  // mode-dependent panel sizing. See decision doc for rationale.
+  const interacting = useRef(false);
 
   const handleListPanelResize = useCallback(
-    (size: { inPixels: number }) => {
-      if (dragging.current) {
+    (size: PanelSize) => {
+      if (interacting.current) {
         setListWidth(listMode, size.inPixels);
       }
     },
@@ -95,10 +103,23 @@ export function AppShell() {
         <Separator
           className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors"
           onPointerDown={() => {
-            dragging.current = true;
+            interacting.current = true;
           }}
           onPointerUp={() => {
-            dragging.current = false;
+            interacting.current = false;
+          }}
+          onKeyDown={(e) => {
+            if (
+              e.key === "ArrowLeft" ||
+              e.key === "ArrowRight" ||
+              e.key === "Home" ||
+              e.key === "End"
+            ) {
+              interacting.current = true;
+            }
+          }}
+          onKeyUp={() => {
+            interacting.current = false;
           }}
         />
         <Panel>

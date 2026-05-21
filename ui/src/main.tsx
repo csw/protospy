@@ -18,6 +18,8 @@ try {
   if (raw) {
     const { state } = JSON.parse(raw);
     if (state?.darkMode) applyThemeToDOM(true);
+  } else if (matchMedia("(prefers-color-scheme: dark)").matches) {
+    applyThemeToDOM(true);
   }
 } catch {
   // corrupt or missing — fall through to light default

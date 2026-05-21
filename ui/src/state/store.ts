@@ -121,6 +121,7 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: "protospy-ui-prefs",
+      version: 0,
       partialize: (state): PersistedPrefs => ({
         listWidth: state.listWidth,
         density: state.density,
