@@ -49,10 +49,9 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 
 - `docs/agents/python.md`: when working with Python
 - `docs/agents/testing.md`: when writing or maintaining tests
-- `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
+- `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, worktree/git-prompt avoidance, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
-- `docs/agents/worktrees.md`: when using the `using-git-worktrees` skill
 
 ## File creation
 
@@ -94,21 +93,6 @@ PR titles matter because GitHub uses them as the default squash-merge commit mes
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
 **Never bypass or override commit signing** (e.g. `-c commit.gpgsign=false`, `--no-gpg-sign`). If signing fails, stop and report the problem rather than working around it.
-
-### Running git in a different directory
-
-Never use `cd /path && git ...` — this triggers an "untrusted hooks" approval prompt. Use `git -C` instead:
-
-```bash
-# Good
-git -C /path/to/dir add file.txt
-git -C /path/to/dir commit -m "message"
-
-# Bad — triggers approval prompt
-cd /path/to/dir && git add file.txt && git commit -m "message"
-```
-
-If you are already in the target directory, run git commands directly with no `cd` prefix.
 
 ## Versioning dependencies
 

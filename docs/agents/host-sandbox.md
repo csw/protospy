@@ -20,6 +20,48 @@ Use the `~/bin/linear` wrapper instead of `linear` directly. The Deno HTTP clien
 the CLI uses conflicts with the sandbox's SOCKS5 proxy; the wrapper strips
 `ALL_PROXY` so traffic routes through the HTTP proxy instead.
 
+## Running git in a different directory
+
+Never use `cd /path && git ...` — this triggers an "untrusted hooks" approval prompt. Use `git -C` instead:
+
+```bash
+# Good
+git -C /path/to/dir add file.txt
+git -C /path/to/dir commit -m "message"
+
+# Bad — triggers approval prompt
+cd /path/to/dir && git add file.txt && git commit -m "message"
+```
+
+If you are already in the target directory (including inside a worktree), run git commands directly with no `cd` prefix.
+
+## Worktrees
+
+When the `using-git-worktrees` skill runs Step 0 isolation detection, execute each git command as a **separate Bash call** — not combined into a single compound shell expression.
+
+**This overrides the skill's own Step 0 code example**, which uses a combined form that cannot be statically analyzed and triggers an unnecessary approval prompt.
+
+Run these individually:
+
+```bash
+git rev-parse --git-dir
+git rev-parse --git-common-dir
+git branch --show-current
+git rev-parse --show-superproject-working-tree 2>/dev/null
+```
+
+Do **not** combine them into a single expression such as:
+
+```bash
+GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P) && ...
+```
+
+The individual commands are pre-approved and run without confirmation.
+
+## Working in a subproject directory
+
+When working in a subproject that runs its commands from its own directory (e.g. `conformance/`), run `cd <subproject>/` once as your first command. The shell working directory persists across Bash calls, so you avoid a `cd <subproject>/ &&` prefix on every subsequent command. That prefix-avoidance only matters on the host: the compound `cd … && …` form can't be statically analyzed and triggers an approval prompt. In the container there are no such prompts, so prefix freely.
+
 ## Commands needing `dangerouslyDisableSandbox: true`
 
 - **`git commit`** — the sandbox blocks the SSH agent socket, so signed commits
