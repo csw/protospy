@@ -5,13 +5,13 @@ import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
   formatSize,
-  formatTime,
   matchesFilter,
   methodTextClass,
   splitUri,
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
+import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { ExchangeListItem } from "./ExchangeListItem";
 
 const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
@@ -24,6 +24,7 @@ interface TableRowProps {
 }
 
 function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
+  const relTime = useRelativeTime(exchange.timestamp);
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
   const { path } = splitUri(uri);
@@ -72,7 +73,7 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
         {formatSize(resSize)}
       </span>
       <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
-        {formatTime(exchange.timestamp)}
+        {relTime}
       </span>
     </button>
   );

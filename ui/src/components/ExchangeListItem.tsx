@@ -1,11 +1,11 @@
 import type { Exchange } from "@ui/state/reducer";
 import {
   formatSize,
-  formatTime,
   splitUri,
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
+import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { MethodBadge } from "./ui/MethodBadge";
 
 interface Props {
@@ -21,6 +21,7 @@ export function ExchangeListItem({
   onSelect,
   density,
 }: Props) {
+  const relTime = useRelativeTime(exchange.timestamp);
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
   const { path, query } = splitUri(uri);
@@ -76,7 +77,7 @@ export function ExchangeListItem({
         ) : null}
 
         <span className="font-family-mono text-xs ml-auto shrink-0 text-dim">
-          {formatTime(exchange.timestamp)}
+          {relTime}
         </span>
       </div>
 

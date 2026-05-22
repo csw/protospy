@@ -104,6 +104,19 @@ export function traceColor(traceId: string): string {
   return TRACE_PALETTE[((hash % 7) + 7) % 7];
 }
 
+export function formatRelative(
+  timestamp: string,
+  now: number = Date.now(),
+): string {
+  const diffMs = now - new Date(timestamp).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 5) return "now";
+  if (diffSec < 60) return `${diffSec}s`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  return `${Math.floor(diffMin / 60)}h`;
+}
+
 export function formatTime(timestamp: string): string {
   const d = new Date(timestamp);
   return d.toLocaleTimeString(undefined, {
