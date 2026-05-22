@@ -18,6 +18,15 @@ For code-level details — module roles, fixture wiring, file map, channel taxon
 
 ## Development
 
+### Prerequisites
+
+The reference proxies run as subprocess binaries found on `PATH`: the suite
+invokes `caddy` and `haproxy` directly. Both must be installed and current
+enough for the suite's HTTP/2 (`h2`/`h2c`) configs — Debian's stock HAProxy
+(2.6) is too old; use 3.x. The `cs` container provides both (Caddy 2.11.3 and
+HAProxy 3.2.19); on a bare host, install them yourself. Running only
+`--proxy protospy` needs neither binary.
+
 ### Running tests
 
 This uses pytest for tests.
