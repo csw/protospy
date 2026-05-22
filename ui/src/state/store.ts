@@ -121,6 +121,7 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: "protospy-ui-prefs",
+      // Bump version and add a `migrate` function when PersistedPrefs shape changes.
       version: 0,
       partialize: (state): PersistedPrefs => ({
         listWidth: state.listWidth,

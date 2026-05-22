@@ -6,24 +6,8 @@ import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/jetbrains-mono/700.css";
 import "./theme/tailwind.css";
-import { applyThemeToDOM } from "./theme/applyTheme";
 import "./state/store";
 import App from "./App.tsx";
-
-// Apply theme before first paint to prevent flash. The persist middleware
-// will hydrate the store asynchronously, but the DOM attribute must be set
-// synchronously from the raw localStorage value.
-try {
-  const raw = localStorage.getItem("protospy-ui-prefs");
-  if (raw) {
-    const { state } = JSON.parse(raw);
-    if (state?.darkMode) applyThemeToDOM(true);
-  } else if (matchMedia("(prefers-color-scheme: dark)").matches) {
-    applyThemeToDOM(true);
-  }
-} catch {
-  // corrupt or missing — fall through to light default
-}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -121,6 +121,9 @@ export function AppShell() {
           onKeyUp={() => {
             interacting.current = false;
           }}
+          onBlur={() => {
+            interacting.current = false;
+          }}
         />
         <Panel>
           <Inspector />

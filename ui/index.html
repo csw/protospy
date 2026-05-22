@@ -16,8 +16,9 @@
           var raw = localStorage.getItem("protospy-ui-prefs");
           if (raw) {
             var parsed = JSON.parse(raw);
-            if (parsed.state && parsed.state.darkMode) {
-              document.documentElement.setAttribute("data-theme", "dark");
+            if (parsed.state && typeof parsed.state.darkMode === "boolean") {
+              if (parsed.state.darkMode)
+                document.documentElement.setAttribute("data-theme", "dark");
               return;
             }
           }
