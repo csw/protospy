@@ -1,9 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { resetStore, waitForStore } from "./helpers/inject";
-
-// localStorage persistence is currently wired only for dark mode (see
-// theme/applyTheme.ts). listWidth, density, order, listMode, and
-// traceGroupOn are not persisted — tracked as KI-011 in test-plan.md.
+import { getStoreState, waitForStore } from "./helpers/inject";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -20,51 +16,134 @@ async function readTheme(page: import("@playwright/test").Page) {
   );
 }
 
-async function readStoredTheme(page: import("@playwright/test").Page) {
-  return page.evaluate(() => localStorage.getItem("theme"));
-}
-
 test.describe("localStorage persistence", () => {
   test("dark mode survives a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
-    await resetStore(page);
     expect(await readTheme(page)).toBe("light");
 
-    // Toggle to dark via the command palette
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /toggle dark mode/i }).click();
     expect(await readTheme(page)).toBe("dark");
-    expect(await readStoredTheme(page)).toBe("dark");
 
-    // Reload — the bootstrap in main.tsx should resolve dark from localStorage
-    // before the first paint.
     await page.reload();
     await waitForStore(page);
     expect(await readTheme(page)).toBe("dark");
-    expect(await readStoredTheme(page)).toBe("dark");
+    expect(await getStoreState(page, "darkMode")).toBe(true);
   });
 
   test("toggling back to light persists across a reload", async ({ page }) => {
-    // First navigation: seed localStorage with "dark" and reload so the
-    // bootstrap reads it and paints dark.
     await page.goto("/");
     await waitForStore(page);
-    await page.evaluate(() => localStorage.setItem("theme", "dark"));
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().toggleDarkMode();
+    });
     await page.reload();
     await waitForStore(page);
     expect(await readTheme(page)).toBe("dark");
 
-    // Toggle back to light.
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /toggle dark mode/i }).click();
     expect(await readTheme(page)).toBe("light");
-    expect(await readStoredTheme(page)).toBe("light");
 
-    // Reload — the persisted value should now be "light".
     await page.reload();
     await waitForStore(page);
     expect(await readTheme(page)).toBe("light");
-    expect(await readStoredTheme(page)).toBe("light");
+  });
+
+  test("density persists across a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    await page.keyboard.press("Meta+k");
+    await page.getByRole("option", { name: /toggle density/i }).click();
+    expect(await getStoreState(page, "density")).toBe("compact");
+
+    await page.reload();
+    await waitForStore(page);
+    expect(await getStoreState(page, "density")).toBe("compact");
+  });
+
+  test("order persists across a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setOrder("oldest");
+    });
+    expect(await getStoreState(page, "order")).toBe("oldest");
+
+    await page.reload();
+    await waitForStore(page);
+    expect(await getStoreState(page, "order")).toBe("oldest");
+  });
+
+  test("listMode persists across a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setListMode("table");
+    });
+    expect(await getStoreState(page, "listMode")).toBe("table");
+
+    await page.reload();
+    await waitForStore(page);
+    expect(await getStoreState(page, "listMode")).toBe("table");
+  });
+
+  test("listWidth persists across a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    // Set width and verify both store and localStorage are updated
+    const result = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store;
+      store.getState().setListWidth("rows", 450);
+      return {
+        storeValue: store.getState().listWidth,
+        lsValue: localStorage.getItem("protospy-ui-prefs"),
+      };
+    });
+
+    expect(result.storeValue.rows).toBe(450);
+    const lsParsed = JSON.parse(result.lsValue!);
+    expect(lsParsed.state.listWidth.rows).toBe(450);
+  });
+
+  test("all preferences survive a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = (window as any).__test_store.getState();
+      s.setDensity("compact");
+      s.setOrder("oldest");
+      s.setListMode("table");
+      s.setListWidth("rows", 400);
+      s.setListWidth("table", 500);
+      s.toggleTraceGroup();
+      s.toggleDarkMode();
+    });
+
+    await page.reload();
+    await waitForStore(page);
+
+    expect(await getStoreState(page, "density")).toBe("compact");
+    expect(await getStoreState(page, "order")).toBe("oldest");
+    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listWidth")).toEqual({
+      rows: 400,
+      table: 500,
+    });
+    expect(await getStoreState(page, "traceGroupOn")).toBe(true);
+    expect(await getStoreState(page, "darkMode")).toBe(true);
+    expect(await readTheme(page)).toBe("dark");
   });
 });
