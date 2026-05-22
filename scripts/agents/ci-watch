@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Usage: ci-watch [workflow-name ...]
+#
+# Watch GitHub Actions runs for the *current commit* on the current branch and
+# exit when every matching run reaches a terminal state. With no args, watches
+# all workflow runs for HEAD. With args, restricts to runs whose .workflowName
+# matches one of the given names. Emits one stdout line per status change.
+#
+# Why this exists rather than inlining `gh run list` in each agent:
+#
+#   - Pin to HEAD's SHA. Overlapping pushes shift the `--limit` window, so a bare
+#     `gh run list` readily picks up results from the wrong commit. Filtering on
+#     headSha keeps the watch fixed to the commit the agent actually pushed.
+#   - Guard the empty case. `jq 'all(.status=="completed")'` returns true on an
+#     empty array, so without the count check the watch would terminate
+#     immediately when no runs have registered yet.
+#   - Don't lose errors. `set -euo pipefail` ensures a `gh` failure surfaces
+#     rather than being silently swallowed mid-loop.
+#
+# Environment: works as-is in the cs container and anywhere `gh` is authenticated
+# without the keychain. On the host macOS sandbox `gh` needs keychain access, so
+# run this with dangerouslyDisableSandbox (see docs/agents/host-sandbox.md).
+
+set -euo pipefail
+
+SHA=$(git rev-parse HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$#" -gt 0 ]; then
+  names_json=$(printf '%s\n' "$@" | jq -R . | jq -s .)
+  name_filter="and (.workflowName as \$n | $names_json | index(\$n))"
+else
+  name_filter=""
+fi
+
+prev=""
+while true; do
+  runs=$(gh run list --branch "$BRANCH" --limit 50 \
+         --json status,conclusion,workflowName,headSha,databaseId \
+         | jq "[.[] | select(.headSha==\"$SHA\" $name_filter)]")
+  count=$(echo "$runs" | jq 'length')
+  cur=$(echo "$runs" | jq -r '.[] | "\(.workflowName): \(.status) \(.conclusion // "")"' | sort)
+  comm -13 <(echo "$prev") <(echo "$cur") || true
+  prev=$cur
+  if [ "$count" -gt 0 ] \
+     && [ "$(echo "$runs" | jq 'all(.status=="completed")')" = "true" ]; then
+    break
+  fi
+  sleep 30
+done

@@ -52,15 +52,31 @@ Flaky tests are unacceptable.
 
 ### Reproducing CI-only timing failures locally
 
-CI runners have fewer CPU resources than development machines, which can surface race conditions that never reproduce locally. On macOS, use `taskpolicy -b` to constrain a process tree to background QoS (efficiency cores only, lowest scheduling priority):
+CI runners have fewer CPU resources than development machines, which can surface
+race conditions that never reproduce locally. Constrain the test's CPU to
+approximate that pressure — the command depends on your platform.
+
+**Linux (the `cs` container):** pin the process tree to a single CPU at idle
+scheduling priority with `taskset` + `chrt` (both in the image, no privileges
+needed):
+
+```bash
+taskset -c 0 chrt --idle 0 uv run pytest -q --proxy protospy -k 'test_name'
+```
+
+**macOS (the host):** use `taskpolicy -b` to constrain to background QoS
+(efficiency cores only, lowest scheduling priority):
 
 ```bash
 taskpolicy -b uv run pytest -q --proxy protospy -k 'test_name'
 ```
 
-This typically produces a 4-6x slowdown, closely approximating CI's constrained environment. Useful for:
+`taskpolicy -b` typically produces a 4-6x slowdown; the Linux single-core
+constraint is comparable but not separately calibrated. Either is useful for:
 - Verifying a flaky-test fix actually holds under resource pressure
 - Reproducing timing-dependent failures (BrokenPipeError, connection races) that only appear in CI
-- Stress-testing with a loop: `for i in $(seq 1 30); do taskpolicy -b uv run pytest ...; done`
+- Stress-testing with a loop: `for i in $(seq 1 30); do <constrain> uv run pytest ...; done`
 
-Note: `taskpolicy -b` requires running outside the Claude Code sandbox (`dangerouslyDisableSandbox: true`) because the sandbox blocks `setpriority()`.
+Note: on the host macOS sandbox, `taskpolicy -b` must run with
+`dangerouslyDisableSandbox: true` (the sandbox blocks `setpriority()`) — see
+`host-sandbox.md`. The Linux command in the `cs` container needs no override.

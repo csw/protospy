@@ -30,7 +30,7 @@ For subproject commands, see the subproject's CLAUDE.md.
 
 ### GitHub
 
-Use the GitHub CLI via the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`.
+Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs` container. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — see `docs/agents/host-sandbox.md`.)
 
 ## Documentation
 
@@ -49,7 +49,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 
 - `docs/agents/python.md`: when working with Python
 - `docs/agents/testing.md`: when writing or maintaining tests
-- `docs/agents/sandbox.md`: when a sandboxed command fails with a TLS, keychain, or Mach-port error, or when setting up Monitor / background polling
+- `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
 - `docs/agents/worktrees.md`: when using the `using-git-worktrees` skill
@@ -93,6 +93,8 @@ PR titles matter because GitHub uses them as the default squash-merge commit mes
 
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
+**Never bypass or override commit signing** (e.g. `-c commit.gpgsign=false`, `--no-gpg-sign`). If signing fails, stop and report the problem rather than working around it.
+
 ### Running git in a different directory
 
 Never use `cd /path && git ...` — this triggers an "untrusted hooks" approval prompt. Use `git -C` instead:
@@ -121,5 +123,19 @@ When adding any dependency — Python packages, npm packages, GitHub Actions, CD
 When you add a dependency you are uncertain about the current version of, look it up rather than guessing.
 
 ## CI
+
+To watch GitHub Actions results for a commit you have pushed, use
+`scripts/agents/ci-watch [workflow-name ...]` with Monitor. It pins to HEAD's
+commit SHA, exits when matching runs reach a terminal state, and emits one event
+per status change — this avoids picking up action results from the wrong commit,
+which a bare `gh run list` readily does.
+
+```bash
+Monitor(command: "scripts/agents/ci-watch ui-ci", description: "watch UI CI run", timeout_ms: 1800000, persistent: false)
+```
+
+With no args it watches all workflows for HEAD; with args it restricts to the
+named workflows (e.g. `ci-watch ui-ci docker-ci`). On the host macOS sandbox it
+needs `dangerouslyDisableSandbox: true` (see `docs/agents/host-sandbox.md`).
 
 When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
