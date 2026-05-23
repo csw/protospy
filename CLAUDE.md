@@ -53,6 +53,10 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
 
+## Worktrees
+
+Worktrees go in `.worktrees/` at the project root. Not `.claude/worktrees/`, not `ui/.worktrees/`, not anywhere else. Pass `.worktrees/<branch-name>` as the path to `EnterWorktree` or `git worktree add`.
+
 ## File creation
 
 Use the Write tool to create files and the Edit tool to modify them. Do not use shell constructs like `cat >
@@ -89,6 +93,8 @@ All commit messages **and PR titles** must follow [Conventional Commits](https:/
 Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use it where it helps (e.g. `demo`, `conformance`, `ui`).
 
 PR titles matter because GitHub uses them as the default squash-merge commit message. A CI check enforces this — a non-conforming title will block the merge.
+
+When work is associated with a Linear ticket, include the ticket ID in parentheses at the end of the commit message and PR title: `fix(ui): bust virtualizer cache on mode change (PRO-126)`. This links the commit to the issue in Linear.
 
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 

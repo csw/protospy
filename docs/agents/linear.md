@@ -28,13 +28,20 @@ go to the user interactively.
 
 ## Branch naming
 
-When creating a branch or worktree for a Linear issue, **always use the branch name Linear suggests** — do not derive one from the title yourself:
+When creating a branch or worktree for a Linear issue, **start from the branch name Linear suggests**, then truncate if needed:
 
 ```bash
 linear issue view PRO-NNN --json | jq -r .branchName
 ```
 
-Pass this value as the branch name to `EnterWorktree` or `git worktree add`. Linear's branch names include the issue ID, which is what triggers the GitHub integration that moves issues through their workflow.
+Linear's branch names include the issue ID (e.g. `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`), which is what triggers the GitHub integration that moves issues through their workflow.
+
+**If the branch name exceeds 50 characters**, truncate the slug portion on a word boundary. Keep the `<type>/pro-NNN-` prefix intact — that's what Linear needs for linking. Example:
+
+- Full: `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`
+- Truncated: `feature/pro-136-give-agents-instructions`
+
+Pass the result as the branch name to `EnterWorktree` or `git worktree add`.
 
 ## Getting issue details
 
