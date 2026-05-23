@@ -1,2 +1,3 @@
-/agents
+/agents/*
+!/agents/frontend-engineer.md
 /commands
