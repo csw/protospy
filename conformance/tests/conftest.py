@@ -88,7 +88,20 @@ def protospy_binary(
     tmp dir so only the first worker invokes cargo; the others wait on
     the lock, see the sentinel, and reuse the binary.
     """
-    binary = REPO_ROOT / "target" / "debug" / "protospy"
+    # Resolve cargo's *effective* target directory rather than assuming
+    # REPO_ROOT/target. In the cs container a cargo wrapper redirects builds
+    # to a per-worktree CARGO_TARGET_DIR volume, so REPO_ROOT/target holds the
+    # host's macOS build (a Mach-O binary that can't exec under Linux). Asking
+    # cargo where it builds works on both the host and in the container.
+    metadata = subprocess.run(
+        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    target_dir = Path(json.loads(metadata.stdout)["target_directory"])
+    binary = target_dir / "debug" / "protospy"
 
     def _build() -> None:
         env = os.environ.copy()

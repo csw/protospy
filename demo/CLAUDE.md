@@ -14,7 +14,7 @@ uv run pytest -q                               # run tests (always pass -q when 
 uvx vulture src                                # check for dead code
 ```
 
-Run all commands from `demo/` using `uv run`. When starting work here, run `cd demo/` once as your first command — the shell working directory persists across Bash calls, so you won't need to prefix every command with `cd demo/ &&`.
+Run all commands from `demo/` using `uv run`. (On the host macOS sandbox, run `cd demo/` once first — see `docs/agents/host-sandbox.md`.)
 
 ## Architecture
 
