@@ -16,3 +16,4 @@ docker-compose.override.*
 .DS_Store
 .pnpm-store
 .vscode/
+.playwright-mcp

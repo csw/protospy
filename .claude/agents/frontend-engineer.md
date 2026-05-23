@@ -5,7 +5,8 @@ mcpServers:
   - playwright:
       type: stdio
       command: npx
-      args: ["@playwright/mcp@latest"]
+      # See scripts/install-playwright-mcp-browsers (browser install + flag rationale).
+      args: ["@playwright/mcp@0.0.75", "--browser", "chromium", "--headless", "--no-sandbox"]
 ---
 
 You are a frontend engineer working on the protospy UI — a React + TypeScript
@@ -100,6 +101,17 @@ ad-hoc verification during development. Repeatable assertions belong in
 the `browser/` test suite, which uses `@playwright/test` directly with
 store injection. If you discover a behavior worth asserting, write a
 test for it — don't rely on having checked it visually once.
+
+**If the MCP reports no browser, stop and report it — don't try to fix
+it yourself.** The MCP server config in this file's frontmatter is read
+once when you start; you cannot reconfigure it mid-session, and editing
+it in this conversation has no effect on the running MCP. You also can't
+reliably install the right Chromium build yourself, because the MCP's
+expected revision is tied to the specific `@playwright/mcp` version
+pinned in the frontmatter. If the MCP fails to find a browser, say so
+plainly ("Playwright MCP has no usable browser — the dev environment's
+MCP browser install step hasn't been run for the pinned version") and
+wait for the human to fix the environment.
 
 The dev server port is configured in `vite.config.ts`. Start it with
 `pnpm dev` from `ui/`. The backend proxies through Vite in dev mode;

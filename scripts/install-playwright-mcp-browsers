@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Install the Chromium build that @playwright/mcp expects, into the user's
+# shared Playwright cache (~/.cache/ms-playwright).
+#
+# The MCP version is read out of .claude/agents/frontend-engineer.md's
+# mcpServers `args` line so this script and the agent definition can't drift.
+# Bumping the version in the agent file is the only change required; re-run
+# this script afterwards to populate the new alpha's Chromium revision.
+#
+# Why this exists: @playwright/mcp always depends on an *alpha* of Playwright's
+# next stable, so the Chromium revision it asserts at startup differs from the
+# one ui's @playwright/test or demo's Python playwright pull in. Each consumer
+# needs its own revision installed; the cache holds all of them side by side.
+#
+# Why --browser chromium in the MCP args: the MCP defaults to channel `chrome`,
+# which looks for a system Google Chrome at /opt/google/chrome/chrome. That's
+# not in the container — and on linux/arm64 it can't be: Chrome stable is
+# amd64-only on Linux. `--browser chromium` points the MCP at the Playwright-
+# bundled Chromium this script installs into ~/.cache/ms-playwright instead.
+# (--headless and --no-sandbox accompany it: no display in the container, and
+# Chromium's user-namespace sandbox is unreliable inside containers — matches
+# the official Playwright MCP Docker recipe.)
+#
+# Safe to re-run; npx no-ops when the package and browsers are already cached.
+# Expect a generic "WARNING: It looks like you are running 'npx playwright
+# install' without first installing your project's dependencies" — it's an
+# npx-prefix heuristic, harmless here because we install through the same
+# @playwright/mcp@<version> that runs the MCP, so the library and the installed
+# browser cannot drift.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd -P)"
+agent_file="$repo_root/.claude/agents/frontend-engineer.md"
+
+if [ ! -f "$agent_file" ]; then
+  echo "install-playwright-mcp-browsers: cannot find agent definition" >&2
+  echo "  expected at: $agent_file" >&2
+  echo "  (run this script from inside a protospy checkout)" >&2
+  exit 1
+fi
+
+if ! command -v npx >/dev/null 2>&1; then
+  echo "install-playwright-mcp-browsers: npx not found on PATH" >&2
+  echo "  install Node.js, or run this inside the cs container" >&2
+  exit 1
+fi
+
+# Pull @playwright/mcp@<version> out of the agent file. The neighbouring
+# comment uses the literal text "<this version>" which won't match the numeric
+# prefix, so the only hit should be the actual args line.
+specs=$(grep -oE '@playwright/mcp@[0-9][0-9a-zA-Z.+-]*' "$agent_file" | sort -u || true)
+
+if [ -z "$specs" ]; then
+  echo "install-playwright-mcp-browsers: no @playwright/mcp@<version> found in" >&2
+  echo "  $agent_file" >&2
+  echo "Expected an mcpServers args line like:" >&2
+  echo '  args: ["@playwright/mcp@0.0.75"]' >&2
+  echo "If the line was renamed or restructured, update this script's grep." >&2
+  exit 1
+fi
+
+count=$(printf '%s\n' "$specs" | wc -l | tr -d ' ')
+if [ "$count" -gt 1 ]; then
+  echo "install-playwright-mcp-browsers: multiple @playwright/mcp versions in" >&2
+  echo "  $agent_file" >&2
+  printf '%s\n' "$specs" | sed 's/^/  /' >&2
+  echo "Cannot pick a canonical version; resolve the conflict in the agent." >&2
+  exit 1
+fi
+
+echo "Installing Chromium for $specs ..."
+echo >&2
+echo "  Heads-up: npx is about to print a 'without first installing your" >&2
+echo "  project's dependencies' WARNING. Ignore it — it's a generic npx-prefix" >&2
+echo "  heuristic and harmless here (we install through the same" >&2
+echo "  @playwright/mcp@<version> that runs the MCP, so they can't drift)." >&2
+echo >&2
+exec npx -y --package="$specs" -- playwright install chromium
