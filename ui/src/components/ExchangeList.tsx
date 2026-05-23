@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
 import { useStore } from "@ui/state/store";
@@ -119,6 +119,16 @@ export function ExchangeList() {
         ? 58
         : 74;
 
+  // Include rowHeight in item keys so the virtualizer's internal
+  // getMeasurements memo invalidates when mode or density changes.
+  // Without this, estimateSize updates don't bust the measurement
+  // cache and rows render at stale positions.
+  const getItemKey = useCallback(
+    (index: number) => `${ordered[index]?.id ?? index}-${rowHeight}`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowHeight],
+  );
+
   // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`)
   // because its methods close over mutable instance state. Safe to ignore here:
   // we don't enable the compiler in this build, and the returned methods are
@@ -129,6 +139,7 @@ export function ExchangeList() {
     count: ordered.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowHeight,
+    getItemKey,
     overscan: 5,
   });
 
