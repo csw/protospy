@@ -116,6 +116,7 @@ export function TopBar({ services, onSwitchService }: Props) {
             <button
               onClick={toggleTraceGroup}
               className={`${iconBtnClass} ${traceGroupOn ? "bg-accent-soft text-accent border-accent/30" : ""}`}
+              aria-label="Group by trace"
               aria-pressed={traceGroupOn}
             >
               <Layers size={15} />

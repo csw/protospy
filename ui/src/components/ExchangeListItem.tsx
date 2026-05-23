@@ -55,6 +55,7 @@ export function ExchangeListItem({
         .filter(Boolean)
         .join(" ")}
       style={selected ? undefined : traceBarStyle}
+      role="option"
       aria-selected={selected}
     >
       {/* When selected, overlay 2px accent inset bar via box-shadow or inline —
