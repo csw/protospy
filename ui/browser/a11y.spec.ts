@@ -3,20 +3,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
 
-// Soft-fail axe scan: violations are recorded as test annotations and
-// attachments but do NOT fail the suite. Once the known violations are
-// triaged and fixed, replace `expect(Array.isArray(violations))` with
-// `expect(violations).toEqual([])` to promote to hard-fail.
-//
-// Known violations suppressed from terminal output (filed for follow-up):
-//   - button-name (critical): Buttons must have discernible text
-//     Affects: empty page, page with selection
-//   - aria-allowed-attr (critical): Elements must only use supported ARIA attributes
-//     Affects: page with selection
-//
-// Violations are recorded as testInfo.annotations (visible in HTML report,
-// silent with --reporter=dot) and as JSON attachments for full detail.
-test.describe("Accessibility smoke (soft-fail)", () => {
+// Hard-fail axe scan: any axe violation fails the test.
+// Violations are also recorded as testInfo.annotations (HTML report) and
+// JSON attachments for triage detail.
+test.describe("Accessibility smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/info", (route) =>
       route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
@@ -29,16 +19,14 @@ test.describe("Accessibility smoke (soft-fail)", () => {
     await resetStore(page);
   });
 
-  test("axe scan on the empty initial page (logs violations, does not fail)", async ({
-    page,
-  }, testInfo) => {
+  test("axe scan on the empty initial page", async ({ page }, testInfo) => {
     const { violations } = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
 
     for (const v of violations) {
       testInfo.annotations.push({
-        type: "a11y-soft-fail",
+        type: "a11y-violation",
         description: `${v.id} (${v.impact}): ${v.help} [${v.nodes.length} node(s)]`,
       });
     }
@@ -48,14 +36,10 @@ test.describe("Accessibility smoke (soft-fail)", () => {
       contentType: "application/json",
     });
 
-    // Soft-fail assertion: report must be a real result, but its content is
-    // advisory only.
-    expect(Array.isArray(violations)).toBe(true);
+    expect(violations).toEqual([]);
   });
 
-  test("axe scan with an exchange selected (logs violations, does not fail)", async ({
-    page,
-  }, testInfo) => {
+  test("axe scan with an exchange selected", async ({ page }, testInfo) => {
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/movies", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
@@ -72,7 +56,7 @@ test.describe("Accessibility smoke (soft-fail)", () => {
 
     for (const v of violations) {
       testInfo.annotations.push({
-        type: "a11y-soft-fail",
+        type: "a11y-violation",
         description: `${v.id} (${v.impact}): ${v.help} [${v.nodes.length} node(s)]`,
       });
     }
@@ -81,6 +65,6 @@ test.describe("Accessibility smoke (soft-fail)", () => {
       contentType: "application/json",
     });
 
-    expect(Array.isArray(violations)).toBe(true);
+    expect(violations).toEqual([]);
   });
 });

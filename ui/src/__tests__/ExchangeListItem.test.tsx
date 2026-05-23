@@ -127,7 +127,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const btn = screen.getByRole("button");
+    const btn = screen.getByRole("option");
     expect(btn).toHaveAttribute("aria-selected", "true");
     expect(btn).toHaveClass("bg-bg-active");
     expect(btn).toHaveClass("border-l-accent");
@@ -142,7 +142,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const btn = screen.getByRole("button");
+    const btn = screen.getByRole("option");
     expect(btn).toHaveAttribute("aria-selected", "false");
     expect(btn).not.toHaveClass("bg-bg-active");
   });
@@ -189,7 +189,7 @@ describe("ExchangeListItem", () => {
         density="compact"
       />,
     );
-    const btn = screen.getByRole("button");
+    const btn = screen.getByRole("option");
     expect(btn).toHaveClass("py-1");
     expect(btn).not.toHaveClass("py-1.5");
   });
@@ -203,7 +203,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const btn = screen.getByRole("button");
+    const btn = screen.getByRole("option");
     expect(btn).toHaveClass("py-1.5");
   });
 
@@ -217,7 +217,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("option"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 });

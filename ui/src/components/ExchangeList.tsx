@@ -51,6 +51,7 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
         height: rowHeight,
         ...(selected ? undefined : traceBarStyle),
       }}
+      role="option"
       aria-selected={selected}
     >
       <span
@@ -294,6 +295,8 @@ export function ExchangeList() {
               {/* Scrollable rows */}
               <div
                 ref={scrollRef}
+                role="listbox"
+                aria-label="Exchanges"
                 className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
               >
                 <div
@@ -344,6 +347,8 @@ export function ExchangeList() {
           {/* Scrollable list */}
           <div
             ref={scrollRef}
+            role="listbox"
+            aria-label="Exchanges"
             className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
           >
             <div
