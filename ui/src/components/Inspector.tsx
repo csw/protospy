@@ -102,6 +102,7 @@ export function Inspector() {
       >
         {/* Tab strip (32px) */}
         <TabsList
+          data-testid="inspector-tab-list"
           variant="line"
           className="h-8 p-0 w-full justify-start rounded-none border-b border-border bg-bg-pane px-2 gap-0"
         >

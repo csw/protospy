@@ -69,6 +69,7 @@ export function ExchangeListItem({
 
         {exchange.status != null ? (
           <span
+            data-testid="status-code"
             className={`font-family-mono text-ui-sm font-semibold ${statusTextClass(exchange.status)}`}
           >
             {exchange.status}
