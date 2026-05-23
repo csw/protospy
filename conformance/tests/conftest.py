@@ -237,11 +237,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     parser.addoption(
         "--proxy",
-        default="caddy,haproxy",
+        default="all",
         help=(
             "Proxy(ies) under test, comma-separated "
-            "(default: caddy,haproxy). "
-            "Use 'all' for all supported proxies."
+            "(default: all). "
+            "Use 'all' for all managed proxies (caddy, haproxy, "
+            "protospy-bypass, protospy-capture), or name specific ones."
         ),
     )
     parser.addoption(

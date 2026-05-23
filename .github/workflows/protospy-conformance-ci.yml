@@ -1,4 +1,8 @@
 name: protospy-conformance-ci
+# Kept separate from conformance-ci intentionally: this workflow also triggers
+# on Rust source changes and requires a cargo build step. Clear failure
+# attribution (conformance regression vs. Rust regression) justifies the
+# separate workflow over consolidation.
 
 on:
   push:
