@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatRelative,
   formatSize,
   formatTime,
   isBulkOperation,
@@ -370,6 +371,53 @@ describe("shortenTraceId", () => {
 
   it("handles the empty string", () => {
     expect(shortenTraceId("")).toBe("");
+  });
+});
+
+describe("formatRelative", () => {
+  const base = "2024-01-01T12:00:00.000Z";
+  const baseMs = new Date(base).getTime();
+
+  it("returns 'now' for 0 seconds elapsed", () => {
+    expect(formatRelative(base, baseMs)).toBe("now");
+  });
+
+  it("returns 'now' for 4 seconds elapsed", () => {
+    expect(formatRelative(base, baseMs + 4000)).toBe("now");
+  });
+
+  it("returns '5s' at the 5-second boundary", () => {
+    expect(formatRelative(base, baseMs + 5000)).toBe("5s");
+  });
+
+  it("returns '59s' just before 1-minute boundary", () => {
+    expect(formatRelative(base, baseMs + 59000)).toBe("59s");
+  });
+
+  it("returns '1m' at the 60-second boundary", () => {
+    expect(formatRelative(base, baseMs + 60000)).toBe("1m");
+  });
+
+  it("returns '3m' for 3 minutes", () => {
+    expect(formatRelative(base, baseMs + 3 * 60 * 1000)).toBe("3m");
+  });
+
+  it("returns '59m' just before 1-hour boundary", () => {
+    expect(formatRelative(base, baseMs + 59 * 60 * 1000)).toBe("59m");
+  });
+
+  it("returns '1h' at the 1-hour boundary", () => {
+    expect(formatRelative(base, baseMs + 60 * 60 * 1000)).toBe("1h");
+  });
+
+  it("returns '3h' for 3 hours", () => {
+    expect(formatRelative(base, baseMs + 3 * 60 * 60 * 1000)).toBe("3h");
+  });
+
+  it("uses Date.now() when no now argument is provided", () => {
+    // Timestamp far in the past — result should be something hour-like, not 'now'
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    expect(formatRelative(old)).toBe("2h");
   });
 });
 
