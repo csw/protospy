@@ -26,7 +26,7 @@ export function FilterBar() {
   return (
     <div className="flex items-center h-[36px] bg-bg-pane border-b border-border px-3 gap-2 shrink-0">
       {/* Search input */}
-      <div className="flex items-center flex-1 gap-1.5 rounded-full bg-bg-sub border border-border px-2.5 h-[24px] min-w-0">
+      <div className="flex items-center flex-1 gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0">
         <Search size={11} className="text-dim shrink-0" />
         <input
           type="text"
