@@ -59,4 +59,21 @@ describe("useRelativeTime", () => {
     // Advancing timers after unmount should not throw
     expect(() => act(() => vi.advanceTimersByTime(5000))).not.toThrow();
   });
+
+  it("uses a single shared interval for multiple mounted components", () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+    const ts = new Date(Date.now()).toISOString();
+
+    const { unmount: u1 } = render(<Wrapper timestamp={ts} />);
+    const { unmount: u2 } = render(<Wrapper timestamp={ts} />);
+    const { unmount: u3 } = render(<Wrapper timestamp={ts} />);
+
+    // Only one interval should have been created across all three components
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    u1();
+    u2();
+    u3();
+    setIntervalSpy.mockRestore();
+  });
 });
