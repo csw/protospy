@@ -36,10 +36,10 @@ Before reporting work as complete or committing, **all of the following must pas
 pnpm lint
 pnpm format
 pnpm typecheck
-pnpm test
+pnpm test:coverage
 ```
 
-If you changed code under `src/`, also run `pnpm test:coverage`. Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
+Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
 
 ## Test-Writing Requirements
 
