@@ -26,6 +26,16 @@ separate discoveries (a bug you stumbled across, a missing test, a new
 issue) — not for scope questions about your current task, which should
 go to the user interactively.
 
+## Branch naming
+
+When creating a branch or worktree for a Linear issue, **always use the branch name Linear suggests** — do not derive one from the title yourself:
+
+```bash
+linear issue view PRO-NNN --json | jq -r .branchName
+```
+
+Pass this value as the branch name to `EnterWorktree` or `git worktree add`. Linear's branch names include the issue ID, which is what triggers the GitHub integration that moves issues through their workflow.
+
 ## Getting issue details
 
 ```bash
