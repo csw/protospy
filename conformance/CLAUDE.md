@@ -5,7 +5,7 @@ Also read `docs/agents/python.md` and `docs/agents/testing.md` at the repo root.
 ## Commands
 
 ```bash
-uv run pytest -q                   # run tests (default: both caddy and haproxy)
+uv run pytest -q                   # run tests (default: all managed proxies)
 uv run pytest -q --proxy caddy     # run against Caddy only
 uv run pytest -q --proxy haproxy   # run against HAProxy only
 uv run pytest -q --findings        # show proxy behavioral findings

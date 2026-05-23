@@ -1,4 +1,8 @@
 name: conformance-ci
+# Kept separate from protospy-conformance-ci intentionally: this workflow
+# triggers only on conformance/ changes and tests caddy/haproxy without a
+# Rust build step. Merging the two would require either always building Rust
+# (slower for conformance-only changes) or adding matrix complexity.
 
 on:
   push:
