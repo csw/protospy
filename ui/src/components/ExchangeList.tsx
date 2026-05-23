@@ -123,8 +123,12 @@ export function ExchangeList() {
   // getMeasurements memo invalidates when mode or density changes.
   // Without this, estimateSize updates don't bust the measurement
   // cache and rows render at stale positions.
+  //
+  // `ordered` is intentionally excluded from deps: it rebuilds every
+  // render, so including it would give getItemKey a new reference each
+  // time, defeating the virtualizer's measurement cache entirely.
   const getItemKey = useCallback(
-    (index: number) => `${ordered[index]?.id ?? index}-${rowHeight}`,
+    (index: number) => `${ordered[index]?.id ?? index}|${rowHeight}`,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rowHeight],
   );

@@ -52,6 +52,9 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
+// Row heights from ExchangeList.tsx (rows: 74/58, table: 30/24)
+const ROW_HEIGHT = { rows: 74, rowsCompact: 58, table: 30, tableCompact: 24 };
+
 test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({
     page,
@@ -81,6 +84,7 @@ test.describe("Virtualization", () => {
       })
       .toBeGreaterThan(0);
 
+    // Higher bound than rows mode: shorter rows → more fit in viewport + overscan
     const rowCount = await page.locator("button[role='option']").count();
     expect(rowCount).toBeLessThan(80);
     expect(rowCount).toBeGreaterThan(5);
@@ -89,51 +93,46 @@ test.describe("Virtualization", () => {
   test("switching from rows to table mode updates virtualizer measurements", async ({
     page,
   }) => {
-    await injectExchanges(page, makeLargeDataset(200));
+    const N = 200;
+    await injectExchanges(page, makeLargeDataset(N));
 
-    // Rows mode: 200 * 74px = 14800px
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("14800px");
+      .toBe(`${N * ROW_HEIGHT.rows}px`);
 
-    // Switch to table mode: 200 * 30px = 6000px
     await setListMode(page, "table");
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("6000px");
+      .toBe(`${N * ROW_HEIGHT.table}px`);
 
-    // Switch back to rows: 14800px
     await setListMode(page, "rows");
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("14800px");
+      .toBe(`${N * ROW_HEIGHT.rows}px`);
   });
 
   test("density toggle updates virtualizer measurements", async ({ page }) => {
-    await injectExchanges(page, makeLargeDataset(200));
+    const N = 200;
+    await injectExchanges(page, makeLargeDataset(N));
 
-    // Rows regular: 200 * 74px = 14800px
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("14800px");
+      .toBe(`${N * ROW_HEIGHT.rows}px`);
 
-    // Rows compact: 200 * 58px = 11600px
     await setDensity(page, "compact");
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("11600px");
+      .toBe(`${N * ROW_HEIGHT.rowsCompact}px`);
 
-    // Table compact: 200 * 24px = 4800px
     await setListMode(page, "table");
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("4800px");
+      .toBe(`${N * ROW_HEIGHT.tableCompact}px`);
 
-    // Table regular: 200 * 30px = 6000px
     await setDensity(page, "regular");
     await expect
       .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe("6000px");
+      .toBe(`${N * ROW_HEIGHT.table}px`);
   });
 
   test("keyboard navigation scrolls off-screen item into view", async ({
@@ -175,9 +174,8 @@ test.describe("Virtualization", () => {
     }
     await injectExchanges(page, messages);
 
-    // Traced rows should have non-transparent left border color
-    const tracedRow = page.locator("button[role='option']").first();
-    await expect(tracedRow).toBeVisible();
+    // Wait for rows to render before scanning border colors
+    await expect(page.locator("button[role='option']").first()).toBeVisible();
 
     const hasTracedBorder = await page.evaluate(() => {
       const rows = document.querySelectorAll("button[role='option']");
