@@ -67,12 +67,12 @@ export function ExchangeListItem({
 
         {exchange.status != null ? (
           <span
-            className={`font-family-mono text-sm font-bold ${statusTextClass(exchange.status)}`}
+            className={`font-family-mono text-ui-sm font-semibold ${statusTextClass(exchange.status)}`}
           >
             {exchange.status}
           </span>
         ) : hasError ? (
-          <span className="font-family-mono text-sm font-bold text-red">
+          <span className="font-family-mono text-ui-sm font-semibold text-red">
             ERR
           </span>
         ) : null}

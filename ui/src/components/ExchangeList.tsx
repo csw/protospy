@@ -209,7 +209,7 @@ export function ExchangeList() {
       {/* Toolbar */}
       <div className="flex items-center px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         {/* Left: label + trace group indicator */}
-        <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-widest">
+        <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-widest">
           Exchanges
         </span>
         {traceGroupOn && (
@@ -274,22 +274,22 @@ export function ExchangeList() {
             className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent"
             style={{ gridTemplateColumns: TABLE_COLUMNS }}
           >
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-2">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2">
               Method
             </span>
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
               Status
             </span>
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
               Path
             </span>
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
               Time
             </span>
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
               Size
             </span>
-            <span className="font-family-ui text-xs font-semibold text-mid uppercase tracking-wider px-2 text-right">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right">
               When
             </span>
           </div>
