@@ -209,7 +209,7 @@ export function ExchangeList() {
       {/* Toolbar */}
       <div className="flex items-center px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         {/* Left: label + trace group indicator */}
-        <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-widest">
+        <span className="font-family-ui text-ui-xs font-semibold text-mid tracking-[0.03em]">
           Exchanges
         </span>
         {traceGroupOn && (
