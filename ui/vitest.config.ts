@@ -27,16 +27,13 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-120 relative timestamps (statements 63.88%,
-      // branches 48.43%, functions 52.27%, lines 66.53%) with a ~2% margin.
-      // Note: the measurements in the PR were slightly optimistic (thresholds
-      // were set from an earlier snapshot); these are calibrated from the
-      // merged state.
+      // Floor ratcheted after PRO-137 shared tick source (statements 64.28%,
+      // branches 48.88%, functions 52.45%, lines 67.06%) with a ~1% margin.
       thresholds: {
-        statements: 62,
-        branches: 47,
-        functions: 51,
-        lines: 65,
+        statements: 63,
+        branches: 48,
+        functions: 52,
+        lines: 66,
       },
     },
     projects: [
