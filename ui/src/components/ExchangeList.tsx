@@ -271,7 +271,7 @@ export function ExchangeList() {
         <>
           {/* Sticky table header */}
           <div
-            className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent"
+            className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]"
             style={{ gridTemplateColumns: TABLE_COLUMNS }}
           >
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2">
