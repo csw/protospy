@@ -11,6 +11,7 @@ dependencies = [
     "pydantic-settings>=2,<3",
     "jinja2>=3,<4",
     "python-multipart>=0,<1",
+    "starlette>=1.0.1,<2",
     "opentelemetry-sdk>=1,<2",
     "opentelemetry-api>=1,<2",
     "opentelemetry-instrumentation-fastapi>=0,<1",
