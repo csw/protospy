@@ -78,7 +78,7 @@ export function TopBar({ services, onSwitchService }: Props) {
                 disabled
                 className="text-dim font-family-mono text-xs"
               >
-                No services
+                No services configured
               </DropdownMenuItem>
             ) : (
               services.map((svc) => (
@@ -135,13 +135,15 @@ export function TopBar({ services, onSwitchService }: Props) {
                 setDensity(density === "regular" ? "compact" : "regular")
               }
               className={iconBtnClass}
-              aria-label={`Density: ${density}`}
+              aria-label="Toggle density"
             >
               <LayoutGrid size={15} />
             </button>
           </TooltipTrigger>
           <TooltipContent className="bg-bg-pane border-border text-ink text-xs">
-            Density: {density}
+            {density === "regular"
+              ? "Switch to compact view"
+              : "Switch to regular view"}
           </TooltipContent>
         </Tooltip>
 

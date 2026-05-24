@@ -93,7 +93,7 @@ export function CommandPalette() {
       className="top-[12vh] translate-y-0 max-w-[600px] bg-bg-pane border border-border rounded-[10px] shadow-lg"
     >
       <CommandInput
-        placeholder="Search..."
+        placeholder="Search exchanges…"
         className="font-family-mono text-sm text-ink placeholder:text-dim"
       />
       <CommandList className="max-h-[480px]">

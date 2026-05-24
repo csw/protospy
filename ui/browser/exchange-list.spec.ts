@@ -30,7 +30,12 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Exchange list — rows mode", () => {
   test("1.1 shows empty state when no exchanges", async ({ page }) => {
-    await expect(page.getByText("No exchanges")).toBeVisible();
+    await expect(page.getByText("No requests yet")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Traffic will appear here when requests flow through the proxy",
+      ),
+    ).toBeVisible();
   });
 
   test("1.2 exchanges render with method, status, path", async ({ page }) => {
@@ -53,13 +58,17 @@ test.describe("Exchange list — rows mode", () => {
     ]);
 
     // Before selection, inspector shows empty state
-    await expect(page.getByText("Select an exchange")).toBeVisible();
+    await expect(
+      page.getByText("Select a request to inspect it"),
+    ).toBeVisible();
 
     // Click the exchange row
     await page.getByText("/api/movies").first().click();
 
     // Inspector should now show the exchange
-    await expect(page.getByText("Select an exchange")).not.toBeVisible();
+    await expect(
+      page.getByText("Select a request to inspect it"),
+    ).not.toBeVisible();
     // Context bar should show the method and path
     await expect(
       page.locator("button[aria-selected='true']").first(),
@@ -118,7 +127,7 @@ test.describe("Exchange list — table mode", () => {
     await expect(page.getByText("Path")).toBeVisible();
     await expect(page.getByText("Time")).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When")).toBeVisible();
+    await expect(page.getByText("When", { exact: true })).toBeVisible();
   });
 
   test("2.2 row data renders in table columns", async ({ page }) => {

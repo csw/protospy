@@ -42,14 +42,16 @@ describe("CommandPalette", () => {
     // Radix Dialog only mounts content when open; the "Toggle dark mode"
     // item should not appear in the DOM at all.
     expect(screen.queryByText("Toggle dark mode")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("Search...")).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Search exchanges…"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the input and command items when cmdKOpen is true", () => {
     useStore.getState().setCmdKOpen(true);
     render(<CommandPalette />);
 
-    const input = screen.getByPlaceholderText("Search...");
+    const input = screen.getByPlaceholderText("Search exchanges…");
     expect(input).toBeInTheDocument();
 
     // Assert the input is the only combobox/textbox-style element. cmdk's
@@ -74,7 +76,7 @@ describe("CommandPalette", () => {
     // Before typing, the exchange row is rendered.
     expect(screen.getByText("/api/widgets")).toBeInTheDocument();
 
-    const input = screen.getByPlaceholderText("Search...");
+    const input = screen.getByPlaceholderText("Search exchanges…");
     await act(async () => {
       fireEvent.change(input, { target: { value: "toggle" } });
     });

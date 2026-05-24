@@ -16,6 +16,8 @@ import { ExchangeListItem } from "./ExchangeListItem";
 
 const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
 
+const EMPTY_STATE_NO_MATCH = "No requests match your filter";
+
 interface TableRowProps {
   exchange: Exchange;
   selected: boolean;
@@ -77,6 +79,27 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
         {relTime}
       </span>
     </button>
+  );
+}
+
+function ListEmptyState({ filtered }: { filtered: boolean }) {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-bg-pane">
+      {filtered ? (
+        <span className="font-family-ui text-xs text-dim">
+          {EMPTY_STATE_NO_MATCH}
+        </span>
+      ) : (
+        <div className="flex flex-col items-center gap-1.5 text-center max-w-[260px]">
+          <span className="font-family-ui text-sm font-medium text-ink-2">
+            No requests yet
+          </span>
+          <span className="font-family-ui text-xs text-dim leading-relaxed">
+            Traffic will appear here when requests flow through the proxy
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -210,7 +233,7 @@ export function ExchangeList() {
       <div className="flex items-center px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         {/* Left: label + trace group indicator */}
         <span className="font-family-ui text-ui-xs font-semibold text-mid tracking-[0.03em]">
-          Exchanges
+          Requests
         </span>
         {traceGroupOn && (
           <Layers
@@ -296,11 +319,7 @@ export function ExchangeList() {
           </div>
 
           {ordered.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center bg-bg-pane">
-              <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-                {filter || traceFilter ? "No exchanges match" : "No exchanges"}
-              </span>
-            </div>
+            <ListEmptyState filtered={!!(filter || traceFilter)} />
           ) : (
             /* Trace rail + virtualized table rows */
             <div className="flex flex-1 overflow-hidden">
@@ -312,7 +331,7 @@ export function ExchangeList() {
               <div
                 ref={scrollRef}
                 role="listbox"
-                aria-label="Exchanges"
+                aria-label="Requests"
                 className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
               >
                 <div
@@ -348,11 +367,7 @@ export function ExchangeList() {
           )}
         </>
       ) : ordered.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center bg-bg-pane">
-          <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-            {filter || traceFilter ? "No exchanges match" : "No exchanges"}
-          </span>
-        </div>
+        <ListEmptyState filtered={!!(filter || traceFilter)} />
       ) : (
         /* Trace rail + virtualized scrollable list */
         <div className="flex flex-1 overflow-hidden">
@@ -364,7 +379,7 @@ export function ExchangeList() {
           <div
             ref={scrollRef}
             role="listbox"
-            aria-label="Exchanges"
+            aria-label="Requests"
             className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
           >
             <div

@@ -44,7 +44,7 @@ export function StatusBar() {
 
       {/* Exchange count */}
       <span className="font-family-mono text-xs text-dim">
-        {ids.length} exchange{ids.length !== 1 ? "s" : ""}
+        {ids.length} request{ids.length !== 1 ? "s" : ""}
       </span>
     </div>
   );

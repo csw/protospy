@@ -51,7 +51,7 @@ export function BodyPane({ title, body }: Props) {
         {!loading && body == null && <EmptyState>No body</EmptyState>}
 
         {!loading && body != null && body.atEnd && result == null && (
-          <EmptyState>Decode failed</EmptyState>
+          <EmptyState>Could not decode body</EmptyState>
         )}
 
         {!loading &&

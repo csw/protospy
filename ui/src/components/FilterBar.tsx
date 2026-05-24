@@ -35,7 +35,7 @@ export function FilterBar() {
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter exchanges…"
+          placeholder="Filter requests…"
           className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
         />
         {filter.length > 0 && (
@@ -73,7 +73,7 @@ export function FilterBar() {
       <span className="font-family-mono text-xs text-dim shrink-0 ml-auto">
         {isFiltered
           ? `${filteredCount} of ${totalCount}`
-          : `${totalCount} exchange${totalCount !== 1 ? "s" : ""}`}
+          : `${totalCount} request${totalCount !== 1 ? "s" : ""}`}
       </span>
     </div>
   );

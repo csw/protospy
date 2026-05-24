@@ -30,10 +30,12 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — empty state", () => {
-  test("1.1 shows 'Select an exchange' when no exchange is selected", async ({
+  test("1.1 shows 'Select a request to inspect it' when no exchange is selected", async ({
     page,
   }) => {
-    await expect(page.getByText("Select an exchange")).toBeVisible();
+    await expect(
+      page.getByText("Select a request to inspect it"),
+    ).toBeVisible();
   });
 
   test("1.2 empty state clears when an exchange is selected", async ({
@@ -44,9 +46,13 @@ test.describe("Inspector — empty state", () => {
       makeResponse(1, "200 OK"),
     ]);
 
-    await expect(page.getByText("Select an exchange")).toBeVisible();
+    await expect(
+      page.getByText("Select a request to inspect it"),
+    ).toBeVisible();
     await page.getByText("/api/test").first().click();
-    await expect(page.getByText("Select an exchange")).not.toBeVisible();
+    await expect(
+      page.getByText("Select a request to inspect it"),
+    ).not.toBeVisible();
   });
 });
 
@@ -80,8 +86,8 @@ test.describe("Inspector — Bodies tab", () => {
     await page.getByText("/api/bodies").first().click();
 
     // BodySplit renders "Request" and "Response" pane headers
-    await expect(page.getByText("Request")).toBeVisible();
-    await expect(page.getByText("Response")).toBeVisible();
+    await expect(page.getByText("Request", { exact: true })).toBeVisible();
+    await expect(page.getByText("Response", { exact: true })).toBeVisible();
   });
 });
 
