@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ExchangeListItem } from "@ui/components/ExchangeListItem";
 import type { Exchange } from "@ui/state/reducer";
 
@@ -16,10 +16,6 @@ function makeExchange(overrides: Partial<Exchange> = {}): Exchange {
 }
 
 describe("ExchangeListItem", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
   it("renders the method badge with the expected class", () => {
     render(
       <ExchangeListItem

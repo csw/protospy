@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { BodySplit } from "@ui/components/BodySplit";
 import type { Exchange } from "@ui/state/reducer";
 
@@ -36,8 +36,6 @@ function makeJsonExchange(): Exchange {
 }
 
 describe("BodySplit protocol routing", () => {
-  afterEach(cleanup);
-
   it("renders generic StreamView (no mode toggle) for SSE with null protocol", () => {
     render(<BodySplit exchange={makeSSEExchange()} protocol={null} />);
     expect(screen.queryByText("transcript")).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
 import { FilterBar } from "@ui/components/FilterBar";
 import { useStore } from "@ui/state/store";
@@ -9,10 +9,6 @@ import { shortenTraceId } from "@ui/lib/utils";
 describe("FilterBar", () => {
   beforeEach(() => {
     useStore.setState(useStore.getInitialState(), true);
-  });
-
-  afterEach(() => {
-    cleanup();
   });
 
   describe("filter input", () => {

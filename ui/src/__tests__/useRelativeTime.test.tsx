@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, act, cleanup } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 
 function Wrapper({ timestamp }: { timestamp: string }) {
@@ -14,7 +14,6 @@ describe("useRelativeTime", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    cleanup();
   });
 
   it("returns 'now' immediately after injection of a current timestamp", () => {

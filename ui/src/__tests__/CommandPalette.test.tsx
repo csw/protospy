@@ -4,7 +4,6 @@ import {
   screen,
   fireEvent,
   act,
-  cleanup,
   waitFor,
 } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
@@ -33,7 +32,6 @@ describe("CommandPalette", () => {
   });
 
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
   });
 

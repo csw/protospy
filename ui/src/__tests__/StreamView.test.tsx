@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { StreamView } from "@ui/components/StreamView";
 import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
 import type { Exchange } from "@ui/state/reducer";
@@ -23,8 +23,6 @@ const GENERIC_SSE =
   "event: ping\ndata: keepalive\n\nevent: message\ndata: hello\n\n";
 
 describe("StreamView — generic SSE rendering", () => {
-  afterEach(cleanup);
-
   it("renders events when given SSE body", () => {
     render(<StreamView exchange={makeSSEExchange(GENERIC_SSE)} />);
     expect(screen.getByText("ping")).toBeInTheDocument();
@@ -68,8 +66,6 @@ const ANTHROPIC_SSE = [
 ].join("");
 
 describe("ChatStreamView — Anthropic protocol", () => {
-  afterEach(cleanup);
-
   it("renders the transcript/events mode toggle", () => {
     render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />);
     expect(screen.getByText("transcript")).toBeInTheDocument();

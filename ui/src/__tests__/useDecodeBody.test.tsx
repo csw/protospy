@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act, cleanup, waitFor } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
@@ -35,7 +35,6 @@ describe("useDecodeBody", () => {
   });
 
   afterEach(() => {
-    cleanup();
     consoleErrorSpy.mockRestore();
   });
 
