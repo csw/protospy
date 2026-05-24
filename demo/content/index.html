@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>protospy — live demo</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap");
+
+      :root {
+        --bg: #0e0f11;
+        --surface: #161820;
+        --border: #272a33;
+        --muted: #454a58;
+        --accent: #5b7fff;
+        --accent-lo: rgba(91, 127, 255, 0.12);
+        --text: #dde0ea;
+        --text-dim: #7a8099;
+        --green: #3ecf8e;
+        --amber: #f5a524;
+        --red: #f06060;
+        --mono: "DM Mono", monospace;
+        --sans: "DM Sans", sans-serif;
+        --chrome-h: 44px;
+        --panel-gap: 6px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14px;
+        overflow: hidden;
+      }
+
+      /* ── Top chrome ── */
+      #chrome {
+        height: var(--chrome-h);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 20px;
+        flex-shrink: 0;
+      }
+
+      #logo {
+        font-family: var(--mono);
+        font-weight: 500;
+        font-size: 15px;
+        letter-spacing: -0.3px;
+        color: var(--text);
+      }
+
+      #logo span {
+        color: var(--accent);
+      }
+
+      #tagline {
+        font-size: 12px;
+        color: var(--text-dim);
+        font-weight: 300;
+      }
+
+      #status-pill {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--mono);
+        font-size: 11px;
+        border-radius: 20px;
+        padding: 3px 10px 3px 8px;
+        transition:
+          color 0.3s,
+          background 0.3s,
+          border-color 0.3s;
+      }
+
+      #status-pill.status-waiting {
+        color: var(--amber);
+        background: rgba(245, 165, 36, 0.1);
+        border: 1px solid rgba(245, 165, 36, 0.25);
+      }
+
+      #status-pill.status-active {
+        color: var(--green);
+        background: rgba(62, 207, 142, 0.1);
+        border: 1px solid rgba(62, 207, 142, 0.25);
+      }
+
+      #status-pill.status-active .dot {
+        background: var(--green);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      #status-pill.status-waiting .dot {
+        background: var(--amber);
+        animation: none;
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      /* ── Main layout ── */
+      #workspace {
+        display: flex;
+        height: calc(100vh - var(--chrome-h));
+        gap: var(--panel-gap);
+        padding: var(--panel-gap);
+      }
+
+      /* ── Panel chrome shared ── */
+      .panel {
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+
+      .panel-header {
+        height: 32px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .panel-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      .panel-badge {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: var(--accent-lo);
+        color: var(--accent);
+        border: 1px solid rgba(91, 127, 255, 0.25);
+      }
+
+      .panel-url {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+      }
+
+      /* ── Draggable divider ── */
+      .divider {
+        width: 4px;
+        background: transparent;
+        cursor: col-resize;
+        flex-shrink: 0;
+        position: relative;
+        transition: background 0.15s;
+      }
+
+      .divider:hover {
+        background: var(--accent);
+        border-radius: 2px;
+      }
+
+      /* ── Elasticflix panel ── */
+      #panel-app {
+        width: 340px;
+      }
+
+      #panel-app iframe {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: #fff;
+      }
+
+      /* ── Protospy panel ── */
+      #panel-spy {
+        flex: 1;
+      }
+
+      #panel-spy iframe {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: var(--bg);
+      }
+
+      /* ── Tour overlay ── */
+      #tour {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 11, 14, 0.7);
+        backdrop-filter: blur(3px);
+        transition: opacity 0.3s;
+      }
+
+      #tour.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #tour-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 32px 36px;
+        max-width: 480px;
+        width: 90%;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+        animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      #tour-step-indicator {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+
+      #tour-step-indicator em {
+        color: var(--accent);
+        font-style: normal;
+      }
+
+      #tour-title {
+        font-size: 22px;
+        font-weight: 500;
+        line-height: 1.25;
+        margin-bottom: 12px;
+      }
+
+      #tour-body {
+        font-size: 13.5px;
+        line-height: 1.65;
+        color: var(--text-dim);
+        margin-bottom: 28px;
+      }
+
+      #tour-body strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      #tour-body code {
+        font-family: var(--mono);
+        font-size: 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 1px 5px;
+        color: var(--accent);
+      }
+
+      #tour-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 9px 20px;
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          opacity 0.15s,
+          transform 0.1s;
+      }
+
+      .btn-primary:hover {
+        opacity: 0.9;
+      }
+
+      .btn-primary:active {
+        transform: scale(0.98);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 9px 16px;
+        font-family: var(--sans);
+        font-size: 13px;
+        cursor: pointer;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+
+      .btn-ghost:hover {
+        color: var(--text);
+        border-color: var(--muted);
+      }
+
+      .btn-skip {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: var(--sans);
+        transition: color 0.15s;
+      }
+
+      .btn-skip:hover {
+        color: var(--text-dim);
+      }
+
+      #tour-progress {
+        display: flex;
+        gap: 5px;
+        margin-top: 24px;
+      }
+
+      .progress-pip {
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border);
+        flex: 1;
+        transition: background 0.3s;
+      }
+
+      .progress-pip.done {
+        background: var(--accent);
+      }
+
+      /* ── Spotlight highlight ── */
+      .spotlight {
+        position: fixed;
+        border: 2px solid var(--accent);
+        border-radius: 8px;
+        box-shadow:
+          0 0 0 4000px rgba(0, 0, 0, 0.55),
+          0 0 24px rgba(91, 127, 255, 0.35);
+        transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        pointer-events: none;
+        z-index: 195;
+      }
+
+      /* ── Canned exchange preview (step 2) ── */
+      #exchange-preview {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 14px;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        max-height: 160px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #exchange-preview::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(transparent, var(--bg));
+      }
+
+      .ex-method {
+        color: var(--amber);
+      }
+
+      .ex-url {
+        color: var(--text);
+      }
+
+      .ex-status {
+        color: var(--green);
+      }
+
+      .ex-dim {
+        color: var(--muted);
+      }
+
+      .ex-key {
+        color: var(--accent);
+      }
+
+      .ex-str {
+        color: var(--green);
+      }
+
+      .ex-num {
+        color: var(--amber);
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ─── Top chrome ─── -->
+    <header id="chrome">
+      <div id="logo">proto<span>spy</span></div>
+      <div id="tagline">HTTP traffic inspector · live demo</div>
+      <div id="status-pill" class="status-waiting">
+        <div class="dot"></div>
+        <span id="status-text">waiting for proxy</span>
+      </div>
+    </header>
+
+    <!-- ─── Workspace ─── -->
+    <div id="workspace">
+      <!-- Elasticflix panel -->
+      <div class="panel" id="panel-app">
+        <div class="panel-header">
+          <span class="panel-label">Elasticflix</span>
+          <span class="panel-badge">demo app</span>
+          <span class="panel-url" id="label-app"></span>
+        </div>
+        <iframe id="iframe-app" title="Elasticflix demo app"></iframe>
+      </div>
+
+      <div class="divider" id="divider"></div>
+
+      <!-- Protospy panel -->
+      <div class="panel" id="panel-spy">
+        <div class="panel-header">
+          <span class="panel-label">protospy</span>
+          <span class="panel-badge">inspector</span>
+          <span class="panel-url" id="label-spy"></span>
+        </div>
+        <iframe id="iframe-spy" title="protospy inspector"></iframe>
+      </div>
+    </div>
+
+    <!-- ─── Spotlight element ─── -->
+    <div class="spotlight" id="spotlight" style="display: none"></div>
+
+    <!-- ─── Tour overlay ─── -->
+    <div id="tour">
+      <div id="tour-card">
+        <div id="tour-step-indicator">
+          step <em id="step-num">1</em> of <em id="step-total">4</em>
+        </div>
+        <h2 id="tour-title"></h2>
+        <div id="tour-body"></div>
+        <div id="tour-actions">
+          <button class="btn-primary" id="btn-next">Get started</button>
+          <button class="btn-ghost" id="btn-prev" style="display: none">
+            Back
+          </button>
+          <button class="btn-skip" id="btn-skip">Skip tour</button>
+        </div>
+        <div id="tour-progress"></div>
+      </div>
+    </div>
+
+    <script>
+      // ── URL configuration ──
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var onProd = location.hostname.includes("protospy.io");
+        var spyUrl =
+          params.get("spy") ||
+          (onProd ? "https://spy.demo.protospy.io" : "http://localhost:3100");
+        var appUrl =
+          params.get("app") ||
+          (onProd ? "https://app.demo.protospy.io" : "http://localhost:8000");
+
+        document.getElementById("iframe-spy").src = spyUrl;
+        document.getElementById("iframe-app").src = appUrl + "?demo=1";
+        document.getElementById("label-spy").textContent = new URL(spyUrl).host;
+        document.getElementById("label-app").textContent = new URL(appUrl).host;
+
+        window._appIframe = document.getElementById("iframe-app");
+      })();
+
+      // ── Tour steps ──
+      var steps = [
+        {
+          title: "Watch HTTP traffic as it happens.",
+          body: "<strong>protospy</strong> sits between the Elasticflix app and its Elasticsearch backend, capturing every request and response in real time.<br><br>This is a live demo. Everything you do in Elasticflix will appear in the inspector on the right — including the full query and response bodies.",
+          spotlight: null,
+          cta: "Get started",
+        },
+        {
+          title: "Here’s what a captured exchange looks like.",
+          body: '<div id="exchange-preview"><span class="ex-method">POST</span> <span class="ex-url">/movies/_search</span> → <span class="ex-status">200 OK</span> <span class="ex-dim">· 142 ms · 4.1 KB</span><br><br><span class="ex-dim">// request body</span><br>{<br>&nbsp;&nbsp;<span class="ex-key">"query"</span>: {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"multi_match"</span>: {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"query"</span>: <span class="ex-str">"inception"</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"fields"</span>: [<span class="ex-str">"title^3"</span>, <span class="ex-str">"overview"</span>]<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;},<br>&nbsp;&nbsp;<span class="ex-key">"size"</span>: <span class="ex-num">10</span><br>}</div>Every exchange shows the full request and response bodies — no truncation, no noise.',
+          spotlight: null,
+          cta: "Next",
+        },
+        {
+          title: "Try Elasticflix — it’s on the left.",
+          body: "Search for any movie. Each search fires an Elasticsearch query through the proxy.<br><br>Watch the <strong>inspector panel on the right</strong> — a new row will appear immediately, and you can click it to see the full request and response bodies.",
+          spotlight: "app",
+          cta: "Got it",
+        },
+        {
+          title: "Click any row in the inspector.",
+          body: "The inspector lists every captured exchange. Click a row to see the <strong>full request body</strong> on the left pane and the <strong>full response body</strong> on the right — syntax-highlighted, scrollable, and searchable.<br><br>That’s the whole thing. Go explore.",
+          spotlight: "spy",
+          cta: "Let me in",
+        },
+      ];
+
+      var current = 0;
+
+      var tourEl = document.getElementById("tour");
+      var titleEl = document.getElementById("tour-title");
+      var bodyEl = document.getElementById("tour-body");
+      var numEl = document.getElementById("step-num");
+      var totalEl = document.getElementById("step-total");
+      var btnNext = document.getElementById("btn-next");
+      var btnPrev = document.getElementById("btn-prev");
+      var btnSkip = document.getElementById("btn-skip");
+      var progressEl = document.getElementById("tour-progress");
+      var spotEl = document.getElementById("spotlight");
+
+      totalEl.textContent = steps.length;
+
+      function buildProgress() {
+        progressEl.innerHTML = "";
+        steps.forEach(function (_, i) {
+          var pip = document.createElement("div");
+          pip.className = "progress-pip" + (i <= current ? " done" : "");
+          progressEl.appendChild(pip);
+        });
+      }
+
+      function applySpotlight(target) {
+        if (!target) {
+          spotEl.style.display = "none";
+          return;
+        }
+        var el =
+          target === "app"
+            ? document.getElementById("panel-app")
+            : document.getElementById("panel-spy");
+        var r = el.getBoundingClientRect();
+        spotEl.style.display = "block";
+        spotEl.style.top = r.top - 4 + "px";
+        spotEl.style.left = r.left - 4 + "px";
+        spotEl.style.width = r.width + 8 + "px";
+        spotEl.style.height = r.height + 8 + "px";
+      }
+
+      function renderStep(n) {
+        var s = steps[n];
+        numEl.textContent = n + 1;
+        titleEl.textContent = s.title;
+        bodyEl.innerHTML = s.body;
+        btnNext.textContent = s.cta;
+        btnPrev.style.display = n > 0 ? "" : "none";
+        buildProgress();
+        applySpotlight(s.spotlight);
+
+        if (s.spotlight) {
+          tourEl.style.background = "transparent";
+          tourEl.style.backdropFilter = "none";
+        } else {
+          tourEl.style.background = "rgba(10,11,14,.7)";
+          tourEl.style.backdropFilter = "blur(3px)";
+        }
+      }
+
+      function dismiss() {
+        tourEl.classList.add("hidden");
+        spotEl.style.display = "none";
+      }
+
+      btnNext.addEventListener("click", function () {
+        if (current >= steps.length - 1) {
+          dismiss();
+          return;
+        }
+        current++;
+        renderStep(current);
+      });
+
+      btnPrev.addEventListener("click", function () {
+        if (current <= 0) return;
+        current--;
+        renderStep(current);
+      });
+
+      btnSkip.addEventListener("click", dismiss);
+
+      renderStep(0);
+
+      // ── Draggable divider ──
+      var divider = document.getElementById("divider");
+      var panelApp = document.getElementById("panel-app");
+      var dragging = false,
+        startX = 0,
+        startW = 0;
+
+      divider.addEventListener("mousedown", function (e) {
+        dragging = true;
+        startX = e.clientX;
+        startW = panelApp.offsetWidth;
+        document.body.style.cursor = "col-resize";
+        document.querySelectorAll("iframe").forEach(function (f) {
+          f.style.pointerEvents = "none";
+        });
+      });
+      document.addEventListener("mousemove", function (e) {
+        if (!dragging) return;
+        var newW = Math.max(240, Math.min(600, startW + (e.clientX - startX)));
+        panelApp.style.width = newW + "px";
+      });
+      document.addEventListener("mouseup", function () {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = "";
+        document.querySelectorAll("iframe").forEach(function (f) {
+          f.style.pointerEvents = "";
+        });
+      });
+
+      // ── postMessage bridge ──
+      (function () {
+        var pill = document.getElementById("status-pill");
+        var statusText = document.getElementById("status-text");
+
+        function setStatus(state) {
+          pill.className = "status-" + state;
+          statusText.textContent =
+            state === "active" ? "proxy active" : "waiting for proxy";
+        }
+
+        window.addEventListener("message", function (e) {
+          var type = e.data && e.data.type;
+
+          if (type === "proxy_connected") {
+            setStatus("active");
+            // Elasticflix expects the plain string 'proxy_connected', not the object protospy sends
+            if (window._appIframe && window._appIframe.contentWindow) {
+              window._appIframe.contentWindow.postMessage(
+                "proxy_connected",
+                "*",
+              );
+            }
+          }
+
+          if (type === "proxy_disconnected") {
+            setStatus("waiting");
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

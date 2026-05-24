@@ -3,6 +3,7 @@ set dotenv-filename := ".env.dev"
 
 mod flix
 mod ui
+mod demo
 
 export RUST_BACKTRACE := "full"
 

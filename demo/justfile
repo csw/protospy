@@ -1,0 +1,9 @@
+default: run
+
+# Serve the demo site on localhost
+run port="8080":
+    python3 serve.py {{port}}
+
+# Format content/index.html with Prettier (uses pre-commit's managed node env)
+format:
+    cd .. && pre-commit run prettier-demo --files demo/content/index.html
