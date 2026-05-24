@@ -117,7 +117,7 @@ test.describe("Filter bar", () => {
     const input = page.getByPlaceholder("Filter exchanges…");
     await input.fill("nonexistent");
 
-    await expect(page.getByText("No exchanges match")).toBeVisible();
+    await expect(page.getByText("No requests match your filter")).toBeVisible();
     const rows = page.locator("button[aria-selected]");
     await expect(rows).toHaveCount(0);
   });

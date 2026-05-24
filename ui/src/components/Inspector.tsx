@@ -73,7 +73,7 @@ export function Inspector() {
   if (exchange == null) {
     return (
       <div className="h-full bg-bg-pane overflow-hidden">
-        <EmptyState textSize="sm">Select an exchange</EmptyState>
+        <EmptyState textSize="sm">Select a request to inspect it</EmptyState>
       </div>
     );
   }
@@ -136,7 +136,7 @@ export function Inspector() {
         {/* Pairs tab (msearch/mget only) */}
         {isMsearch && (
           <TabsContent value="pairs" className="flex-1 overflow-auto mt-0">
-            <EmptyState>Paired view coming soon</EmptyState>
+            <EmptyState>Paired request view is not yet available</EmptyState>
           </TabsContent>
         )}
 
@@ -145,7 +145,7 @@ export function Inspector() {
           {reqHeaders.length > 0 ? (
             <HeaderTable headers={reqHeaders} />
           ) : (
-            <EmptyState>No request headers</EmptyState>
+            <EmptyState>No request headers captured</EmptyState>
           )}
         </TabsContent>
 
@@ -154,7 +154,7 @@ export function Inspector() {
           {resHeaders.length > 0 ? (
             <HeaderTable headers={resHeaders} />
           ) : (
-            <EmptyState>No response headers</EmptyState>
+            <EmptyState>No response headers captured</EmptyState>
           )}
         </TabsContent>
 

@@ -16,6 +16,10 @@ import { ExchangeListItem } from "./ExchangeListItem";
 
 const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
 
+const EMPTY_STATE_NO_REQUESTS =
+  "No requests yet — traffic will appear here when requests flow through the proxy";
+const EMPTY_STATE_NO_MATCH = "No requests match your filter";
+
 interface TableRowProps {
   exchange: Exchange;
   selected: boolean;
@@ -298,7 +302,9 @@ export function ExchangeList() {
           {ordered.length === 0 ? (
             <div className="flex-1 flex items-center justify-center bg-bg-pane">
               <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-                {filter || traceFilter ? "No exchanges match" : "No exchanges"}
+                {filter || traceFilter
+                  ? EMPTY_STATE_NO_MATCH
+                  : EMPTY_STATE_NO_REQUESTS}
               </span>
             </div>
           ) : (
@@ -350,7 +356,9 @@ export function ExchangeList() {
       ) : ordered.length === 0 ? (
         <div className="flex-1 flex items-center justify-center bg-bg-pane">
           <span className="font-family-ui text-xs text-dim uppercase tracking-widest">
-            {filter || traceFilter ? "No exchanges match" : "No exchanges"}
+            {filter || traceFilter
+              ? EMPTY_STATE_NO_MATCH
+              : EMPTY_STATE_NO_REQUESTS}
           </span>
         </div>
       ) : (
