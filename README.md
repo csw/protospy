@@ -109,9 +109,3 @@ just publish           # build UI, dry-run, confirm, then upload
 ```
 
 `just publish` runs a dry-run first, then prompts for confirmation before uploading. Pass `just --yes publish` to skip the prompt.
-
-### devcontainers
-
-The repo includes a devcontainer configuration (`.devcontainer/devcontainer.json`) for Rust and Python development. It is tested with Zed on macOS with OrbStack.
-
-See [docs/devcontainers.md](docs/devcontainers.md) for details.
