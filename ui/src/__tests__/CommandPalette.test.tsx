@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   render,
   screen,
@@ -29,10 +29,6 @@ describe("CommandPalette", () => {
     if (!Element.prototype.scrollIntoView) {
       Element.prototype.scrollIntoView = function () {};
     }
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   it("does not render palette content when cmdKOpen is false", () => {
