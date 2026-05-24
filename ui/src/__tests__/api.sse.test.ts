@@ -122,6 +122,25 @@ describe("subscribeToEvents", () => {
     expect(MockEventSource.instanceCount).toBe(1);
   });
 
+  it("posts proxy_connected to window.parent when connection opens", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("parent", { postMessage });
+    subscribeToEvents("es", vi.fn(), vi.fn());
+    MockEventSource.last.onopen?.();
+    expect(postMessage).toHaveBeenCalledWith({ type: "proxy_connected" }, "*");
+  });
+
+  it("posts proxy_disconnected to window.parent on SSE error", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("parent", { postMessage });
+    subscribeToEvents("es", vi.fn(), vi.fn());
+    MockEventSource.last.onerror?.();
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "proxy_disconnected" },
+      "*",
+    );
+  });
+
   it("ignores non-exchange-report event types without invoking onMessage", () => {
     const onMessage = vi.fn();
     subscribeToEvents("es", onMessage, vi.fn());
