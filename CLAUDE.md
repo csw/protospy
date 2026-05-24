@@ -47,11 +47,14 @@ Many problems you encounter are standard: dark mode persistence, form validation
 
 There are specific agent guidelines in `docs/agents/`; read them when working with the relevant kind of code.
 
+- `docs/agents/implementation.md`: when writing code
 - `docs/agents/python.md`: when working with Python
 - `docs/agents/testing.md`: when writing or maintaining tests
 - `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, worktree/git-prompt avoidance, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
+- `docs/agents/dependencies.md`: when adding any dependency (packages, Actions, CDN scripts, Docker images, etc.)
+- `docs/agents/ci.md`: when pushing to GitHub or investigating CI failures
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 
 ## Worktrees
@@ -101,32 +104,3 @@ Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handli
 
 **Never bypass or override commit signing** (e.g. `-c commit.gpgsign=false`, `--no-gpg-sign`). If signing fails, stop and report the problem rather than working around it.
 
-## Versioning dependencies
-
-When adding any dependency — Python packages, npm packages, GitHub Actions, CDN scripts, pre-commit hooks, Docker images, etc. — use the **current version** at the time of addition and pin it:
-
-- **Python packages** (`pyproject.toml`): pin to the current major version, e.g. `"fastapi>=0,<1"`, `"pytest>=9,<10"`.
-- **CDN scripts** (`<script src="...">`): pin to an explicit version, e.g. `htmx.org@2.0.4`, `alpinejs@3.14.1`. Never use `@latest` or a bare major like `@3`.
-- **GitHub Actions** (`uses: owner/action@...`): pin to the current release tag, e.g. `actions/checkout@v4`.
-- **Pre-commit hooks** (`.pre-commit-config.yaml`): use a frozen SHA from `pre-commit autoupdate --freeze`.
-- **Docker images** (`docker-compose.yaml`): pin to a specific version tag, e.g. `elasticsearch:9.3.1`. Never use `:latest`.
-
-When you add a dependency you are uncertain about the current version of, look it up rather than guessing.
-
-## CI
-
-To watch GitHub Actions results for a commit you have pushed, use
-`scripts/agents/ci-watch [workflow-name ...]` with Monitor. It pins to HEAD's
-commit SHA, exits when matching runs reach a terminal state, and emits one event
-per status change — this avoids picking up action results from the wrong commit,
-which a bare `gh run list` readily does.
-
-```bash
-Monitor(command: "scripts/agents/ci-watch ui-ci", description: "watch UI CI run", timeout_ms: 1800000, persistent: false)
-```
-
-With no args it watches all workflows for HEAD; with args it restricts to the
-named workflows (e.g. `ci-watch ui-ci docker-ci`). On the host macOS sandbox it
-needs `dangerouslyDisableSandbox: true` (see `docs/agents/host-sandbox.md`).
-
-When investigating a failed GitHub Actions run, read `docs/ci-debugging.md` before starting.
