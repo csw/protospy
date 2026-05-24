@@ -1,0 +1,11 @@
+{
+  "took": 12,
+  "hits": {
+    "total": { "value": 3, "relation": "eq" },
+    "hits": [
+      { "_id": "1", "_source": { "title": "The Matrix", "year": 1999 } },
+      { "_id": "2", "_source": { "title": "Inception", "year": 2010 } },
+      { "_id": "3", "_source": { "title": "Interstellar", "year": 2014 } }
+    ]
+  }
+}

@@ -8,6 +8,8 @@ It currently contains:
  - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
  - an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
 
+![Body inspector showing a rich Elasticsearch request and response](docs/screenshots/03-body.png)
+
 ## Demo usage
 
 ### Start services

@@ -43,6 +43,16 @@ To generate example traffic to observe in the UI, there are shell scripts in `..
 | `pnpm test:browser`        | Playwright UI tests (requires `playwright install`) |
 | `pnpm test:browser:headed` | Playwright UI tests with a visible browser          |
 
+## Screenshots
+
+To regenerate the hero screenshots in `docs/screenshots/`, run from the repo root:
+
+```sh
+just screenshots
+```
+
+This builds the protospy binary, starts the backend and a Vite dev server on isolated ports, sends example requests through the proxy, and captures three dark-mode 1280×720 PNGs with Playwright. The generated files are committed to the repo.
+
 ## Architecture
 
 For the full deep dive (data flow, type shapes, patterns, per-directory map), see [`ARCHITECTURE.md`](./ARCHITECTURE.md). A summary:

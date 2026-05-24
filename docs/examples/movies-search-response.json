@@ -1,0 +1,107 @@
+{
+    "took": 23,
+    "timed_out": false,
+    "_shards": {
+        "total": 1,
+        "successful": 1,
+        "skipped": 0,
+        "failed": 0
+    },
+    "hits": {
+        "total": {
+            "value": 794,
+            "relation": "eq"
+        },
+        "max_score": 18.640734,
+        "hits": [
+            {
+                "_index": "movies",
+                "_id": "22787",
+                "_score": 18.640734,
+                "_source": {
+                    "title": "Whiteout",
+                    "release_date": "2009-09-09",
+                    "genres": [
+                        "Action",
+                        "Crime",
+                        "Mystery",
+                        "Thriller"
+                    ],
+                    "vote_average": 5.3
+                }
+            },
+            {
+                "_index": "movies",
+                "_id": "26843",
+                "_score": 15.276657,
+                "_source": {
+                    "title": "Lion of the Desert",
+                    "release_date": "1981-04-17",
+                    "genres": [
+                        "Action",
+                        "History",
+                        "War"
+                    ],
+                    "vote_average": 7.4
+                }
+            },
+            {
+                "_index": "movies",
+                "_id": "955",
+                "_score": 15.025331,
+                "_source": {
+                    "title": "Mission: Impossible II",
+                    "release_date": "2000-05-24",
+                    "genres": [
+                        "Adventure",
+                        "Action",
+                        "Thriller"
+                    ],
+                    "vote_average": 5.9
+                }
+            },
+            {
+                "_index": "movies",
+                "_id": "36643",
+                "_score": 14.755754,
+                "_source": {
+                    "title": "The World Is Not Enough",
+                    "release_date": "1999-11-08",
+                    "genres": [
+                        "Adventure",
+                        "Action",
+                        "Thriller"
+                    ],
+                    "vote_average": 6
+                }
+            },
+            {
+                "_index": "movies",
+                "_id": "402515",
+                "_score": 13.562475,
+                "_source": {
+                    "title": "American Beast",
+                    "release_date": "2014-10-21",
+                    "genres": [
+                        "Horror"
+                    ],
+                    "vote_average": 0
+                }
+            },
+            {
+                "_index": "movies",
+                "_id": "582",
+                "_score": 12.9677725,
+                "_source": {
+                    "title": "The Lives of Others",
+                    "release_date": "2006-03-15",
+                    "genres": [
+                        "Drama",
+                        "Thriller"
+                    ],
+                    "vote_average": 7.9
+                }
+            }
+        ]
+    }
+}

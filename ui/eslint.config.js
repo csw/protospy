@@ -33,5 +33,14 @@ export default tseslint.config(
       },
     },
   },
+  // Node globals for infrastructure scripts (take-screenshots.ts, etc.)
+  {
+    files: ["scripts/**/*.ts", "scripts/**/*.mts", "scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
   prettierConfig,
 );

@@ -18,7 +18,8 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:browser": "playwright test",
-    "test:browser:headed": "playwright test --headed"
+    "test:browser:headed": "playwright test --headed",
+    "screenshots": "tsx scripts/take-screenshots.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
@@ -56,6 +57,7 @@
     "tailwindcss": "^4.2.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.1",
+    "tsx": "^4.22.3",
     "vite": "^8.0.9",
     "vitest": "^4.1.6"
   }
