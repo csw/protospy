@@ -3,6 +3,7 @@ name: docker-ci
 
 on:
   push:
+    branches: [main]
     paths:
       - "Dockerfile"
       - "Cargo.toml"

@@ -6,6 +6,7 @@ name: protospy-conformance-ci
 
 on:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/protospy-conformance-ci.yml"
       - "conformance/**"
