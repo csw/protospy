@@ -34,8 +34,9 @@ test.describe("postMessage iframe coordination", () => {
           body: ": keep-alive\n\n",
         });
       } else {
-        // Park reconnects indefinitely — we only care about the first cycle.
-        await new Promise<void>(() => {});
+        // Abort reconnects immediately — explicit, non-leaky, and causes a
+        // predictable onerror on the client rather than a dangling async task.
+        await route.abort();
       }
     });
 
