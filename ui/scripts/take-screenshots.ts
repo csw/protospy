@@ -18,7 +18,7 @@ import { chromium } from "@playwright/test";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import * as http from "node:http";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -113,7 +113,23 @@ async function cleanup(): Promise<void> {
 
 // ─── Mock HTTP target ─────────────────────────────────────────────────────────
 
-function startMockServer(): Promise<void> {
+// simpleSearchResponse is used for the initial exchange-list population requests.
+const simpleSearchResponse = JSON.stringify({
+  took: 12,
+  hits: {
+    total: { value: 3, relation: "eq" },
+    hits: [
+      { _id: "1", _source: { title: "The Matrix", year: 1999 } },
+      { _id: "2", _source: { title: "Inception", year: 2010 } },
+      { _id: "3", _source: { title: "Interstellar", year: 2014 } },
+    ],
+  },
+});
+
+// richResponseBody is loaded from scratch/example-search-response.json at startup
+// and passed in here. When the POST body is non-trivial (i.e. not "{}"), we return
+// the rich response so the inspector body screenshot has something interesting to show.
+function startMockServer(richResponseBody: string): Promise<void> {
   return new Promise((resolve, reject) => {
     mockServer = http.createServer((req, res) => {
       res.setHeader("content-type", "application/json");
@@ -127,19 +143,16 @@ function startMockServer(): Promise<void> {
           }),
         );
       } else if (req.method === "POST" && req.url === "/movies/_search") {
-        res.end(
-          JSON.stringify({
-            took: 12,
-            hits: {
-              total: { value: 3, relation: "eq" },
-              hits: [
-                { _id: "1", _source: { title: "The Matrix", year: 1999 } },
-                { _id: "2", _source: { title: "Inception", year: 2010 } },
-                { _id: "3", _source: { title: "Interstellar", year: 2014 } },
-              ],
-            },
-          }),
-        );
+        // Buffer the request body so we can decide which response to send
+        let body = "";
+        req.on("data", (chunk: Buffer) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          res.end(
+            body.trim() === "{}" ? simpleSearchResponse : richResponseBody,
+          );
+        });
       } else {
         res.end("{}");
       }
@@ -174,8 +187,18 @@ async function waitReady(url: string, timeoutMs = 30_000): Promise<void> {
 async function main(): Promise<void> {
   await mkdir(SCREENSHOTS_DIR, { recursive: true });
 
+  // Read example payloads for screenshot 03
+  const richRequestBody = await readFile(
+    path.join(ROOT, "scratch", "example-search-request.json"),
+    "utf8",
+  );
+  const richResponseBody = await readFile(
+    path.join(ROOT, "scratch", "example-search-response.json"),
+    "utf8",
+  );
+
   // 1. Mock target server
-  await startMockServer();
+  await startMockServer(richResponseBody);
   console.log(`✓ Mock target listening on :${MOCK_TARGET_PORT}`);
 
   // 2. Protospy binary (run directly, not via cargo run — avoids signal-swallowing)
@@ -259,10 +282,10 @@ async function main(): Promise<void> {
   }
   console.log("✓ Example requests sent through proxy");
 
-  // Wait for the SSE stream to deliver all 5 exchanges
+  // Wait for all 5 exchanges to arrive via SSE
   await page.waitForFunction(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    () => ((window as any).__test_store?.getState().ids?.length ?? 0) >= 4,
+    () => ((window as any).__test_store?.getState().ids?.length ?? 0) >= 5,
     undefined, // no arg
     { timeout: 20_000 },
   );
@@ -286,6 +309,34 @@ async function main(): Promise<void> {
   const screenshot2 = path.join(SCREENSHOTS_DIR, "02-inspector.png");
   await page.screenshot({ path: screenshot2 });
   console.log(`✓ Saved: ${screenshot2}`);
+
+  // ── Screenshot 3: inspector with a non-trivial request/response body ─────
+
+  // Send the rich request from scratch/. The mock server returns the rich
+  // response when the body is non-trivial (not "{}").
+  await fetch(`http://localhost:${PROXY_PORT}/movies/_search`, {
+    method: "POST",
+    body: richRequestBody,
+    headers: { "content-type": "application/json" },
+  });
+
+  // Wait for the 6th exchange to arrive
+  await page.waitForFunction(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    () => ((window as any).__test_store?.getState().ids?.length ?? 0) >= 6,
+    undefined,
+    { timeout: 10_000 },
+  );
+
+  // The new exchange appears at the top of the list (newest-first order)
+  await page.getByRole("option").first().click();
+  await page
+    .getByRole("tabpanel")
+    .waitFor({ state: "visible", timeout: 5_000 });
+
+  const screenshot3 = path.join(SCREENSHOTS_DIR, "03-body.png");
+  await page.screenshot({ path: screenshot3 });
+  console.log(`✓ Saved: ${screenshot3}`);
 
   await browser.close();
   browser = null;
