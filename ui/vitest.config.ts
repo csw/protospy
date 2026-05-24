@@ -27,13 +27,13 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-151 eventTypeBadgeClass extraction (statements
-      // 64.59%, branches 49.63%, functions 52.25%, lines 67.4%) with a ~1% margin.
+      // Floor ratcheted after PRO-129 HeadersPane + headers helpers (statements
+      // 66.08%, branches 52.1%, functions 54.77%, lines 68.94%) with a ~1% margin.
       thresholds: {
-        statements: 63,
-        branches: 48,
-        functions: 52,
-        lines: 66,
+        statements: 65,
+        branches: 51,
+        functions: 53,
+        lines: 67,
       },
     },
     projects: [

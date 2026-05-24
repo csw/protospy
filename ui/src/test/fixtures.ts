@@ -10,6 +10,7 @@ export function makeGetRequest(
   id: number,
   uri = "/api/test",
   ts?: string,
+  headers?: Array<{ name: string; value: string }>,
 ): Msg {
   return {
     exchange: meta(id, ts),
@@ -19,7 +20,7 @@ export function makeGetRequest(
       method: "GET",
       uri,
       version: "HTTP/1.1",
-      headers: JSON_CT,
+      headers: headers ?? JSON_CT,
       body: { type: "NoBody" },
     },
   };

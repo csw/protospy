@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -170,6 +171,87 @@ export function shortenTraceId(id: string): string {
 export function isBulkOperation(uri: string | undefined | null): boolean {
   if (uri == null) return false;
   return uri.includes("_msearch") || uri.includes("_mget");
+}
+
+// ---------------------------------------------------------------------------
+// Headers utilities
+// ---------------------------------------------------------------------------
+
+/** Headers pinned to the top of the headers view, in display order. */
+export const PINNED_HEADER_NAMES: readonly string[] = [
+  "content-type",
+  "content-encoding",
+  "authorization",
+  "traceparent",
+  "cache-control",
+];
+
+/**
+ * Returns the display value for a header. For `authorization` headers the
+ * credential is masked (scheme is shown, e.g. "Bearer ***"). All other headers
+ * pass through unchanged.
+ */
+export function maskHeaderValue(name: string, value: string): string {
+  if (name.toLowerCase() !== "authorization") return value;
+  const spaceIdx = value.indexOf(" ");
+  if (spaceIdx !== -1) return value.slice(0, spaceIdx + 1) + "***";
+  // No scheme prefix — mask all but first 8 chars
+  return value.slice(0, 8) + "***";
+}
+
+/**
+ * Decodes a Basic Authorization credential to `user:password`.
+ * Returns the decoded string, or `null` if the value is not a Basic token or
+ * the base64 payload is malformed.
+ * Input should be the **raw** (unmasked) header value.
+ */
+export function decodeBasicAuth(value: string): string | null {
+  if (!value.toLowerCase().startsWith("basic ")) return null;
+  try {
+    return atob(value.slice(6).trim());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Filter a header list to entries whose name or value contains `query`
+ * (case-insensitive substring match). Returns the full list when `query` is
+ * empty.
+ */
+export function filterHeaders(
+  headers: ProxyHeaders,
+  query: string,
+): ProxyHeaders {
+  if (!query) return headers;
+  const q = query.toLowerCase();
+  return headers.filter(
+    (h) =>
+      h.name.toLowerCase().includes(q) || h.value.toLowerCase().includes(q),
+  );
+}
+
+/**
+ * Sorts a header list so that entries whose (lowercased) name appears in
+ * `PINNED_HEADER_NAMES` float to the top in the order defined there. All
+ * remaining headers follow in their original relative order.
+ */
+export function sortHeadersByPin(headers: ProxyHeaders): ProxyHeaders {
+  const pinned: ProxyHeaders = [];
+  const rest: ProxyHeaders = [];
+  for (const h of headers) {
+    if (PINNED_HEADER_NAMES.includes(h.name.toLowerCase())) {
+      pinned.push(h);
+    } else {
+      rest.push(h);
+    }
+  }
+  pinned.sort(
+    (a, b) =>
+      PINNED_HEADER_NAMES.indexOf(a.name.toLowerCase()) -
+      PINNED_HEADER_NAMES.indexOf(b.name.toLowerCase()),
+  );
+  return [...pinned, ...rest];
 }
 
 export function eventTypeBadgeClass(type: string): string {

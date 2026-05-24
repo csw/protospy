@@ -6,37 +6,12 @@ import { showPairsTab } from "@ui/protocol";
 import { EmptyState } from "./ui/EmptyState";
 import { ContextBar } from "./ContextBar";
 import { BodySplit } from "./BodySplit";
+import { HeadersPane } from "./HeadersPane";
 import { TimingView } from "./TimingView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
 const tabTriggerClass =
   "h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent";
-
-function HeaderTable({ headers }: { headers: ProxyHeaders }) {
-  return (
-    <div className="overflow-auto p-3">
-      <table className="w-full text-xs font-family-mono">
-        <tbody>
-          {headers.map((h, i) => (
-            <tr
-              key={i}
-              className="border-b border-border last:border-0 hover:bg-bg-hl"
-            >
-              <td
-                className="py-1 pr-4 text-accent-ink whitespace-nowrap align-top"
-                style={{ width: "30%" }}
-              >
-                {h.name}
-              </td>
-              <td className="py-1 text-ink break-all">{h.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 export function Inspector() {
   const exchanges = useStore((s) => s.exchanges);
@@ -141,21 +116,25 @@ export function Inspector() {
         )}
 
         {/* Req headers tab */}
-        <TabsContent value="req-headers" className="flex-1 overflow-auto mt-0">
-          {reqHeaders.length > 0 ? (
-            <HeaderTable headers={reqHeaders} />
-          ) : (
-            <EmptyState>No request headers captured</EmptyState>
-          )}
+        <TabsContent
+          value="req-headers"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
+        >
+          <HeadersPane
+            headers={reqHeaders}
+            emptyMessage="No request headers captured"
+          />
         </TabsContent>
 
         {/* Res headers tab */}
-        <TabsContent value="res-headers" className="flex-1 overflow-auto mt-0">
-          {resHeaders.length > 0 ? (
-            <HeaderTable headers={resHeaders} />
-          ) : (
-            <EmptyState>No response headers captured</EmptyState>
-          )}
+        <TabsContent
+          value="res-headers"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
+        >
+          <HeadersPane
+            headers={resHeaders}
+            emptyMessage="No response headers captured"
+          />
         </TabsContent>
 
         {/* Timing tab */}

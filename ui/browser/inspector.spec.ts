@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   injectExchanges,
   resetStore,
@@ -295,5 +295,150 @@ test.describe("Inspector — NoBody empty state", () => {
 
     // Both panes show "No body"; assert at least one is present
     await expect(page.getByText("No body").first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Headers filter, pinning, masking, and copy
+// ---------------------------------------------------------------------------
+
+test.describe("Inspector — Headers filter and pinning", () => {
+  // Navigate to the Req headers tab for the exchange at /api/hdrs
+  async function openReqHeaders(page: Page) {
+    await page.getByText("/api/hdrs").first().click();
+    await page.getByRole("tab", { name: /Req headers/ }).click();
+  }
+
+  test("9.1 filter input is visible on the Req headers tab", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs"),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+    await expect(page.getByPlaceholder("Filter headers…")).toBeVisible();
+  });
+
+  test("9.2 typing in filter narrows displayed headers by name substring", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+        { name: "x-custom-header", value: "myvalue" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Both headers visible initially
+    await expect(page.getByText("content-type")).toBeVisible();
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+
+    // Filter to just x-custom-header
+    await page.getByPlaceholder("Filter headers…").fill("x-custom");
+
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+    await expect(page.getByText("content-type")).not.toBeVisible();
+  });
+
+  test("9.3 clear button restores all headers", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+        { name: "x-custom-header", value: "myvalue" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    await page.getByPlaceholder("Filter headers…").fill("x-custom");
+    await expect(page.getByText("content-type")).not.toBeVisible();
+
+    await page.getByLabel("Clear filter").click();
+    await expect(page.getByText("content-type")).toBeVisible();
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+  });
+
+  test("9.4 pinned header (content-type) appears before an unpinned header regardless of injection order", async ({
+    page,
+  }) => {
+    // Inject x-custom FIRST, then content-type — pinning should reorder
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "x-custom-header", value: "first" },
+        { name: "content-type", value: "application/json" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Get all name cells in the table
+    const nameCells = page.locator("table tbody tr td:first-child");
+    const firstCell = nameCells.first();
+    await expect(firstCell).toHaveText("content-type");
+  });
+
+  test("9.5 authorization header value is masked; copy button copies real value", async ({
+    page,
+  }) => {
+    // Intercept clipboard
+    await page.evaluate(() => {
+      window.__clipboard = "";
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: (text: string) => {
+            window.__clipboard = text;
+            return Promise.resolve();
+          },
+        },
+        configurable: true,
+      });
+    });
+
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Bearer real-secret-token" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Masked value is shown, real value is not
+    await expect(page.getByText("Bearer ***")).toBeVisible();
+    await expect(page.getByText("Bearer real-secret-token")).not.toBeVisible();
+
+    // Hover the row to reveal copy button, then click
+    const row = page.locator("table tbody tr").first();
+    await row.hover();
+    await page.getByLabel("Copy authorization value").click();
+
+    const copied = await page.evaluate(() => window.__clipboard);
+    expect(copied).toBe("Bearer real-secret-token");
+  });
+
+  test("9.6 Basic auth decode toggle shows and hides decoded credential", async ({
+    page,
+  }) => {
+    // "user:pass" → base64 = "dXNlcjpwYXNz"
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Basic dXNlcjpwYXNz" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Decoded string not visible initially
+    await expect(page.getByText("user:pass")).not.toBeVisible();
+
+    // Click decode
+    await page.getByLabel("Show decoded Basic auth value").click();
+    await expect(page.getByText("user:pass")).toBeVisible();
+
+    // Click hide
+    await page.getByLabel("Hide decoded value").click();
+    await expect(page.getByText("user:pass")).not.toBeVisible();
   });
 });
