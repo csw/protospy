@@ -14,10 +14,12 @@ export function subscribeToEvents(
 
   es.onopen = () => {
     onStatusChange("open");
+    globalThis.parent?.postMessage({ type: "proxy_connected" }, "*");
   };
 
   es.onerror = () => {
     onStatusChange("reconnecting");
+    globalThis.parent?.postMessage({ type: "proxy_disconnected" }, "*");
   };
 
   es.addEventListener("exchange-report", (e: MessageEvent) => {
