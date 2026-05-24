@@ -41,6 +41,11 @@ run-ext $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
     WEB=0 \
     cargo run
 
+# Generate hero screenshots of the UI (output: docs/screenshots/)
+screenshots:
+    cargo build
+    pnpm --dir ui run screenshots
+
 # Run protospy for example recording; see docs
 [env("RECORD_EXAMPLES", "docs/examples/")]
 [env("RUST_LOG", "info")]
