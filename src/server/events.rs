@@ -7,7 +7,7 @@ use axum::{
         sse::{Event, KeepAlive},
     },
 };
-use futures::{TryStream, TryStreamExt};
+use futures::{TryStream, TryStreamExt, stream};
 use http::StatusCode;
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
@@ -40,10 +40,10 @@ pub async fn handle_events(
         .map(Ok::<Event, Infallible>);
 
     let keepalive = KeepAlive::default().event(Event::default().event("keep-alive"));
+    let hello = Event::default().comment("hello");
+    let event_stream = stream::once(async { Ok::<Event, Infallible>(hello) }).chain(events);
 
-    // Sse<impl Stream<Item = Result<Event, Infallible>>>
-
-    Ok(Sse::new(events).keep_alive(keepalive))
+    Ok(Sse::new(event_stream).keep_alive(keepalive))
 }
 
 fn json_stream(
