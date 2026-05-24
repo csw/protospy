@@ -19,7 +19,7 @@ describe("FilterBar", () => {
     it("dispatches setFilter on each keystroke", () => {
       render(<FilterBar />);
       const input = screen.getByPlaceholderText(
-        "Filter exchanges…",
+        "Filter requests…",
       ) as HTMLInputElement;
 
       fireEvent.change(input, { target: { value: "G" } });
@@ -91,7 +91,7 @@ describe("FilterBar", () => {
   });
 
   describe("count display", () => {
-    it("shows 'N exchanges' (pluralised) when no filter and N > 1", () => {
+    it("shows 'N requests' (pluralised) when no filter and N > 1", () => {
       useStore
         .getState()
         .applyEvent(makeGetRequest(1) as unknown as EventMessage);
@@ -99,20 +99,20 @@ describe("FilterBar", () => {
         .getState()
         .applyEvent(makeGetRequest(2, "/api/other") as unknown as EventMessage);
       render(<FilterBar />);
-      expect(screen.getByText("2 exchanges")).toBeInTheDocument();
+      expect(screen.getByText("2 requests")).toBeInTheDocument();
     });
 
-    it("shows '1 exchange' (singular) when no filter and N === 1", () => {
+    it("shows '1 request' (singular) when no filter and N === 1", () => {
       useStore
         .getState()
         .applyEvent(makeGetRequest(1) as unknown as EventMessage);
       render(<FilterBar />);
-      expect(screen.getByText("1 exchange")).toBeInTheDocument();
+      expect(screen.getByText("1 request")).toBeInTheDocument();
     });
 
-    it("shows '0 exchanges' when there are no exchanges", () => {
+    it("shows '0 requests' when there are no exchanges", () => {
       render(<FilterBar />);
-      expect(screen.getByText("0 exchanges")).toBeInTheDocument();
+      expect(screen.getByText("0 requests")).toBeInTheDocument();
     });
 
     it("shows 'M of N' when filtering", () => {
