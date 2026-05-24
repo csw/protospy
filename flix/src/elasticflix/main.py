@@ -67,8 +67,8 @@ async def health():
 
 
 @app.get("/")
-async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+async def index(request: Request, demo: bool = False):
+    return templates.TemplateResponse(request, "index.html", {"demo_mode": demo})
 
 
 async def _run_search(

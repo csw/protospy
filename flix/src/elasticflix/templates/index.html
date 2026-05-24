@@ -44,7 +44,7 @@
 <div
     id="top-movies-container"
     hx-get="/top-movies"
-    hx-trigger="load"
+    hx-trigger="{{ 'demo-ready' if demo_mode else 'load' }}"
     hx-swap="outerHTML"
 >
     <p class="loading-hint">Loading top rated movies…</p>

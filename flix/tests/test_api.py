@@ -343,3 +343,43 @@ def test_stats_renders_html():
         assert "text/html" in response.headers["content-type"]
         assert "Drama" in response.text
         assert "Top Genres" in response.text
+
+
+# ---------------------------------------------------------------------------
+# Demo mode tests
+# ---------------------------------------------------------------------------
+
+
+def test_index_no_demo_has_no_overlay():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert 'id="demo-overlay"' not in response.text
+
+
+def test_index_demo_mode_has_overlay():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/?demo=1")
+        assert response.status_code == 200
+        assert 'id="demo-overlay"' in response.text
+        assert "Connecting to proxy" in response.text
+
+
+def test_index_no_demo_has_load_trigger():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert 'hx-trigger="load"' in response.text
+        assert 'hx-trigger="demo-ready"' not in response.text
+
+
+def test_index_demo_mode_has_demo_ready_trigger():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/?demo=1")
+        assert response.status_code == 200
+        assert 'hx-trigger="demo-ready"' in response.text
+        assert 'hx-trigger="load"' not in response.text
