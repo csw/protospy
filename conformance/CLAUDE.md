@@ -37,6 +37,9 @@ uv run pyright .
 uv run pytest -q
 ```
 
+These checks are enforced automatically at commit time — see
+[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
+
 ## Committing
 
 Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/). Use `test` or `refactor` as the type with scope `conformance`:
