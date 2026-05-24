@@ -9,7 +9,7 @@
 #
 # Why this exists: @playwright/mcp always depends on an *alpha* of Playwright's
 # next stable, so the Chromium revision it asserts at startup differs from the
-# one ui's @playwright/test or demo's Python playwright pull in. Each consumer
+# one ui's @playwright/test or flix's Python playwright pull in. Each consumer
 # needs its own revision installed; the cache holds all of them side by side.
 #
 # Why --browser chromium in the MCP args: the MCP defaults to channel `chrome`,
