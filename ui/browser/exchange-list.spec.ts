@@ -127,7 +127,7 @@ test.describe("Exchange list — table mode", () => {
     await expect(page.getByText("Path")).toBeVisible();
     await expect(page.getByText("Time")).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When")).toBeVisible();
+    await expect(page.getByText("When", { exact: true })).toBeVisible();
   });
 
   test("2.2 row data renders in table columns", async ({ page }) => {

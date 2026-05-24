@@ -54,7 +54,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("POST");
 
     const rows = page.locator("button[aria-selected]");
@@ -71,7 +71,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("/api/movies");
 
     const rows = page.locator("button[aria-selected]");
@@ -87,7 +87,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("404");
 
     const rows = page.locator("button[aria-selected]");
@@ -100,7 +100,7 @@ test.describe("Filter bar", () => {
   test("4. case insensitive: 'get' matches GET exchanges", async ({ page }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("get");
 
     const rows = page.locator("button[aria-selected]");
@@ -114,7 +114,7 @@ test.describe("Filter bar", () => {
   test("5. no matches: 'nonexistent' shows empty state", async ({ page }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("nonexistent");
 
     await expect(page.getByText("No requests match your filter")).toBeVisible();
@@ -127,7 +127,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("POST");
 
     // Verify filter is active
@@ -142,18 +142,18 @@ test.describe("Filter bar", () => {
     await expect(input).toHaveValue("");
   });
 
-  test("7. filter count display: shows 'X of Y' when filtering, 'N exchanges' when not", async ({
+  test("7. filter count display: shows 'X of Y' when filtering, 'N requests' when not", async ({
     page,
   }) => {
     await injectMixedExchanges(page);
 
     // Before filtering: shows total count (appears in FilterBar and StatusBar, use first)
     await expect(
-      page.getByText("5 exchanges", { exact: true }).first(),
+      page.getByText("5 requests", { exact: true }).first(),
     ).toBeVisible();
 
     // After filtering to 2 matches
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("/api/movies");
 
     await expect(page.getByText("2 of 5", { exact: true })).toBeVisible();
@@ -216,7 +216,7 @@ test.describe("Filter bar", () => {
     await expect(page.locator("button[aria-selected]")).toHaveCount(4);
 
     // Apply the method filter alone → 2 POST rows
-    const input = page.getByPlaceholder("Filter exchanges…");
+    const input = page.getByPlaceholder("Filter requests…");
     await input.fill("POST");
     await expect(page.locator("button[aria-selected]")).toHaveCount(2);
 

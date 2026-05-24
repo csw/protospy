@@ -66,16 +66,18 @@ run_gate() {
     fi
 }
 
+repo_root="$(git rev-parse --show-toplevel)"
+
 if has_prefix "ui/"; then
-    run_gate "ui unit tests"    bash -c 'cd ui && pnpm test:coverage --run'
-    run_gate "ui browser tests" bash -c 'cd ui && pnpm test:browser --reporter=dot'
+    run_gate "ui unit tests"    bash -c 'cd "'"$repo_root"'/ui" && pnpm test:coverage --run'
+    run_gate "ui browser tests" bash -c 'cd "'"$repo_root"'/ui" && pnpm test:browser --reporter=dot'
 fi
 if has_prefix "flix/"; then
-    run_gate "flix unit tests" bash -c 'cd flix && uv run pytest -q -m "not e2e"'
-    run_gate "flix e2e tests"  bash -c 'cd flix && uv run pytest -m e2e -q'
+    run_gate "flix unit tests" bash -c 'cd "'"$repo_root"'/flix" && uv run pytest -q -m "not e2e"'
+    run_gate "flix e2e tests"  bash -c 'cd "'"$repo_root"'/flix" && uv run pytest -m e2e -q'
 fi
 if has_prefix "conformance/"; then
-    run_gate "conformance tests" bash -c 'cd conformance && uv run pytest -q'
+    run_gate "conformance tests" bash -c 'cd "'"$repo_root"'/conformance" && uv run pytest -q'
 fi
 
 exit 0

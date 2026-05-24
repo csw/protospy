@@ -86,8 +86,8 @@ test.describe("Inspector — Bodies tab", () => {
     await page.getByText("/api/bodies").first().click();
 
     // BodySplit renders "Request" and "Response" pane headers
-    await expect(page.getByText("Request")).toBeVisible();
-    await expect(page.getByText("Response")).toBeVisible();
+    await expect(page.getByText("Request", { exact: true })).toBeVisible();
+    await expect(page.getByText("Response", { exact: true })).toBeVisible();
   });
 });
 

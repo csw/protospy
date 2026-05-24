@@ -24,12 +24,12 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Command palette — open/close", () => {
-  test("1.1 opens with Cmd+K and shows Search... placeholder", async ({
+  test("1.1 opens with Cmd+K and shows search placeholder", async ({
     page,
   }) => {
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByPlaceholder("Search...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search exchanges…")).toBeVisible();
   });
 
   test("1.2 closes with Escape", async ({ page }) => {
@@ -86,7 +86,7 @@ test.describe("Command palette — commands", () => {
     await expect(page.getByText("Path")).toBeVisible();
     await expect(page.getByText("Time")).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When")).toBeVisible();
+    await expect(page.getByText("When", { exact: true })).toBeVisible();
   });
 
   test("2.4 toggle trace grouping changes store traceGroupOn state", async ({
@@ -129,7 +129,7 @@ test.describe("Command palette — exchange search", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
 
     // Type a path fragment to filter exchanges
-    await page.getByPlaceholder("Search...").fill("beta");
+    await page.getByPlaceholder("Search exchanges…").fill("beta");
 
     // The matching exchange should appear
     await expect(
