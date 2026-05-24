@@ -27,8 +27,8 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-137 shared tick source (statements 64.28%,
-      // branches 48.88%, functions 52.45%, lines 67.06%) with a ~1% margin.
+      // Floor ratcheted after PRO-151 eventTypeBadgeClass extraction (statements
+      // 64.59%, branches 49.63%, functions 52.25%, lines 67.4%) with a ~1% margin.
       thresholds: {
         statements: 63,
         branches: 48,
