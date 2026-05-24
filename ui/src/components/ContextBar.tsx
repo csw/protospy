@@ -116,7 +116,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         <MethodBadge method={method} size="md" />
 
         {/* Path + query params */}
-        <div className="flex items-center gap-0 font-family-mono text-xs flex-1 overflow-hidden min-w-0">
+        <div className="flex items-center gap-0 font-family-mono text-ctx-path flex-1 overflow-hidden min-w-0">
           <span className="text-ink truncate shrink-0 max-w-[40%]">
             {pathOnly}
           </span>
@@ -151,19 +151,19 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         {/* Status display */}
         {hasStatus && exchange.status != null && (
           <span
-            className={`font-family-mono text-sm font-bold shrink-0 ${statusTextClass(exchange.status)}`}
+            className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
           >
             {exchange.status}
           </span>
         )}
         {!hasStatus && !hasError && (
-          <span className="flex items-center gap-1.5 shrink-0 text-amber font-family-mono text-xs">
+          <span className="flex items-center gap-1.5 shrink-0 text-amber font-family-mono text-ui-xs">
             <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />
             pending
           </span>
         )}
         {!hasStatus && hasError && (
-          <span className="font-family-mono text-sm font-bold text-red shrink-0">
+          <span className="font-family-mono text-ui-sm font-semibold text-red shrink-0">
             NET ERR
           </span>
         )}

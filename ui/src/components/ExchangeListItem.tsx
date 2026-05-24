@@ -36,17 +36,19 @@ export function ExchangeListItem({
     ? { borderLeftColor: traceColor(exchange.traceId) }
     : {};
 
-  const paddingY = density === "compact" ? "py-1" : "py-1.5";
+  const paddingY = density === "compact" ? "py-1.5" : "py-2";
+  const paddingX = density === "compact" ? "px-[10px]" : "px-3";
   const rowGap = density === "compact" ? "gap-0" : "gap-0.5";
 
   return (
     <button
       onClick={onSelect}
       className={[
-        "w-full text-left px-2 border-b border-border",
+        "w-full text-left border-b border-border",
         "flex flex-col cursor-pointer transition-colors",
         "border-l-4",
         paddingY,
+        paddingX,
         rowGap,
         selected
           ? "bg-bg-active border-l-accent"
@@ -67,12 +69,13 @@ export function ExchangeListItem({
 
         {exchange.status != null ? (
           <span
-            className={`font-family-mono text-sm font-bold ${statusTextClass(exchange.status)}`}
+            data-testid="status-code"
+            className={`font-family-mono text-ui-sm font-semibold ${statusTextClass(exchange.status)}`}
           >
             {exchange.status}
           </span>
         ) : hasError ? (
-          <span className="font-family-mono text-sm font-bold text-red">
+          <span className="font-family-mono text-ui-sm font-semibold text-red">
             ERR
           </span>
         ) : null}
@@ -84,7 +87,7 @@ export function ExchangeListItem({
 
       {/* Row 2: URI path + query */}
       <div className="flex min-w-0 font-family-mono text-sm" title={uri}>
-        <span className="text-ink truncate">{path}</span>
+        <span className="text-ink-2 truncate">{path}</span>
         {query && (
           <span className="text-dim truncate shrink-0 max-w-[40%]">
             {query}

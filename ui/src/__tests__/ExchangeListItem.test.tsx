@@ -190,8 +190,9 @@ describe("ExchangeListItem", () => {
       />,
     );
     const btn = screen.getByRole("option");
-    expect(btn).toHaveClass("py-1");
-    expect(btn).not.toHaveClass("py-1.5");
+    // compact: py-1.5 (6px vertical), px-[10px] horizontal per design --pad-y/--pad-x compact
+    expect(btn).toHaveClass("py-1.5");
+    expect(btn).not.toHaveClass("py-2");
   });
 
   it("uses regular padding class when density is 'regular'", () => {
@@ -204,7 +205,9 @@ describe("ExchangeListItem", () => {
       />,
     );
     const btn = screen.getByRole("option");
-    expect(btn).toHaveClass("py-1.5");
+    // regular: py-2 (8px vertical), px-3 (12px horizontal) per design --pad-y/--pad-x
+    expect(btn).toHaveClass("py-2");
+    expect(btn).not.toHaveClass("py-1.5");
   });
 
   it("calls onSelect when clicked", () => {

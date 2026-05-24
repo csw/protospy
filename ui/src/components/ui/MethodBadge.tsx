@@ -6,13 +6,14 @@ interface Props {
 }
 
 export function MethodBadge({ method, size = "sm" }: Props) {
-  const [textSize, padding] =
+  const [textSize, padding, minWidth] =
     size === "sm"
-      ? (["text-xs", "px-1.5 py-0"] as const)
-      : (["text-sm", "px-2 py-0.5"] as const);
+      ? (["text-ui-xs", "px-[6px] py-[2px]", "min-w-[44px]"] as const)
+      : (["text-[12px]", "px-2 py-[3px]", "min-w-[56px]"] as const);
   return (
     <span
-      className={`font-family-ui ${textSize} font-black uppercase tracking-widest ${padding} shrink-0 ${methodBadgeClass(method)}`}
+      data-testid="method-badge"
+      className={`font-family-mono ${textSize} font-semibold tracking-[0.04em] rounded-[3px] ${padding} ${minWidth} inline-flex items-center justify-center shrink-0 ${methodBadgeClass(method)}`}
     >
       {method}
     </span>
