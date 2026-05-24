@@ -519,30 +519,30 @@ describe("maskHeaderValue", () => {
 
   it("masks bearer token — keeps scheme, replaces credential", () => {
     expect(maskHeaderValue("authorization", "Bearer secret-token-xyz")).toBe(
-      "Bearer ***",
+      "Bearer **********",
     );
   });
 
   it("masks bearer token regardless of Authorization capitalisation", () => {
     expect(maskHeaderValue("Authorization", "Bearer mytoken")).toBe(
-      "Bearer ***",
+      "Bearer **********",
     );
   });
 
   it("masks Basic auth — keeps scheme word", () => {
     expect(maskHeaderValue("authorization", "Basic dXNlcjpwYXNz")).toBe(
-      "Basic ***",
+      "Basic **********",
     );
   });
 
   it("masks a value with no space using first 8 chars", () => {
     expect(maskHeaderValue("authorization", "abcdefghijklmno")).toBe(
-      "abcdefgh***",
+      "abcdefgh**********",
     );
   });
 
   it("masks a value shorter than 8 chars with no space", () => {
-    expect(maskHeaderValue("authorization", "abc")).toBe("abc***");
+    expect(maskHeaderValue("authorization", "abc")).toBe("abc**********");
   });
 });
 

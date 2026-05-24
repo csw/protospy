@@ -186,17 +186,19 @@ export const PINNED_HEADER_NAMES: readonly string[] = [
   "cache-control",
 ];
 
+const MASK = "**********";
+
 /**
  * Returns the display value for a header. For `authorization` headers the
- * credential is masked (scheme is shown, e.g. "Bearer ***"). All other headers
- * pass through unchanged.
+ * credential is masked (scheme is shown, e.g. "Bearer **********"). All other
+ * headers pass through unchanged.
  */
 export function maskHeaderValue(name: string, value: string): string {
   if (name.toLowerCase() !== "authorization") return value;
   const spaceIdx = value.indexOf(" ");
-  if (spaceIdx !== -1) return value.slice(0, spaceIdx + 1) + "***";
-  // No scheme prefix — mask all but first 8 chars
-  return value.slice(0, 8) + "***";
+  if (spaceIdx !== -1) return value.slice(0, spaceIdx + 1) + MASK;
+  // No scheme prefix — show first 8 chars, mask the rest
+  return value.slice(0, 8) + MASK;
 }
 
 /**

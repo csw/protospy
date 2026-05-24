@@ -410,7 +410,7 @@ test.describe("Inspector — Headers filter and pinning", () => {
     await openReqHeaders(page);
 
     // Masked value is shown, real value is not
-    await expect(page.getByText("Bearer ***")).toBeVisible();
+    await expect(page.getByText("Bearer **********")).toBeVisible();
     await expect(page.getByText("Bearer real-secret-token")).not.toBeVisible();
 
     // Hover the row to reveal copy button, then click

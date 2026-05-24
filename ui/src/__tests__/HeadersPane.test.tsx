@@ -136,7 +136,7 @@ describe("HeadersPane — authorization masking", () => {
   it("displays a masked value for Authorization Bearer headers", () => {
     const headers = [{ name: "authorization", value: "Bearer real-secret" }];
     render(<HeadersPane headers={headers} emptyMessage="none" />);
-    expect(screen.getByText("Bearer ***")).toBeInTheDocument();
+    expect(screen.getByText("Bearer **********")).toBeInTheDocument();
     expect(screen.queryByText("Bearer real-secret")).not.toBeInTheDocument();
   });
 
@@ -155,7 +155,7 @@ describe("HeadersPane — copy button", () => {
     render(<HeadersPane headers={headers} emptyMessage="none" />);
     const copyBtn = screen.getByLabelText("Copy authorization value");
     fireEvent.click(copyBtn);
-    // Should copy the real value, not "Bearer ***"
+    // Should copy the real value, not "Bearer **********"
     expect(mockWriteText).toHaveBeenCalledWith("Bearer real-secret");
   });
 

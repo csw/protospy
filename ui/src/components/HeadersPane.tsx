@@ -114,7 +114,9 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                     <td className="py-1 text-ink break-all">
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
-                          <span>{displayValue}</span>
+                          <span className="[font-variant-ligatures:none]">
+                            {displayValue}
+                          </span>
                           {/* Basic auth decode toggle */}
                           {decoded !== null && (
                             <button
