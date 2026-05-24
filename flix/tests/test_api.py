@@ -383,3 +383,11 @@ def test_index_demo_mode_has_demo_ready_trigger():
         assert response.status_code == 200
         assert 'hx-trigger="demo-ready"' in response.text
         assert 'hx-trigger="load"' not in response.text
+
+
+def test_index_demo_mode_custom_timeout():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/?demo=1&demo_timeout=500")
+        assert response.status_code == 200
+        assert "TIMEOUT_MS = 500" in response.text
