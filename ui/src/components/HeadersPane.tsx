@@ -43,6 +43,8 @@ function useCopyRow() {
 
 export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
   const [query, setQuery] = useState("");
+  // Track decoded/copied state by original-array index so that filter and
+  // pin-sort operations (which change display order) don't invalidate them.
   const [decodedRow, setDecodedRow] = useState<number | null>(null);
   const { copiedRow, copyValue } = useCopyRow();
 
@@ -50,8 +52,8 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
     return <EmptyState>{emptyMessage}</EmptyState>;
   }
 
-  // Apply filter then sort; indices used below refer to positions in
-  // `displayHeaders`, not the original `headers` array.
+  // filterHeaders and sortHeadersByPin both preserve object references from
+  // `headers`, so indexOf() reliably returns the original array position.
   const displayHeaders = sortHeadersByPin(filterHeaders(headers, query));
 
   return (
@@ -86,14 +88,18 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
         <div className="overflow-auto flex-1 px-3 pb-3">
           <table className="w-full text-xs font-family-mono">
             <tbody>
-              {displayHeaders.map((h, i) => {
+              {displayHeaders.map((h) => {
+                // Use the original-array index as a stable identity for this
+                // header: keys, decoded state, and copy state all track it so
+                // filter / pin-sort changes don't shift state to the wrong row.
+                const origIdx = headers.indexOf(h);
                 const displayValue = maskHeaderValue(h.name, h.value);
                 const decoded = decodeBasicAuth(h.value);
-                const isDecoded = decodedRow === i;
+                const isDecoded = decodedRow === origIdx;
 
                 return (
                   <tr
-                    key={i}
+                    key={origIdx}
                     className="group border-b border-border last:border-0 hover:bg-bg-hl"
                   >
                     {/* Name cell */}
@@ -113,7 +119,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                           {decoded !== null && (
                             <button
                               onClick={() =>
-                                setDecodedRow(isDecoded ? null : i)
+                                setDecodedRow(isDecoded ? null : origIdx)
                               }
                               className="ml-2 text-[10px] text-dim hover:text-ink transition-colors cursor-pointer border border-border rounded px-1 py-px"
                               aria-label={
@@ -135,11 +141,11 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
 
                         {/* Copy button — appears on row hover */}
                         <button
-                          onClick={() => copyValue(i, h.value)}
+                          onClick={() => copyValue(origIdx, h.value)}
                           className="invisible group-hover:visible shrink-0 text-dim hover:text-ink transition-colors cursor-pointer mt-0.5"
                           aria-label={`Copy ${h.name} value`}
                         >
-                          {copiedRow === i ? (
+                          {copiedRow === origIdx ? (
                             <Check size={11} className="text-green" />
                           ) : (
                             <Copy size={11} />

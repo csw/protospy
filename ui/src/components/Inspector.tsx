@@ -121,6 +121,7 @@ export function Inspector() {
           className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
         >
           <HeadersPane
+            key={exchange.id}
             headers={reqHeaders}
             emptyMessage="No request headers captured"
           />
@@ -132,6 +133,7 @@ export function Inspector() {
           className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
         >
           <HeadersPane
+            key={exchange.id}
             headers={resHeaders}
             emptyMessage="No response headers captured"
           />

@@ -201,4 +201,28 @@ describe("HeadersPane — Basic auth decode toggle", () => {
     fireEvent.click(screen.getByLabelText("Copy authorization value"));
     expect(mockWriteText).toHaveBeenCalledWith("Basic dXNlcjpwYXNz");
   });
+
+  it("decoded state is not disrupted by filter changes (regression: stale-index bug)", () => {
+    // Headers: authorization first (original idx 0), then x-other (idx 1).
+    // After pinning, authorization is still at idx 0 in display.
+    const headers = [
+      { name: "authorization", value: "Basic dXNlcjpwYXNz" },
+      { name: "x-other", value: "something" },
+    ];
+    render(<HeadersPane headers={headers} emptyMessage="none" />);
+
+    // Decode authorization
+    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    expect(screen.getByText("user:pass")).toBeInTheDocument();
+
+    // Change filter so only authorization is visible — decoded should persist
+    fireEvent.change(screen.getByPlaceholderText("Filter headers…"), {
+      target: { value: "authorization" },
+    });
+    expect(screen.getByText("user:pass")).toBeInTheDocument();
+
+    // Clear filter — decoded should still be showing
+    fireEvent.click(screen.getByLabelText("Clear filter"));
+    expect(screen.getByText("user:pass")).toBeInTheDocument();
+  });
 });
