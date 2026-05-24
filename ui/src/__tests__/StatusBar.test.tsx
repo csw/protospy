@@ -61,27 +61,27 @@ describe("StatusBar", () => {
     });
   });
 
-  describe("exchange count", () => {
-    it('renders "0 exchanges" when no exchanges have been applied', () => {
+  describe("request count", () => {
+    it('renders "0 requests" when no exchanges have been applied', () => {
       render(<StatusBar />);
-      expect(screen.getByText("0 exchanges")).toBeInTheDocument();
+      expect(screen.getByText("0 requests")).toBeInTheDocument();
     });
 
-    it('renders "1 exchange" (singular) for exactly one exchange', () => {
+    it('renders "1 request" (singular) for exactly one exchange', () => {
       useStore
         .getState()
         .applyEvent(makeGetRequest(1) as unknown as EventMessage);
       render(<StatusBar />);
-      expect(screen.getByText("1 exchange")).toBeInTheDocument();
+      expect(screen.getByText("1 request")).toBeInTheDocument();
     });
 
-    it('renders "N exchanges" (plural) for multiple exchanges', () => {
+    it('renders "N requests" (plural) for multiple exchanges', () => {
       const store = useStore.getState();
       store.applyEvent(makeGetRequest(1) as unknown as EventMessage);
       store.applyEvent(makeGetRequest(2) as unknown as EventMessage);
       store.applyEvent(makeGetRequest(3) as unknown as EventMessage);
       render(<StatusBar />);
-      expect(screen.getByText("3 exchanges")).toBeInTheDocument();
+      expect(screen.getByText("3 requests")).toBeInTheDocument();
     });
   });
 });

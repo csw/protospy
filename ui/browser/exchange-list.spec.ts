@@ -30,9 +30,10 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Exchange list — rows mode", () => {
   test("1.1 shows empty state when no exchanges", async ({ page }) => {
+    await expect(page.getByText("No requests yet")).toBeVisible();
     await expect(
       page.getByText(
-        "No requests yet — traffic will appear here when requests flow through the proxy",
+        "Traffic will appear here when requests flow through the proxy",
       ),
     ).toBeVisible();
   });

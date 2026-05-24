@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Layout and resize", () => {
   test("9.1 both panels visible on initial load", async ({ page }) => {
     // Exchange list panel (left) and Inspector panel (right) both present
-    await expect(page.getByText("Exchanges").first()).toBeVisible();
+    await expect(page.getByText("Requests").first()).toBeVisible();
     await expect(
       page.getByText("Select a request to inspect it"),
     ).toBeVisible();
