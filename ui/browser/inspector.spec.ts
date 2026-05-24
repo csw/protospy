@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   injectExchanges,
   resetStore,
@@ -95,8 +95,10 @@ test.describe("Inspector — Bodies tab", () => {
 // 3. Request headers tab
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Req headers tab", () => {
-  test("3.1 Req headers tab shows count and header table", async ({ page }) => {
+test.describe("Inspector — Request headers tab", () => {
+  test("3.1 Request headers tab shows count and header table", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/req-hdrs"),
       makeResponse(1, "200 OK"),
@@ -105,7 +107,7 @@ test.describe("Inspector — Req headers tab", () => {
     await page.getByText("/api/req-hdrs").first().click();
 
     // makeGetRequest injects JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Req headers (1)" });
+    const tab = page.getByRole("tab", { name: "Request headers (1)" });
     await expect(tab).toBeVisible();
     await tab.click();
     await expect(tab).toHaveAttribute("data-state", "active");
@@ -120,8 +122,10 @@ test.describe("Inspector — Req headers tab", () => {
 // 4. Response headers tab
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Res headers tab", () => {
-  test("4.1 Res headers tab shows count and header table", async ({ page }) => {
+test.describe("Inspector — Response headers tab", () => {
+  test("4.1 Response headers tab shows count and header table", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/res-hdrs"),
       makeResponse(1, "200 OK"),
@@ -130,7 +134,7 @@ test.describe("Inspector — Res headers tab", () => {
     await page.getByText("/api/res-hdrs").first().click();
 
     // makeResponse defaults to JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Res headers (1)" });
+    const tab = page.getByRole("tab", { name: "Response headers (1)" });
     await expect(tab).toBeVisible();
     await tab.click();
     await expect(tab).toHaveAttribute("data-state", "active");
@@ -140,7 +144,7 @@ test.describe("Inspector — Res headers tab", () => {
     await expect(page.getByText("application/json")).toBeVisible();
   });
 
-  test("4.2 Res headers tab with custom headers shows all headers", async ({
+  test("4.2 Response headers tab with custom headers shows all headers", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -153,7 +157,7 @@ test.describe("Inspector — Res headers tab", () => {
 
     await page.getByText("/api/custom-hdrs").first().click();
 
-    const tab = page.getByRole("tab", { name: "Res headers (2)" });
+    const tab = page.getByRole("tab", { name: "Response headers (2)" });
     await expect(tab).toBeVisible();
     await tab.click();
 
@@ -295,5 +299,150 @@ test.describe("Inspector — NoBody empty state", () => {
 
     // Both panes show "No body"; assert at least one is present
     await expect(page.getByText("No body").first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Headers filter, pinning, masking, and copy
+// ---------------------------------------------------------------------------
+
+test.describe("Inspector — Headers filter and pinning", () => {
+  // Navigate to the Request headers tab for the exchange at /api/hdrs
+  async function openReqHeaders(page: Page) {
+    await page.getByText("/api/hdrs").first().click();
+    await page.getByRole("tab", { name: /Request headers/ }).click();
+  }
+
+  test("9.1 filter input is visible on the Request headers tab", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs"),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+    await expect(page.getByPlaceholder("Filter headers…")).toBeVisible();
+  });
+
+  test("9.2 typing in filter narrows displayed headers by name substring", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+        { name: "x-custom-header", value: "myvalue" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Both headers visible initially
+    await expect(page.getByText("content-type")).toBeVisible();
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+
+    // Filter to just x-custom-header
+    await page.getByPlaceholder("Filter headers…").fill("x-custom");
+
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+    await expect(page.getByText("content-type")).not.toBeVisible();
+  });
+
+  test("9.3 clear button restores all headers", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+        { name: "x-custom-header", value: "myvalue" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    await page.getByPlaceholder("Filter headers…").fill("x-custom");
+    await expect(page.getByText("content-type")).not.toBeVisible();
+
+    await page.getByLabel("Clear filter").click();
+    await expect(page.getByText("content-type")).toBeVisible();
+    await expect(page.getByText("x-custom-header")).toBeVisible();
+  });
+
+  test("9.4 pinned header (content-type) appears before an unpinned header regardless of injection order", async ({
+    page,
+  }) => {
+    // Inject x-custom FIRST, then content-type — pinning should reorder
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "x-custom-header", value: "first" },
+        { name: "content-type", value: "application/json" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Get all name cells in the table
+    const nameCells = page.locator("table tbody tr td:first-child");
+    const firstCell = nameCells.first();
+    await expect(firstCell).toHaveText("content-type");
+  });
+
+  test("9.5 authorization header value is masked; copy button copies real value", async ({
+    page,
+  }) => {
+    // Intercept clipboard
+    await page.evaluate(() => {
+      window.__clipboard = "";
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: (text: string) => {
+            window.__clipboard = text;
+            return Promise.resolve();
+          },
+        },
+        configurable: true,
+      });
+    });
+
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Bearer real-secret-token" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Masked value is shown, real value is not
+    await expect(page.getByText("Bearer **********")).toBeVisible();
+    await expect(page.getByText("Bearer real-secret-token")).not.toBeVisible();
+
+    // Hover the row to reveal copy button, then click
+    const row = page.locator("table tbody tr").first();
+    await row.hover();
+    await page.getByLabel("Copy authorization value").click();
+
+    const copied = await page.evaluate(() => window.__clipboard);
+    expect(copied).toBe("Bearer real-secret-token");
+  });
+
+  test("9.6 Basic auth decode toggle shows and hides decoded credential", async ({
+    page,
+  }) => {
+    // "user:pass" → base64 = "dXNlcjpwYXNz"
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Basic dXNlcjpwYXNz" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+    await openReqHeaders(page);
+
+    // Decoded string not visible initially
+    await expect(page.getByText("user:pass")).not.toBeVisible();
+
+    // Click decode
+    await page.getByLabel("Show decoded Basic auth value").click();
+    await expect(page.getByText("user:pass")).toBeVisible();
+
+    // Click hide
+    await page.getByLabel("Hide decoded value").click();
+    await expect(page.getByText("user:pass")).not.toBeVisible();
   });
 });

@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  decodeBasicAuth,
   eventTypeBadgeClass,
+  filterHeaders,
   formatRelative,
   formatSize,
   formatTime,
   isBulkOperation,
+  maskHeaderValue,
   matchesFilter,
   methodBadgeClass,
   methodTextClass,
   parseQueryParams,
   shortenTraceId,
+  sortHeadersByPin,
   splitUri,
   statusChipClass,
   statusClass,
@@ -495,5 +499,192 @@ describe("eventTypeBadgeClass", () => {
 
   it("returns ink-2/sub classes for empty string", () => {
     expect(eventTypeBadgeClass("")).toBe("text-ink-2 bg-bg-sub");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Headers utilities
+// ---------------------------------------------------------------------------
+
+describe("maskHeaderValue", () => {
+  it("passes non-authorization headers through unchanged", () => {
+    expect(maskHeaderValue("content-type", "application/json")).toBe(
+      "application/json",
+    );
+  });
+
+  it("passes mixed-case non-authorization through unchanged", () => {
+    expect(maskHeaderValue("X-Request-Id", "abc-123")).toBe("abc-123");
+  });
+
+  it("masks bearer token — keeps scheme, replaces credential", () => {
+    expect(maskHeaderValue("authorization", "Bearer secret-token-xyz")).toBe(
+      "Bearer **********",
+    );
+  });
+
+  it("masks bearer token regardless of Authorization capitalisation", () => {
+    expect(maskHeaderValue("Authorization", "Bearer mytoken")).toBe(
+      "Bearer **********",
+    );
+  });
+
+  it("masks Basic auth — keeps scheme word", () => {
+    expect(maskHeaderValue("authorization", "Basic dXNlcjpwYXNz")).toBe(
+      "Basic **********",
+    );
+  });
+
+  it("masks a value with no space using first 8 chars", () => {
+    expect(maskHeaderValue("authorization", "abcdefghijklmno")).toBe(
+      "abcdefgh**********",
+    );
+  });
+
+  it("masks a value shorter than 8 chars with no space", () => {
+    expect(maskHeaderValue("authorization", "abc")).toBe("abc**********");
+  });
+});
+
+describe("decodeBasicAuth", () => {
+  it("returns null for non-Basic values", () => {
+    expect(decodeBasicAuth("Bearer mytoken")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(decodeBasicAuth("")).toBeNull();
+  });
+
+  it("decodes a valid Basic credential", () => {
+    // "user:pass" base64-encodes to "dXNlcjpwYXNz"
+    expect(decodeBasicAuth("Basic dXNlcjpwYXNz")).toBe("user:pass");
+  });
+
+  it("is case-insensitive on the 'basic' prefix", () => {
+    expect(decodeBasicAuth("BASIC dXNlcjpwYXNz")).toBe("user:pass");
+  });
+
+  it("trims whitespace from the payload before decoding", () => {
+    expect(decodeBasicAuth("Basic  dXNlcjpwYXNz ")).toBe("user:pass");
+  });
+
+  it("returns null for malformed base64", () => {
+    expect(decodeBasicAuth("Basic !!!not-valid-base64!!!")).toBeNull();
+  });
+});
+
+describe("filterHeaders", () => {
+  const headers = [
+    { name: "Content-Type", value: "application/json" },
+    { name: "Authorization", value: "Bearer token" },
+    { name: "X-Request-Id", value: "abc-123" },
+  ];
+
+  it("returns all headers when query is empty", () => {
+    expect(filterHeaders(headers, "")).toEqual(headers);
+  });
+
+  it("matches by name substring (case-insensitive)", () => {
+    expect(filterHeaders(headers, "content")).toHaveLength(1);
+    expect(filterHeaders(headers, "CONTENT")).toHaveLength(1);
+    expect(filterHeaders(headers, "content")[0].name).toBe("Content-Type");
+  });
+
+  it("matches by value substring (case-insensitive)", () => {
+    expect(filterHeaders(headers, "bearer")).toHaveLength(1);
+    expect(filterHeaders(headers, "BEARER")).toHaveLength(1);
+  });
+
+  it("returns empty array when nothing matches", () => {
+    expect(filterHeaders(headers, "zzz")).toHaveLength(0);
+  });
+
+  it("does not mutate the input array", () => {
+    const copy = [...headers];
+    filterHeaders(headers, "content");
+    expect(headers).toEqual(copy);
+  });
+
+  it("can match multiple headers", () => {
+    // Both 'Content-Type' (name) and 'Authorization' (name) contain the letter 'a'
+    // via their names/values; a broad query matches several
+    expect(filterHeaders(headers, "application")).toHaveLength(1);
+    // Empty query still returns all
+    expect(filterHeaders(headers, "")).toHaveLength(3);
+  });
+});
+
+describe("sortHeadersByPin", () => {
+  it("places pinned headers before unpinned headers", () => {
+    const input = [
+      { name: "x-custom", value: "1" },
+      { name: "content-type", value: "application/json" },
+    ];
+    const result = sortHeadersByPin(input);
+    expect(result[0].name).toBe("content-type");
+    expect(result[1].name).toBe("x-custom");
+  });
+
+  it("preserves original order among unpinned headers", () => {
+    const input = [
+      { name: "x-beta", value: "b" },
+      { name: "x-alpha", value: "a" },
+    ];
+    const result = sortHeadersByPin(input);
+    expect(result.map((h) => h.name)).toEqual(["x-beta", "x-alpha"]);
+  });
+
+  it("sorts multiple pinned headers by PINNED_HEADER_NAMES order", () => {
+    const input = [
+      { name: "cache-control", value: "no-cache" },
+      { name: "content-type", value: "application/json" },
+      { name: "authorization", value: "Bearer token" },
+    ];
+    const result = sortHeadersByPin(input);
+    // Expected order: content-type (0), authorization (2), cache-control (4)
+    expect(result.map((h) => h.name)).toEqual([
+      "content-type",
+      "authorization",
+      "cache-control",
+    ]);
+  });
+
+  it("handles a list that is all pinned", () => {
+    const input = [
+      { name: "traceparent", value: "t" },
+      { name: "content-type", value: "application/json" },
+    ];
+    const result = sortHeadersByPin(input);
+    expect(result[0].name).toBe("content-type"); // lower index in PINNED_HEADER_NAMES
+    expect(result[1].name).toBe("traceparent");
+  });
+
+  it("handles a list that has no pinned headers", () => {
+    const input = [
+      { name: "x-a", value: "1" },
+      { name: "x-b", value: "2" },
+    ];
+    const result = sortHeadersByPin(input);
+    expect(result.map((h) => h.name)).toEqual(["x-a", "x-b"]);
+  });
+
+  it("is case-insensitive for pin matching", () => {
+    const input = [
+      { name: "X-Custom", value: "c" },
+      { name: "Content-Type", value: "application/json" }, // uppercase C
+    ];
+    const result = sortHeadersByPin(input);
+    expect(result[0].name).toBe("Content-Type");
+    expect(result[1].name).toBe("X-Custom");
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [
+      { name: "x-custom", value: "c" },
+      { name: "content-type", value: "application/json" },
+    ];
+    const copy = [...input];
+    sortHeadersByPin(input);
+    expect(input).toEqual(copy);
   });
 });
