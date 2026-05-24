@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   render,
   screen,
   fireEvent,
   act,
-  cleanup,
   waitFor,
 } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
@@ -30,11 +29,6 @@ describe("CommandPalette", () => {
     if (!Element.prototype.scrollIntoView) {
       Element.prototype.scrollIntoView = function () {};
     }
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
   });
 
   it("does not render palette content when cmdKOpen is false", () => {

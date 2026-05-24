@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
 import { StatusBar } from "@ui/components/StatusBar";
 import { useStore } from "@ui/state/store";
@@ -8,10 +8,6 @@ import { makeGetRequest } from "@ui/test/fixtures";
 describe("StatusBar", () => {
   beforeEach(() => {
     useStore.setState(useStore.getInitialState(), true);
-  });
-
-  afterEach(() => {
-    cleanup();
   });
 
   describe("connection status", () => {
