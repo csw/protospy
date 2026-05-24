@@ -1,6 +1,36 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Group vitest and all @vitest/* packages — must stay version-matched to avoid runtime warnings",
+      "matchPackageNames": ["vitest", "@vitest/**"],
+      "groupName": "vitest"
+    },
+    {
+      "description": "Group react and react-dom — must stay version-matched",
+      "matchPackageNames": ["react", "react-dom"],
+      "groupName": "react"
+    },
+    {
+      "description": "Group @types/react and @types/react-dom — should track react versions",
+      "matchPackageNames": ["@types/react", "@types/react-dom"],
+      "groupName": "react types"
+    },
+    {
+      "description": "Group tailwindcss and @tailwindcss/vite — plugin must stay compatible with tailwind core",
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/**"],
+      "groupName": "tailwindcss"
+    },
+    {
+      "description": "Group vite and @vitejs/plugin-react — plugin must stay compatible with vite",
+      "matchPackageNames": ["vite", "@vitejs/**"],
+      "groupName": "vite"
+    },
+    {
+      "description": "Group @testing-library packages — jest-dom and react should track together",
+      "matchPackageNames": ["@testing-library/**"],
+      "groupName": "testing-library"
+    }
   ]
 }
