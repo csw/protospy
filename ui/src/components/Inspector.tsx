@@ -6,7 +6,7 @@ import { showPairsTab } from "@ui/protocol";
 import { EmptyState } from "./ui/EmptyState";
 import { ContextBar } from "./ContextBar";
 import { BodySplit } from "./BodySplit";
-import { HeadersPane } from "./HeadersPane";
+import { HeadersSplit } from "./HeadersSplit";
 import { TimingView } from "./TimingView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
@@ -89,11 +89,8 @@ export function Inspector() {
               Pairs
             </TabsTrigger>
           )}
-          <TabsTrigger value="req-headers" className={tabTriggerClass}>
-            Request headers ({reqHeaders.length})
-          </TabsTrigger>
-          <TabsTrigger value="res-headers" className={tabTriggerClass}>
-            Response headers ({resHeaders.length})
+          <TabsTrigger value="headers" className={tabTriggerClass}>
+            Headers
           </TabsTrigger>
           <TabsTrigger value="timing" className={tabTriggerClass}>
             Timing
@@ -115,27 +112,15 @@ export function Inspector() {
           </TabsContent>
         )}
 
-        {/* Req headers tab */}
+        {/* Headers tab — request and response side-by-side */}
         <TabsContent
-          value="req-headers"
+          value="headers"
           className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
         >
-          <HeadersPane
+          <HeadersSplit
             key={exchange.id}
-            headers={reqHeaders}
-            emptyMessage="No request headers captured"
-          />
-        </TabsContent>
-
-        {/* Res headers tab */}
-        <TabsContent
-          value="res-headers"
-          className="flex flex-col flex-1 min-h-0 overflow-hidden mt-0"
-        >
-          <HeadersPane
-            key={exchange.id}
-            headers={resHeaders}
-            emptyMessage="No response headers captured"
+            reqHeaders={reqHeaders}
+            resHeaders={resHeaders}
           />
         </TabsContent>
 
