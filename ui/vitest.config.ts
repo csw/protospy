@@ -27,13 +27,13 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-129 HeadersPane + headers helpers (statements
-      // 66.08%, branches 52.1%, functions 54.77%, lines 68.94%) with a ~1% margin.
+      // Floor ratcheted after PRO-183 HeadersSplit component tests (statements
+      // 66.22%, branches 52.24%, functions 55.08%, lines 69.09%) with a ~1% margin.
       thresholds: {
-        statements: 65,
-        branches: 51,
-        functions: 53,
-        lines: 67,
+        statements: 66,
+        branches: 52,
+        functions: 55,
+        lines: 69,
       },
     },
     projects: [

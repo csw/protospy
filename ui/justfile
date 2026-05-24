@@ -10,3 +10,7 @@ run:
 # Build the UI
 build:
     pnpm run build
+
+# Regenerate hero screenshots (output: docs/screenshots/); run from repo root via `just screenshots`
+screenshots:
+    pnpm run screenshots

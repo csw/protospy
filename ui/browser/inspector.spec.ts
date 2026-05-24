@@ -92,86 +92,109 @@ test.describe("Inspector — Bodies tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Request headers tab
+// 3. Unified Headers tab
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Request headers tab", () => {
-  test("3.1 Request headers tab shows count and header table", async ({
+test.describe("Inspector — Headers tab", () => {
+  test("3.1 single Headers tab replaces separate request/response header tabs", async ({
     page,
   }) => {
     await injectExchanges(page, [
-      makeGetRequest(1, "/api/req-hdrs"),
+      makeGetRequest(1, "/api/hdrs"),
       makeResponse(1, "200 OK"),
     ]);
 
-    await page.getByText("/api/req-hdrs").first().click();
+    await page.getByText("/api/hdrs").first().click();
 
-    // makeGetRequest injects JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Request headers (1)" });
-    await expect(tab).toBeVisible();
-    await tab.click();
-    await expect(tab).toHaveAttribute("data-state", "active");
+    // Single "Headers" tab exists
+    await expect(page.getByRole("tab", { name: "Headers" })).toBeVisible();
 
-    // Header table should show the Content-Type header
-    await expect(page.getByText("Content-Type")).toBeVisible();
-    await expect(page.getByText("application/json")).toBeVisible();
+    // Old separate tabs must not exist
+    await expect(
+      page.getByRole("tab", { name: /Request headers/ }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("tab", { name: /Response headers/ }),
+    ).toHaveCount(0);
   });
-});
 
-// ---------------------------------------------------------------------------
-// 4. Response headers tab
-// ---------------------------------------------------------------------------
-
-test.describe("Inspector — Response headers tab", () => {
-  test("4.1 Response headers tab shows count and header table", async ({
+  test("3.2 Headers tab shows request and response panels side-by-side", async ({
     page,
   }) => {
     await injectExchanges(page, [
-      makeGetRequest(1, "/api/res-hdrs"),
+      makeGetRequest(1, "/api/hdrs"),
       makeResponse(1, "200 OK"),
     ]);
 
-    await page.getByText("/api/res-hdrs").first().click();
+    await page.getByText("/api/hdrs").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
 
-    // makeResponse defaults to JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Response headers (1)" });
-    await expect(tab).toBeVisible();
-    await tab.click();
-    await expect(tab).toHaveAttribute("data-state", "active");
-
-    // Header table should show the Content-Type header
-    await expect(page.getByText("Content-Type")).toBeVisible();
-    await expect(page.getByText("application/json")).toBeVisible();
+    // Both panel titles visible
+    const reqPanel = page.locator('[data-testid="headers-panel-request"]');
+    const resPanel = page.locator('[data-testid="headers-panel-response"]');
+    await expect(reqPanel.getByText("Request", { exact: true })).toBeVisible();
+    await expect(resPanel.getByText("Response", { exact: true })).toBeVisible();
   });
 
-  test("4.2 Response headers tab with custom headers shows all headers", async ({
+  test("3.3 request panel shows request headers; response panel shows response headers", async ({
     page,
   }) => {
     await injectExchanges(page, [
-      makeGetRequest(1, "/api/custom-hdrs"),
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "x-req-only", value: "req-value" },
+      ]),
       makeResponse(1, "200 OK", undefined, undefined, [
-        { name: "Content-Type", value: "application/json" },
-        { name: "X-Request-Id", value: "abc-123" },
+        { name: "x-res-only", value: "res-value" },
       ]),
     ]);
 
-    await page.getByText("/api/custom-hdrs").first().click();
+    await page.getByText("/api/hdrs").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
 
-    const tab = page.getByRole("tab", { name: "Response headers (2)" });
-    await expect(tab).toBeVisible();
-    await tab.click();
+    const reqPanel = page.locator('[data-testid="headers-panel-request"]');
+    const resPanel = page.locator('[data-testid="headers-panel-response"]');
 
-    await expect(page.getByText("X-Request-Id")).toBeVisible();
-    await expect(page.getByText("abc-123")).toBeVisible();
+    await expect(reqPanel.getByText("x-req-only")).toBeVisible();
+    await expect(reqPanel.getByText("req-value")).toBeVisible();
+    await expect(resPanel.getByText("x-res-only")).toBeVisible();
+    await expect(resPanel.getByText("res-value")).toBeVisible();
+
+    // Cross-check: response header absent from request panel DOM and vice versa.
+    // Use toHaveCount(0) rather than not.toBeVisible() — an absent locator is
+    // trivially "not visible", so not.toBeVisible() would pass even if the element
+    // were rendered but hidden. toHaveCount(0) actually verifies DOM absence.
+    await expect(reqPanel.getByText("x-res-only")).toHaveCount(0);
+    await expect(resPanel.getByText("x-req-only")).toHaveCount(0);
+  });
+
+  test("3.4 panel headers show header counts", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+        { name: "x-extra", value: "1" },
+      ]),
+      makeResponse(1, "200 OK", undefined, undefined, [
+        { name: "content-type", value: "text/plain" },
+      ]),
+    ]);
+
+    await page.getByText("/api/hdrs").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
+
+    const reqPanel = page.locator('[data-testid="headers-panel-request"]');
+    const resPanel = page.locator('[data-testid="headers-panel-response"]');
+
+    await expect(reqPanel.getByText("2 headers")).toBeVisible();
+    await expect(resPanel.getByText("1 header")).toBeVisible();
   });
 });
 
 // ---------------------------------------------------------------------------
-// 5. Timing tab
+// 4. Timing tab
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Timing tab", () => {
-  test("5.1 Timing tab renders fact table and waterfall", async ({ page }) => {
+  test("4.1 Timing tab renders fact table and waterfall", async ({ page }) => {
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/timing", "200 OK", {
         elapsed: 55,
@@ -198,11 +221,11 @@ test.describe("Inspector — Timing tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Stream tab label
+// 5. Stream tab label
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Stream tab", () => {
-  test("6.1 Bodies tab label changes to 'Stream' for SSE responses", async ({
+  test("5.1 Bodies tab label changes to 'Stream' for SSE responses", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -217,7 +240,7 @@ test.describe("Inspector — Stream tab", () => {
     await expect(page.getByRole("tab", { name: "Bodies" })).toHaveCount(0);
   });
 
-  test("6.2 Stream tab renders N event rows with correct event types", async ({
+  test("5.2 Stream tab renders N event rows with correct event types", async ({
     page,
   }) => {
     // Build an SSE body with 4 distinct events. StreamView is in "events"
@@ -253,11 +276,11 @@ test.describe("Inspector — Stream tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Pairs tab
+// 6. Pairs tab
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Pairs tab", () => {
-  test("7.1 Pairs tab appears for _msearch requests", async ({ page }) => {
+  test("6.1 Pairs tab appears for _msearch requests", async ({ page }) => {
     await setStoreProtocol(page, "Elasticsearch");
     await injectExchanges(page, [
       makeMsearchRequest(1),
@@ -269,7 +292,7 @@ test.describe("Inspector — Pairs tab", () => {
     await expect(page.getByRole("tab", { name: "Pairs" })).toBeVisible();
   });
 
-  test("7.2 Pairs tab is not shown for regular requests", async ({ page }) => {
+  test("6.2 Pairs tab is not shown for regular requests", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/regular"),
       makeResponse(1, "200 OK"),
@@ -282,11 +305,11 @@ test.describe("Inspector — Pairs tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 8. NoBody empty state
+// 7. NoBody empty state
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — NoBody empty state", () => {
-  test("8.1 Bodies tab shows 'No body' for request and response with no body", async ({
+  test("7.1 Bodies tab shows 'No body' for request and response with no body", async ({
     page,
   }) => {
     // makeGetRequest uses NoBody; makeResponse with no body arg also uses NoBody
@@ -303,28 +326,34 @@ test.describe("Inspector — NoBody empty state", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9. Headers filter, pinning, masking, and copy
+// 8. Headers filter, pinning, masking, and copy
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Headers filter and pinning", () => {
-  // Navigate to the Request headers tab for the exchange at /api/hdrs
-  async function openReqHeaders(page: Page) {
+  // Navigate to the Headers tab and return a scoped locator for the request panel
+  async function openHeadersTab(page: Page) {
     await page.getByText("/api/hdrs").first().click();
-    await page.getByRole("tab", { name: /Request headers/ }).click();
+    await page.getByRole("tab", { name: "Headers" }).click();
   }
 
-  test("9.1 filter input is visible on the Request headers tab", async ({
+  function reqPanel(page: Page) {
+    return page.locator('[data-testid="headers-panel-request"]');
+  }
+
+  test("8.1 filter input is visible in the request panel on the Headers tab", async ({
     page,
   }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/hdrs"),
       makeResponse(1, "200 OK"),
     ]);
-    await openReqHeaders(page);
-    await expect(page.getByPlaceholder("Filter headers…")).toBeVisible();
+    await openHeadersTab(page);
+    await expect(
+      reqPanel(page).getByPlaceholder("Filter headers…"),
+    ).toBeVisible();
   });
 
-  test("9.2 typing in filter narrows displayed headers by name substring", async ({
+  test("8.2 typing in request panel filter narrows headers by name substring", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -332,40 +361,45 @@ test.describe("Inspector — Headers filter and pinning", () => {
         { name: "content-type", value: "application/json" },
         { name: "x-custom-header", value: "myvalue" },
       ]),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", undefined, undefined, []),
     ]);
-    await openReqHeaders(page);
+    await openHeadersTab(page);
 
-    // Both headers visible initially
-    await expect(page.getByText("content-type")).toBeVisible();
-    await expect(page.getByText("x-custom-header")).toBeVisible();
+    const panel = reqPanel(page);
+
+    // Both request headers visible initially
+    await expect(panel.getByText("content-type")).toBeVisible();
+    await expect(panel.getByText("x-custom-header")).toBeVisible();
 
     // Filter to just x-custom-header
-    await page.getByPlaceholder("Filter headers…").fill("x-custom");
+    await panel.getByPlaceholder("Filter headers…").fill("x-custom");
 
-    await expect(page.getByText("x-custom-header")).toBeVisible();
-    await expect(page.getByText("content-type")).not.toBeVisible();
+    await expect(panel.getByText("x-custom-header")).toBeVisible();
+    await expect(panel.getByText("content-type")).not.toBeVisible();
   });
 
-  test("9.3 clear button restores all headers", async ({ page }) => {
+  test("8.3 clear button restores all headers in request panel", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/hdrs", undefined, [
         { name: "content-type", value: "application/json" },
         { name: "x-custom-header", value: "myvalue" },
       ]),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", undefined, undefined, []),
     ]);
-    await openReqHeaders(page);
+    await openHeadersTab(page);
 
-    await page.getByPlaceholder("Filter headers…").fill("x-custom");
-    await expect(page.getByText("content-type")).not.toBeVisible();
+    const panel = reqPanel(page);
+    await panel.getByPlaceholder("Filter headers…").fill("x-custom");
+    await expect(panel.getByText("content-type")).not.toBeVisible();
 
-    await page.getByLabel("Clear filter").click();
-    await expect(page.getByText("content-type")).toBeVisible();
-    await expect(page.getByText("x-custom-header")).toBeVisible();
+    await panel.getByLabel("Clear filter").click();
+    await expect(panel.getByText("content-type")).toBeVisible();
+    await expect(panel.getByText("x-custom-header")).toBeVisible();
   });
 
-  test("9.4 pinned header (content-type) appears before an unpinned header regardless of injection order", async ({
+  test("8.4 pinned header (content-type) appears before unpinned header", async ({
     page,
   }) => {
     // Inject x-custom FIRST, then content-type — pinning should reorder
@@ -374,17 +408,17 @@ test.describe("Inspector — Headers filter and pinning", () => {
         { name: "x-custom-header", value: "first" },
         { name: "content-type", value: "application/json" },
       ]),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", undefined, undefined, []),
     ]);
-    await openReqHeaders(page);
+    await openHeadersTab(page);
 
-    // Get all name cells in the table
-    const nameCells = page.locator("table tbody tr td:first-child");
+    // Get name cells in the request panel table
+    const nameCells = reqPanel(page).locator("table tbody tr td:first-child");
     const firstCell = nameCells.first();
     await expect(firstCell).toHaveText("content-type");
   });
 
-  test("9.5 authorization header value is masked; copy button copies real value", async ({
+  test("8.5 authorization header value is masked; copy button copies real value", async ({
     page,
   }) => {
     // Intercept clipboard
@@ -405,24 +439,26 @@ test.describe("Inspector — Headers filter and pinning", () => {
       makeGetRequest(1, "/api/hdrs", undefined, [
         { name: "authorization", value: "Bearer real-secret-token" },
       ]),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", undefined, undefined, []),
     ]);
-    await openReqHeaders(page);
+    await openHeadersTab(page);
+
+    const panel = reqPanel(page);
 
     // Masked value is shown, real value is not
-    await expect(page.getByText("Bearer **********")).toBeVisible();
-    await expect(page.getByText("Bearer real-secret-token")).not.toBeVisible();
+    await expect(panel.getByText("Bearer **********")).toBeVisible();
+    await expect(panel.getByText("Bearer real-secret-token")).not.toBeVisible();
 
     // Hover the row to reveal copy button, then click
-    const row = page.locator("table tbody tr").first();
+    const row = panel.locator("table tbody tr").first();
     await row.hover();
-    await page.getByLabel("Copy authorization value").click();
+    await panel.getByLabel("Copy authorization value").click();
 
     const copied = await page.evaluate(() => window.__clipboard);
     expect(copied).toBe("Bearer real-secret-token");
   });
 
-  test("9.6 Basic auth decode toggle shows and hides decoded credential", async ({
+  test("8.6 Basic auth decode toggle shows and hides decoded credential", async ({
     page,
   }) => {
     // "user:pass" → base64 = "dXNlcjpwYXNz"
@@ -430,19 +466,21 @@ test.describe("Inspector — Headers filter and pinning", () => {
       makeGetRequest(1, "/api/hdrs", undefined, [
         { name: "authorization", value: "Basic dXNlcjpwYXNz" },
       ]),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", undefined, undefined, []),
     ]);
-    await openReqHeaders(page);
+    await openHeadersTab(page);
+
+    const panel = reqPanel(page);
 
     // Decoded string not visible initially
-    await expect(page.getByText("user:pass")).not.toBeVisible();
+    await expect(panel.getByText("user:pass")).not.toBeVisible();
 
     // Click decode
-    await page.getByLabel("Show decoded Basic auth value").click();
-    await expect(page.getByText("user:pass")).toBeVisible();
+    await panel.getByLabel("Show decoded Basic auth value").click();
+    await expect(panel.getByText("user:pass")).toBeVisible();
 
     // Click hide
-    await page.getByLabel("Hide decoded value").click();
-    await expect(page.getByText("user:pass")).not.toBeVisible();
+    await panel.getByLabel("Hide decoded value").click();
+    await expect(panel.getByText("user:pass")).not.toBeVisible();
   });
 });
