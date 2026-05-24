@@ -252,4 +252,61 @@ test.describe("Edge cases", () => {
     await expect(status).toBeVisible();
     await expect(status).toHaveClass(/text-red/);
   });
+
+  test("11.3 compact rows mode allocates full row height so content is not clipped", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/test"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // Toggle to compact
+    await page.keyboard.press("Meta+k");
+    await page.getByText("Toggle density").click();
+
+    // The virtualizer wrapper div is the parent of the button; its inline height
+    // is the authoritative rowHeight used for positioning. We check it matches
+    // the value expected by the spec (66px) so content is not clipped.
+    const wrapperHeight = await page
+      .locator("button[aria-selected]")
+      .first()
+      .evaluate((el) => (el.parentElement as HTMLElement).style.height);
+    expect(wrapperHeight).toBe("66px");
+  });
+
+  test("11.4 rows don't overlap at narrow viewport width", async ({ page }) => {
+    await page.setViewportSize({ width: 420, height: 600 });
+    await injectExchanges(page, [
+      ...makeCompleteExchange(1, "GET", "/api/first", "200 OK", {
+        ts: "2024-01-01T00:00:01Z",
+      }),
+      ...makeCompleteExchange(2, "POST", "/api/second", "201 Created", {
+        ts: "2024-01-01T00:00:02Z",
+      }),
+      ...makeCompleteExchange(3, "DELETE", "/api/third", "204 No Content", {
+        ts: "2024-01-01T00:00:03Z",
+      }),
+    ]);
+
+    const rows = page.locator("button[role='option']");
+    await expect(rows).toHaveCount(3);
+
+    // Compare the virtualizer wrapper divs (explicit height: rowHeight), not the
+    // buttons inside them — buttons include a border-b that can push .bottom past
+    // the next wrapper's .top by a sub-pixel amount.
+    const boxes = await rows.evaluateAll((els) =>
+      els.map((el) => {
+        const wrapper = el.parentElement as HTMLElement;
+        const r = wrapper.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      }),
+    );
+
+    // Adjacent wrappers are placed at consecutive multiples of rowHeight so
+    // wrapper[i].bottom should equal wrapper[i+1].top exactly.
+    for (let i = 0; i < boxes.length - 1; i++) {
+      expect(boxes[i].bottom).toBeLessThanOrEqual(boxes[i + 1].top + 1); // +1 px for sub-pixel rounding
+    }
+  });
 });

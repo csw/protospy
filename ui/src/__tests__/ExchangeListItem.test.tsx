@@ -223,4 +223,59 @@ describe("ExchangeListItem", () => {
     fireEvent.click(screen.getByRole("option"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  // Narrow-width layout guard tests (PRO-184)
+
+  it("button has overflow-hidden to prevent row content bleeding into adjacent rows", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange()}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.getByRole("option")).toHaveClass("overflow-hidden");
+  });
+
+  it("status code span has shrink-0 to hold its width at narrow pane widths", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({ status: "404" })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.getByTestId("status-code")).toHaveClass("shrink-0");
+  });
+
+  it("ERR badge has shrink-0 to hold its width at narrow pane widths", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          status: undefined,
+          error: { direction: "Request", message: "boom" },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.getByText("ERR")).toHaveClass("shrink-0");
+  });
+
+  it("metadata row has whitespace-nowrap to prevent text wrapping at narrow widths", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange()}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    // The row-3 container wraps the req/res size spans
+    const reqSpan = screen.getByText(/^req /);
+    expect(reqSpan.closest("div")).toHaveClass("whitespace-nowrap");
+  });
 });

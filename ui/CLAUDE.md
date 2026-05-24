@@ -22,7 +22,7 @@ pnpm typecheck       # type check
 pnpm test --reporter=dot            # run unit + component tests (Vitest); omit --reporter=dot for human-readable output
 pnpm test:coverage                  # run with v8 coverage report
 pnpm test:browser --reporter=dot    # run Playwright browser tests (browsers must be installed); omit --reporter=dot for human-readable output
-pnpm run screenshots                # regenerate hero screenshots in docs/screenshots/ (run `cargo build` at repo root first)
+just screenshots                    # regenerate hero screenshots — run from REPO ROOT, not ui/; ui/justfile has a same-named recipe but it skips the required cargo build step
 ```
 
 ## Manual Testing
