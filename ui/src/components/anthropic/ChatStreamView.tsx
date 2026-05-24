@@ -3,28 +3,10 @@ import type { Exchange } from "@ui/state/reducer";
 import { parseSSEBody, chunksToText } from "@ui/body/sse";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
+import { eventTypeBadgeClass } from "@ui/lib/utils";
 
 interface Props {
   exchange: Exchange;
-}
-
-function eventTypeBadgeClass(type: string): string {
-  switch (type) {
-    case "message_start":
-      return "text-purple-500 bg-purple-500/10";
-    case "content_block_start":
-    case "content_block_stop":
-    case "content_block_delta":
-      return "text-green bg-green-500/10";
-    case "message_delta":
-      return "text-accent bg-accent/10";
-    case "message_stop":
-      return "text-mid bg-bg-sub";
-    case "ping":
-      return "text-dim bg-bg-sub";
-    default:
-      return "text-ink-2 bg-bg-sub";
-  }
 }
 
 function EventDataSummary({ event }: { event: SSEEvent }) {

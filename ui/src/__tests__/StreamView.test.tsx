@@ -45,6 +45,20 @@ describe("StreamView — generic SSE rendering", () => {
     render(<StreamView exchange={makeSSEExchange(GENERIC_SSE)} />);
     expect(screen.getByText("2 events")).toBeInTheDocument();
   });
+
+  it("applies color-coded badge class for ping events", () => {
+    render(<StreamView exchange={makeSSEExchange(GENERIC_SSE)} />);
+    const badge = screen.getByText("ping");
+    expect(badge).toHaveClass("text-dim");
+    expect(badge).toHaveClass("bg-bg-sub");
+  });
+
+  it("applies default badge class for unknown event types", () => {
+    render(<StreamView exchange={makeSSEExchange(GENERIC_SSE)} />);
+    const badge = screen.getByText("message");
+    expect(badge).toHaveClass("text-ink-2");
+    expect(badge).toHaveClass("bg-bg-sub");
+  });
 });
 
 const ANTHROPIC_SSE = [
@@ -65,6 +79,13 @@ describe("ChatStreamView — Anthropic protocol", () => {
   it("shows event types in events mode (default)", () => {
     render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />);
     expect(screen.getByText("message_start")).toBeInTheDocument();
+  });
+
+  it("applies purple badge class for message_start events", () => {
+    render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />);
+    const badge = screen.getByText("message_start");
+    expect(badge).toHaveClass("text-purple-500");
+    expect(badge).toHaveClass("bg-purple-500/10");
   });
 
   it("shows 'No events yet' when body is empty", () => {

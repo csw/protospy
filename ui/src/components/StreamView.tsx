@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useCallback, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
 import { parseSSEBody, chunksToText } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
+import { eventTypeBadgeClass } from "@ui/lib/utils";
 
 interface Props {
   exchange: Exchange;
@@ -25,7 +26,9 @@ function EventsView({ events }: { events: SSEEvent[] }) {
           <span className="font-family-mono text-xs text-dim shrink-0 w-6 text-right">
             {event.index}
           </span>
-          <span className="font-family-mono text-xs px-1.5 py-0.5 rounded shrink-0 text-ink-2 bg-bg-sub">
+          <span
+            className={`font-family-mono text-xs px-1.5 py-0.5 rounded shrink-0 ${eventTypeBadgeClass(event.type)}`}
+          >
             {event.type}
           </span>
           <span className="font-family-mono text-xs text-dim truncate">
