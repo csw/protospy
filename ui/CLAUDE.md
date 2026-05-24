@@ -47,11 +47,12 @@ Coverage thresholds are configured in `vitest.config.ts` — see the testing sec
 
 ### Which test type to write
 
-| What you changed                                                                     | Test type      | File pattern               |
-| ------------------------------------------------------------------------------------ | -------------- | -------------------------- |
-| Pure function (formatter, parser, reducer, decoder, utility)                         | Unit test      | `src/__tests__/*.test.ts`  |
-| React component or hook (rendering, state, user interaction)                         | Component test | `src/__tests__/*.test.tsx` |
-| Visual layout, cross-component interaction, or behavior that depends on real DOM/CSS | Browser test   | `browser/*.spec.ts`        |
+| What you changed                                                                     | Test type      | File pattern                    |
+| ------------------------------------------------------------------------------------ | -------------- | ------------------------------- |
+| Pure function (formatter, parser, reducer, decoder, utility)                         | Unit test      | `src/__tests__/*.test.ts`       |
+| React component or hook (rendering, state, user interaction)                         | Component test | `src/__tests__/*.test.tsx`      |
+| Visual layout, cross-component interaction, or behavior that depends on real DOM/CSS | Browser test   | `browser/*.spec.ts`             |
+| Styling properties that must match a design spec (font, spacing, color, position)    | Browser test   | `browser/design-tokens.spec.ts` |
 
 When a change spans categories, write the cheapest test that covers the behavior — prefer unit over component, component over browser. But if the behavior under test requires the real DOM or layout, don't force it into a unit test.
 
@@ -116,6 +117,26 @@ A few non-obvious techniques that came out of writing the suite:
 - **Hook `__test_store` before the app assigns it.** A subscriber installed via `page.evaluate` after `waitForStore` will miss the initial state transitions. Use `page.addInitScript` plus an `Object.defineProperty` setter on `window.__test_store` to attach the subscriber the moment the store mounts. Again, `sse-reconnect.spec.ts` demonstrates this.
 - **Record transitions rather than racing `expect.poll`.** Fleeting state changes (sub-100 ms) can fall between poll samples. Push every change into an array via a store subscriber, then assert on the recorded sequence (indices, ordering) after driving the cycle.
 - **Scrolling: walk the overflow ancestors.** When a nested element carries `aria-label` but its parent owns the `overflow-auto`, setting `scrollTop` on the inner element silently no-ops. Set it on each ancestor up the chain and take the max — see `body-large.spec.ts`.
+
+### Design token fidelity tests
+
+`browser/design-tokens.spec.ts` spot-checks that key rendered CSS properties match the design spec. This exists because styling drift is hard to catch — agents translating CSS to Tailwind classes will round values to the nearest utility class, and the result looks "close enough" visually but diverges on exact font sizes, weights, spacing, etc.
+
+The pattern: inject an exchange so elements render, then use `page.evaluate()` with `getComputedStyle()` to extract the actual rendered value and assert it against the design spec value.
+
+```typescript
+const badge = page.locator('[data-testid="method-badge"]').first();
+const styles = await badge.evaluate((el) => {
+  const cs = getComputedStyle(el);
+  return { fontFamily: cs.fontFamily, fontWeight: cs.fontWeight };
+});
+expect(styles.fontFamily).toContain("JetBrains Mono");
+expect(styles.fontWeight).toBe("600");
+```
+
+**When to add assertions here:** when a design spec defines an exact CSS property value that Tailwind might approximate. High-drift-risk properties: font-family, font-size, font-weight, letter-spacing, border-radius, padding, position (sticky). Don't test every property on every element — focus on values that have drifted before or that use non-standard Tailwind values (arbitrary values like `text-[11.5px]`).
+
+**When NOT to use this:** for conditional styling logic (method badge changes color by HTTP method), write a regular component or browser test that exercises the condition. Design token tests are for static property fidelity, not behavioral assertions.
 
 ### Fixtures
 
