@@ -95,8 +95,10 @@ test.describe("Inspector — Bodies tab", () => {
 // 3. Request headers tab
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Req headers tab", () => {
-  test("3.1 Req headers tab shows count and header table", async ({ page }) => {
+test.describe("Inspector — Request headers tab", () => {
+  test("3.1 Request headers tab shows count and header table", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/req-hdrs"),
       makeResponse(1, "200 OK"),
@@ -105,7 +107,7 @@ test.describe("Inspector — Req headers tab", () => {
     await page.getByText("/api/req-hdrs").first().click();
 
     // makeGetRequest injects JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Req headers (1)" });
+    const tab = page.getByRole("tab", { name: "Request headers (1)" });
     await expect(tab).toBeVisible();
     await tab.click();
     await expect(tab).toHaveAttribute("data-state", "active");
@@ -120,8 +122,10 @@ test.describe("Inspector — Req headers tab", () => {
 // 4. Response headers tab
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Res headers tab", () => {
-  test("4.1 Res headers tab shows count and header table", async ({ page }) => {
+test.describe("Inspector — Response headers tab", () => {
+  test("4.1 Response headers tab shows count and header table", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/res-hdrs"),
       makeResponse(1, "200 OK"),
@@ -130,7 +134,7 @@ test.describe("Inspector — Res headers tab", () => {
     await page.getByText("/api/res-hdrs").first().click();
 
     // makeResponse defaults to JSON_CT (1 header)
-    const tab = page.getByRole("tab", { name: "Res headers (1)" });
+    const tab = page.getByRole("tab", { name: "Response headers (1)" });
     await expect(tab).toBeVisible();
     await tab.click();
     await expect(tab).toHaveAttribute("data-state", "active");
@@ -140,7 +144,7 @@ test.describe("Inspector — Res headers tab", () => {
     await expect(page.getByText("application/json")).toBeVisible();
   });
 
-  test("4.2 Res headers tab with custom headers shows all headers", async ({
+  test("4.2 Response headers tab with custom headers shows all headers", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -153,7 +157,7 @@ test.describe("Inspector — Res headers tab", () => {
 
     await page.getByText("/api/custom-hdrs").first().click();
 
-    const tab = page.getByRole("tab", { name: "Res headers (2)" });
+    const tab = page.getByRole("tab", { name: "Response headers (2)" });
     await expect(tab).toBeVisible();
     await tab.click();
 
@@ -303,13 +307,13 @@ test.describe("Inspector — NoBody empty state", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Headers filter and pinning", () => {
-  // Navigate to the Req headers tab for the exchange at /api/hdrs
+  // Navigate to the Request headers tab for the exchange at /api/hdrs
   async function openReqHeaders(page: Page) {
     await page.getByText("/api/hdrs").first().click();
-    await page.getByRole("tab", { name: /Req headers/ }).click();
+    await page.getByRole("tab", { name: /Request headers/ }).click();
   }
 
-  test("9.1 filter input is visible on the Req headers tab", async ({
+  test("9.1 filter input is visible on the Request headers tab", async ({
     page,
   }) => {
     await injectExchanges(page, [

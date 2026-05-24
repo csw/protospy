@@ -90,10 +90,10 @@ export function Inspector() {
             </TabsTrigger>
           )}
           <TabsTrigger value="req-headers" className={tabTriggerClass}>
-            Req headers ({reqHeaders.length})
+            Request headers ({reqHeaders.length})
           </TabsTrigger>
           <TabsTrigger value="res-headers" className={tabTriggerClass}>
-            Res headers ({resHeaders.length})
+            Response headers ({resHeaders.length})
           </TabsTrigger>
           <TabsTrigger value="timing" className={tabTriggerClass}>
             Timing
