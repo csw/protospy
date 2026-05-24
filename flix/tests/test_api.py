@@ -56,6 +56,35 @@ MOCK_STATS_RESPONSE = {
     }
 }
 
+MOCK_TOP_MOVIES_RESPONSE = {
+    "hits": {
+        "hits": [
+            {
+                "_id": "278",
+                "_source": {
+                    "title": "The Shawshank Redemption",
+                    "overview": "Framed in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank State Penitentiary.",
+                    "release_date": "1994-09-23",
+                    "genres": ["Drama", "Crime"],
+                    "director": "Frank Darabont",
+                    "vote_average": 8.5,
+                },
+            },
+            {
+                "_id": "238",
+                "_source": {
+                    "title": "The Godfather",
+                    "overview": "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family.",
+                    "release_date": "1972-03-14",
+                    "genres": ["Drama", "Crime"],
+                    "director": "Francis Ford Coppola",
+                    "vote_average": 8.4,
+                },
+            },
+        ]
+    }
+}
+
 MOCK_SIMILAR_RESPONSE = {
     "hits": {
         "hits": [
@@ -270,6 +299,40 @@ def test_suggest_empty_q_skips_es():
         assert response.status_code == 200
         assert response.json() == {"suggestions": []}
         mock_es.search.assert_not_called()
+
+
+def test_top_movies_returns_json():
+    mock_es = make_mock_es(search_response=MOCK_TOP_MOVIES_RESPONSE)
+    for client in _make_client(mock_es):
+        response = client.get("/top-movies")
+        assert response.status_code == 200
+        body = response.json()
+        assert "movies" in body
+        assert isinstance(body["movies"], list)
+        assert len(body["movies"]) == 2
+        assert body["movies"][0]["title"] == "The Shawshank Redemption"
+        assert body["movies"][0]["id"] == "278"
+
+
+def test_top_movies_htmx_returns_html():
+    mock_es = make_mock_es(search_response=MOCK_TOP_MOVIES_RESPONSE)
+    for client in _make_client(mock_es):
+        response = client.get("/top-movies", headers={"HX-Request": "true"})
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Top Rated" in response.text
+        assert "The Shawshank Redemption" in response.text
+        assert "The Godfather" in response.text
+        assert 'class="movie-card' in response.text
+
+
+def test_index_home_includes_top_movies_trigger():
+    mock_es = make_mock_es()
+    for client in _make_client(mock_es):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert 'hx-get="/top-movies"' in response.text
+        assert 'hx-trigger="load"' in response.text
 
 
 def test_stats_renders_html():

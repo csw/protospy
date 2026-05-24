@@ -260,6 +260,9 @@ def test_search_pushes_correct_url(page: Page) -> None:
     page.goto("/")
     page.locator("#search-input").fill("star wars")
     page.keyboard.press("Enter")
+    # Wait for the URL to change — movie cards are now pre-populated by the
+    # top-movies on-load request, so they can't serve as the navigation signal.
+    page.wait_for_url("**/search**", timeout=10000)
     expect(page.locator(".movie-card").first).to_be_visible()
     assert "/search" in page.url
     assert "q=" in page.url
@@ -287,9 +290,12 @@ def test_back_button_after_search(page: Page) -> None:
     page.goto("/")
     page.locator("#search-input").fill("star wars")
     page.keyboard.press("Enter")
+    # top-movies cards are pre-loaded, so wait for URL change as the nav signal
+    page.wait_for_url("**/search**", timeout=10000)
     expect(page.locator(".movie-card").first).to_be_visible()
     page.go_back()
-    expect(page.locator(".movie-card")).to_have_count(0)
+    # after back, top-movies reload — check URL, not card count
+    page.wait_for_url(lambda url: "/search" not in url, timeout=10000)
     assert "/search" not in page.url
 
 
