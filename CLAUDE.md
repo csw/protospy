@@ -103,6 +103,10 @@ PR titles matter because GitHub uses them as the default squash-merge commit mes
 
 When work is associated with a Linear ticket, include the ticket ID in parentheses at the end of the commit message and PR title: `fix(ui): bust virtualizer cache on mode change (PRO-126)`. This links the commit to the issue in Linear.
 
+**Keep the subject line under 72 characters** (the full line: type, scope, description, and ticket ID). This is the git convention — longer subjects get truncated in `git log --oneline`, GitHub's commit list, and notification emails. If you can't fit a meaningful description under 72, the description is too detailed for the subject line. Put implementation details ("via post-checkout hook", "using cargo-chef", "with React.memo") in the commit body, not the subject. The subject says *what changed*; the body says *how* and *why*.
+
+**When a commit resolves a ticket, use the ticket title as the commit description** unless the implementation materially diverged from the ticket's scope. The ticket title was already written to be a good commit subject. Don't rephrase or elaborate on it.
+
 Each subproject's CLAUDE.md has additional commit guidance (e.g. lockfile handling). Read it before committing subproject changes.
 
 **Never bypass or override commit signing** (e.g. `-c commit.gpgsign=false`, `--no-gpg-sign`). If signing fails, stop and report the problem rather than working around it.
