@@ -7,7 +7,7 @@
  *   3. Start the Vite dev server (screenshots config)
  *   4. Wait for all services to be ready
  *   5. Send example requests through the proxy
- *   6. Capture 2 dark-mode screenshots at 1280×720
+ *   6. Capture 3 dark-mode screenshots at 1280×720
  *   7. Tear down all child processes
  *
  * Run via: tsx scripts/take-screenshots.ts (from ui/)
@@ -113,23 +113,14 @@ async function cleanup(): Promise<void> {
 
 // ─── Mock HTTP target ─────────────────────────────────────────────────────────
 
-// simpleSearchResponse is used for the initial exchange-list population requests.
-const simpleSearchResponse = JSON.stringify({
-  took: 12,
-  hits: {
-    total: { value: 3, relation: "eq" },
-    hits: [
-      { _id: "1", _source: { title: "The Matrix", year: 1999 } },
-      { _id: "2", _source: { title: "Inception", year: 2010 } },
-      { _id: "3", _source: { title: "Interstellar", year: 2014 } },
-    ],
-  },
-});
-
-// richResponseBody is loaded from scratch/example-search-response.json at startup
-// and passed in here. When the POST body is non-trivial (i.e. not "{}"), we return
-// the rich response so the inspector body screenshot has something interesting to show.
-function startMockServer(richResponseBody: string): Promise<void> {
+// Both response bodies are loaded from docs/examples/ at startup and passed in here.
+// simpleResponseBody is used for the initial exchange-list population requests;
+// richResponseBody is returned when the POST body is non-trivial (not "{}"), so the
+// inspector body screenshot has something interesting to show.
+function startMockServer(
+  simpleResponseBody: string,
+  richResponseBody: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     mockServer = http.createServer((req, res) => {
       res.setHeader("content-type", "application/json");
@@ -149,9 +140,7 @@ function startMockServer(richResponseBody: string): Promise<void> {
           body += chunk.toString();
         });
         req.on("end", () => {
-          res.end(
-            body.trim() === "{}" ? simpleSearchResponse : richResponseBody,
-          );
+          res.end(body.trim() === "{}" ? simpleResponseBody : richResponseBody);
         });
       } else {
         res.end("{}");
@@ -187,18 +176,22 @@ async function waitReady(url: string, timeoutMs = 30_000): Promise<void> {
 async function main(): Promise<void> {
   await mkdir(SCREENSHOTS_DIR, { recursive: true });
 
-  // Read example payloads for screenshot 03
+  // Read example payloads from docs/examples/
+  const simpleResponseBody = await readFile(
+    path.join(ROOT, "docs", "examples", "movies-simple-response.json"),
+    "utf8",
+  );
   const richRequestBody = await readFile(
-    path.join(ROOT, "scratch", "example-search-request.json"),
+    path.join(ROOT, "docs", "examples", "movies-search-request.json"),
     "utf8",
   );
   const richResponseBody = await readFile(
-    path.join(ROOT, "scratch", "example-search-response.json"),
+    path.join(ROOT, "docs", "examples", "movies-search-response.json"),
     "utf8",
   );
 
   // 1. Mock target server
-  await startMockServer(richResponseBody);
+  await startMockServer(simpleResponseBody, richResponseBody);
   console.log(`✓ Mock target listening on :${MOCK_TARGET_PORT}`);
 
   // 2. Protospy binary (run directly, not via cargo run — avoids signal-swallowing)
@@ -312,7 +305,7 @@ async function main(): Promise<void> {
 
   // ── Screenshot 3: inspector with a non-trivial request/response body ─────
 
-  // Send the rich request from scratch/. The mock server returns the rich
+  // Send the rich request from docs/examples/. The mock server returns the rich
   // response when the body is non-trivial (not "{}").
   await fetch(`http://localhost:${PROXY_PORT}/movies/_search`, {
     method: "POST",

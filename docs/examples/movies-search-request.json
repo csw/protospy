@@ -1,0 +1,26 @@
+{
+    "query": {
+        "more_like_this": {
+            "fields": [
+                "title",
+                "overview",
+                "tagline"
+            ],
+            "like": [
+                {
+                    "_index": "movies",
+                    "_id": "322194"
+                }
+            ],
+            "min_term_freq": 1,
+            "min_doc_freq": 2
+        }
+    },
+    "_source": [
+        "title",
+        "release_date",
+        "genres",
+        "vote_average"
+    ],
+    "size": 6
+}
