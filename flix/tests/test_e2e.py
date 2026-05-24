@@ -383,3 +383,61 @@ def test_direct_deep_link_renders_detail_results_and_active_card(
     expect(page.locator(".movie-card.active")).to_have_count(1)
     assert "/movie/" in page.url
     assert "q=" in page.url
+
+
+# ---------------------------------------------------------------------------
+# Demo mode E2E tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.e2e
+def test_demo_mode_overlay_hides_on_proxy_connected(
+    page: Page, live_server_url: str
+) -> None:
+    """proxy_connected postMessage removes the overlay and triggers the top-movies load."""
+    # Serve a minimal wrapper page that embeds flix in demo mode and sends
+    # proxy_connected once the iframe reports ready.  Both pages share the
+    # same hostname (127.0.0.1) so the origin check in the flix JS passes.
+    wrapper_html = f"""<!DOCTYPE html>
+<html>
+<body>
+  <iframe
+    id="flix"
+    src="{live_server_url}/?demo=1"
+    style="width:100%;height:600px;border:none;"
+  ></iframe>
+  <script>
+    document.getElementById('flix').addEventListener('load', function () {{
+      this.contentWindow.postMessage('proxy_connected', '{live_server_url}');
+    }});
+  </script>
+</body>
+</html>"""
+
+    page.route(
+        "**/demo-wrapper",
+        lambda route: route.fulfill(content_type="text/html", body=wrapper_html),
+    )
+    page.goto(f"{live_server_url}/demo-wrapper")
+
+    flix = page.frame_locator("#flix")
+    expect(flix.locator("#demo-overlay")).not_to_be_visible(timeout=10_000)
+    expect(flix.locator(".movie-card").first).to_be_visible(timeout=10_000)
+
+
+@pytest.mark.e2e
+def test_demo_mode_timeout_shows_error(page: Page) -> None:
+    """Without proxy_connected, the overlay swaps the spinner for an error message."""
+    # Use a short timeout so the test doesn't take 10 s.
+    page.goto("/?demo=1&demo_timeout=500")
+
+    expect(page.locator("#demo-overlay")).to_be_visible()
+    expect(page.locator(".demo-spinner")).to_be_visible()
+
+    # After the timeout fires, spinner is removed and the error text appears.
+    expect(page.locator(".demo-spinner")).not_to_be_visible(timeout=3_000)
+    expect(page.locator("#demo-status")).to_have_text(
+        "Proxy unavailable — reload to try again."
+    )
+    # The overlay itself stays visible (it's the error container now).
+    expect(page.locator("#demo-overlay")).to_be_visible()

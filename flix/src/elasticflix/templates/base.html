@@ -383,6 +383,40 @@
         }
         .loading-hint { color: var(--text-muted); padding: 1rem 0; }
 
+        /* ── Demo overlay ── */
+        .demo-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(13, 13, 17, 0.75);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .demo-overlay-content {
+            text-align: center;
+            padding: 2rem;
+        }
+        .demo-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: demo-spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes demo-spin {
+            to { transform: rotate(360deg); }
+        }
+        #demo-status {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
         /* ── Stats ── */
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
         @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr; } }
@@ -437,5 +471,56 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+{% if demo_mode %}
+<div id="demo-overlay" class="demo-overlay" role="status">
+    <div class="demo-overlay-content">
+        <div class="demo-spinner" aria-hidden="true"></div>
+        <p id="demo-status" aria-live="polite">Connecting to proxy&hellip;</p>
+    </div>
+</div>
+<script>
+(function () {
+    const overlay = document.getElementById('demo-overlay');
+    const statusEl = document.getElementById('demo-status');
+    const TIMEOUT_MS = {{ demo_timeout }};
+    let timer;
+
+    function onConnected() {
+        clearTimeout(timer);
+        overlay.remove();
+        const trigger = document.getElementById('top-movies-container');
+        if (trigger) {
+            htmx.trigger(trigger, 'demo-ready');
+        }
+    }
+
+    function onTimeout() {
+        const spinner = overlay.querySelector('.demo-spinner');
+        if (spinner) {
+            spinner.remove();
+        }
+        statusEl.textContent = 'Proxy unavailable — reload to try again.';
+    }
+
+    timer = setTimeout(onTimeout, TIMEOUT_MS);
+
+    window.addEventListener('message', function (event) {
+        try {
+            if (
+                !event.origin ||
+                new URL(event.origin).hostname !== window.location.hostname
+            ) {
+                return;
+            }
+        } catch (e) {
+            return;
+        }
+        if (event.data === 'proxy_connected') {
+            onConnected();
+        }
+    });
+}());
+</script>
+{% endif %}
 </body>
 </html>
