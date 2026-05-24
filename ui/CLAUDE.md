@@ -41,6 +41,9 @@ pnpm test:coverage
 
 Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
 
+These checks are enforced automatically at commit time — see
+[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
+
 ## Test-Writing Requirements
 
 **Every change to code under `src/` or `browser/` must include corresponding tests.** Do not consider a feature, bug fix, or refactor complete until it has test coverage. Shipping code without tests — even if the existing suite still passes — is a recurring failure mode and is not acceptable.

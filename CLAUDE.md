@@ -52,6 +52,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, worktree/git-prompt avoidance, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
+- `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 
 ## Worktrees
 
