@@ -14,15 +14,15 @@ uv run pytest -q                               # run tests (always pass -q when 
 uvx vulture src                                # check for dead code
 ```
 
-Run all commands from `demo/` using `uv run`. (On the host macOS sandbox, run `cd demo/` once first — see `docs/agents/host-sandbox.md`.)
+Run all commands from `flix/` using `uv run`. (On the host macOS sandbox, run `cd flix/` once first — see `docs/agents/host-sandbox.md`.)
 
 ## Architecture
 
-Demo source lives at `demo/src/elasticflix/`. See `demo/ARCHITECTURE.md` for the full architecture
+Flix source lives at `flix/src/elasticflix/`. See `flix/ARCHITECTURE.md` for the full architecture
 reference (file map, ES query patterns, testing internals, etc.).
 
 When changing the demo app's architecture, stack, query patterns, or testing approach, you **must**
-keep both `demo/ARCHITECTURE.md` **and** the `## Architecture` section of `demo/README.md` current.
+keep both `flix/ARCHITECTURE.md` **and** the `## Architecture` section of `flix/README.md` current.
 
 ## Code Quality Requirements
 
@@ -41,12 +41,12 @@ To inspect network traffic during Chrome browser tests, use `read_network_reques
 
 ## Committing
 
-Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/). Use scope `demo`:
+Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/). Use scope `flix`:
 
 ```text
-feat(demo): add autocomplete to search input
-fix(demo): fix TemplateResponse argument order
-build(demo): pin major versions for all dependencies
+feat(flix): add autocomplete to search input
+fix(flix): fix TemplateResponse argument order
+build(flix): pin major versions for all dependencies
 ```
 
 Always commit `uv.lock` alongside any changes to `pyproject.toml`.

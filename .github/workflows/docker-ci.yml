@@ -1,4 +1,4 @@
-# GHA cache scopes per image (protospy, demo) so they don't clobber each other.
+# GHA cache scopes per image (protospy, flix) so they don't clobber each other.
 name: docker-ci
 
 on:
@@ -10,7 +10,7 @@ on:
       - "src/**"
       - "ui/**"
       - "docker-compose.yaml"
-      - "demo/**"
+      - "flix/**"
       - ".github/workflows/docker-ci.yml"
   pull_request:
     paths:
@@ -20,7 +20,7 @@ on:
       - "src/**"
       - "ui/**"
       - "docker-compose.yaml"
-      - "demo/**"
+      - "flix/**"
       - ".github/workflows/docker-ci.yml"
 
 jobs:
@@ -41,11 +41,11 @@ jobs:
           cache-to: type=gha,scope=protospy,mode=max
       - uses: docker/build-push-action@v7
         with:
-          context: ./demo
+          context: ./flix
           load: true
-          tags: protospy-demo:latest
-          cache-from: type=gha,scope=demo
-          cache-to: type=gha,scope=demo,mode=max
+          tags: protospy-flix:latest
+          cache-from: type=gha,scope=flix
+          cache-to: type=gha,scope=flix,mode=max
       - uses: hoverkraft-tech/compose-action@v2.6.0
         with:
           compose-file: ./docker-compose.yaml
@@ -54,7 +54,7 @@ jobs:
         run: >-
           docker compose run --rm
           -e ELASTICSEARCH_URL=http://elasticsearch:9200
-          demo uv run python loader.py
+          flix uv run python loader.py
       - name: Smoke test
         run: |
           curl -sf http://localhost:8001/health

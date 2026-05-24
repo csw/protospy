@@ -4,7 +4,7 @@ This is a Rust monitoring proxy for development use, to give a live view of HTTP
 
 It currently contains:
  - protospy itself, a Rust application; see `src/`.
- - a Python demo application, ElasticFlix (see [its README.md](demo/README.md)), in `demo/`, which searches a movie database in Elasticsearch.
+ - a Python demo application, ElasticFlix (see [its README.md](flix/README.md)), in `flix/`, which searches a movie database in Elasticsearch.
  - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
  - an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
 
@@ -15,7 +15,7 @@ It currently contains:
 First, bring up the container services:
 
 ```shell
-docker compose up -d elasticsearch jaeger demo
+docker compose up -d elasticsearch jaeger flix
 ```
 
 Then bring up protospy:
@@ -61,7 +61,7 @@ Server settings for development:
 ## Development
 
 See the READMEs of the supporting components for their own specifics:
-- [demo/README.md](demo/README.md)
+- [flix/README.md](flix/README.md)
 - [conformance/README.md](conformance/README.md)
 - [ui/README.md](ui/README.md)
 

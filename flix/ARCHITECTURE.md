@@ -1,11 +1,11 @@
 > Agent-facing architecture documentation. Keep this file in sync with the code **and** with the
-> `## Architecture` section of `demo/README.md`.
+> `## Architecture` section of `flix/README.md`.
 
 # elasticflix — Architecture
 
 ## Purpose & overview
 
-`demo/` is a FastAPI + Elasticsearch movie-search app whose sole purpose is to generate realistic,
+`flix/` is a FastAPI + Elasticsearch movie-search app whose sole purpose is to generate realistic,
 varied ES traffic for the `protospy` proxy to observe. The app itself is secondary; the query
 patterns and OTel spans are the point. It exposes a browser UI (HTMX + Alpine.js) and a JSON REST
 API from the same endpoints via HTTP content negotiation.
@@ -29,7 +29,7 @@ API from the same endpoints via HTTP content negotiation.
 | **pytest-playwright** | Browser automation for E2E tests |
 | **ruff** | Linting and formatting |
 | **pyright** | Static type checking |
-| **uv** | Python package manager; lockfile at `demo/uv.lock` |
+| **uv** | Python package manager; lockfile at `flix/uv.lock` |
 
 All CDN scripts are pinned to explicit versions in `base.html`. Runtime dep major versions are
 pinned in `pyproject.toml`; the ES client major must match the server major (both 9.x).
@@ -92,7 +92,7 @@ empty list is returned and the "More Like This" section is simply omitted from t
 ## File map
 
 ```
-demo/
+flix/
 ├── src/elasticflix/          # Python package
 │   ├── __init__.py
 │   ├── main.py               # FastAPI app, OTel setup, all route handlers
@@ -116,7 +116,7 @@ demo/
 └── pyproject.toml
 ```
 
-`docker-compose.yaml` lives at the **repo root**, not inside `demo/`.
+`docker-compose.yaml` lives at the **repo root**, not inside `flix/`.
 
 ## ES query patterns
 

@@ -23,13 +23,13 @@ This starts a single-node Elasticsearch 9.x instance on `http://localhost:9200` 
 ### 2. Install dependencies
 
 ```bash
-cd demo
+cd flix
 uv sync
 ```
 
 ### 3. Load movie data
 
-The demo application uses movie data from the [TMDB 5000 Movie Dataset](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata) on Kaggle, in `demo/data/`. This will need to be loaded into Elasticsearch with:
+The demo application uses movie data from the [TMDB 5000 Movie Dataset](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata) on Kaggle, in `flix/data/`. This will need to be loaded into Elasticsearch with:
 
 ```bash
 uv run python loader.py
@@ -143,5 +143,5 @@ pre-commit install
 ### Checking for dead code
 
 ```shell
-(cd demo && uvx vulture src)
+(cd flix && uvx vulture src)
 ```

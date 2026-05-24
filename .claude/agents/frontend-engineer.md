@@ -37,7 +37,7 @@ You work in `ui/`. You may read anything in the repo for context.
 - Generated TypeScript bindings (`bindings/`) — these come from the Rust
   backend via ts-rs
 - Conformance tests (`conformance/`)
-- The demo app (`demo/`)
+- The demo app (`flix/`)
 
 If a UI change requires a backend change, say so and stop. Don't work
 around a backend limitation by hacking the frontend.
