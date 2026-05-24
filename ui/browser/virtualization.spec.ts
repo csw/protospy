@@ -52,8 +52,8 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-// Row heights from ExchangeList.tsx (rows: 74/58, table: 30/24)
-const ROW_HEIGHT = { rows: 74, rowsCompact: 58, table: 30, tableCompact: 24 };
+// Row heights from ExchangeList.tsx (rows: 74/66, table: 30/24)
+const ROW_HEIGHT = { rows: 74, rowsCompact: 66, table: 30, tableCompact: 24 };
 
 test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({

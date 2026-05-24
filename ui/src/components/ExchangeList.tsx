@@ -43,7 +43,7 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       onClick={onSelect}
       className={[
         "w-full text-left grid items-center border-b border-border",
-        "border-l-[3px] cursor-pointer transition-colors",
+        "border-l-[3px] cursor-pointer transition-colors overflow-hidden",
         selected
           ? "bg-bg-active border-l-accent"
           : "bg-bg-pane hover:bg-bg-hover",
@@ -133,13 +133,16 @@ export function ExchangeList() {
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Row heights are empirical: they must match the actual rendered button height for
+  // each mode/density combination. browser/exchange-list.spec.ts test 11.3 guards the
+  // compact rows value (66px); if fonts or padding change, update both together.
   const rowHeight =
     listMode === "table"
       ? density === "compact"
         ? 24
         : 30
       : density === "compact"
-        ? 58
+        ? 66
         : 74;
 
   // Include rowHeight in item keys so the virtualizer's internal
@@ -350,6 +353,7 @@ export function ExchangeList() {
                           top: virtualItem.start,
                           width: "100%",
                           height: rowHeight,
+                          overflow: "hidden",
                         }}
                       >
                         <TableRow
@@ -398,6 +402,7 @@ export function ExchangeList() {
                       top: virtualItem.start,
                       width: "100%",
                       height: rowHeight,
+                      overflow: "hidden",
                     }}
                   >
                     <ExchangeListItem

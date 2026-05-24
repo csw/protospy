@@ -47,6 +47,7 @@ export function ExchangeListItem({
         "w-full text-left border-b border-border",
         "flex flex-col cursor-pointer transition-colors",
         "border-l-4",
+        "overflow-hidden",
         paddingY,
         paddingX,
         rowGap,
@@ -64,18 +65,18 @@ export function ExchangeListItem({
           the border-l-accent class handles it as the full 4px bar in accent color */}
 
       {/* Row 1: method + status + timestamp */}
-      <div className="flex items-center gap-1.5 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
         <MethodBadge method={method} size="sm" />
 
         {exchange.status != null ? (
           <span
             data-testid="status-code"
-            className={`font-family-mono text-ui-sm font-semibold ${statusTextClass(exchange.status)}`}
+            className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
           >
             {exchange.status}
           </span>
         ) : hasError ? (
-          <span className="font-family-mono text-ui-sm font-semibold text-red">
+          <span className="font-family-mono text-ui-sm font-semibold shrink-0 text-red">
             ERR
           </span>
         ) : null}
@@ -86,7 +87,10 @@ export function ExchangeListItem({
       </div>
 
       {/* Row 2: URI path + query */}
-      <div className="flex min-w-0 font-family-mono text-sm" title={uri}>
+      <div
+        className="flex min-w-0 overflow-hidden font-family-mono text-sm"
+        title={uri}
+      >
         <span className="text-ink-2 truncate">{path}</span>
         {query && (
           <span className="text-dim truncate shrink-0 max-w-[40%]">
@@ -95,8 +99,11 @@ export function ExchangeListItem({
         )}
       </div>
 
-      {/* Row 3: elapsed + sizes */}
-      <div className="flex gap-1.5 font-family-mono text-xs text-mid">
+      {/* Row 3: elapsed + sizes.
+          whitespace-nowrap prevents spans from wrapping at narrow widths (which would
+          inflate the button height and cause row overlap). Content hard-clips at the
+          pane edge with no ellipsis — acceptable for supplementary size metadata. */}
+      <div className="flex gap-1.5 min-w-0 overflow-hidden whitespace-nowrap font-family-mono text-xs text-mid">
         {exchange.elapsedMs != null && (
           <>
             <span>{exchange.elapsedMs}ms</span>
