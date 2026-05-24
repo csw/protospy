@@ -77,11 +77,16 @@ See the READMEs of the supporting components for their own specifics:
 
 #### pre-commit
 
-This uses [pre-commit](https://pre-commit.com) for commit validation. If necessary, install it with `uv tool install pre-commit` or similar. Then, install the hooks, including the `commit-msg` hook for Conventional Commits:
+This uses [pre-commit](https://pre-commit.com) for commit validation. If necessary, install it with `uv tool install pre-commit` or similar. Then, install the hooks:
 
 ```shell
-pre-commit install -t pre-commit -t commit-msg
+pre-commit install -t pre-commit -t commit-msg -t post-checkout
 ```
+
+This installs three hook stages:
+- `pre-commit` — lint, format, type-check, and ts-rs binding checks
+- `commit-msg` — Conventional Commits validation
+- `post-checkout` — symlinks Claude config (skills, hooks, agents, local settings) into new worktrees so agents have the right environment
 
 #### Rust tools
 

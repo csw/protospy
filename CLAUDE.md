@@ -56,10 +56,13 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/dependencies.md`: when adding any dependency (packages, Actions, CDN scripts, Docker images, etc.)
 - `docs/agents/ci.md`: when pushing to GitHub or investigating CI failures
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
+- `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 
 ## Worktrees
 
 Worktrees go in `.worktrees/` at the project root. Not `.claude/worktrees/`, not `ui/.worktrees/`, not anywhere else. Pass `.worktrees/<branch-name>` as the path to `EnterWorktree` or `git worktree add`.
+
+When a worktree is created, a `post-checkout` hook automatically symlinks non-version-controlled Claude config (skills, hooks, agents, `settings.local.json`, `CLAUDE.local.md`) from the main repo into the worktree. **Do not manually copy or recreate these files in a worktree.** See `docs/agents/worktrees.md` for details.
 
 ## File creation
 

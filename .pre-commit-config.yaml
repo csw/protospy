@@ -27,6 +27,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: worktree-claude-setup
+        name: Set up Claude config symlinks in worktrees
+        entry: bash scripts/worktree-claude-setup.sh
+        language: system
+        stages: [post-checkout]
+        always_run: true
+        pass_filenames: false
       - id: ruff-flix
         name: ruff (flix)
         entry: bash -c 'cd flix && uv run ruff check --fix .'
