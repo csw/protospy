@@ -1,0 +1,21 @@
+<section class="top-movies-section">
+    <h2 class="section-heading">Top Rated</h2>
+    <div class="movie-grid">
+        {% for movie in movies %}
+        <a class="movie-card" href="/movie/{{ movie._id }}">
+            <div class="movie-card-header">
+                <span class="movie-title">{{ movie._source.title }}</span>
+                {% if movie._source.release_date %}
+                <span class="movie-year">({{ movie._source.release_date[:4] }})</span>
+                {% endif %}
+            </div>
+            <p class="movie-overview">{{ movie._source.overview }}</p>
+            <div class="movie-meta">
+                {% if movie._source.director %}<p class="movie-director"><strong>{{ movie._source.director }}</strong></p>{% endif %}
+                {% if movie._source.genres %}<p class="movie-genres">{{ movie._source.genres | join(" · ") }}</p>{% endif %}
+                {% if movie._source.vote_average %}<div class="movie-rating">★ {{ "%.1f"|format(movie._source.vote_average) }}</div>{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</section>

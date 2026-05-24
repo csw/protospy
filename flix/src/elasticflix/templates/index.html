@@ -40,6 +40,16 @@
         ></div>
     </div>
 </form>
+{% if results is not defined and movie is not defined %}
+<div
+    id="top-movies-container"
+    hx-get="/top-movies"
+    hx-trigger="load"
+    hx-swap="outerHTML"
+>
+    <p class="loading-hint">Loading top rated movies…</p>
+</div>
+{% endif %}
 {% if movie %}
 {% include "item.html" %}
 {% endif %}

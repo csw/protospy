@@ -171,6 +171,33 @@ async def movie(request: Request, id: str, q: str = "", size: int = 20):
     return templates.TemplateResponse(request, "index.html", ctx)
 
 
+@app.get("/top-movies")
+async def top_movies(request: Request):
+    body = {
+        "query": {"range": {"vote_count": {"gte": 50}}},
+        "sort": [{"vote_average": {"order": "desc"}}],
+        "_source": [
+            "title",
+            "release_date",
+            "overview",
+            "director",
+            "genres",
+            "vote_average",
+        ],
+        "size": 12,
+    }
+    response = await request.app.state.es.search(
+        index=settings.elasticsearch_index, body=body
+    )
+    movies = [
+        {"_id": h["_id"], "_source": h["_source"]} for h in response["hits"]["hits"]
+    ]
+    if request.headers.get("HX-Request"):
+        html = templates.get_template("top_movies.html").render(movies=movies)
+        return HTMLResponse(html)
+    return JSONResponse({"movies": [{"id": m["_id"], **m["_source"]} for m in movies]})
+
+
 @app.get("/suggest")
 async def suggest(request: Request, q: str = ""):
     if not q:
