@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-_DEMO_DIR = Path(__file__).parent.parent
+_FLIX_DIR = Path(__file__).parent.parent
 
 
 def _free_port() -> int:
@@ -32,7 +32,7 @@ def live_server_url() -> str:  # type: ignore[return]
             "--port",
             str(port),
         ],
-        cwd=_DEMO_DIR,
+        cwd=_FLIX_DIR,
     )
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:

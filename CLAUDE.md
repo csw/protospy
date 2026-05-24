@@ -90,7 +90,7 @@ All commit messages **and PR titles** must follow [Conventional Commits](https:/
 <type>(<scope>): <description>
 ```
 
-Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use it where it helps (e.g. `demo`, `conformance`, `ui`).
+Common types: `feat`, `fix`, `docs`, `chore`, `build`, `test`, `refactor`. Scope is optional but use it where it helps (e.g. `flix`, `conformance`, `ui`).
 
 PR titles matter because GitHub uses them as the default squash-merge commit message. A CI check enforces this — a non-conforming title will block the merge.
 
