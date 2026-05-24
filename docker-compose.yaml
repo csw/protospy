@@ -1,7 +1,7 @@
 services:
-  demo:
+  flix:
     build:
-      context: ./demo
+      context: ./flix
     ports:
       - "8001:8000"
     environment:

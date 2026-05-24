@@ -37,7 +37,7 @@
   {
     "label": "elasticflix: run",
     "command": "uv run uvicorn elasticflix.main:app --reload",
-    "cwd": "$ZED_WORKTREE_ROOT/demo",
+    "cwd": "$ZED_WORKTREE_ROOT/flix",
     "env": {
       "OTLP_ENDPOINT": "http://localhost:4318",
     },
@@ -45,7 +45,7 @@
   {
     "label": "elasticflix: pytest tests",
     "command": "uv run pytest",
-    "cwd": "$ZED_WORKTREE_ROOT/demo",
+    "cwd": "$ZED_WORKTREE_ROOT/flix",
     "env": {
       "OTLP_ENDPOINT": "http://localhost:4318",
       "DEBUG": "1",

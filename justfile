@@ -1,7 +1,7 @@
 set dotenv-load
 set dotenv-filename := ".env.dev"
 
-mod demo
+mod flix
 mod ui
 
 export RUST_BACKTRACE := "full"
@@ -27,7 +27,7 @@ run-direct release="" $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO
 
 # Run protospy with default ES configuration, restarting on code changes
 run-watched $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
-    cargo watch -i docs -i conformance -i demo -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run
+    cargo watch -i docs -i conformance -i flix -i '**/*.md' -i scripts -i scratch -i justfile -- cargo run
 
 # Run protospy in protospy-ext configuration for conformance tests
 run-ext $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":

@@ -3,7 +3,7 @@ repos:
     rev: e38709b2694c2988ab0c618ee63ac156e155d5c4 # frozen: 0.10.9
     hooks:
       - id: uv-lock
-        args: [--project, demo]
+        args: [--project, flix]
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: 3db014c16a9d31997ab8c07a4d61fcce936c8f0d # frozen: v4.4.0
@@ -27,23 +27,23 @@ repos:
 
   - repo: local
     hooks:
-      - id: ruff-demo
-        name: ruff (demo)
-        entry: bash -c 'cd demo && uv run ruff check --fix .'
+      - id: ruff-flix
+        name: ruff (flix)
+        entry: bash -c 'cd flix && uv run ruff check --fix .'
         language: system
-        files: ^demo/
+        files: ^flix/
         pass_filenames: false
-      - id: ruff-format-demo
-        name: ruff-format (demo)
-        entry: bash -c 'cd demo && uv run ruff format .'
+      - id: ruff-format-flix
+        name: ruff-format (flix)
+        entry: bash -c 'cd flix && uv run ruff format .'
         language: system
-        files: ^demo/
+        files: ^flix/
         pass_filenames: false
-      - id: pyright-demo
-        name: pyright (demo)
-        entry: bash -c 'cd demo && uv run pyright'
+      - id: pyright-flix
+        name: pyright (flix)
+        entry: bash -c 'cd flix && uv run pyright'
         language: system
-        files: ^demo/
+        files: ^flix/
         pass_filenames: false
       - id: ruff-conformance
         name: ruff (conformance)

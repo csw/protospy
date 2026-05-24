@@ -1,11 +1,11 @@
 # Debugging CI failures
 
-Reference for investigating failed `demo-ci` GitHub Actions runs.
+Reference for investigating failed `flix-ci` GitHub Actions runs.
 
 ## Finding runs
 
 ```bash
-gh run list --workflow=demo-ci.yml --limit=5
+gh run list --workflow=flix-ci.yml --limit=5
 gh run view <run-id> --log-failed          # failed steps only (fastest)
 gh run view <run-id> --log 2>&1 | grep "^test\t"  # filter to test job lines
 ```
@@ -17,7 +17,7 @@ gh run view <run-id> --log 2>&1 | grep "^test\t"  # filter to test job lines
 | `lint` | ruff format check + ruff lint (with GitHub PR annotations) |
 | `typecheck` | pyright |
 | `test` | unit tests, then Elasticsearch + Playwright e2e tests |
-| `docker-build` | builds the demo Dockerfile, no push |
+| `docker-build` | builds the flix Dockerfile, no push |
 
 ## Artifacts
 
