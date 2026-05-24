@@ -6,6 +6,7 @@ name: conformance-ci
 
 on:
   push:
+    branches: [main]
     paths:
       - "conformance/**"
       - ".github/workflows/conformance-ci.yml"
@@ -19,7 +20,7 @@ defaults:
     working-directory: conformance
 
 jobs:
-  lint:
+  lint-typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -32,16 +33,6 @@ jobs:
         run: uv run ruff format --check .
       - name: Lint
         run: uv run ruff check --output-format github .
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: conformance/uv.lock
-      - run: uv sync --frozen --group dev
       - run: uv run pyright .
 
   test:

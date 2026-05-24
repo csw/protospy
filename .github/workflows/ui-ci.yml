@@ -2,6 +2,7 @@ name: ui-ci
 
 on:
   push:
+    branches: [main]
     paths:
       - "ui/**"
       - "bindings/**"
@@ -17,7 +18,7 @@ defaults:
     working-directory: ui
 
 jobs:
-  lint:
+  lint-typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -34,20 +35,6 @@ jobs:
         run: pnpm run format:check
       - name: Lint
         run: pnpm run lint
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-        with:
-          package_json_file: ui/package.json
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: ui/package.json
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
   test:
