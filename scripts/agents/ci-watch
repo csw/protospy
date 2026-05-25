@@ -9,8 +9,8 @@
 # Environment variables:
 #   CI_WATCH_IDLE_POLLS  max consecutive polls with no matching runs before
 #                        concluding the commit triggered no workflows and
-#                        exiting cleanly (default: 10; each poll is 30s →
-#                        5 min before giving up on run registration)
+#                        exiting cleanly (default: 4; each poll is 30s →
+#                        90s before giving up on run registration)
 #   CI_WATCH_MAX_POLLS   hard cap on total polls; exits with error if runs
 #                        are found but don't complete in time (default: 40;
 #                        40 × 30s = 20 min total cap)
@@ -47,7 +47,7 @@ fi
 
 SLEEP_SECS=30
 # Exit after this many consecutive polls with no matching runs (each poll = 30s).
-MAX_IDLE_POLLS=${CI_WATCH_IDLE_POLLS:-10}
+MAX_IDLE_POLLS=${CI_WATCH_IDLE_POLLS:-4}
 # Hard cap: exit after this many total polls regardless of run state.
 MAX_TOTAL_POLLS=${CI_WATCH_MAX_POLLS:-40}
 

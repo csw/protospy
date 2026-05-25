@@ -24,9 +24,11 @@ needs `dangerouslyDisableSandbox: true` (see `docs/agents/host-sandbox.md`).
 - **Exit 1, "timed out … runs did not complete"** — runs were found but did
   not finish within the hard cap (default 20 min). Treat this as a CI failure.
 
-The hard cap defaults to 20 min (`CI_WATCH_MAX_POLLS=40`). Set `timeout_ms`
-in Monitor to slightly above that (21 min = 1 260 000 ms) so the script can
-exit cleanly rather than being killed mid-message.
+The idle timeout defaults to 90s (`CI_WATCH_IDLE_POLLS=4`); GitHub registers
+runs within seconds of a push, so this is ample. The hard cap defaults to
+20 min (`CI_WATCH_MAX_POLLS=40`). Set `timeout_ms` in Monitor to slightly
+above that (21 min = 1 260 000 ms) so the script can exit cleanly rather
+than being killed mid-message.
 
 ## Debugging failures
 
