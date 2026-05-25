@@ -18,7 +18,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Types.** Wire types come from `@bindings/*` (→ `../bindings/`, generated from Rust by ts-rs — **do not edit**). `@ui/*` → `./src/*`.
 
-**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate`/`deflate-raw` via `DecompressionStream`; `br` reported as not-decompressed) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies go through `body/sse.ts` (`parseSSEBody`); Anthropic transcripts fold via `anthropic/transcript.ts`.
+**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate`/`deflate-raw` via `DecompressionStream`; `br` via `brotli-dec-wasm` WASM, lazy-loaded) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies go through `body/sse.ts` (`parseSSEBody`); Anthropic transcripts fold via `anthropic/transcript.ts`.
 
 **Load-bearing details — don't break these:**
 

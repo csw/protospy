@@ -208,6 +208,46 @@ export function makeGzipJsonResponse(
   };
 }
 
+/**
+ * Generic compressed-JSON response fixture. Pass the base64-encoded
+ * compressed body and the Content-Encoding value (e.g. "gzip", "deflate",
+ * "br"). Used by browser/body-compressed.spec.ts; add "zstd" here when
+ * PRO-207 (zstd decompression) lands.
+ */
+export function makeEncodedJsonResponse(
+  id: number,
+  encodedBase64: string,
+  totalBytes: number,
+  contentEncoding: string,
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction: "Response",
+    event: {
+      type: "Response",
+      status: "200 OK",
+      version: "HTTP/1.1",
+      headers: [
+        { name: "Content-Type", value: "application/json" },
+        { name: "Content-Encoding", value: contentEncoding },
+      ],
+      elapsed_ms: 12,
+      body: {
+        type: "Data",
+        content: {
+          offset: 0,
+          length: totalBytes,
+          payload: { binary: encodedBase64 },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: totalBytes,
+      },
+    },
+  };
+}
+
 export function makeDeleteRequest(
   id: number,
   uri = "/api/resource/1",

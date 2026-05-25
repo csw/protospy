@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
 
+// Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
+// the Vitest node project config. That wrapper uses initSync() + readFileSync()
+// to load the real WASM binary in Node, so these tests exercise the actual
+// brotli-dec-wasm decompressor — not a mock. See vitest.config.ts for details.
+
 // Base64-encoded gzip of an Elasticsearch cluster info response
 // from docs/examples/e1-response.json
 const GZIP_ES_BASE64 =
@@ -21,6 +26,16 @@ const DEFLATE_RAW_JSON_BASE64 = "q1bKSM3JyVeyUirPL8pJUdJRylOyMjGqBQA=";
 //   Buffer.concat([Buffer.from([0xef,0xbb,0xbf]), Buffer.from(json)])
 //     .toString("base64");
 const BOM_JSON_BASE64 = "77u/eyJvayI6dHJ1ZSwid2hvIjoid29ybGQifQ==";
+
+// Base64-encoded brotli of `{"hello":"world","n":42}` (24 bytes UTF-8).
+// Regenerate with Node:
+//   const json = JSON.stringify({hello: "world", n: 42});
+//   zlib.brotliCompressSync(Buffer.from(json)).toString("base64");
+const BROTLI_JSON_BASE64 = "iwuAeyJoZWxsbyI6IndvcmxkIiwibiI6NDJ9Aw==";
+
+// Brotli-compressed "hello brotli world" plain text. Regenerate with Node:
+//   zlib.brotliCompressSync(Buffer.from("hello brotli world")).toString("base64");
+const BROTLI_TEXT_BASE64 = "iwiAaGVsbG8gYnJvdGxpIHdvcmxkAw==";
 
 describe("decodeBody", () => {
   it("plain text body returns kind text with matching content", async () => {
@@ -101,19 +116,50 @@ describe("decodeBody", () => {
     expect(result.size).toBe(3);
   });
 
-  it("brotli encoding returns text indicating not decompressed", async () => {
+  it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
+    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
     const body: BodyState = {
-      chunks: [{ binary: "AAEC" }],
+      chunks: [{ binary: BROTLI_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 3,
-      contentType: "text/html",
+      totalBytes: 24,
+      contentType: "application/json",
+      contentEncoding: "br",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.mediaType).toBe("application/json");
+    expect(result.size).toBe(24);
+    const parsed = JSON.parse(result.text!) as Record<string, unknown>;
+    expect(parsed.hello).toBe("world");
+    expect(parsed.n).toBe(42);
+  });
+
+  it("brotli-encoded text body decompresses to plain text", async () => {
+    const body: BodyState = {
+      chunks: [{ binary: BROTLI_TEXT_BASE64 }],
+      atEnd: true,
+      totalBytes: 18,
+      contentType: "text/plain",
       contentEncoding: "br",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("text");
-    expect(result.text).toContain("brotli");
-    expect(result.text).toContain("not decompressed");
-    expect(result.mediaType).toBe("text/html");
+    expect(result.text).toBe("hello brotli world");
+    expect(result.mediaType).toBe("text/plain");
+  });
+
+  it("corrupt brotli bytes cause decodeBody to reject", async () => {
+    // "AAEC" is valid base64 but not valid brotli-compressed data.
+    // The decompressor (mocked with Node's zlib.brotliDecompressSync) throws,
+    // and decodeBody should propagate the rejection.
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      totalBytes: 3,
+      contentType: "text/plain",
+      contentEncoding: "br",
+    };
+    await expect(decodeBody(body)).rejects.toThrow();
   });
 
   it("multiple text chunks are concatenated", async () => {
