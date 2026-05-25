@@ -1,12 +1,17 @@
 # Quality gates
 
-`protospy` enforces code-quality checks at commit time via the pre-commit
-framework. All checks fire on `git commit` and are scoped to the
-subcomponents whose files are staged — only the components you touched run.
-This layer enforces quality gates for all commit paths — manual, tool-use,
-and subagent workflows.
+`protospy` enforces code-quality checks at commit time via two layers. Together
+they ensure quality gates run for all commit paths — manual, tool-use, and
+subagent workflows.
 
-## pre-commit framework
+## Layer 1: Claude Code hook
+
+`.claude/hooks/pre-tool-use.sh` registers a `PreToolUse(Bash)` hook that
+blocks any `git commit` or `git push` carrying `--no-verify`. This prevents
+agents from bypassing the pre-commit framework. The hook is lightweight (no
+test execution) and exits immediately if the command is not a git commit/push.
+
+## Layer 2: pre-commit framework
 
 `.pre-commit-config.yaml` runs lint, format, type checks, and test suites
 across the staged subcomponents. Specifically:
