@@ -1,0 +1,57 @@
+name: coverage-ratchet
+
+on:
+  schedule:
+    # Run weekly on Sundays at 02:00 UTC
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      margin:
+        description: "Percentage points below actual to set as threshold"
+        required: false
+        default: "4"
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: ui
+
+jobs:
+  ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Passes GITHUB_TOKEN to the checkout action so it configures git
+          # credentials for the push step. Write access is granted by
+          # `permissions: contents: write` above — no extra setup needed.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ui/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run coverage ratchet
+        run: |
+          pnpm run coverage:ratchet -- --margin ${{ inputs.margin || '4' }}
+
+      - name: Commit and push if thresholds changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --exit-code ui/coverage-thresholds.json || (
+            git add ui/coverage-thresholds.json &&
+            git commit -m "chore(ui): ratchet coverage thresholds [skip ci]" &&
+            git push
+          )
+        working-directory: ${{ github.workspace }}

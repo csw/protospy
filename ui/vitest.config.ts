@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -9,13 +10,17 @@ const alias = {
   "@ui": path.resolve(__dirname, "src"),
 };
 
+const thresholds = JSON.parse(
+  readFileSync(path.resolve(__dirname, "coverage-thresholds.json"), "utf-8"),
+) as { statements: number; branches: number; functions: number; lines: number };
+
 export default defineConfig({
   resolve: { alias },
   test: {
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html", "lcov"],
+      reporter: ["text", "html", "lcov", "json-summary"],
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.d.ts",
@@ -27,15 +32,11 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-153 double-click separator reset (statements
-      // 66.97%, branches 54.2%, functions 55.74%, lines 69.71%) with a ~1% margin.
+      // Thresholds are read from coverage-thresholds.json and ratcheted
+      // automatically by the coverage-ratchet workflow (~4% margin below
+      // actual). Do not adjust them manually in PRs — see ui/CLAUDE.md.
       // AppShell.tsx (0% unit coverage) is exercised by browser tests.
-      thresholds: {
-        statements: 66,
-        branches: 53,
-        functions: 55,
-        lines: 69,
-      },
+      thresholds,
     },
     projects: [
       {
