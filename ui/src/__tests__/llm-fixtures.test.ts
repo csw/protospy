@@ -107,4 +107,38 @@ describe("LLM SSE fixture corpus", () => {
     const ids = LLM_SSE_FIXTURE_CORPUS.map((entry) => entry.fixture.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("OpenAI Responses sequence_number values are strictly increasing", () => {
+    for (const fixture of OPENAI_RESPONSES_FIXTURES) {
+      const seqs = fixture.events.map((e) => e.data.sequence_number);
+      for (let i = 1; i < seqs.length; i++) {
+        expect(seqs[i]).toBeGreaterThan(seqs[i - 1]);
+      }
+    }
+  });
+
+  it("Anthropic non-error fixtures terminate with message_stop", () => {
+    for (const fixture of ANTHROPIC_FIXTURES) {
+      const last = fixture.events[fixture.events.length - 1];
+      const hasError = fixture.events.some((e) => e.event === "error");
+      if (hasError) {
+        // A8 truncates mid-stream with `error` and no message_stop.
+        expect(last.event).toBe("error");
+      } else {
+        expect(last.event).toBe("message_stop");
+      }
+    }
+  });
+
+  it("OpenAI Responses fixtures terminate with a response-final event", () => {
+    const terminal = new Set([
+      "response.completed",
+      "response.failed",
+      "response.incomplete",
+    ]);
+    for (const fixture of OPENAI_RESPONSES_FIXTURES) {
+      const last = fixture.events[fixture.events.length - 1];
+      expect(terminal.has(last.event)).toBe(true);
+    }
+  });
 });

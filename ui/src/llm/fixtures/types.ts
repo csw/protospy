@@ -1,10 +1,7 @@
 // Common shape for the LLM SSE test fixture corpus.
 //
 // Fixtures are stored as parsed SSE event sequences (event name + parsed
-// JSON data), per the corpus spec at
-// `Applications/LLM SSE streams/LLM SSE test vector sources.md`.
-//
-// Adapter tests will eventually import these directly. A helper to
+// JSON data). Adapter tests can import them directly; a helper to
 // re-serialise an event list into raw SSE bytes can be added alongside
 // the SSE parser tests when needed (the format is regular enough that
 // `event: <name>\ndata: <JSON.stringify(data)>\n\n` reproduces the wire

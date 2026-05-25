@@ -30,6 +30,7 @@ export default defineConfig({
         "src/components/ui/**",
         "src/vite-env.d.ts",
         "src/test/**",
+        "src/llm/fixtures/**",
         "**/__tests__/**",
       ],
       // Thresholds are read from coverage-thresholds.json and ratcheted

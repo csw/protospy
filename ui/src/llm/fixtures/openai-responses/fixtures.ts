@@ -1,10 +1,10 @@
 // OpenAI Responses API streaming fixtures (R1–R7).
 //
-// Source: corpus spec at
-// `Applications/LLM SSE streams/LLM SSE test vector sources.md`.
 // Synthesised against the documented event lifecycle and the OpenAPI
 // schemas for ResponseCreatedEvent, ResponseInProgressEvent,
-// ResponseIncompleteEvent, etc.
+// ResponseIncompleteEvent, etc. The model string `gpt-5.1-2025-11-01`
+// is a stand-in; adapter logic must not depend on the specific model
+// string.
 
 import type { Fixture } from "@ui/llm/fixtures/types";
 import type {
@@ -13,7 +13,7 @@ import type {
   OpenAIResponsesResource,
 } from "@ui/llm/fixtures/openai-responses/events";
 
-type OpenAIResponsesFixture = Fixture<
+export type OpenAIResponsesFixture = Fixture<
   OpenAIResponsesFixtureEvent,
   OpenAIResponsesRequestBody
 >;
@@ -216,10 +216,18 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       },
     },
     {
+      event: "response.in_progress",
+      data: {
+        type: "response.in_progress",
+        sequence_number: 1,
+        response: baseResponse("resp_R2"),
+      },
+    },
+    {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 1,
+        sequence_number: 2,
         output_index: 0,
         item: {
           id: "ws_R2",
@@ -232,7 +240,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.web_search_call.in_progress",
       data: {
         type: "response.web_search_call.in_progress",
-        sequence_number: 2,
+        sequence_number: 3,
         item_id: "ws_R2",
         output_index: 0,
       },
@@ -241,7 +249,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.web_search_call.searching",
       data: {
         type: "response.web_search_call.searching",
-        sequence_number: 3,
+        sequence_number: 4,
         item_id: "ws_R2",
         output_index: 0,
       },
@@ -250,7 +258,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.web_search_call.completed",
       data: {
         type: "response.web_search_call.completed",
-        sequence_number: 4,
+        sequence_number: 5,
         item_id: "ws_R2",
         output_index: 0,
       },
@@ -259,7 +267,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 5,
+        sequence_number: 6,
         output_index: 0,
         item: {
           id: "ws_R2",
@@ -273,7 +281,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 6,
+        sequence_number: 7,
         output_index: 1,
         item: {
           id: "msg_R2",
@@ -288,7 +296,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.content_part.added",
       data: {
         type: "response.content_part.added",
-        sequence_number: 7,
+        sequence_number: 8,
         item_id: "msg_R2",
         output_index: 1,
         content_index: 0,
@@ -299,7 +307,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.output_text.delta",
       data: {
         type: "response.output_text.delta",
-        sequence_number: 8,
+        sequence_number: 9,
         item_id: "msg_R2",
         output_index: 1,
         content_index: 0,
@@ -310,7 +318,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.output_text.done",
       data: {
         type: "response.output_text.done",
-        sequence_number: 9,
+        sequence_number: 10,
         item_id: "msg_R2",
         output_index: 1,
         content_index: 0,
@@ -321,7 +329,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.content_part.done",
       data: {
         type: "response.content_part.done",
-        sequence_number: 10,
+        sequence_number: 11,
         item_id: "msg_R2",
         output_index: 1,
         content_index: 0,
@@ -336,7 +344,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 11,
+        sequence_number: 12,
         output_index: 1,
         item: {
           id: "msg_R2",
@@ -357,7 +365,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
       event: "response.completed",
       data: {
         type: "response.completed",
-        sequence_number: 12,
+        sequence_number: 13,
         response: baseResponse("resp_R2", {
           status: "completed",
           completed_at: CREATED_AT + 4,
@@ -434,10 +442,18 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       },
     },
     {
+      event: "response.in_progress",
+      data: {
+        type: "response.in_progress",
+        sequence_number: 1,
+        response: baseResponse("resp_R3"),
+      },
+    },
+    {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 1,
+        sequence_number: 2,
         output_index: 0,
         item: {
           id: "fc_R3",
@@ -453,7 +469,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       event: "response.function_call_arguments.delta",
       data: {
         type: "response.function_call_arguments.delta",
-        sequence_number: 2,
+        sequence_number: 3,
         item_id: "fc_R3",
         output_index: 0,
         delta: '{"query":',
@@ -463,7 +479,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       event: "response.function_call_arguments.delta",
       data: {
         type: "response.function_call_arguments.delta",
-        sequence_number: 3,
+        sequence_number: 4,
         item_id: "fc_R3",
         output_index: 0,
         delta: '"action"}',
@@ -473,7 +489,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       event: "response.function_call_arguments.done",
       data: {
         type: "response.function_call_arguments.done",
-        sequence_number: 4,
+        sequence_number: 5,
         item_id: "fc_R3",
         output_index: 0,
         arguments: '{"query":"action"}',
@@ -483,7 +499,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 5,
+        sequence_number: 6,
         output_index: 0,
         item: {
           id: "fc_R3",
@@ -499,7 +515,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
       event: "response.completed",
       data: {
         type: "response.completed",
-        sequence_number: 6,
+        sequence_number: 7,
         response: baseResponse("resp_R3", {
           status: "completed",
           completed_at: CREATED_AT + 1,
@@ -553,10 +569,18 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       },
     },
     {
+      event: "response.in_progress",
+      data: {
+        type: "response.in_progress",
+        sequence_number: 1,
+        response: baseResponse("resp_R4"),
+      },
+    },
+    {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 1,
+        sequence_number: 2,
         output_index: 0,
         item: {
           id: "ci_R4",
@@ -569,19 +593,9 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.code_interpreter_call.in_progress",
       data: {
         type: "response.code_interpreter_call.in_progress",
-        sequence_number: 2,
-        item_id: "ci_R4",
-        output_index: 0,
-      },
-    },
-    {
-      event: "response.code_interpreter_call_code.delta",
-      data: {
-        type: "response.code_interpreter_call_code.delta",
         sequence_number: 3,
         item_id: "ci_R4",
         output_index: 0,
-        delta: "result = 17 * 23\n",
       },
     },
     {
@@ -591,6 +605,16 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
         sequence_number: 4,
         item_id: "ci_R4",
         output_index: 0,
+        delta: "result = 17 * 23\n",
+      },
+    },
+    {
+      event: "response.code_interpreter_call_code.delta",
+      data: {
+        type: "response.code_interpreter_call_code.delta",
+        sequence_number: 5,
+        item_id: "ci_R4",
+        output_index: 0,
         delta: "print(result)\n",
       },
     },
@@ -598,7 +622,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.code_interpreter_call_code.done",
       data: {
         type: "response.code_interpreter_call_code.done",
-        sequence_number: 5,
+        sequence_number: 6,
         item_id: "ci_R4",
         output_index: 0,
         code: "result = 17 * 23\nprint(result)\n",
@@ -608,7 +632,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.code_interpreter_call.completed",
       data: {
         type: "response.code_interpreter_call.completed",
-        sequence_number: 6,
+        sequence_number: 7,
         item_id: "ci_R4",
         output_index: 0,
       },
@@ -617,7 +641,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 7,
+        sequence_number: 8,
         output_index: 0,
         item: {
           id: "ci_R4",
@@ -632,7 +656,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 8,
+        sequence_number: 9,
         output_index: 1,
         item: {
           id: "msg_R4",
@@ -647,7 +671,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.content_part.added",
       data: {
         type: "response.content_part.added",
-        sequence_number: 9,
+        sequence_number: 10,
         item_id: "msg_R4",
         output_index: 1,
         content_index: 0,
@@ -658,7 +682,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.output_text.delta",
       data: {
         type: "response.output_text.delta",
-        sequence_number: 10,
+        sequence_number: 11,
         item_id: "msg_R4",
         output_index: 1,
         content_index: 0,
@@ -669,7 +693,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.output_text.done",
       data: {
         type: "response.output_text.done",
-        sequence_number: 11,
+        sequence_number: 12,
         item_id: "msg_R4",
         output_index: 1,
         content_index: 0,
@@ -680,7 +704,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.content_part.done",
       data: {
         type: "response.content_part.done",
-        sequence_number: 12,
+        sequence_number: 13,
         item_id: "msg_R4",
         output_index: 1,
         content_index: 0,
@@ -695,7 +719,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 13,
+        sequence_number: 14,
         output_index: 1,
         item: {
           id: "msg_R4",
@@ -712,7 +736,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
       event: "response.completed",
       data: {
         type: "response.completed",
-        sequence_number: 14,
+        sequence_number: 15,
         response: baseResponse("resp_R4", {
           status: "completed",
           completed_at: CREATED_AT + 3,
@@ -778,10 +802,18 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       },
     },
     {
+      event: "response.in_progress",
+      data: {
+        type: "response.in_progress",
+        sequence_number: 1,
+        response: baseResponse("resp_R5"),
+      },
+    },
+    {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 1,
+        sequence_number: 2,
         output_index: 0,
         item: {
           id: "rs_R5",
@@ -795,7 +827,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.reasoning_summary_part.added",
       data: {
         type: "response.reasoning_summary_part.added",
-        sequence_number: 2,
+        sequence_number: 3,
         item_id: "rs_R5",
         output_index: 0,
         summary_index: 0,
@@ -806,7 +838,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.reasoning_summary_text.delta",
       data: {
         type: "response.reasoning_summary_text.delta",
-        sequence_number: 3,
+        sequence_number: 4,
         item_id: "rs_R5",
         output_index: 0,
         summary_index: 0,
@@ -817,7 +849,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.reasoning_summary_text.delta",
       data: {
         type: "response.reasoning_summary_text.delta",
-        sequence_number: 4,
+        sequence_number: 5,
         item_id: "rs_R5",
         output_index: 0,
         summary_index: 0,
@@ -828,7 +860,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.reasoning_summary_text.done",
       data: {
         type: "response.reasoning_summary_text.done",
-        sequence_number: 5,
+        sequence_number: 6,
         item_id: "rs_R5",
         output_index: 0,
         summary_index: 0,
@@ -839,7 +871,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 6,
+        sequence_number: 7,
         output_index: 0,
         item: {
           id: "rs_R5",
@@ -858,7 +890,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 7,
+        sequence_number: 8,
         output_index: 1,
         item: {
           id: "msg_R5",
@@ -873,7 +905,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.content_part.added",
       data: {
         type: "response.content_part.added",
-        sequence_number: 8,
+        sequence_number: 9,
         item_id: "msg_R5",
         output_index: 1,
         content_index: 0,
@@ -884,7 +916,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.output_text.delta",
       data: {
         type: "response.output_text.delta",
-        sequence_number: 9,
+        sequence_number: 10,
         item_id: "msg_R5",
         output_index: 1,
         content_index: 0,
@@ -895,7 +927,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.output_text.done",
       data: {
         type: "response.output_text.done",
-        sequence_number: 10,
+        sequence_number: 11,
         item_id: "msg_R5",
         output_index: 1,
         content_index: 0,
@@ -906,7 +938,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.content_part.done",
       data: {
         type: "response.content_part.done",
-        sequence_number: 11,
+        sequence_number: 12,
         item_id: "msg_R5",
         output_index: 1,
         content_index: 0,
@@ -921,7 +953,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 12,
+        sequence_number: 13,
         output_index: 1,
         item: {
           id: "msg_R5",
@@ -938,7 +970,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
       event: "response.completed",
       data: {
         type: "response.completed",
-        sequence_number: 13,
+        sequence_number: 14,
         response: baseResponse("resp_R5", {
           status: "completed",
           completed_at: CREATED_AT + 5,
@@ -1058,10 +1090,18 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       },
     },
     {
+      event: "response.in_progress",
+      data: {
+        type: "response.in_progress",
+        sequence_number: 1,
+        response: baseResponse("resp_R7"),
+      },
+    },
+    {
       event: "response.output_item.added",
       data: {
         type: "response.output_item.added",
-        sequence_number: 1,
+        sequence_number: 2,
         output_index: 0,
         item: {
           id: "msg_R7",
@@ -1076,7 +1116,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.content_part.added",
       data: {
         type: "response.content_part.added",
-        sequence_number: 2,
+        sequence_number: 3,
         item_id: "msg_R7",
         output_index: 0,
         content_index: 0,
@@ -1087,7 +1127,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.output_text.delta",
       data: {
         type: "response.output_text.delta",
-        sequence_number: 3,
+        sequence_number: 4,
         item_id: "msg_R7",
         output_index: 0,
         content_index: 0,
@@ -1098,7 +1138,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.output_text.done",
       data: {
         type: "response.output_text.done",
-        sequence_number: 4,
+        sequence_number: 5,
         item_id: "msg_R7",
         output_index: 0,
         content_index: 0,
@@ -1109,7 +1149,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.content_part.done",
       data: {
         type: "response.content_part.done",
-        sequence_number: 5,
+        sequence_number: 6,
         item_id: "msg_R7",
         output_index: 0,
         content_index: 0,
@@ -1124,7 +1164,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.output_item.done",
       data: {
         type: "response.output_item.done",
-        sequence_number: 6,
+        sequence_number: 7,
         output_index: 0,
         item: {
           id: "msg_R7",
@@ -1145,7 +1185,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
       event: "response.incomplete",
       data: {
         type: "response.incomplete",
-        sequence_number: 7,
+        sequence_number: 8,
         response: baseResponse("resp_R7", {
           status: "incomplete",
           incomplete_details: { reason: "max_output_tokens" },

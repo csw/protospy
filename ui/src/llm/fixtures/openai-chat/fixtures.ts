@@ -1,9 +1,9 @@
 // OpenAI Chat Completions streaming fixtures (O1–O7).
 //
-// Source: corpus spec at
-// `Applications/LLM SSE streams/LLM SSE test vector sources.md`.
 // Synthesised against the OpenAI Chat Completions streaming schema
-// (`chat.completion.chunk` with `choices[].delta`).
+// (`chat.completion.chunk` with `choices[].delta`). The model string
+// `gpt-4.1-2025-04-14` is a stand-in; adapter logic must not depend on
+// the specific model string.
 
 import type { Fixture } from "@ui/llm/fixtures/types";
 import type {
@@ -12,7 +12,10 @@ import type {
   OpenAIChatRequestBody,
 } from "@ui/llm/fixtures/openai-chat/events";
 
-type OpenAIChatFixture = Fixture<OpenAIChatFixtureEvent, OpenAIChatRequestBody>;
+export type OpenAIChatFixture = Fixture<
+  OpenAIChatFixtureEvent,
+  OpenAIChatRequestBody
+>;
 
 const MODEL = "gpt-4.1-2025-04-14";
 const CREATED = 1_716_000_000;
@@ -384,6 +387,8 @@ export const O4_PARALLEL_TOOL_CALLS: OpenAIChatFixture = {
  * choices[0].delta.refusal populated instead of content. finish_reason
  * is "stop" (refusal is not a distinct finish_reason for chat
  * completions). The refusal text streams in chunks just like content.
+ * The opener chunk sends `refusal: null` (matching the wire format) —
+ * adapters should not treat null as a refusal signal.
  */
 export const O5_REFUSAL: OpenAIChatFixture = {
   id: "O5",
@@ -402,7 +407,7 @@ export const O5_REFUSAL: OpenAIChatFixture = {
         choices: [
           {
             index: 0,
-            delta: { role: "assistant", refusal: "" },
+            delta: { role: "assistant", content: null, refusal: null },
             finish_reason: null,
           },
         ],

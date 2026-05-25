@@ -1,10 +1,8 @@
 // Anthropic Messages streaming fixtures (A1–A9).
 //
-// Source: corpus spec at
-// `Applications/LLM SSE streams/LLM SSE test vector sources.md`.
 // Event sequences are synthesised against the SDK type definitions
 // (`anthropic.types.RawMessageStreamEvent` and `Message`) and the public
-// streaming reference. Models named `claude-opus-4-5` are stand-ins;
+// streaming reference. The model string `claude-opus-4-5` is a stand-in;
 // adapter logic must not depend on the specific model string.
 
 import type { Fixture } from "@ui/llm/fixtures/types";
@@ -13,7 +11,10 @@ import type {
   AnthropicRequestBody,
 } from "@ui/llm/fixtures/anthropic/events";
 
-type AnthropicFixture = Fixture<AnthropicFixtureEvent, AnthropicRequestBody>;
+export type AnthropicFixture = Fixture<
+  AnthropicFixtureEvent,
+  AnthropicRequestBody
+>;
 
 const MODEL = "claude-opus-4-5";
 
@@ -903,7 +904,8 @@ export const A7_THINKING_AND_TOOL_CALL: AnthropicFixture = {
 
 /**
  * message_start and a partial content_block_delta, then an `error`
- * event with type "overloaded_error". No message_stop is emitted.
+ * event with type "overloaded_error". The stream truncates abruptly:
+ * no `content_block_stop`, no `message_delta`, no `message_stop`.
  * Adapters must surface the error and avoid rendering a broken partial
  * reconstruction as if it had completed normally.
  */
