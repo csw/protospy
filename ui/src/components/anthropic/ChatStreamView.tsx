@@ -4,6 +4,7 @@ import { parseSSEBody, chunksToText } from "@ui/body/sse";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
 import { eventTypeBadgeClass } from "@ui/lib/utils";
+import { LiveIndicator } from "@ui/components/LiveIndicator";
 
 interface Props {
   exchange: Exchange;
@@ -155,16 +156,7 @@ export function ChatStreamView({ exchange }: Props) {
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className={`inline-block w-[7px] h-[7px] rounded-full ${
-              !atEnd ? "bg-green-500 animate-pulse" : "bg-mid"
-            }`}
-          />
-          <span className={`text-xs ${!atEnd ? "text-green-500" : "text-mid"}`}>
-            {!atEnd ? "live" : "complete"}
-          </span>
-        </div>
+        <LiveIndicator atEnd={atEnd} isFollowing={isFollowing} />
         <div className="flex items-center gap-0.5 bg-bg-pane rounded px-0.5 py-0.5">
           <button
             className={`${segmentBase} ${mode === "transcript" ? segmentActive : segmentInactive}`}
@@ -187,6 +179,7 @@ export function ChatStreamView({ exchange }: Props) {
       <div className="relative flex flex-col flex-1 overflow-hidden">
         <div
           ref={scrollRef}
+          data-testid="stream-scroll"
           className="flex flex-col flex-1 overflow-auto"
           onScroll={handleScroll}
         >

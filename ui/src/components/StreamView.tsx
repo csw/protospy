@@ -3,6 +3,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { parseSSEBody, chunksToText } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
 import { eventTypeBadgeClass } from "@ui/lib/utils";
+import { LiveIndicator } from "@ui/components/LiveIndicator";
 
 interface Props {
   exchange: Exchange;
@@ -78,16 +79,7 @@ export function StreamView({ exchange }: Props) {
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className={`inline-block w-[7px] h-[7px] rounded-full ${
-              !atEnd ? "bg-green-500 animate-pulse" : "bg-mid"
-            }`}
-          />
-          <span className={`text-xs ${!atEnd ? "text-green-500" : "text-mid"}`}>
-            {!atEnd ? "live" : "complete"}
-          </span>
-        </div>
+        <LiveIndicator atEnd={atEnd} isFollowing={isFollowing} />
         <span className="ml-auto text-xs text-dim font-family-mono">
           {events.length} events
         </span>
@@ -96,6 +88,7 @@ export function StreamView({ exchange }: Props) {
       <div className="relative flex flex-col flex-1 overflow-hidden">
         <div
           ref={scrollRef}
+          data-testid="stream-scroll"
           className="flex flex-col flex-1 overflow-auto"
           onScroll={handleScroll}
         >

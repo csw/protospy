@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { StreamView } from "@ui/components/StreamView";
 import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
 import type { Exchange } from "@ui/state/reducer";
 
-function makeSSEExchange(sseText: string): Exchange {
+function makeSSEExchange(sseText: string, atEnd = true): Exchange {
   return {
     id: 1,
     timestamp: "2024-01-01T00:00:00Z",
@@ -12,11 +12,28 @@ function makeSSEExchange(sseText: string): Exchange {
     uri: "/v1/messages",
     responseBody: {
       chunks: [{ text: sseText }],
-      atEnd: true,
+      atEnd,
       totalBytes: sseText.length,
       contentType: "text/event-stream",
     },
   };
+}
+
+/** Simulate scrolling away from the bottom so isFollowing becomes false. */
+function simulateScrollAway(scrollEl: HTMLElement) {
+  Object.defineProperty(scrollEl, "scrollHeight", {
+    value: 500,
+    configurable: true,
+  });
+  Object.defineProperty(scrollEl, "clientHeight", {
+    value: 100,
+    configurable: true,
+  });
+  Object.defineProperty(scrollEl, "scrollTop", {
+    value: 0,
+    configurable: true,
+  });
+  fireEvent.scroll(scrollEl);
 }
 
 const GENERIC_SSE =
@@ -59,6 +76,35 @@ describe("StreamView — generic SSE rendering", () => {
   });
 });
 
+describe("StreamView — live indicator states", () => {
+  it("shows 'complete' with gray dot when stream has ended", () => {
+    render(<StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />);
+    expect(screen.getByText("complete")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-mid");
+    expect(dot).not.toHaveClass("bg-green-500");
+    expect(dot).not.toHaveClass("bg-amber-500");
+  });
+
+  it("shows 'live' with green pulsing dot when streaming and following", () => {
+    render(<StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />);
+    expect(screen.getByText("live")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-green-500");
+    expect(dot).toHaveClass("animate-pulse");
+  });
+
+  it("shows 'paused' with amber dot when streaming and scrolled away", () => {
+    render(<StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />);
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.getByText("paused")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("animate-pulse");
+  });
+});
+
 const ANTHROPIC_SSE = [
   'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
   'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
@@ -87,5 +133,34 @@ describe("ChatStreamView — Anthropic protocol", () => {
   it("shows 'No events yet' when body is empty", () => {
     render(<ChatStreamView exchange={makeSSEExchange("")} />);
     expect(screen.getByText("No events yet")).toBeInTheDocument();
+  });
+});
+
+describe("ChatStreamView — live indicator states", () => {
+  it("shows 'complete' with gray dot when stream has ended", () => {
+    render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, true)} />);
+    expect(screen.getByText("complete")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-mid");
+    expect(dot).not.toHaveClass("bg-green-500");
+    expect(dot).not.toHaveClass("bg-amber-500");
+  });
+
+  it("shows 'live' with green pulsing dot when streaming and following", () => {
+    render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />);
+    expect(screen.getByText("live")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-green-500");
+    expect(dot).toHaveClass("animate-pulse");
+  });
+
+  it("shows 'paused' with amber dot when streaming and scrolled away", () => {
+    render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />);
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.getByText("paused")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("animate-pulse");
   });
 });
