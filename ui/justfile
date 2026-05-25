@@ -3,22 +3,27 @@ set dotenv-filename := ".env.dev"
 
 default: run
 
+# Ensure dependencies are installed (fast no-op when node_modules is current)
+[private]
+install:
+    pnpm install --frozen-lockfile
+
 # Run the UI dev server
-run:
+run: install
     pnpm dev
 
 # Build the UI
-build:
+build: install
     pnpm run build
 
 # Run unit + component tests with coverage (Vitest)
-test-coverage:
+test-coverage: install
     pnpm test:coverage --run
 
 # Run Playwright browser tests (browsers must be installed: pnpm exec playwright install)
-test-browser:
+test-browser: install
     pnpm test:browser --reporter=dot
 
 # Regenerate hero screenshots (output: docs/screenshots/); run from repo root via `just screenshots`
-screenshots:
+screenshots: install
     pnpm run screenshots
