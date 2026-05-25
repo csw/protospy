@@ -37,7 +37,7 @@ describe("CommandPalette", () => {
     // item should not appear in the DOM at all.
     expect(screen.queryByText("Toggle dark mode")).not.toBeInTheDocument();
     expect(
-      screen.queryByPlaceholderText("Search exchanges…"),
+      screen.queryByPlaceholderText("Search commands…"),
     ).not.toBeInTheDocument();
   });
 
@@ -45,7 +45,7 @@ describe("CommandPalette", () => {
     useStore.getState().setCmdKOpen(true);
     render(<CommandPalette />);
 
-    const input = screen.getByPlaceholderText("Search exchanges…");
+    const input = screen.getByPlaceholderText("Search commands…");
     expect(input).toBeInTheDocument();
 
     // Assert the input is the only combobox/textbox-style element. cmdk's
@@ -57,8 +57,7 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Toggle dark mode")).toBeInTheDocument();
   });
 
-  it("filters the rendered list when the user types", async () => {
-    // Inject an exchange so the Exchanges section has a non-matching item.
+  it("does not show exchange items even when exchanges are in the store", () => {
     useStore
       .getState()
       .applyEvent(
@@ -67,42 +66,29 @@ describe("CommandPalette", () => {
     useStore.getState().setCmdKOpen(true);
     render(<CommandPalette />);
 
-    // Before typing, the exchange row is rendered.
-    expect(screen.getByText("/api/widgets")).toBeInTheDocument();
-
-    const input = screen.getByPlaceholderText("Search exchanges…");
-    await act(async () => {
-      fireEvent.change(input, { target: { value: "toggle" } });
-    });
-
-    // After filtering, a matching command item is still present...
-    await waitFor(() => {
-      expect(screen.getByText("Toggle dark mode")).toBeInTheDocument();
-    });
-    // ...and a non-matching exchange item is gone.
-    await waitFor(() => {
-      expect(screen.queryByText("/api/widgets")).not.toBeInTheDocument();
-    });
+    // The exchange path must not appear in the command palette.
+    expect(screen.queryByText("/api/widgets")).not.toBeInTheDocument();
+    // Command items are still present.
+    expect(screen.getByText("Toggle dark mode")).toBeInTheDocument();
   });
 
-  it("selecting an exchange row sets selectedId and closes the palette", async () => {
-    useStore
-      .getState()
-      .applyEvent(
-        makeGetRequest(42, "/api/widgets") as unknown as EventMessage,
-      );
+  it("filters the rendered list when the user types", async () => {
     useStore.getState().setCmdKOpen(true);
     render(<CommandPalette />);
 
-    const row = screen.getByText("/api/widgets");
+    const input = screen.getByPlaceholderText("Search commands…");
     await act(async () => {
-      fireEvent.click(row);
+      fireEvent.change(input, { target: { value: "density" } });
     });
 
+    // Matching command item is still visible.
     await waitFor(() => {
-      expect(useStore.getState().selectedId).toBe(42);
+      expect(screen.getByText("Toggle density")).toBeInTheDocument();
     });
-    expect(useStore.getState().cmdKOpen).toBe(false);
+    // Non-matching command item is filtered out.
+    await waitFor(() => {
+      expect(screen.queryByText("Toggle dark mode")).not.toBeInTheDocument();
+    });
   });
 
   it("clicking 'Toggle dark mode' flips darkMode and closes the palette", async () => {
@@ -117,6 +103,69 @@ describe("CommandPalette", () => {
 
     await waitFor(() => {
       expect(useStore.getState().darkMode).toBe(true);
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Toggle density' toggles density and closes the palette", async () => {
+    useStore.getState().setCmdKOpen(true);
+    expect(useStore.getState().density).toBe("regular");
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Toggle density");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().density).toBe("compact");
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Switch to table view' changes listMode and closes the palette", async () => {
+    useStore.getState().setCmdKOpen(true);
+    expect(useStore.getState().listMode).toBe("rows");
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Switch to table view");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().listMode).toBe("table");
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Toggle trace grouping' toggles traceGroup and closes the palette", async () => {
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Toggle trace grouping");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().traceGroupOn).toBe(true);
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Clear filter' clears the filter and closes the palette", async () => {
+    useStore.getState().setFilter("hello");
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Clear filter");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().filter).toBe("");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
