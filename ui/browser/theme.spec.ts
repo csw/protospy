@@ -6,9 +6,13 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
-    route.fulfill({ contentType: "text/event-stream", body: "" }),
-  );
+  await page.route("**/service/test-backend", async () => {
+    // Park the SSE connection: never fulfill, so EventSource stays in
+    // CONNECTING and the reconnect cycle never fires. This prevents the
+    // reconnect logic from overwriting store state that tests set manually
+    // (e.g. test 4.2 sets connection: "open" via the store).
+    await new Promise<void>(() => {});
+  });
   await page.goto("/");
   await waitForStore(page);
   await resetStore(page);
@@ -125,8 +129,8 @@ test.describe("Connection indicator", () => {
   test("4.1 status bar shows connecting state after reset", async ({
     page,
   }) => {
-    // resetStore sets connection back to "connecting" (SSE mock returns empty body,
-    // so the "open" event never fires)
+    // resetStore sets connection back to "connecting" (SSE route is parked —
+    // never fulfilled — so EventSource stays in CONNECTING and "open" never fires)
     await expect(page.getByText("connecting")).toBeVisible();
 
     // The amber pulsing dot should be present — select by its bg-amber class
