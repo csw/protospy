@@ -33,10 +33,30 @@ function concatenate(arrays: Uint8Array[]): Uint8Array {
   return result;
 }
 
+// Lazy singleton for the brotli WASM decompressor. Loaded on first use so
+// the WASM binary doesn't affect startup time. The `brotli-dec-wasm` default
+// export is itself a Promise that resolves once the WASM module is ready.
+let _brotliDecompress: ((data: Uint8Array) => Uint8Array) | null = null;
+
+async function getBrotliDecompress(): Promise<
+  (data: Uint8Array) => Uint8Array
+> {
+  if (_brotliDecompress) return _brotliDecompress;
+  const mod = await import("brotli-dec-wasm");
+  const brotli = await mod.default;
+  _brotliDecompress = (data: Uint8Array) => brotli.decompress(data);
+  return _brotliDecompress;
+}
+
 async function decompress(
   data: Uint8Array,
   encoding: string,
 ): Promise<Uint8Array> {
+  if (encoding === "br") {
+    const brotliDecompress = await getBrotliDecompress();
+    return brotliDecompress(data);
+  }
+
   let format: string;
   if (encoding === "gzip") format = "gzip";
   else if (encoding === "deflate") format = "deflate";
@@ -97,15 +117,8 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
 
   // Step 2: Decompress if needed
   const encoding = contentEncoding?.toLowerCase();
-  if (encoding === "br") {
-    return {
-      kind: "text",
-      text: "brotli: not decompressed",
-      mediaType,
-      size: totalBytes,
-    };
-  }
   if (
+    encoding === "br" ||
     encoding === "gzip" ||
     encoding === "deflate" ||
     encoding === "deflate-raw"

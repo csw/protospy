@@ -18,7 +18,8 @@
     "paths": {
       "@bindings/*": ["../bindings/*"],
       "@ui/*": ["./src/*"]
-    }
+    },
+    "types": ["node"]
   },
   "include": ["src"]
 }
