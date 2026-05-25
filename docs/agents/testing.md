@@ -2,7 +2,7 @@
 
 You MUST follow these guidelines when writing or maintaining tests, particularly for the conformance test suite.
 
-For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the project split (`.test.ts` → node, `.test.tsx` → jsdom), shared fixture location (`src/test/fixtures.ts`), jest-dom matchers, coverage-threshold policy, and the `browser/` injection harness (note: Playwright tests live in `ui/browser/` rather than `ui/e2e/` — they verify UI rendering, not full-stack flow). `docs/agents/ui/test-coverage-review.md` and `docs/agents/ui/test-plan.md` are the audit and handoff for the v2 UI.
+For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the project split (`.test.ts` → node, `.test.tsx` → jsdom), shared fixture location (`src/test/fixtures.ts`), jest-dom matchers, coverage-threshold policy, and the `browser/` injection harness (note: Playwright tests live in `ui/browser/` rather than `ui/e2e/` — they verify UI rendering, not full-stack flow).
 
 **UI code changes require tests.** Every change to `ui/src/` or `ui/browser/` must include corresponding tests — unit, component, or browser depending on the code changed. See the "Test-Writing Requirements" section of `ui/CLAUDE.md` for the full policy, including which test type to use for which kind of change.
 
