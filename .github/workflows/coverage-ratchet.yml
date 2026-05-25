@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # Need a token with write access to push the commit
+          # Passes GITHUB_TOKEN to the checkout action so it configures git
+          # credentials for the push step. Write access is granted by
+          # `permissions: contents: write` above — no extra setup needed.
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v6
