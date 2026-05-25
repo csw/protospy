@@ -92,6 +92,7 @@ repos:
         entry: bash -c 'cargo test export_bindings && ls bindings && git diff --exit-code bindings && [[ $(git ls-files --others --exclude-standard bindings | wc -l) -eq 0 ]]'
         language: system
         files: ^(src/|Cargo\.)
+        pass_filenames: false
       # Note: the ui hooks below use language: system and depend on node_modules
       # built for the host platform. Working trees must not be shared across
       # Mac and Linux — each platform needs its own checkout with its own
