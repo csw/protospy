@@ -4,7 +4,6 @@ set dotenv-filename := ".env.dev"
 default: run
 
 # Ensure dependencies are installed (fast no-op when node_modules is current)
-[private]
 install:
     pnpm install --frozen-lockfile
 
