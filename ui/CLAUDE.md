@@ -6,9 +6,39 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Architecture
 
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the deep architecture reference — libraries, the SSE → store → render data flow, type shapes, design patterns, and a per-directory file map. Read it before making non-trivial changes to the app.
+For the deep reference (exact `EventMessage` shape, reducer per-event-type rules, the full body decode pipeline, design-token policy, test-architecture detail), read [`ARCHITECTURE.md`](./ARCHITECTURE.md). The TL;DR below is enough for localized single-component work — but if your change touches the SSE pipeline, store shape, reducer, body decode, theming/tokens, the test project split, or the directory layout, you need the deep doc.
 
-**Keep it current:** when you change the UI's architecture, stack, data flow, or directory structure, update **both** `ARCHITECTURE.md` and the `## Architecture` section of `README.md` in the same change.
+**Keep both current:** when you change the UI's architecture, stack, data flow, or directory structure, update `ARCHITECTURE.md`, the `## Architecture` section of `README.md`, and the TL;DR below in the same change. See [`docs/agents/tldr-maintenance.md`](../docs/agents/tldr-maintenance.md) for the regeneration prompt.
+
+### TL;DR
+
+**Stack.** React ^19 + TypeScript ^6, Zustand ^5 (with `persist` middleware), `@tanstack/react-virtual` ^3, Radix ^1.4 primitives (shadcn `new-york` wrappers under `components/ui/`), `cmdk` ^1, `react-resizable-panels` ^4, Tailwind v4 (no `tailwind.config.js` — tokens live in `theme/tailwind.css` under `@theme`, dark variant bound to `[data-theme=dark]`). Vite ^8, Vitest ^4 (node + jsdom projects), Playwright. **React Compiler is not run here** — `eslint-plugin-react-hooks@7` surfaces the compiler's static checks at lint time only.
+
+**Data flow.** `main.tsx` boots the theme from the persist key (`protospy-ui-prefs`), then renders `AppShell`. `AppShell` calls `fetchInfo()` (`api/info.ts` → `GET /info`) once and then `subscribeToEvents(service, …)` (`api/sse.ts` → `EventSource` at `/service/<name>/events`). Each `"exchange-report"` named event is `JSON.parse`d into an `EventMessage` and passed to `applyEvent(msg)` on the store. `applyEvent` copy-on-writes `exchanges` (a `Map<number, Exchange>`) and `ids`, then delegates to the **pure reducer** `apply()` in `state/reducer.ts` (testable without React in the node Vitest project). Components subscribe to slices via `useStore(selector)`; both `ExchangeList` and `Inspector` re-derive the filtered/ordered visible list each render.
+
+**Types.** Wire types come from `@bindings/*` (→ `../bindings/`, generated from Rust by ts-rs — **do not edit**). `@ui/*` → `./src/*`.
+
+**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate`/`deflate-raw` via `DecompressionStream`; `br` reported as not-decompressed) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies go through `body/sse.ts` (`parseSSEBody`); Anthropic transcripts fold via `anthropic/transcript.ts`.
+
+**Load-bearing details — don't break these:**
+
+- `window.__test_store` (DEV-only) in `state/store.ts` is required by the Playwright harness (`browser/helpers/inject.ts`). Do not remove.
+- Persisted prefs `localStorage` key is `protospy-ui-prefs`; the `partialize` list in `state/store.ts` defines which UI prefs persist. Renaming the key strands users.
+- `state/reducer.ts` is pure on purpose so it can be unit-tested in the `node` project. Do not import React, the store, or anything with side effects into it.
+
+**Directory map (compressed; full annotations in `ARCHITECTURE.md`):**
+
+- `src/api/` — `info.ts` (`fetchInfo`, `/info`), `sse.ts` (`subscribeToEvents`, `ConnectionStatus`, parent-frame `postMessage`)
+- `src/state/` — `store.ts` (Zustand + `persist` + dev `__test_store`), `reducer.ts` (pure `apply`, `Exchange`/`BodyState` shapes)
+- `src/body/` — `decode.ts` (chunks→bytes→decompress→classify), `sse.ts` (parse SSE event stream)
+- `src/anthropic/` — `transcript.ts` (fold SSE events into chat transcript)
+- `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)
+- `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton)
+- `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
+- `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant), `applyTheme.ts`
+- `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
+- `src/test/` (`setup.ts`, `fixtures.ts`), `src/__tests__/` (Vitest)
+- `browser/` — Playwright specs + `helpers/inject.ts` (drives the store via `window.__test_store`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
 
 ## Commands
 
