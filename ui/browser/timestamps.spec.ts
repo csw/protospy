@@ -8,6 +8,10 @@ const FIXED_TIME = new Date("2024-06-01T12:00:00.000Z").getTime();
 test.beforeEach(async ({ page }) => {
   // Install fake clock before navigation so React's setInterval is controlled
   await page.clock.install({ time: FIXED_TIME });
+  // Freeze the clock so Date.now() doesn't drift under concurrent load.
+  // Without pauseAt, install() lets real time continue advancing, causing
+  // fastForward() to see extra elapsed time when tests run concurrently.
+  await page.clock.pauseAt(new Date(FIXED_TIME));
 
   await page.route("**/info", (route) =>
     route.fulfill({
