@@ -38,10 +38,18 @@ fi
 
 # Compute staged paths. With -a/--all (incl. bundles like -am), also include
 # tracked-but-unstaged modifications, since git will stage them itself.
+# When `git add` (-A/--all/.) precedes the commit in the same compound command,
+# the hook fires before git add executes — include would-be-staged files manually.
 staged="$(git diff --cached --name-only)"
 all_re='(^|[[:space:]])(-[A-Za-z]*a[A-Za-z]*|--all)([[:space:]]|$)'
+add_re='(^|[;&|(]|&&|\|\|)[[:space:]]*git[[:space:]]+add[[:space:]]+(-A|--all|\.)([[:space:]]|$)'
 if [[ "$command" =~ $all_re ]]; then
     staged="$staged"$'\n'"$(git diff --name-only)"
+fi
+if [[ "$command" =~ $add_re ]]; then
+    # Hook fires before git add runs; include tracked modifications and
+    # untracked new files that git add -A/--all/. would stage.
+    staged="$staged"$'\n'"$(git diff --name-only)"$'\n'"$(git ls-files --others --exclude-standard)"
 fi
 staged="$(printf '%s\n' "$staged" | awk 'NF' | sort -u)"
 
