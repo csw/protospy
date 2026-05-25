@@ -148,7 +148,7 @@ Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`,
 
 ### Coverage thresholds
 
-`vitest.config.ts` locks a floor in `test.coverage.thresholds`. These are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a weekly schedule by `scripts/ratchet-coverage.ts` (via `.github/workflows/coverage-ratchet.yml`). To run the ratchet manually: `pnpm run coverage:ratchet`.
+Coverage thresholds live in `coverage-thresholds.json` and are read by `vitest.config.ts` at startup. They are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a weekly schedule by `scripts/ratchet-coverage.ts` (via `.github/workflows/coverage-ratchet.yml`). To run the ratchet manually: `pnpm run coverage:ratchet`.
 
 If your PR causes `pnpm test:coverage` to fail the threshold check, that means coverage dropped significantly. Investigate — you likely need to add unit or component tests. But small threshold movements (1-2 points) caused by adding code that's covered by browser tests (which Vitest can't measure) are expected and not a problem. Browser tests in `browser/` provide real coverage; the Vitest report just can't see it.
 

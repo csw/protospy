@@ -87,7 +87,7 @@ The `@bindings/` path alias points to `../bindings/` (TypeScript types generated
 
 ## Testing
 
-`pnpm test` runs Vitest (unit + component); `pnpm test:browser` runs Playwright UI tests against the dev server (rendering, layout, and interaction — not a true full-stack end-to-end suite). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy.
+`pnpm test` runs Vitest (unit + component); `pnpm test:browser` runs Playwright UI tests against the dev server (rendering, layout, and interaction — not a true full-stack end-to-end suite). Coverage thresholds are stored in `coverage-thresholds.json` and ratcheted automatically on a weekly schedule (`pnpm run coverage:ratchet` to run manually). See `CLAUDE.md` for the project split, fixture conventions, and coverage policy.
 
 ## React Compiler
 
