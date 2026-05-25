@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import {
+  getStoreState,
+  injectExchanges,
+  resetStore,
+  waitForStore,
+} from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
@@ -109,6 +114,50 @@ test.describe("Layout and resize", () => {
     // panels falls back to its built-in floor — pin the visible behavior:
     // the panel shrinks but never reports a zero-width box.
     expect(clamped!.width).toBeLessThan(initial!.width);
+  });
+
+  test("9.7 double-click separator resets list pane to default width", async ({
+    page,
+  }) => {
+    const handle = page.getByRole("separator");
+    const listPanel = page.locator("[data-panel]").first();
+
+    // Drag the separator well to the right to change the list panel width.
+    const handleBox = await handle.boundingBox();
+    expect(handleBox).not.toBeNull();
+    const startX = handleBox!.x + handleBox!.width / 2;
+    const startY = handleBox!.y + handleBox!.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 200, startY, { steps: 5 });
+    await page.mouse.up();
+
+    // Confirm the panel actually moved before we reset it.
+    const movedBox = await listPanel.boundingBox();
+    expect(movedBox).not.toBeNull();
+    expect(movedBox!.width).toBeGreaterThan(380);
+
+    // Double-click the separator to reset.
+    // Use raw mouse coordinates (same pattern as drag tests) to avoid the
+    // 1px separator being obscured by the inspector panel's child elements.
+    const resetBox = await handle.boundingBox();
+    expect(resetBox).not.toBeNull();
+    await page.mouse.dblclick(
+      resetBox!.x + resetBox!.width / 2,
+      resetBox!.y + resetBox!.height / 2,
+    );
+
+    // The list panel should now be close to the rows-mode default (340px).
+    await expect
+      .poll(async () => (await listPanel.boundingBox())?.width ?? 0, {
+        timeout: 3000,
+      })
+      .toBeCloseTo(340, -1); // within ~5px
+
+    // The store should also reflect the reset.
+    const storedWidth = await getStoreState(page, "listWidth");
+    expect((storedWidth as { rows: number }).rows).toBe(340);
   });
 
   test("9.5 virtual scroll limits DOM nodes with many exchanges", async ({
