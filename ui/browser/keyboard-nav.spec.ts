@@ -248,6 +248,6 @@ test.describe("Keyboard navigation", () => {
     await page.keyboard.press("Meta+k");
 
     // The command palette input should become visible
-    await expect(page.getByPlaceholder("Search exchanges…")).toBeVisible();
+    await expect(page.getByPlaceholder("Search commands…")).toBeVisible();
   });
 });

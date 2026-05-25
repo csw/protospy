@@ -1,11 +1,5 @@
 import { test, expect } from "@playwright/test";
-import {
-  injectExchanges,
-  resetStore,
-  waitForStore,
-  getStoreState,
-} from "./helpers/inject";
-import { makeCompleteExchange } from "./fixtures/exchanges";
+import { resetStore, waitForStore, getStoreState } from "./helpers/inject";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -29,7 +23,7 @@ test.describe("Command palette — open/close", () => {
   }) => {
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByPlaceholder("Search exchanges…")).toBeVisible();
+    await expect(page.getByPlaceholder("Search commands…")).toBeVisible();
   });
 
   test("1.2 closes with Escape", async ({ page }) => {
@@ -106,49 +100,48 @@ test.describe("Command palette — commands", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Exchange search
+// 3. Clear filter command
 // ---------------------------------------------------------------------------
 
-test.describe("Command palette — exchange search", () => {
-  test("3.1 injected exchanges appear in palette and selection closes palette and selects exchange", async ({
+test.describe("Command palette — clear filter", () => {
+  test("3.1 clear filter command appears when filter is set and resets it", async ({
     page,
   }) => {
-    await injectExchanges(page, [
-      ...makeCompleteExchange(1, "GET", "/api/alpha", "200 OK", {
-        ts: "2024-01-01T00:00:01Z",
-      }),
-      ...makeCompleteExchange(2, "POST", "/api/beta", "201 Created", {
-        ts: "2024-01-01T00:00:02Z",
-      }),
-      ...makeCompleteExchange(3, "DELETE", "/api/gamma", "204 No Content", {
-        ts: "2024-01-01T00:00:03Z",
-      }),
-    ]);
+    // Set a filter directly in the store
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store;
+      store.getState().setFilter("beta");
+    });
 
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    // Type a path fragment to filter exchanges
-    await page.getByPlaceholder("Search exchanges…").fill("beta");
-
-    // The matching exchange should appear
+    // The clear filter command should be present when filter is set
     await expect(
-      page.getByRole("option", { name: /\/api\/beta/i }),
+      page.getByRole("option", { name: /clear filter/i }),
     ).toBeVisible();
 
-    // Non-matching exchanges should not appear
-    await expect(
-      page.getByRole("option", { name: /\/api\/alpha/i }),
-    ).not.toBeVisible();
+    // Click the clear filter command
+    await page.getByRole("option", { name: /clear filter/i }).click();
 
-    // Click the matching exchange to select it
-    await page.getByRole("option", { name: /\/api\/beta/i }).click();
-
-    // Palette should close
+    // Palette should close after selection
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
-    // Exchange 2 should now be selected in the store
-    const selectedId = await getStoreState(page, "selectedId");
-    expect(selectedId).toBe(2);
+    // Filter should be cleared in the store
+    const filter = await getStoreState(page, "filter");
+    expect(filter).toBe("");
+  });
+
+  test("3.2 clear filter command is absent when no filter is active", async ({
+    page,
+  }) => {
+    await page.keyboard.press("Meta+k");
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    // With no filter set, the clear filter command should not appear
+    await expect(
+      page.getByRole("option", { name: /clear filter/i }),
+    ).not.toBeVisible();
   });
 });
