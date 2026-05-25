@@ -1,4 +1,4 @@
-FROM node:24.15.0-slim AS ui-build
+FROM node:24.16.0-slim AS ui-build
 WORKDIR /app/ui
 RUN corepack enable
 COPY ui/package.json ui/pnpm-lock.yaml ./
