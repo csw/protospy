@@ -2,7 +2,7 @@
  * ratchet-coverage.ts
  *
  * Runs `pnpm test:coverage`, reads the resulting json-summary report, and
- * rewrites the coverage thresholds in vitest.config.ts to
+ * writes updated thresholds to coverage-thresholds.json at
  * `floor(actual - margin)` for each metric.
  *
  * Usage:
@@ -85,24 +85,6 @@ console.log(`  branches:   ${newThresholds.branches}`);
 console.log(`  functions:  ${newThresholds.functions}`);
 console.log(`  lines:      ${newThresholds.lines}`);
 
-const configPath = resolve(uiDir, "vitest.config.ts");
-let config = readFileSync(configPath, "utf-8");
-
-function replaceThreshold(source: string, key: string, value: number): string {
-  const pattern = new RegExp(`(\\b${key}:\\s*)\\d+`);
-  if (!pattern.test(source)) {
-    throw new Error(
-      `replaceThreshold: pattern for "${key}" did not match — ` +
-        `vitest.config.ts may have been reformatted or restructured`,
-    );
-  }
-  return source.replace(pattern, `$1${value}`);
-}
-
-config = replaceThreshold(config, "statements", newThresholds.statements);
-config = replaceThreshold(config, "branches", newThresholds.branches);
-config = replaceThreshold(config, "functions", newThresholds.functions);
-config = replaceThreshold(config, "lines", newThresholds.lines);
-
-writeFileSync(configPath, config, "utf-8");
-console.log(`\nUpdated thresholds in ${configPath}`);
+const thresholdsPath = resolve(uiDir, "coverage-thresholds.json");
+writeFileSync(thresholdsPath, JSON.stringify(newThresholds, null, 2) + "\n");
+console.log(`\nUpdated ${thresholdsPath}`);

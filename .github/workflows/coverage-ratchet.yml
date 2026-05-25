@@ -47,8 +47,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --exit-code ui/vitest.config.ts || (
-            git add ui/vitest.config.ts &&
+          git diff --exit-code ui/coverage-thresholds.json || (
+            git add ui/coverage-thresholds.json &&
             git commit -m "chore(ui): ratchet coverage thresholds [skip ci]" &&
             git push
           )
