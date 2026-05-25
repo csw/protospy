@@ -6,6 +6,10 @@
 # all workflow runs for HEAD. With args, restricts to runs whose .workflowName
 # matches one of the given names. Emits one stdout line per status change.
 #
+# Environment variables:
+#   CI_WATCH_TIMEOUT_POLLS  max polls with no matching runs before exiting with
+#                           an error (default: 10; each poll is 30s → 5 min)
+#
 # Why this exists rather than inlining `gh run list` in each agent:
 #
 #   - Pin to HEAD's SHA. Overlapping pushes shift the `--limit` window, so a bare
@@ -33,6 +37,10 @@ else
   name_filter=""
 fi
 
+# Exit after this many consecutive polls with no matching runs (each poll = 30s).
+MAX_POLLS=${CI_WATCH_TIMEOUT_POLLS:-10}
+no_run_polls=0
+
 prev=""
 while true; do
   runs=$(gh run list --branch "$BRANCH" --limit 50 \
@@ -42,9 +50,19 @@ while true; do
   cur=$(echo "$runs" | jq -r '.[] | "\(.workflowName): \(.status) \(.conclusion // "")"' | sort)
   comm -13 <(echo "$prev") <(echo "$cur") || true
   prev=$cur
-  if [ "$count" -gt 0 ] \
-     && [ "$(echo "$runs" | jq 'all(.status=="completed")')" = "true" ]; then
-    break
+  if [ "$count" -gt 0 ]; then
+    if [ "$(echo "$runs" | jq 'all(.status=="completed")')" = "true" ]; then
+      echo "ci-watch: all runs completed."
+      break
+    fi
+    no_run_polls=0
+  else
+    no_run_polls=$((no_run_polls + 1))
+    if [ "$no_run_polls" -ge "$MAX_POLLS" ]; then
+      printf 'ci-watch: timed out after %ds — no runs matching SHA %s found on branch %s\n' \
+        "$((MAX_POLLS * 30))" "$SHA" "$BRANCH" >&2
+      exit 1
+    fi
   fi
   sleep 30
 done
