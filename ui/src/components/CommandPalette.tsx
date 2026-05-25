@@ -1,11 +1,4 @@
 import { useStore } from "@ui/state/store";
-import type { Exchange } from "@ui/state/reducer";
-import {
-  formatTime,
-  splitUri,
-  statusTextClass,
-  traceColor,
-} from "@ui/lib/utils";
 import {
   CommandDialog,
   CommandInput,
@@ -13,9 +6,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  CommandSeparator,
 } from "./ui/command";
-import { MethodBadge } from "./ui/MethodBadge";
 import {
   Sun,
   Moon,
@@ -25,8 +16,6 @@ import {
   Layers,
   X,
 } from "lucide-react";
-
-const MAX_EXCHANGES = 50;
 
 export function CommandPalette() {
   const cmdKOpen = useStore((s) => s.cmdKOpen);
@@ -40,24 +29,9 @@ export function CommandPalette() {
   const toggleTraceGroup = useStore((s) => s.toggleTraceGroup);
   const filter = useStore((s) => s.filter);
   const setFilter = useStore((s) => s.setFilter);
-  const setSelectedId = useStore((s) => s.setSelectedId);
-  const exchanges = useStore((s) => s.exchanges);
-  const ids = useStore((s) => s.ids);
-
-  // Derive all exchanges, most-recent-first, limited to MAX_EXCHANGES
-  const allExchanges: Exchange[] = ids
-    .map((id) => exchanges.get(id))
-    .filter((ex): ex is Exchange => ex != null)
-    .slice(-MAX_EXCHANGES)
-    .reverse();
 
   function close() {
     setCmdKOpen(false);
-  }
-
-  function handleSelectExchange(ex: Exchange) {
-    setSelectedId(ex.id);
-    close();
   }
 
   function handleToggleDarkMode() {
@@ -93,7 +67,7 @@ export function CommandPalette() {
       className="top-[12vh] translate-y-0 max-w-[600px] bg-bg-pane border border-border rounded-[10px] shadow-lg"
     >
       <CommandInput
-        placeholder="Search exchanges…"
+        placeholder="Search commands…"
         className="font-family-mono text-sm text-ink placeholder:text-dim"
       />
       <CommandList className="max-h-[480px]">
@@ -172,53 +146,6 @@ export function CommandPalette() {
               </span>
             </CommandItem>
           )}
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        {/* Exchanges section */}
-        <CommandGroup
-          heading={`Exchanges · ${ids.length}`}
-          className="[&_[cmdk-group-heading]]:font-family-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
-        >
-          {allExchanges.map((ex) => {
-            const method = ex.method ?? "?";
-            const uri = ex.uri ?? "/";
-            const { path } = splitUri(uri);
-            const itemValue = `${method} ${ex.status ?? ""} ${uri} ${ex.id}`;
-
-            return (
-              <CommandItem
-                key={ex.id}
-                value={itemValue}
-                onSelect={() => handleSelectExchange(ex)}
-                className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer gap-2"
-              >
-                <MethodBadge method={method} size="sm" />
-                {ex.status != null && (
-                  <span
-                    className={`font-family-mono text-xs ${statusTextClass(ex.status)} shrink-0`}
-                  >
-                    {ex.status}
-                  </span>
-                )}
-                <span className="font-family-mono text-xs text-ink flex-1 truncate min-w-0">
-                  {path}
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                  {ex.traceId && (
-                    <span
-                      className="inline-block w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: traceColor(ex.traceId) }}
-                    />
-                  )}
-                  <span className="font-family-mono text-xs text-dim">
-                    {formatTime(ex.timestamp)}
-                  </span>
-                </div>
-              </CommandItem>
-            );
-          })}
         </CommandGroup>
       </CommandList>
     </CommandDialog>
