@@ -4,6 +4,24 @@
   "prHourlyLimit": 3,
   "packageRules": [
     {
+      "description": "Group all non-major npm/pnpm updates — specific rules below override for version-matched sets",
+      "matchManagers": ["npm", "pnpm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "description": "Group all non-major uv/Python package updates",
+      "matchManagers": ["uv"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "uv dependencies"
+    },
+    {
+      "description": "Group all non-major Cargo crate updates",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cargo dependencies"
+    },
+    {
       "description": "Group vitest and all @vitest/* packages — must stay version-matched to avoid runtime warnings",
       "matchPackageNames": ["vitest", "@vitest/**"],
       "groupName": "vitest"
