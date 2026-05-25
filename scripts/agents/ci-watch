@@ -69,14 +69,14 @@ while true; do
     idle_polls=$((idle_polls + 1))
     if [ "$idle_polls" -ge "$MAX_IDLE_POLLS" ]; then
       printf 'ci-watch: timed out after %ds — no runs matching SHA %s found on branch %s\n' \
-        "$((MAX_IDLE_POLLS * SLEEP_SECS))" "$SHA" "$BRANCH" >&2
+        "$(( (idle_polls - 1) * SLEEP_SECS ))" "$SHA" "$BRANCH" >&2
       exit 1
     fi
   fi
   total_polls=$((total_polls + 1))
   if [ "$total_polls" -ge "$MAX_TOTAL_POLLS" ]; then
     printf 'ci-watch: timed out after %ds — runs did not complete (SHA %s on branch %s)\n' \
-      "$((MAX_TOTAL_POLLS * SLEEP_SECS))" "$SHA" "$BRANCH" >&2
+      "$(( (total_polls - 1) * SLEEP_SECS ))" "$SHA" "$BRANCH" >&2
     exit 1
   fi
   sleep "$SLEEP_SECS"
