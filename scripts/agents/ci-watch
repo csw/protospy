@@ -7,8 +7,12 @@
 # matches one of the given names. Emits one stdout line per status change.
 #
 # Environment variables:
-#   CI_WATCH_TIMEOUT_POLLS  max polls with no matching runs before exiting with
-#                           an error (default: 10; each poll is 30s → 5 min)
+#   CI_WATCH_IDLE_POLLS  max consecutive polls with no matching runs before
+#                        exiting with an error (default: 10; each poll is
+#                        30s → 5 min idle timeout)
+#   CI_WATCH_MAX_POLLS   hard cap on total polls; exits with an error if runs
+#                        are found but don't complete in time (default: 40;
+#                        40 × 30s = 20 min total cap)
 #
 # Why this exists rather than inlining `gh run list` in each agent:
 #
@@ -37,9 +41,14 @@ else
   name_filter=""
 fi
 
+SLEEP_SECS=30
 # Exit after this many consecutive polls with no matching runs (each poll = 30s).
-MAX_POLLS=${CI_WATCH_TIMEOUT_POLLS:-10}
-no_run_polls=0
+MAX_IDLE_POLLS=${CI_WATCH_IDLE_POLLS:-10}
+# Hard cap: exit after this many total polls regardless of run state.
+MAX_TOTAL_POLLS=${CI_WATCH_MAX_POLLS:-40}
+
+idle_polls=0
+total_polls=0
 
 prev=""
 while true; do
@@ -55,14 +64,20 @@ while true; do
       echo "ci-watch: all runs completed."
       break
     fi
-    no_run_polls=0
+    idle_polls=0  # runs registered — reset idle timeout
   else
-    no_run_polls=$((no_run_polls + 1))
-    if [ "$no_run_polls" -ge "$MAX_POLLS" ]; then
+    idle_polls=$((idle_polls + 1))
+    if [ "$idle_polls" -ge "$MAX_IDLE_POLLS" ]; then
       printf 'ci-watch: timed out after %ds — no runs matching SHA %s found on branch %s\n' \
-        "$((MAX_POLLS * 30))" "$SHA" "$BRANCH" >&2
+        "$((MAX_IDLE_POLLS * SLEEP_SECS))" "$SHA" "$BRANCH" >&2
       exit 1
     fi
   fi
-  sleep 30
+  total_polls=$((total_polls + 1))
+  if [ "$total_polls" -ge "$MAX_TOTAL_POLLS" ]; then
+    printf 'ci-watch: timed out after %ds — runs did not complete (SHA %s on branch %s)\n' \
+      "$((MAX_TOTAL_POLLS * SLEEP_SECS))" "$SHA" "$BRANCH" >&2
+    exit 1
+  fi
+  sleep "$SLEEP_SECS"
 done
