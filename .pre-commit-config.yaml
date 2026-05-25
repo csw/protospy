@@ -52,6 +52,15 @@ repos:
         language: system
         files: ^flix/
         pass_filenames: false
+      # Note: flix e2e tests require a running Elasticsearch at localhost:9200
+      # with the demo index loaded. If ES is down the gate fails with a
+      # connection error — start ES before committing flix/ changes.
+      - id: pytest-e2e-flix
+        name: pytest e2e (flix)
+        entry: bash -c 'cd flix && uv run pytest -m e2e -q'
+        language: system
+        files: ^flix/
+        pass_filenames: false
       - id: ruff-conformance
         name: ruff (conformance)
         entry: bash -c 'cd conformance && uv run ruff check --fix .'
@@ -102,6 +111,15 @@ repos:
       - id: pnpm-typecheck-ui
         name: pnpm typecheck (ui)
         entry: bash -c 'cd ui && pnpm run typecheck'
+        language: system
+        files: ^ui/
+        pass_filenames: false
+      # Note: browser tests require Playwright browsers to be installed
+      # (pnpm exec playwright install). Fails with Playwright's own error if
+      # missing. Same Linux/cs-container constraint as the ui hooks above.
+      - id: playwright-browser-ui
+        name: playwright browser tests (ui)
+        entry: bash -c 'cd ui && pnpm test:browser --reporter=dot'
         language: system
         files: ^ui/
         pass_filenames: false

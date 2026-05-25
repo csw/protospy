@@ -7,12 +7,14 @@ subcomponents it touches.
 
 ## Layer 1: pre-commit framework
 
-`.pre-commit-config.yaml` runs the cheap checks: lint, format, and type
-check across the staged subcomponents. Specifically:
+`.pre-commit-config.yaml` runs lint, format, type checks, and test suites
+across the staged subcomponents. Specifically:
 
-- **flix/**: `ruff check --fix`, `ruff format`, `pyright`
+- **flix/**: `ruff check --fix`, `ruff format`, `pyright`,
+  `pytest -m e2e -q`
 - **conformance/**: `ruff check --fix`, `ruff format`, `pyright`
-- **ui/**: `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`
+- **ui/**: `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`,
+  `pnpm test:browser --reporter=dot`
 - **Rust**: regenerates ts-rs bindings when `src/` or `Cargo.*` change
 - Commit-message conventional-commits validation
 
@@ -23,8 +25,7 @@ exists to close that gap.
 
 `.claude/settings.json` registers a `PreToolUse(Bash)` hook that calls
 `.claude/hooks/pre-commit-gates.sh`. When the command being run is a
-`git commit`, the hook runs the **test suites** that pre-commit
-deliberately skips for speed:
+`git commit`, the hook runs test suites for the staged subcomponents:
 
 - **ui/**: `pnpm test:coverage --run`, then `pnpm test:browser`
 - **flix/**: `pytest -q -m "not e2e"`, then `pytest -m e2e -q`
@@ -35,7 +36,9 @@ run. Within a subcomponent, the cheaper gate runs first; the first
 failure short-circuits the rest.
 
 This layer fires before the `Bash` tool ever executes `git commit`, so
-`--no-verify` cannot bypass it.
+`--no-verify` cannot bypass it. The `PreToolUse` hook does not fire for
+subagent workflows, so the pre-commit framework provides the safety net
+that covers those paths.
 
 ## External dependencies
 
