@@ -50,6 +50,23 @@ Tests should be deterministic. Prefer explicit synchronization to relying on tim
 
 Flaky tests are unacceptable.
 
+### Test failures are your fault until proven otherwise
+
+When a test fails during your work, **assume your changes caused it**.
+Do not dismiss a failure as "pre-existing" or "flaky" without concrete
+evidence — specifically:
+
+- You reproduced the failure on a clean checkout of main (no local
+  changes), OR
+- The failure is in a test completely unrelated to your changes AND you
+  can identify the exact external condition causing it (a network
+  timeout, a port conflict, etc.)
+
+"The test was last modified a while ago" is not evidence of flakiness.
+"It passed on the second run" is not evidence of flakiness. The UI test
+suite in particular has been highly reliable — there are no known flaky
+tests. If a UI test fails, investigate it seriously.
+
 ### Reproducing CI-only timing failures locally
 
 CI runners have fewer CPU resources than development machines, which can surface

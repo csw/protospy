@@ -148,7 +148,11 @@ Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`,
 
 ### Coverage thresholds
 
-`vitest.config.ts` locks a floor in `test.coverage.thresholds`. The numbers are intentionally below current measured coverage; the policy is **ratchet upward**, never down. After landing a batch of tests, run `pnpm test:coverage` and raise the thresholds to the new numbers (minus a small margin) in the same commit. `coverage/`, `playwright-report/`, and `test-results/` are gitignored.
+`vitest.config.ts` locks a floor in `test.coverage.thresholds`. These are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a schedule.
+
+If your PR causes `pnpm test:coverage` to fail the threshold check, that means coverage dropped significantly. Investigate — you likely need to add unit or component tests. But small threshold movements (1-2 points) caused by adding code that's covered by browser tests (which Vitest can't measure) are expected and not a problem. Browser tests in `browser/` provide real coverage; the Vitest report just can't see it.
+
+`coverage/`, `playwright-report/`, and `test-results/` are gitignored.
 
 shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.tsx`), CSS tokens (`theme/**`), and the `test/` and `__tests__/` directories are excluded from coverage — see the `exclude` list in the config before adding a new top-level src directory.
 
