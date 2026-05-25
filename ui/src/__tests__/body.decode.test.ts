@@ -157,6 +157,20 @@ describe("decodeBody", () => {
     expect(result.mediaType).toBe("text/plain");
   });
 
+  it("corrupt brotli bytes cause decodeBody to reject", async () => {
+    // "AAEC" is valid base64 but not valid brotli-compressed data.
+    // The decompressor (mocked with Node's zlib.brotliDecompressSync) throws,
+    // and decodeBody should propagate the rejection.
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      totalBytes: 3,
+      contentType: "text/plain",
+      contentEncoding: "br",
+    };
+    await expect(decodeBody(body)).rejects.toThrow();
+  });
+
   it("multiple text chunks are concatenated", async () => {
     const body: BodyState = {
       chunks: [{ text: "hello " }, { text: "world" }],
