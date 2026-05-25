@@ -63,9 +63,20 @@ evidence — specifically:
   timeout, a port conflict, etc.)
 
 "The test was last modified a while ago" is not evidence of flakiness.
-"It passed on the second run" is not evidence of flakiness. The UI test
-suite in particular has been highly reliable — there are no known flaky
-tests. If a UI test fails, investigate it seriously.
+"It passed on the second run" is not evidence of flakiness. "It only
+fails under load / in the full suite / with more workers" is not
+evidence of flakiness — that's evidence of a real bug (likely a shared
+state or ordering dependency your change introduced). The UI test suite
+in particular has been highly reliable — there are no known flaky tests.
+
+**Do not theorize — investigate.** When a test fails, read the failure
+output, look at what the test asserts, and trace backward to find the
+actual cause. Common agent failure mode: constructing a plausible-
+sounding narrative ("load-sensitive," "worker contention," "race
+condition in the test framework") without reading the test code or
+checking whether the failure reproduces deterministically. If you
+can't explain *which line of your code* caused the failure and *why*,
+you haven't finished investigating.
 
 ### Reproducing CI-only timing failures locally
 
