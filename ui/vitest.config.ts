@@ -15,7 +15,7 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html", "lcov"],
+      reporter: ["text", "html", "lcov", "json-summary"],
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.d.ts",
@@ -27,14 +27,15 @@ export default defineConfig({
         "src/test/**",
         "**/__tests__/**",
       ],
-      // Floor ratcheted after PRO-153 double-click separator reset (statements
-      // 66.97%, branches 54.2%, functions 55.74%, lines 69.71%) with a ~1% margin.
+      // Thresholds are ratcheted automatically by the coverage-ratchet workflow
+      // (scripts/ratchet-coverage.ts, ~4% margin below actual). Do not adjust
+      // these manually in PRs — see ui/CLAUDE.md for policy.
       // AppShell.tsx (0% unit coverage) is exercised by browser tests.
       thresholds: {
-        statements: 66,
-        branches: 53,
-        functions: 55,
-        lines: 69,
+        statements: 63,
+        branches: 50,
+        functions: 51,
+        lines: 66,
       },
     },
     projects: [

@@ -19,7 +19,8 @@
     "test:coverage": "vitest run --coverage",
     "test:browser": "playwright test",
     "test:browser:headed": "playwright test --headed",
-    "screenshots": "tsx scripts/take-screenshots.ts"
+    "screenshots": "tsx scripts/take-screenshots.ts",
+    "coverage:ratchet": "tsx scripts/ratchet-coverage.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
