@@ -129,8 +129,8 @@ test.describe("Connection indicator", () => {
   test("4.1 status bar shows connecting state after reset", async ({
     page,
   }) => {
-    // resetStore sets connection back to "connecting" (SSE mock returns empty body,
-    // so the "open" event never fires)
+    // resetStore sets connection back to "connecting" (SSE route is parked —
+    // never fulfilled — so EventSource stays in CONNECTING and "open" never fires)
     await expect(page.getByText("connecting")).toBeVisible();
 
     // The amber pulsing dot should be present — select by its bg-amber class
