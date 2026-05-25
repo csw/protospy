@@ -11,6 +11,14 @@ run:
 build:
     pnpm run build
 
+# Run unit + component tests with coverage (Vitest)
+test-coverage:
+    pnpm test:coverage --run
+
+# Run Playwright browser tests (browsers must be installed: pnpm exec playwright install)
+test-browser:
+    pnpm test:browser --reporter=dot
+
 # Regenerate hero screenshots (output: docs/screenshots/); run from repo root via `just screenshots`
 screenshots:
     pnpm run screenshots

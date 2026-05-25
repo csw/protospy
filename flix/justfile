@@ -6,3 +6,11 @@ default: run
 # Run the demo application in dev configuration
 run:
     uv run uvicorn elasticflix.main:app --reload
+
+# Run unit tests (excludes e2e; no external services required)
+test-unit:
+    uv run pytest -q -m "not e2e"
+
+# Run e2e tests (requires Elasticsearch running at localhost:9200 with demo index loaded)
+test-e2e:
+    uv run pytest -m e2e -q

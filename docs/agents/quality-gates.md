@@ -1,56 +1,56 @@
 # Quality gates
 
-`protospy` enforces code-quality checks at commit time via two layers. Both
-fire on `git commit`. Together they ensure that any commit landing in the
-tree has passed the relevant lint, type, and test checks for the
-subcomponents it touches.
+`protospy` enforces code-quality checks at commit time via the pre-commit
+framework. All checks fire on `git commit` and are scoped to the
+subcomponents whose files are staged — only the components you touched run.
 
-## Layer 1: pre-commit framework
+## pre-commit framework
 
 `.pre-commit-config.yaml` runs lint, format, type checks, and test suites
 across the staged subcomponents. Specifically:
 
 - **flix/**: `ruff check --fix`, `ruff format`, `pyright`,
-  `pytest -m e2e -q`
+  `pytest -q -m "not e2e"` (unit), `pytest -m e2e -q` (e2e)
 - **conformance/**: `ruff check --fix`, `ruff format`, `pyright`
+  (tests excluded — require a live protospy + managed proxy infra; run manually
+  with `just conformance test`)
 - **ui/**: `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`,
-  `pnpm test:browser --reporter=dot`
+  `pnpm test:coverage --run` (unit + component), `pnpm test:browser` (Playwright)
 - **Rust**: regenerates ts-rs bindings when `src/` or `Cargo.*` change
 - Commit-message conventional-commits validation
 
-This layer is bypassable with `git commit --no-verify`. The next layer
-exists to close that gap.
+Within each subcomponent, checks run cheapest first. The first failure
+short-circuits the rest.
 
-## Layer 2: Claude Code hook
-
-`.claude/settings.json` registers a `PreToolUse(Bash)` hook that calls
-`.claude/hooks/pre-commit-gates.sh`. When the command being run is a
-`git commit`, the hook runs test suites for the staged subcomponents:
-
-- **ui/**: `pnpm test:coverage --run`, then `pnpm test:browser`
-- **flix/**: `pytest -q -m "not e2e"`, then `pytest -m e2e -q`
-- **conformance/**: `pytest -q`
-
-Gates are scoped by staged paths — only the subcomponents you touched
-run. Within a subcomponent, the cheaper gate runs first; the first
-failure short-circuits the rest.
-
-This layer fires before the `Bash` tool ever executes `git commit`, so
-`--no-verify` cannot bypass it. The `PreToolUse` hook does not fire for
-subagent workflows, so the pre-commit framework provides the safety net
-that covers those paths.
+Test commands are defined in each subproject's `justfile` and invoked via
+`just <module> <recipe>` (e.g. `just ui test-browser`). This means the
+same commands used in the pre-commit hooks can be run interactively.
 
 ## External dependencies
 
-Two gates need external prerequisites:
+Two checks require external prerequisites:
 
-- **`pnpm test:browser`** requires Playwright browsers
+- **`just ui test-browser`** (`pnpm test:browser`) requires Playwright browsers
   (`pnpm exec playwright install`). If missing, the gate fails with
   Playwright's own error message; install the browsers and retry.
-- **`pytest -m e2e`** in `flix/` requires a running Elasticsearch
+- **`just flix test-e2e`** (`pytest -m e2e`) requires a running Elasticsearch
   reachable at `localhost:9200` with the demo index loaded. If ES is
-  down, the gate fails with a connection error — surface this to the
-  user; agents cannot start ES themselves.
+  down, use `SKIP=pytest-e2e-flix git commit` to bypass just this hook;
+  surface the ES issue to the user if working interactively — agents cannot
+  start ES themselves.
+
+## Bypassing hooks
+
+The whole gate layer is bypassable with `git commit --no-verify`. Individual
+hooks can be skipped by name: `SKIP=<hook-id> git commit` (e.g.
+`SKIP=pytest-e2e-flix git commit`). Use bypasses only for genuine
+environmental blockers, not to skip failing tests.
+
+The ui hooks use `language: system` and require pnpm with Linux-compatible
+`node_modules` (i.e. the `cs` container). Committing `ui/` files from the
+macOS host will fail those hooks; use
+`SKIP=prettier-ui,eslint-ui,pnpm-typecheck-ui,pnpm-test-coverage-ui,playwright-browser-ui`
+or commit from inside the container.
 
 ## What to do when a gate blocks your commit
 

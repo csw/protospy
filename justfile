@@ -1,6 +1,7 @@
 set dotenv-load
 set dotenv-filename := ".env.dev"
 
+mod conformance
 mod flix
 mod ui
 mod demo
