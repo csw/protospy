@@ -3,8 +3,10 @@ import {
   Group,
   Panel,
   Separator,
+  usePanelRef,
   type PanelSize,
 } from "react-resizable-panels";
+
 import { useStore } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
 import type { Info } from "@ui/api/info";
@@ -15,6 +17,9 @@ import { ExchangeList } from "./ExchangeList";
 import { Inspector } from "./Inspector";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
+
+/** Default list-pane widths (px) by mode — must match the store defaults. */
+export const DEFAULT_LIST_WIDTH = { rows: 340, table: 720 } as const;
 
 export function AppShell() {
   const applyEvent = useStore((s) => s.applyEvent);
@@ -30,6 +35,7 @@ export function AppShell() {
   // stores percentage-based Layout objects incompatible with fixed-width,
   // mode-dependent panel sizing. See decision doc for rationale.
   const interacting = useRef(false);
+  const listPanelRef = usePanelRef();
 
   const handleListPanelResize = useCallback(
     (size: PanelSize) => {
@@ -39,6 +45,14 @@ export function AppShell() {
     },
     [listMode, setListWidth],
   );
+
+  const handleSeparatorDoubleClick = useCallback(() => {
+    const defaultWidth = DEFAULT_LIST_WIDTH[listMode];
+    listPanelRef.current?.resize(defaultWidth);
+    setListWidth(listMode, defaultWidth);
+    // listPanelRef is a stable RefObject from usePanelRef — safe to omit from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listMode, setListWidth]);
 
   const [info, setInfo] = useState<Info | null>(null);
 
@@ -97,11 +111,13 @@ export function AppShell() {
           defaultSize={listWidth[listMode]}
           minSize={200}
           onResize={handleListPanelResize}
+          panelRef={listPanelRef}
         >
           <ExchangeList />
         </Panel>
         <Separator
           className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors"
+          onDoubleClick={handleSeparatorDoubleClick}
           onPointerDown={() => {
             interacting.current = true;
           }}
