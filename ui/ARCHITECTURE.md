@@ -54,7 +54,7 @@ This is the key section. End to end:
 `AppShell` runs two effects:
 
 - **Effect A** calls `fetchInfo()` once on mount. `fetchInfo` (`api/info.ts`) `GET`s `/info` and returns `{ started_at, services: Service[] }` (typed from `@bindings/Info`). It picks `services[0]`, stores its `name` (`setService`) and `protocol` (`setProtocol`). The protocol (`"Elasticsearch" | "OpenSearch" | "Anthropic" | null`) drives protocol-specific views downstream.
-- **Effect B** runs whenever `service` changes and calls `subscribeToEvents(service, onMessage, onStatusChange)` (`api/sse.ts`). That opens an `EventSource` at `/service/<name>/events`, reports `ConnectionStatus` (`"connecting" | "open" | "reconnecting"`) via `onStatusChange`, and listens for `"exchange-report"` named events. Each event's `.data` is `JSON.parse`d into an `EventMessage` and passed to `onMessage`, which calls `applyEvent(msg)`. The returned cleanup closes the `EventSource`. Switching services tears down and re-subscribes. `EventSource` handles reconnection natively (errors flip status to `"reconnecting"`).
+- **Effect B** runs whenever `service` changes and calls `subscribeToEvents(service, onMessage, onStatusChange)` (`api/sse.ts`). That opens an `EventSource` at `/service/<name>/events`, reports `ConnectionStatus` (`"connecting" | "open" | "reconnecting"`) via `onStatusChange`, and listens for `"exchange-report"` named events. Each event's `.data` is `JSON.parse`d into an `EventMessage` and passed to `onMessage`, which calls `applyEvent(msg)`. The returned cleanup closes the `EventSource`. Switching services tears down and re-subscribes. `EventSource` handles reconnection natively (errors flip status to `"reconnecting"`). On open/error, `subscribeToEvents` also calls `globalThis.parent?.postMessage({ type: "proxy_connected" | "proxy_disconnected" }, "*")` so an embedding parent frame can observe connection state.
 
 In dev, Vite proxies `/info` and `/service/*` to `http://localhost:3100` (see `vite.config.ts`).
 
@@ -112,9 +112,10 @@ The store also holds all **UI state**: `selectedId`, `filter`, `traceFilter`, `h
 
 Components subscribe to slices of the store with selectors (`useStore((s) => s.x)`). The render tree:
 
-- `AppShell` — `TopBar` / `FilterBar` / resizable [`ExchangeList` | `Inspector`] / `StatusBar` / `CommandPalette`.
-- `ExchangeList` derives the visible list each render: map `ids` → exchanges, filter via `matchesFilter`, reverse for `newest`. It renders rows through `@tanstack/react-virtual` (only visible rows in DOM) in either `rows` mode (`ExchangeListItem`) or `table` mode (inline `TableRow`). It also owns global keyboard nav (`j`/`k`/arrows to move selection, ⌘K to toggle the palette).
-- `Inspector` resolves the selected exchange and renders a `ContextBar` plus tabs: Bodies/Stream, optional Pairs (Elasticsearch/OpenSearch bulk ops, gated by `protocol/showPairsTab`), Req headers, Res headers, Timing. `BodySplit` shows request vs. response panes; for `text/event-stream` responses it picks `ChatStreamView` (Anthropic protocol) or the generic `StreamView`.
+- `AppShell` — `TopBar` / `FilterBar` / resizable [`ExchangeList` | `Inspector`] / `StatusBar` / `CommandPalette`. The resizable divider between list and inspector supports double-click to reset the list pane to its default width for the current `listMode`.
+- `ExchangeList` derives the visible list each render: map `ids` → exchanges, filter via `matchesFilter`, reverse for `newest`. It renders rows through `@tanstack/react-virtual` (only visible rows in DOM) in either `rows` mode (`ExchangeListItem`) or `table` mode (inline `TableRow`). Row timestamps are displayed as live relative times via `useRelativeTime`. It also owns global keyboard nav (`j`/`k`/arrows to move selection, ⌘K to toggle the palette).
+- `Inspector` resolves the selected exchange and renders a `ContextBar` plus tabs: Bodies/Stream, optional Pairs (Elasticsearch/OpenSearch bulk ops, gated by `protocol/showPairsTab`), a unified **Headers** tab (request and response headers side-by-side via `HeadersSplit`), and Timing. `BodySplit` shows request vs. response panes; for `text/event-stream` responses it picks `ChatStreamView` (Anthropic protocol) or the generic `StreamView`. `StreamView` uses `LiveIndicator` for a three-state (live / paused / complete) stream status badge.
+- `CommandPalette` (⌘K) provides commands only — dark mode toggle, list mode, order, density. It no longer lists individual exchanges.
 
 ### 6. Body decoding (`body/` + `hooks/`)
 
@@ -133,7 +134,8 @@ Rendering a body never touches raw chunks directly — it goes through the decod
 ## Architectural patterns
 
 - **Store-as-reducer.** The domain mutation lives in a pure function (`apply`) that the store action (`applyEvent`) wraps with copy-on-write. The pure core is testable without React; the store is a thin shell over it.
-- **Pure helpers over hooks.** Formatting, classification, URI parsing, filtering, and trace coloring live as pure functions in `lib/utils.ts`; theming logic (DOM mutation, persistence, initial resolution) lives in `theme/applyTheme.ts`. These are unit-tested directly. Components stay thin.
+- **Pure helpers over hooks.** Formatting, classification, URI parsing, filtering, trace coloring, header masking/sorting, and SSE event badge classification live as pure functions in `lib/utils.ts`; theming logic (DOM mutation, persistence, initial resolution) lives in `theme/applyTheme.ts`. These are unit-tested directly. Components stay thin.
+- **Shared tick source.** `lib/tickSource.ts` is a module-level singleton that fires a 1 Hz interval only while there are subscribers. `useRelativeTime` subscribes to it to drive live relative-time displays without each component owning its own `setInterval`.
 - **Derive, don't store, the visible list.** `selectedId`/`filter`/`order` are stored; the filtered+ordered exchange array is recomputed each render in both `ExchangeList` and `Inspector` (they intentionally mirror the same derivation).
 - **Virtualized lists.** `@tanstack/react-virtual` backs both the exchange list and the JSON viewer; the `react-hooks/incompatible-library` lint suppressions are intentional (see Libraries note).
 - **shadcn/ui primitives.** `components/ui/` holds shadcn-generated Radix/cmdk wrappers (`components.json`, new-york style, lucide icons). Treat them as vendored primitives; app-specific composition lives in `components/`. Coverage and some lint conventions treat `components/ui/**` as generated.
@@ -145,15 +147,16 @@ Rendering a body never touches raw chunks directly — it goes through the decod
 ```
 ui/
   src/
-    api/            # Backend access. info.ts (fetchInfo, /info, Info type); sse.ts (subscribeToEvents, EventSource, ConnectionStatus)
+    api/            # Backend access. info.ts (fetchInfo, /info, Info type); sse.ts (subscribeToEvents, EventSource, ConnectionStatus; emits postMessage to parent on connect/disconnect)
     body/           # Pure body decoding. decode.ts (chunks→bytes→decompress→classify json/jsonl/text/binary); sse.ts (parseSSEBody, chunksToText)
     anthropic/      # transcript.ts — folds an SSE event stream into an Anthropic chat transcript summary
     state/          # store.ts (Zustand store + persist middleware + UI state + dev __test_store); reducer.ts (pure apply(), Exchange/BodyState shapes)
     protocol/       # index.ts — protocol-aware UI gating; showPairsTab() (ES/OpenSearch bulk ops only)
-    hooks/          # useDecodeBody.ts — async decode-on-complete hook used by BodyPane
-    lib/            # utils.ts — pure helpers: cn, formatSize, status/method class mappers, traceColor, formatTime, matchesFilter, splitUri, parseQueryParams, shortenTraceId, isBulkOperation
+    hooks/          # useDecodeBody.ts — async decode-on-complete hook used by BodyPane; useRelativeTime.ts — live relative-time display backed by tickSource
+    lib/            # utils.ts — pure helpers: cn, formatSize, status/method class mappers, traceColor, formatTime, formatRelative, matchesFilter, splitUri, parseQueryParams, shortenTraceId, isBulkOperation, eventTypeBadgeClass, maskHeaderValue, decodeBasicAuth, filterHeaders, sortHeadersByPin, PINNED_HEADER_NAMES
+                    # tickSource.ts — shared 1 Hz singleton interval (subscribe/unsubscribe); starts/stops automatically with subscriber count
     theme/          # tailwind.css (@theme tokens + dark variant); applyTheme.ts (applyThemeToDOM)
-    components/     # App components (AppShell, TopBar, FilterBar, ExchangeList, ExchangeListItem, Inspector, ContextBar, BodySplit, BodyPane, StreamView, JsonViewer, TimingView, StatusBar, CommandPalette, CopyButton)
+    components/     # App components (AppShell, TopBar, FilterBar, ExchangeList, ExchangeListItem, Inspector, ContextBar, BodySplit, BodyPane, StreamView, LiveIndicator, HeadersSplit, HeadersPane, JsonViewer, TimingView, StatusBar, CommandPalette, CopyButton)
       ui/           # shadcn/ui primitives (Radix/cmdk wrappers): button, dialog, popover, tabs, tooltip, dropdown-menu, command, scroll-area, separator + EmptyState, MethodBadge
       anthropic/    # ChatStreamView.tsx — Anthropic SSE/chat-transcript renderer
     test/           # setup.ts (jest-dom for jsdom project); fixtures.ts (shared EventMessage builders)
@@ -187,3 +190,5 @@ Three tiers, with Vitest auto-selecting its project by file extension:
 | Browser   | `browser/*.spec.ts`        | Playwright       | chromium — rendering/layout/interaction through the real DOM + store    |
 
 The browser suite is **not** full-stack e2e: it injects `EventMessage`s straight into the store via `window.__test_store` (`browser/helpers/inject.ts`) and stubs `/info` and `/service/.../events` with `page.route`, so the real `EventSource` path is not exercised. Shared `EventMessage` fixtures live in `src/test/fixtures.ts` and are re-exported to `browser/fixtures/exchanges.ts`. Coverage thresholds are floored in `vitest.config.ts` (ratchet up, never down); `components/ui/**`, `theme/**`, `main.tsx`/`App.tsx`, and the test dirs are excluded.
+
+`browser/a11y.spec.ts` runs an `@axe-core/playwright` axe scan on both the empty page and with an exchange selected. The scan is a **hard-fail** — any axe violation fails the test. Violations are also recorded as `testInfo.annotations` (HTML report) and attached as JSON for triage.

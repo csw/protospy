@@ -103,7 +103,7 @@ Vitest auto-selects the project from file extension. **Any module that touches `
 
 `@testing-library/jest-dom@^6` matchers are auto-imported via `src/test/setup.ts` for the `jsdom` project — use `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, etc. instead of raw DOM querying.
 
-`browser/a11y.spec.ts` runs an `@axe-core/playwright` scan on the empty page and on the inspector with an exchange selected. It currently **soft-fails** — violations are recorded as `testInfo.annotations` (visible in the HTML report, silent with `--reporter=dot`) and attached as JSON, but the test passes regardless. Triage the logged violations before promoting to a hard-fail by swapping the array-typecheck for `expect(violations).toEqual([])` in that spec.
+`browser/a11y.spec.ts` runs an `@axe-core/playwright` scan on the empty page and on the inspector with an exchange selected. It is a **hard-fail** — any axe violation fails the test. Violations are also recorded as `testInfo.annotations` (visible in the HTML report, silent with `--reporter=dot`) and attached as JSON for triage detail.
 
 ### Browser test scope and framing
 
