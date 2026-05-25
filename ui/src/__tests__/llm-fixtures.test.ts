@@ -44,6 +44,8 @@ describe("LLM SSE fixture corpus", () => {
   });
 
   it("includes all 23 corpus-spec scenarios in the aggregate", () => {
+    // A2b is a companion to A2, not one of the 23 numbered scenarios — exclude
+    // it from the count by filtering to plain `A\d+` IDs.
     const expected =
       EXPECTED_ANTHROPIC_IDS.filter((id) => /^A\d+$/.test(id)).length +
       EXPECTED_OPENAI_CHAT_IDS.length +
@@ -64,7 +66,7 @@ describe("LLM SSE fixture corpus", () => {
     for (const { fixture } of LLM_SSE_FIXTURE_CORPUS) {
       expect(fixture.id).toMatch(/^[A-Z]\d+[a-z]?$/);
       expect(fixture.description.length).toBeGreaterThan(0);
-      expect(fixture.request).not.toBeNull();
+      expect(fixture.request).toMatchObject({ stream: true });
       expect(fixture.events.length).toBeGreaterThan(0);
     }
   });
