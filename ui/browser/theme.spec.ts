@@ -6,9 +6,13 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
-    route.fulfill({ contentType: "text/event-stream", body: "" }),
-  );
+  await page.route("**/service/test-backend", async () => {
+    // Park the SSE connection: never fulfill, so EventSource stays in
+    // CONNECTING and the reconnect cycle never fires. This prevents the
+    // reconnect logic from overwriting store state that tests set manually
+    // (e.g. test 4.2 sets connection: "open" via the store).
+    await new Promise<void>(() => {});
+  });
   await page.goto("/");
   await waitForStore(page);
   await resetStore(page);
