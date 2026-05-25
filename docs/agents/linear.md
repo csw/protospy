@@ -6,25 +6,25 @@ The `linear` CLI is available and authenticated via `LINEAR_API_KEY`; invoke it 
 
 For full CLI documentation, invoke the `linear-cli` skill.
 
-## Read-only access — what you can and cannot do
+## What you can and cannot do
 
-The CLI is configured with **read-only access**. You can look up issue
-details but you cannot create, update, or close issues via the API.
+The CLI has **read-write access**. You can look up and update issues.
 
-Do not attempt `linear issue update`, `linear issue create`, or any
-write operation. They will fail with a scope error.
+**Do:**
+- Move an issue to In Progress when you start working on it:
+  `linear issue update PRO-NNN --state "In Progress"`
+- Add comments to issues when you have useful context to record
+- Look up issue details, branch names, status
 
-**To close or update an issue**: link your work via commit messages or
-PR descriptions (see "Linking work to issues" below). Linear's GitHub
-integration handles status transitions automatically — branch push
-moves issues to In Progress, merge moves them to Done.
-
-**To create a new issue**: use `/pm:capture` with a short description.
-This routes through the project's PM agent, which handles labeling,
-project assignment, deduplication, and ticket shaping. Use this for
-separate discoveries (a bug you stumbled across, a missing test, a new
-issue) — not for scope questions about your current task, which should
-go to the user interactively.
+**Don't:**
+- Close issues or move them to Done. Let the GitHub integration handle
+  that on PR merge (see "Linking work to issues" below).
+- Create issues directly. Use `/pm:capture` with a short description —
+  this routes through the PM agent for labeling, deduplication, and
+  ticket shaping. Use it for separate discoveries (a bug you stumbled
+  across, a missing test, a new issue) — not for scope questions about
+  your current task, which should go to the user interactively.
+- Change labels, priority, or project assignment without being asked.
 
 ## Branch naming
 
