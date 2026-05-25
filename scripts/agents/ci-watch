@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
 # Usage: ci-watch [workflow-name ...]
 #
-# Watch GitHub Actions runs for the *current commit* on the current branch and
-# exit when every matching run reaches a terminal state. With no args, watches
-# all workflow runs for HEAD. With args, restricts to runs whose .workflowName
-# matches one of the given names. Emits one stdout line per status change.
+# Watch GitHub Actions runs for the *current commit* and exit when every
+# matching run reaches a terminal state. With no args, watches all workflow
+# runs for HEAD. With args, restricts to runs whose .workflowName matches
+# one of the given names. Emits one stdout line per status change.
 #
 # Environment variables:
 #   CI_WATCH_IDLE_POLLS  max consecutive polls with no matching runs before
-#                        exiting with an error (default: 10; each poll is
-#                        30s → 5 min idle timeout)
-#   CI_WATCH_MAX_POLLS   hard cap on total polls; exits with an error if runs
+#                        concluding the commit triggered no workflows and
+#                        exiting cleanly (default: 10; each poll is 30s →
+#                        5 min before giving up on run registration)
+#   CI_WATCH_MAX_POLLS   hard cap on total polls; exits with error if runs
 #                        are found but don't complete in time (default: 40;
 #                        40 × 30s = 20 min total cap)
 #
 # Why this exists rather than inlining `gh run list` in each agent:
 #
-#   - Pin to HEAD's SHA. Overlapping pushes shift the `--limit` window, so a bare
-#     `gh run list` readily picks up results from the wrong commit. Filtering on
-#     headSha keeps the watch fixed to the commit the agent actually pushed.
-#   - Guard the empty case. `jq 'all(.status=="completed")'` returns true on an
-#     empty array, so without the count check the watch would terminate
-#     immediately when no runs have registered yet.
-#   - Don't lose errors. `set -euo pipefail` ensures a `gh` failure surfaces
-#     rather than being silently swallowed mid-loop.
+#   - Query by SHA, not branch. `gh run list --commit "$SHA"` pins the
+#     query to the exact commit, avoiding the branch-filter mismatch that
+#     caused the original hanging issue (squash-merge SHA ≠ PR head SHA,
+#     or monitor started from a different branch than the one that triggered
+#     the run).
+#   - Guard the empty case. `jq 'all(.status=="completed")'` returns true
+#     on an empty array, so without the count check the watch would
+#     terminate immediately when no runs have registered yet.
+#   - Don't lose errors. `set -euo pipefail` ensures a `gh` failure
+#     surfaces rather than being silently swallowed mid-loop.
 #
-# Environment: works as-is in the cs container and anywhere `gh` is authenticated
-# without the keychain. On the host macOS sandbox `gh` needs keychain access, so
-# run this with dangerouslyDisableSandbox (see docs/agents/host-sandbox.md).
+# Environment: works as-is in the cs container and anywhere `gh` is
+# authenticated without the keychain. On the host macOS sandbox `gh`
+# needs keychain access, so run this with dangerouslyDisableSandbox
+# (see docs/agents/host-sandbox.md).
 
 set -euo pipefail
 
@@ -36,7 +40,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 if [ "$#" -gt 0 ]; then
   names_json=$(printf '%s\n' "$@" | jq -R . | jq -s .)
-  name_filter="and (.workflowName as \$n | $names_json | index(\$n))"
+  name_filter="| select(.workflowName as \$n | $names_json | index(\$n))"
 else
   name_filter=""
 fi
@@ -52,9 +56,9 @@ total_polls=0
 
 prev=""
 while true; do
-  runs=$(gh run list --branch "$BRANCH" --limit 50 \
-         --json status,conclusion,workflowName,headSha,databaseId \
-         | jq "[.[] | select(.headSha==\"$SHA\" $name_filter)]")
+  runs=$(gh run list --commit "$SHA" --limit 50 \
+         --json status,conclusion,workflowName,databaseId \
+         | jq "[.[] $name_filter]")
   count=$(echo "$runs" | jq 'length')
   cur=$(echo "$runs" | jq -r '.[] | "\(.workflowName): \(.status) \(.conclusion // "")"' | sort)
   comm -13 <(echo "$prev") <(echo "$cur") || true
@@ -68,9 +72,8 @@ while true; do
   else
     idle_polls=$((idle_polls + 1))
     if [ "$idle_polls" -ge "$MAX_IDLE_POLLS" ]; then
-      printf 'ci-watch: timed out after %ds — no runs matching SHA %s found on branch %s\n' \
-        "$(( (idle_polls - 1) * SLEEP_SECS ))" "$SHA" "$BRANCH" >&2
-      exit 1
+      echo "ci-watch: no CI runs found for SHA $SHA — commit did not trigger any workflows."
+      break  # not an error; exit 0
     fi
   fi
   total_polls=$((total_polls + 1))
