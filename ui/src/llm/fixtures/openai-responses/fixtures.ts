@@ -32,6 +32,16 @@ function baseResponse(
     created_at: CREATED_AT,
     model: MODEL,
     output: [],
+    output_text: "",
+    error: null,
+    incomplete_details: null,
+    instructions: null,
+    metadata: null,
+    parallel_tool_calls: true,
+    temperature: null,
+    tool_choice: "auto",
+    tools: [],
+    top_p: null,
     ...partial,
   };
 }
@@ -104,6 +114,7 @@ export const R1_PLAIN_TEXT: OpenAIResponsesFixture = {
         output_index: 0,
         content_index: 0,
         delta: "Hi",
+        logprobs: [],
       },
     },
     {
@@ -115,6 +126,7 @@ export const R1_PLAIN_TEXT: OpenAIResponsesFixture = {
         output_index: 0,
         content_index: 0,
         delta: " there.",
+        logprobs: [],
       },
     },
     {
@@ -126,6 +138,7 @@ export const R1_PLAIN_TEXT: OpenAIResponsesFixture = {
         output_index: 0,
         content_index: 0,
         text: "Hi there.",
+        logprobs: [],
       },
     },
     {
@@ -233,6 +246,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
           id: "ws_R2",
           type: "web_search_call",
           status: "in_progress",
+          action: { type: "search", query: "2024 World Series winner" },
         },
       },
     },
@@ -312,6 +326,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         delta: "The Los Angeles Dodgers.",
+        logprobs: [],
       },
     },
     {
@@ -323,6 +338,7 @@ export const R2_WEB_SEARCH: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         text: "The Los Angeles Dodgers.",
+        logprobs: [],
       },
     },
     {
@@ -492,6 +508,7 @@ export const R3_FUNCTION_CALL: OpenAIResponsesFixture = {
         sequence_number: 5,
         item_id: "fc_R3",
         output_index: 0,
+        name: "search_movies",
         arguments: '{"query":"action"}',
       },
     },
@@ -586,6 +603,9 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
           id: "ci_R4",
           type: "code_interpreter_call",
           status: "in_progress",
+          code: null,
+          container_id: "container_R4",
+          outputs: null,
         },
       },
     },
@@ -648,6 +668,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
           type: "code_interpreter_call",
           status: "completed",
           code: "result = 17 * 23\nprint(result)\n",
+          container_id: "container_R4",
           outputs: [{ type: "logs", logs: "391\n" }],
         },
       },
@@ -687,6 +708,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         delta: "17 * 23 = 391.",
+        logprobs: [],
       },
     },
     {
@@ -698,6 +720,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         text: "17 * 23 = 391.",
+        logprobs: [],
       },
     },
     {
@@ -746,6 +769,7 @@ export const R4_CODE_INTERPRETER: OpenAIResponsesFixture = {
               type: "code_interpreter_call",
               status: "completed",
               code: "result = 17 * 23\nprint(result)\n",
+              container_id: "container_R4",
               outputs: [{ type: "logs", logs: "391\n" }],
             },
             {
@@ -921,6 +945,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         delta: "They meet at 2pm.",
+        logprobs: [],
       },
     },
     {
@@ -932,6 +957,7 @@ export const R5_REASONING: OpenAIResponsesFixture = {
         output_index: 1,
         content_index: 0,
         text: "They meet at 2pm.",
+        logprobs: [],
       },
     },
     {
@@ -1132,6 +1158,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
         output_index: 0,
         content_index: 0,
         delta: "Birds are warm-blooded vertebrates that have",
+        logprobs: [],
       },
     },
     {
@@ -1143,6 +1170,7 @@ export const R7_INCOMPLETE: OpenAIResponsesFixture = {
         output_index: 0,
         content_index: 0,
         text: "Birds are warm-blooded vertebrates that have",
+        logprobs: [],
       },
     },
     {
