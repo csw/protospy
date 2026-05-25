@@ -89,17 +89,14 @@ const configPath = resolve(uiDir, "vitest.config.ts");
 let config = readFileSync(configPath, "utf-8");
 
 function replaceThreshold(source: string, key: string, value: number): string {
-  const result = source.replace(
-    new RegExp(`(\\b${key}:\\s*)\\d+`),
-    `$1${value}`,
-  );
-  if (result === source) {
+  const pattern = new RegExp(`(\\b${key}:\\s*)\\d+`);
+  if (!pattern.test(source)) {
     throw new Error(
       `replaceThreshold: pattern for "${key}" did not match — ` +
         `vitest.config.ts may have been reformatted or restructured`,
     );
   }
-  return result;
+  return source.replace(pattern, `$1${value}`);
 }
 
 config = replaceThreshold(config, "statements", newThresholds.statements);
