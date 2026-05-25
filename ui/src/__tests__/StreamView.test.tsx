@@ -80,7 +80,7 @@ describe("StreamView — live indicator states", () => {
   it("shows 'complete' with gray dot when stream has ended", () => {
     render(<StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />);
     expect(screen.getByText("complete")).toBeInTheDocument();
-    const dot = screen.getByText("complete").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
     expect(dot).not.toHaveClass("bg-green-500");
     expect(dot).not.toHaveClass("bg-amber-500");
@@ -89,7 +89,7 @@ describe("StreamView — live indicator states", () => {
   it("shows 'live' with green pulsing dot when streaming and following", () => {
     render(<StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />);
     expect(screen.getByText("live")).toBeInTheDocument();
-    const dot = screen.getByText("live").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-green-500");
     expect(dot).toHaveClass("animate-pulse");
   });
@@ -99,7 +99,7 @@ describe("StreamView — live indicator states", () => {
     const scrollEl = screen.getByTestId("stream-scroll");
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
-    const dot = screen.getByText("paused").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-amber-500");
     expect(dot).not.toHaveClass("animate-pulse");
   });
@@ -140,7 +140,7 @@ describe("ChatStreamView — live indicator states", () => {
   it("shows 'complete' with gray dot when stream has ended", () => {
     render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, true)} />);
     expect(screen.getByText("complete")).toBeInTheDocument();
-    const dot = screen.getByText("complete").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
     expect(dot).not.toHaveClass("bg-green-500");
     expect(dot).not.toHaveClass("bg-amber-500");
@@ -149,7 +149,7 @@ describe("ChatStreamView — live indicator states", () => {
   it("shows 'live' with green pulsing dot when streaming and following", () => {
     render(<ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />);
     expect(screen.getByText("live")).toBeInTheDocument();
-    const dot = screen.getByText("live").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-green-500");
     expect(dot).toHaveClass("animate-pulse");
   });
@@ -159,7 +159,7 @@ describe("ChatStreamView — live indicator states", () => {
     const scrollEl = screen.getByTestId("stream-scroll");
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
-    const dot = screen.getByText("paused").previousElementSibling;
+    const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-amber-500");
     expect(dot).not.toHaveClass("animate-pulse");
   });

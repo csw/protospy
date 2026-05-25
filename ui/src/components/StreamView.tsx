@@ -80,6 +80,7 @@ export function StreamView({ exchange }: Props) {
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         <div className="flex items-center gap-1.5 shrink-0">
           <span
+            data-testid="indicator-dot"
             className={`inline-block w-[7px] h-[7px] rounded-full ${
               atEnd
                 ? "bg-mid"
