@@ -3,6 +3,8 @@
 `protospy` enforces code-quality checks at commit time via the pre-commit
 framework. All checks fire on `git commit` and are scoped to the
 subcomponents whose files are staged — only the components you touched run.
+This layer enforces quality gates for all commit paths — manual, tool-use,
+and subagent workflows.
 
 ## pre-commit framework
 
