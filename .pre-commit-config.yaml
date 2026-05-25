@@ -59,7 +59,7 @@ repos:
         files: ^flix/
         pass_filenames: false
       # Requires Elasticsearch running at localhost:9200 with the demo index
-      # loaded. If ES is unavailable, use SKIP=pytest-e2e-flix to bypass.
+      # loaded. If ES is down, the gate fails with a connection error.
       - id: pytest-e2e-flix
         name: pytest e2e (flix)
         entry: just flix test-e2e
@@ -92,11 +92,10 @@ repos:
         entry: bash -c 'cargo test export_bindings && ls bindings && git diff --exit-code bindings && [[ $(git ls-files --others --exclude-standard bindings | wc -l) -eq 0 ]]'
         language: system
         files: ^(src/|Cargo\.)
-      # Note: the ui hooks below use language: system and require pnpm with
-      # Linux-compatible node_modules (i.e. the cs container). Committing ui/
-      # files from the macOS host will fail these hooks. Use
-      # SKIP=prettier-ui,eslint-ui,pnpm-typecheck-ui,pnpm-test-coverage-ui,playwright-browser-ui
-      # or commit from inside the container.
+      # Note: the ui hooks below use language: system and depend on node_modules
+      # built for the host platform. Working trees must not be shared across
+      # Mac and Linux — each platform needs its own checkout with its own
+      # node_modules, or these hooks will fail.
       - id: prettier-ui
         name: prettier (ui)
         entry: bash -c 'cd ui && pnpm run format:check'
@@ -130,7 +129,6 @@ repos:
         files: ^ui/
         pass_filenames: false
       # Requires Playwright browsers (pnpm exec playwright install).
-      # Same Linux/cs-container constraint as the other ui hooks above.
       - id: playwright-browser-ui
         name: playwright browser tests (ui)
         entry: just ui test-browser

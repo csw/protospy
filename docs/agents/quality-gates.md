@@ -35,22 +35,17 @@ Two checks require external prerequisites:
   Playwright's own error message; install the browsers and retry.
 - **`just flix test-e2e`** (`pytest -m e2e`) requires a running Elasticsearch
   reachable at `localhost:9200` with the demo index loaded. If ES is
-  down, use `SKIP=pytest-e2e-flix git commit` to bypass just this hook;
-  surface the ES issue to the user if working interactively — agents cannot
-  start ES themselves.
+  down, the gate fails with a connection error — surface this to the user;
+  agents cannot start ES themselves.
 
-## Bypassing hooks
+## Mac/Linux working tree compatibility
 
-The whole gate layer is bypassable with `git commit --no-verify`. Individual
-hooks can be skipped by name: `SKIP=<hook-id> git commit` (e.g.
-`SKIP=pytest-e2e-flix git commit`). Use bypasses only for genuine
-environmental blockers, not to skip failing tests.
-
-The ui hooks use `language: system` and require pnpm with Linux-compatible
-`node_modules` (i.e. the `cs` container). Committing `ui/` files from the
-macOS host will fail those hooks; use
-`SKIP=prettier-ui,eslint-ui,pnpm-typecheck-ui,pnpm-test-coverage-ui,playwright-browser-ui`
-or commit from inside the container.
+The `ui/` hooks use `language: system` and depend on `node_modules` built for
+the host platform. A working tree whose `node_modules` was installed on one
+platform (macOS or Linux) will fail all `ui/` hooks on the other. The
+solution is to never share a working tree across platforms: each side should
+have its own checkout with its own `node_modules`. The same applies to Python
+virtual environments in `flix/` and `conformance/`.
 
 ## What to do when a gate blocks your commit
 
