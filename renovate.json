@@ -10,10 +10,10 @@
       "groupName": "npm dependencies"
     },
     {
-      "description": "Group all non-major uv/Python package updates",
-      "matchManagers": ["uv"],
+      "description": "Group all non-major Python package updates (pep621/pyproject.toml)",
+      "matchManagers": ["pep621"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "uv dependencies"
+      "groupName": "python dependencies"
     },
     {
       "description": "Group all non-major Cargo crate updates",
