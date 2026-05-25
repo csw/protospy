@@ -39,24 +39,28 @@ repos:
         entry: bash -c 'cd flix && uv run ruff check --fix .'
         language: system
         files: ^flix/
+        exclude: '\.md$'
         pass_filenames: false
       - id: ruff-format-flix
         name: ruff-format (flix)
         entry: bash -c 'cd flix && uv run ruff format .'
         language: system
         files: ^flix/
+        exclude: '\.md$'
         pass_filenames: false
       - id: pyright-flix
         name: pyright (flix)
         entry: bash -c 'cd flix && uv run pyright'
         language: system
         files: ^flix/
+        exclude: '\.md$'
         pass_filenames: false
       - id: pytest-unit-flix
         name: pytest unit (flix)
         entry: just flix test-unit
         language: system
         files: ^flix/
+        exclude: '\.md$'
         pass_filenames: false
       # Requires Elasticsearch running at localhost:9200 with the demo index
       # loaded. If ES is down, the gate fails with a connection error.
@@ -65,24 +69,28 @@ repos:
         entry: just flix test-e2e
         language: system
         files: ^flix/
+        exclude: '\.md$'
         pass_filenames: false
       - id: ruff-conformance
         name: ruff (conformance)
         entry: bash -c 'cd conformance && uv run ruff check --fix .'
         language: system
         files: ^conformance/
+        exclude: '\.md$'
         pass_filenames: false
       - id: ruff-format-conformance
         name: ruff-format (conformance)
         entry: bash -c 'cd conformance && uv run ruff format .'
         language: system
         files: ^conformance/
+        exclude: '\.md$'
         pass_filenames: false
       - id: pyright-conformance
         name: pyright (conformance)
         entry: bash -c 'cd conformance && uv run pyright'
         language: system
         files: ^conformance/
+        exclude: '\.md$'
         pass_filenames: false
       # Note: conformance tests require a live protospy instance plus managed
       # proxy infrastructure (caddy, haproxy) — not runnable in a cold
@@ -116,18 +124,21 @@ repos:
         entry: bash -c 'cd ui && pnpm run lint'
         language: system
         files: ^ui/
+        exclude: '\.md$'
         pass_filenames: false
       - id: pnpm-typecheck-ui
         name: pnpm typecheck (ui)
         entry: bash -c 'cd ui && pnpm run typecheck'
         language: system
         files: ^ui/
+        exclude: '\.md$'
         pass_filenames: false
       - id: pnpm-test-coverage-ui
         name: pnpm test:coverage (ui)
         entry: just ui test-coverage
         language: system
         files: ^ui/
+        exclude: '\.md$'
         pass_filenames: false
       # Requires Playwright browsers (pnpm exec playwright install).
       - id: playwright-browser-ui
@@ -135,4 +146,5 @@ repos:
         entry: just ui test-browser
         language: system
         files: ^ui/
+        exclude: '\.md$'
         pass_filenames: false
