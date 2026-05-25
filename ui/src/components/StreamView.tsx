@@ -81,11 +81,23 @@ export function StreamView({ exchange }: Props) {
         <div className="flex items-center gap-1.5 shrink-0">
           <span
             className={`inline-block w-[7px] h-[7px] rounded-full ${
-              !atEnd ? "bg-green-500 animate-pulse" : "bg-mid"
+              atEnd
+                ? "bg-mid"
+                : isFollowing
+                  ? "bg-green-500 animate-pulse"
+                  : "bg-amber-500"
             }`}
           />
-          <span className={`text-xs ${!atEnd ? "text-green-500" : "text-mid"}`}>
-            {!atEnd ? "live" : "complete"}
+          <span
+            className={`text-xs ${
+              atEnd
+                ? "text-mid"
+                : isFollowing
+                  ? "text-green-500"
+                  : "text-amber-500"
+            }`}
+          >
+            {atEnd ? "complete" : isFollowing ? "live" : "paused"}
           </span>
         </div>
         <span className="ml-auto text-xs text-dim font-family-mono">
@@ -96,6 +108,7 @@ export function StreamView({ exchange }: Props) {
       <div className="relative flex flex-col flex-1 overflow-hidden">
         <div
           ref={scrollRef}
+          data-testid="stream-scroll"
           className="flex flex-col flex-1 overflow-auto"
           onScroll={handleScroll}
         >

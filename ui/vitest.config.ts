@@ -30,10 +30,10 @@ export default defineConfig({
       // Floor ratcheted after PRO-183 HeadersSplit component tests (statements
       // 66.22%, branches 52.24%, functions 55.08%, lines 69.09%) with a ~1% margin.
       thresholds: {
-        statements: 66,
-        branches: 52,
+        statements: 67,
+        branches: 54,
         functions: 55,
-        lines: 69,
+        lines: 70,
       },
     },
     projects: [
