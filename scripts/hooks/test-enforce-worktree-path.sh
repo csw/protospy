@@ -42,6 +42,15 @@ assert_jq() {
   assert_eq "$label" "$expected" "$actual"
 }
 
+assert_valid_json() {
+  local label="$1" json="$2"
+  if echo "$json" | jq . >/dev/null 2>&1; then
+    pass "$label"
+  else
+    fail "$label — output is not valid JSON: $(echo "$json" | head -3)"
+  fi
+}
+
 run_hook() {
   local input="$1"
   echo "$input" | bash "$REPO_DIR/$HOOK" 2>/dev/null || true
@@ -49,17 +58,17 @@ run_hook() {
 
 # ── setup: temporary git repo ─────────────────────────────────────────────
 
-TMPDIR=$(mktemp -d)
-REPO_DIR="$TMPDIR/repo"
-trap 'rm -rf "$TMPDIR"' EXIT
+TEST_ROOT=$(mktemp -d)
+REPO_DIR="$TEST_ROOT/repo"
+trap 'rm -rf "$TEST_ROOT"' EXIT
 
 mkdir -p "$REPO_DIR"
 
 # Bare "remote" repo (origin)
-ORIGIN_DIR="$TMPDIR/origin.git"
+ORIGIN_DIR="$TEST_ROOT/origin.git"
 git init -q --bare "$ORIGIN_DIR"
 # Seed origin with a commit on main
-SEED_DIR="$TMPDIR/seed"
+SEED_DIR="$TEST_ROOT/seed"
 git init -q "$SEED_DIR"
 git -C "$SEED_DIR" commit --allow-empty -q -m "init"
 git -C "$SEED_DIR" remote add origin "$ORIGIN_DIR"
@@ -96,6 +105,7 @@ assert_jq "bad path → deny decision" \
 
 # 5. Name without slashes → creates worktree, rewrites to path
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"my-feature"}}')
+assert_valid_json "simple name → stdout is valid JSON" "$OUT"
 assert_jq "simple name → updatedInput present" \
   '.hookSpecificOutput.updatedInput.path' ".worktrees/my-feature" "$OUT"
 assert_jq "simple name → updatedInput has no name key" \
@@ -103,10 +113,17 @@ assert_jq "simple name → updatedInput has no name key" \
 [[ -d ".worktrees/my-feature" ]] && pass "simple name → worktree dir created" \
   || fail "simple name → worktree dir NOT created"
 
+# 5b. Idempotency: calling with the same name again reuses the existing worktree
+OUT2=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"my-feature"}}')
+assert_valid_json "simple name (repeat) → stdout is valid JSON" "$OUT2"
+assert_jq "simple name (repeat) → same path returned" \
+  '.hookSpecificOutput.updatedInput.path' ".worktrees/my-feature" "$OUT2"
+
 # 6. Name WITH slashes (the bug): should sanitize, not silently fail
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"feature/pro-189-fix-test-regressions"}}')
+assert_valid_json "slashed name → stdout is valid JSON" "$OUT"
 REWRITTEN_PATH=$(echo "$OUT" | jq -r '.hookSpecificOutput.updatedInput.path' 2>/dev/null || echo "")
-assert_jq "slashed name → updatedInput present (not empty)" \
+assert_jq "slashed name → updatedInput present" \
   '.hookSpecificOutput | has("updatedInput")' "true" "$OUT"
 # Path must not contain slashes below .worktrees/
 SUFFIX="${REWRITTEN_PATH#.worktrees/}"
@@ -115,14 +132,13 @@ if [[ -n "$SUFFIX" ]] && [[ "$SUFFIX" != */* ]]; then
 else
   fail "slashed name → path not flat: '$REWRITTEN_PATH'"
 fi
-if [[ -n "$REWRITTEN_PATH" ]] && [[ -d "$REWRITTEN_PATH" ]]; then
-  pass "slashed name → worktree dir created"
-else
-  fail "slashed name → worktree dir NOT created (path='$REWRITTEN_PATH')"
-fi
+[[ -n "$REWRITTEN_PATH" ]] && [[ -d "$REWRITTEN_PATH" ]] \
+  && pass "slashed name → worktree dir created" \
+  || fail "slashed name → worktree dir NOT created (path='$REWRITTEN_PATH')"
 
 # 7. Empty name → generates timestamped fallback, rewrites to path
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{}}')
+assert_valid_json "empty name → stdout is valid JSON" "$OUT"
 assert_jq "empty name → updatedInput present" \
   '.hookSpecificOutput | has("updatedInput")' "true" "$OUT"
 GEN_PATH=$(echo "$OUT" | jq -r '.hookSpecificOutput.updatedInput.path' 2>/dev/null || echo "")
