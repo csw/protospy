@@ -27,7 +27,7 @@ jobs:
           # Need a token with write access to push the commit
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: ui/package.json
 
@@ -43,17 +43,13 @@ jobs:
         run: |
           pnpm run coverage:ratchet -- --margin ${{ inputs.margin || '4' }}
 
-      - name: Commit updated thresholds
+      - name: Commit and push if thresholds changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git diff --exit-code ui/vitest.config.ts || (
             git add ui/vitest.config.ts &&
-            git commit -m "chore(ui): ratchet coverage thresholds [skip ci]"
+            git commit -m "chore(ui): ratchet coverage thresholds [skip ci]" &&
+            git push
           )
         working-directory: ${{ github.workspace }}
-
-      - name: Push changes
-        run: git push
-        working-directory: ${{ github.workspace }}
-        if: success()

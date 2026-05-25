@@ -67,10 +67,10 @@ try {
 const { statements, branches, functions, lines } = summary.total;
 
 const newThresholds = {
-  statements: Math.floor(statements.pct - margin),
-  branches: Math.floor(branches.pct - margin),
-  functions: Math.floor(functions.pct - margin),
-  lines: Math.floor(lines.pct - margin),
+  statements: Math.max(0, Math.floor(statements.pct - margin)),
+  branches: Math.max(0, Math.floor(branches.pct - margin)),
+  functions: Math.max(0, Math.floor(functions.pct - margin)),
+  lines: Math.max(0, Math.floor(lines.pct - margin)),
 };
 
 console.log("\nActual coverage:");
@@ -89,7 +89,17 @@ const configPath = resolve(uiDir, "vitest.config.ts");
 let config = readFileSync(configPath, "utf-8");
 
 function replaceThreshold(source: string, key: string, value: number): string {
-  return source.replace(new RegExp(`(\\b${key}:\\s*)\\d+`), `$1${value}`);
+  const result = source.replace(
+    new RegExp(`(\\b${key}:\\s*)\\d+`),
+    `$1${value}`,
+  );
+  if (result === source) {
+    throw new Error(
+      `replaceThreshold: pattern for "${key}" did not match — ` +
+        `vitest.config.ts may have been reformatted or restructured`,
+    );
+  }
+  return result;
 }
 
 config = replaceThreshold(config, "statements", newThresholds.statements);
