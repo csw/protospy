@@ -1,20 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
 
-// Use Node's built-in brotli in the test environment. brotli-dec-wasm loads a
-// WASM binary via fetch(new URL(..., import.meta.url)) which doesn't work for
-// file:// URLs in Node 22. We mock the module to keep the coverage real: the
-// full decodeBody pipeline is exercised; only the decompressor is swapped out.
-vi.mock("brotli-dec-wasm", async () => {
-  const zlib = await import("node:zlib");
-  return {
-    default: Promise.resolve({
-      decompress: (data: Uint8Array): Uint8Array =>
-        new Uint8Array(zlib.brotliDecompressSync(Buffer.from(data))),
-    }),
-  };
-});
+// Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
+// the Vitest node project config. That wrapper uses initSync() + readFileSync()
+// to load the real WASM binary in Node, so these tests exercise the actual
+// brotli-dec-wasm decompressor — not a mock. See vitest.config.ts for details.
 
 // Base64-encoded gzip of an Elasticsearch cluster info response
 // from docs/examples/e1-response.json
