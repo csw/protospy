@@ -53,12 +53,11 @@ For the deep reference (full module roles, fixture wiring, channel taxonomy, sou
 - `src/proxy_conformance/` — installable harness package:
   - `targets.py` (`MANAGED_PROXIES`, `ALL_PROXIES`, `PROXY_FAMILIES`, `proxy_family()`)
   - `types.py` (`RequestSpec`, `TargetExpectation`, `ClientExpectation`, `HeaderExpectation`, `ProxyQuirk`, `ProxyTestCase`, `assert_proxy_test_case`, `apply_quirk`, `send_expecting_error`, `ProbeResult`)
-  - `captured.py` (`CapturedRequest` shared by good/wire servers)
   - `good_server.py`, `wire_server.py`, `h2c_server.py`, `grpc_server.py` (target servers; each has a `_cli` for standalone debug)
   - `h11_client.py` (`send_incomplete_chunked_request`, `send_with_expect_continue`)
   - `net.py` (`PortAllocator`, `worker_base_port`, `find_free_port`)
-  - `httpx_util.py` (curl-`v` style dump + `--show-http` hooks), `request_logging.py` (shared one-line log)
   - `proto/` (Echo `echo.proto` + generated `echo_pb2`/`echo_pb2_grpc`)
+  - small helpers: `captured.py` (shared `CapturedRequest`), `httpx_util.py` (curl-`v` dump + `--show-http` hooks), `request_logging.py` (one-line request log)
 - `tests/conftest.py` — `pytest_addoption`, `pytest_generate_tests`, `pytest_collection_modifyitems` (xdist grouping), `check_xfail_for`, `protospy_binary`, target-server + `proxy` + `client` fixtures, `Findings`, `_protospy_output_capture`
 - `tests/proxies.py` — proxy subprocess start helpers + `ProxyUrls`/`ProxyConfig`/`ProxyEntry`
 - `tests/test_assertions.py`, `tests/test_good_server.py` — infra unit tests (no proxy)

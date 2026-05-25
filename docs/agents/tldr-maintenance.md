@@ -38,9 +38,11 @@ otherwise.
 > 2. `<SUB>/ARCHITECTURE.md`.
 > 3. The `## Architecture` section of `<SUB>/README.md`.
 >
-> If any of 2 or 3 disagree with the code, surface that as a separate finding
-> — do not silently paper over it in the TL;DR. Fix the deep doc first, then
-> re-derive.
+> If any of 2 or 3 disagree with the code, **stop**. Surface the disagreement
+> as a separate finding and wait for it to be resolved before touching the
+> TL;DR — do not silently paper it over by re-deriving from whichever source
+> happens to be convenient. Fix the deep doc (and `README.md` if relevant)
+> first; then re-run this prompt to refresh the TL;DR.
 >
 > The TL;DR must cover, in this order, and stay under \~60 lines of
 > CLAUDE.md body:
