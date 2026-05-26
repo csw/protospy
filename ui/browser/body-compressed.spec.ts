@@ -9,7 +9,7 @@
  *   gzip     → body-gzip.spec.ts (separate file, pre-existing)
  *   deflate  → this file
  *   br       → this file (uses brotli-dec-wasm WASM in real Chromium)
- *   zstd     → add here when PRO-207 (zstd decompression) lands
+ *   zstd     → this file (uses @bokuweb/zstd-wasm WASM in real Chromium)
  */
 
 import { test, expect } from "@playwright/test";
@@ -22,10 +22,11 @@ import { makeGetRequest, makeEncodedJsonResponse } from "./fixtures/exchanges";
 // {"items":[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]}
 //
 // All fixtures below compress this same JSON so the assertions are uniform.
-// Regenerate with Node:
+// Regenerate with Node 22+:
 //   const p = JSON.stringify({items:[{id:1,name:"alpha"},{id:2,name:"beta"}]});
 //   zlib.deflateSync(Buffer.from(p)).toString("base64")
 //   zlib.brotliCompressSync(Buffer.from(p)).toString("base64")
+//   zlib.zstdCompressSync(Buffer.from(p)).toString("base64")
 // ---------------------------------------------------------------------------
 
 const DEFLATE_BASE64 =
@@ -35,6 +36,10 @@ const DEFLATE_BYTES = 54;
 const BROTLI_BASE64 =
   "ixyAeyJpdGVtcyI6W3siaWQiOjEsIm5hbWUiOiJhbHBoYSJ9LHsiaWQiOjIsIm5hbWUiOiJiZXRhIn1dfQM=";
 const BROTLI_BYTES = 62;
+
+const ZSTD_BASE64 =
+  "KLUv/SA6pQEAtAJ7Iml0ZW1zIjpbeyJpZCI6MSwibmFtZSI6ImFscGhhIn0sMmJldGEifV19AgCgCO0wnw==";
+const ZSTD_BYTES = 61;
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -89,6 +94,33 @@ test.describe("Inspector — brotli-compressed JSON body", () => {
     ]);
 
     await page.getByText("/api/brotli").first().click();
+
+    await expect(page.getByLabel("JSON viewer")).toBeVisible();
+    await expect(page.getByText('"items"').first()).toBeVisible();
+    await expect(page.getByText('"alpha"').first()).toBeVisible();
+    await expect(page.getByText('"beta"').first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// zstd
+//
+// This test exercises @bokuweb/zstd-wasm (the WASM decompressor) running in
+// a real Chromium browser. The package's browser entry loads the 248 KB WASM
+// binary via `new URL('./zstd.wasm', import.meta.url)` — the same Vite-native
+// WASM loading pattern used by brotli-dec-wasm. This is the primary parity
+// check between the Node unit tests (which use the package's "node" condition
+// CJS entry with readFile) and the actual browser code path.
+// ---------------------------------------------------------------------------
+
+test.describe("Inspector — zstd-compressed JSON body", () => {
+  test("Bodies tab shows the decoded JSON content", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/zstd"),
+      makeEncodedJsonResponse(1, ZSTD_BASE64, ZSTD_BYTES, "zstd"),
+    ]);
+
+    await page.getByText("/api/zstd").first().click();
 
     await expect(page.getByLabel("JSON viewer")).toBeVisible();
     await expect(page.getByText('"items"').first()).toBeVisible();

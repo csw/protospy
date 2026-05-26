@@ -23,6 +23,7 @@
     "coverage:ratchet": "tsx scripts/ratchet-coverage.ts"
   },
   "dependencies": {
+    "@bokuweb/zstd-wasm": "^0.0.27",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@tanstack/react-virtual": "^3.13.24",
