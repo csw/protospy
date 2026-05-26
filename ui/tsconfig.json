@@ -19,7 +19,8 @@
       "@bindings/*": ["../bindings/*"],
       "@ui/*": ["./src/*"]
     },
-    "types": ["node"]
+    "types": []
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/test", "src/__tests__", "src/llm/fixtures"]
 }
