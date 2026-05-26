@@ -505,16 +505,6 @@
     timer = setTimeout(onTimeout, TIMEOUT_MS);
 
     window.addEventListener('message', function (event) {
-        try {
-            if (
-                !event.origin ||
-                new URL(event.origin).hostname !== window.location.hostname
-            ) {
-                return;
-            }
-        } catch (e) {
-            return;
-        }
         if (event.data === 'proxy_connected') {
             onConnected();
         }
