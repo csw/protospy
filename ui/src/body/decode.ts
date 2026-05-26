@@ -48,6 +48,25 @@ async function getBrotliDecompress(): Promise<
   return _brotliDecompress;
 }
 
+// Lazy singleton for the zstd WASM decompressor (@bokuweb/zstd-wasm).
+// Loaded on first use so the 248 KB WASM binary doesn't affect startup time.
+//
+// In Vitest's node project the package resolves via its "node" condition to a
+// CJS entry that uses `require('fs/promises').readFile` — no wrapper needed.
+// In the browser (Vite build / Playwright tests) the "browser" condition entry
+// is used, which loads the WASM via `new URL('./zstd.wasm', import.meta.url)`.
+// Browser tests therefore exercise the actual browser WASM code path and are
+// the primary parity check between test and production environments.
+let _zstdDecompress: ((data: Uint8Array) => Uint8Array) | null = null;
+
+async function getZstdDecompress(): Promise<(data: Uint8Array) => Uint8Array> {
+  if (_zstdDecompress) return _zstdDecompress;
+  const { init, decompress } = await import("@bokuweb/zstd-wasm");
+  await init();
+  _zstdDecompress = decompress;
+  return _zstdDecompress;
+}
+
 async function decompress(
   data: Uint8Array,
   encoding: string,
@@ -55,6 +74,11 @@ async function decompress(
   if (encoding === "br") {
     const brotliDecompress = await getBrotliDecompress();
     return brotliDecompress(data);
+  }
+
+  if (encoding === "zstd") {
+    const zstdDecompress = await getZstdDecompress();
+    return zstdDecompress(data);
   }
 
   let format: string;
@@ -116,7 +140,12 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
 
   // Step 2: Decompress if needed
   const encoding = contentEncoding?.toLowerCase();
-  if (encoding === "br" || encoding === "gzip" || encoding === "deflate") {
+  if (
+    encoding === "br" ||
+    encoding === "gzip" ||
+    encoding === "deflate" ||
+    encoding === "zstd"
+  ) {
     bytes = await decompress(bytes, encoding);
   }
 

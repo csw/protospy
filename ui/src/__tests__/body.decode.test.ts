@@ -6,6 +6,10 @@ import { decodeBody } from "@ui/body/decode";
 // the Vitest node project config. That wrapper uses initSync() + readFileSync()
 // to load the real WASM binary in Node, so these tests exercise the actual
 // brotli-dec-wasm decompressor — not a mock. See vitest.config.ts for details.
+//
+// '@bokuweb/zstd-wasm' does NOT need a wrapper: its "node" exports condition
+// points to a CJS entry that loads the WASM via require('fs/promises').readFile,
+// which works in Vitest's node environment directly.
 
 // Base64-encoded gzip of an Elasticsearch cluster info response
 // from docs/examples/e1-response.json
@@ -34,6 +38,17 @@ const BROTLI_JSON_BASE64 = "iwuAeyJoZWxsbyI6IndvcmxkIiwibiI6NDJ9Aw==";
 // Brotli-compressed "hello brotli world" plain text. Regenerate with Node:
 //   zlib.brotliCompressSync(Buffer.from("hello brotli world")).toString("base64");
 const BROTLI_TEXT_BASE64 = "iwiAaGVsbG8gYnJvdGxpIHdvcmxkAw==";
+
+// Base64-encoded zstd of `{"hello":"world","n":42}` (24 bytes UTF-8).
+// Regenerate with Node 22+:
+//   const json = JSON.stringify({hello: "world", n: 42});
+//   zlib.zstdCompressSync(Buffer.from(json)).toString("base64");
+const ZSTD_JSON_BASE64 = "KLUv/SAYwQAAeyJoZWxsbyI6IndvcmxkIiwibiI6NDJ9";
+
+// Zstd-compressed "hello zstd world" plain text (16 bytes UTF-8).
+// Regenerate with Node 22+:
+//   zlib.zstdCompressSync(Buffer.from("hello zstd world")).toString("base64");
+const ZSTD_TEXT_BASE64 = "KLUv/SAQgQAAaGVsbG8genN0ZCB3b3JsZA==";
 
 describe("decodeBody", () => {
   it("plain text body returns kind text with matching content", async () => {
@@ -156,6 +171,51 @@ describe("decodeBody", () => {
       totalBytes: 3,
       contentType: "text/plain",
       contentEncoding: "br",
+    };
+    await expect(decodeBody(body)).rejects.toThrow();
+  });
+
+  it("zstd-encoded JSON body decompresses and pretty-prints", async () => {
+    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    const body: BodyState = {
+      chunks: [{ binary: ZSTD_JSON_BASE64 }],
+      atEnd: true,
+      totalBytes: 24,
+      contentType: "application/json",
+      contentEncoding: "zstd",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.mediaType).toBe("application/json");
+    expect(result.size).toBe(24);
+    const parsed = JSON.parse(result.text!) as Record<string, unknown>;
+    expect(parsed.hello).toBe("world");
+    expect(parsed.n).toBe(42);
+  });
+
+  it("zstd-encoded text body decompresses to plain text", async () => {
+    // Fixture decompresses to "hello zstd world" (16 bytes).
+    const body: BodyState = {
+      chunks: [{ binary: ZSTD_TEXT_BASE64 }],
+      atEnd: true,
+      totalBytes: 16,
+      contentType: "text/plain",
+      contentEncoding: "zstd",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("text");
+    expect(result.text).toBe("hello zstd world");
+    expect(result.mediaType).toBe("text/plain");
+  });
+
+  it("corrupt zstd bytes cause decodeBody to reject", async () => {
+    // "AAEC" is valid base64 but not valid zstd-compressed data.
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      totalBytes: 3,
+      contentType: "text/plain",
+      contentEncoding: "zstd",
     };
     await expect(decodeBody(body)).rejects.toThrow();
   });
