@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["node", "vite/client"]
   },
-  "include": ["src/test", "src/__tests__"],
+  "include": ["src/test", "src/__tests__", "src/llm/fixtures"],
   "exclude": []
 }
