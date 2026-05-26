@@ -72,11 +72,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
 
-      - uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ghcr.io/${{ github.repository }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+    # Need to make repo public first
+    #   - uses: actions/attest-build-provenance@v2
+    #     with:
+    #       subject-name: ghcr.io/${{ github.repository }}
+    #       subject-digest: ${{ steps.push.outputs.digest }}
+    #       push-to-registry: true
 
   build-flix:
     runs-on: ubuntu-latest
@@ -112,8 +113,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
 
-      - uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ghcr.io/${{ github.repository_owner }}/elasticflix
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+    # Need to make repo public first
+    #   - uses: actions/attest-build-provenance@v2
+    #     with:
+    #       subject-name: ghcr.io/${{ github.repository_owner }}/elasticflix
+    #       subject-digest: ${{ steps.push.outputs.digest }}
+    #       push-to-registry: true
