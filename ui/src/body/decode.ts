@@ -63,6 +63,11 @@ async function getZstdDecompress(): Promise<(data: Uint8Array) => Uint8Array> {
   if (_zstdDecompress) return _zstdDecompress;
   const { init, decompress } = await import("@bokuweb/zstd-wasm");
   await init();
+  // Assign decompress directly (not wrapped in a lambda) because
+  // @bokuweb/zstd-wasm exports it as a plain free function, so no
+  // `this` binding is needed. The brotli equivalent uses a lambda
+  // because brotli.decompress() is a WASM-object method that needs
+  // brotli as its receiver.
   _zstdDecompress = decompress;
   return _zstdDecompress;
 }
