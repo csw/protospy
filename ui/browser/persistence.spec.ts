@@ -17,40 +17,41 @@ async function readTheme(page: import("@playwright/test").Page) {
 }
 
 test.describe("localStorage persistence", () => {
-  test("dark mode survives a reload", async ({ page }) => {
+  test("light mode survives a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("light");
+    expect(await readTheme(page)).toBe("dark");
 
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /toggle dark mode/i }).click();
-    expect(await readTheme(page)).toBe("dark");
+    expect(await readTheme(page)).toBe("light");
 
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("dark");
-    expect(await getStoreState(page, "darkMode")).toBe(true);
+    expect(await readTheme(page)).toBe("light");
+    expect(await getStoreState(page, "darkMode")).toBe(false);
   });
 
-  test("toggling back to light persists across a reload", async ({ page }) => {
+  test("toggling back to dark persists across a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
 
+    // Toggle dark → light and persist it
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__test_store.getState().toggleDarkMode();
     });
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("dark");
+    expect(await readTheme(page)).toBe("light");
 
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /toggle dark mode/i }).click();
-    expect(await readTheme(page)).toBe("light");
+    expect(await readTheme(page)).toBe("dark");
 
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("light");
+    expect(await readTheme(page)).toBe("dark");
   });
 
   test("density persists across a reload", async ({ page }) => {
@@ -143,7 +144,8 @@ test.describe("localStorage persistence", () => {
       table: 500,
     });
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
-    expect(await getStoreState(page, "darkMode")).toBe(true);
-    expect(await readTheme(page)).toBe("dark");
+    // toggleDarkMode() starts from default true → persists false after reload
+    expect(await getStoreState(page, "darkMode")).toBe(false);
+    expect(await readTheme(page)).toBe("light");
   });
 });

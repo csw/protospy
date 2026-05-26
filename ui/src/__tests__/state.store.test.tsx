@@ -31,8 +31,8 @@ describe("state/store", () => {
       expect(useStore.getState().protocol).toBeNull();
     });
 
-    it("has darkMode === false at creation", () => {
-      expect(useStore.getState().darkMode).toBe(false);
+    it("has darkMode === true at creation", () => {
+      expect(useStore.getState().darkMode).toBe(true);
     });
   });
 
@@ -122,18 +122,18 @@ describe("state/store", () => {
 
   describe("toggleDarkMode", () => {
     it("flips darkMode state", () => {
-      expect(useStore.getState().darkMode).toBe(false);
-      useStore.getState().toggleDarkMode();
       expect(useStore.getState().darkMode).toBe(true);
       useStore.getState().toggleDarkMode();
       expect(useStore.getState().darkMode).toBe(false);
+      useStore.getState().toggleDarkMode();
+      expect(useStore.getState().darkMode).toBe(true);
     });
 
     it("sets data-theme on documentElement", () => {
       useStore.getState().toggleDarkMode();
-      expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-      useStore.getState().toggleDarkMode();
       expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+      useStore.getState().toggleDarkMode();
+      expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     });
 
     it("persists darkMode to localStorage via persist middleware", () => {
@@ -141,7 +141,7 @@ describe("state/store", () => {
       const stored = JSON.parse(
         localStorage.getItem("protospy-ui-prefs") ?? "{}",
       );
-      expect(stored.state.darkMode).toBe(true);
+      expect(stored.state.darkMode).toBe(false);
     });
   });
 

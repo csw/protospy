@@ -23,14 +23,29 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Theme toggle", () => {
-  test("1.1 default theme is light", async ({ page }) => {
+  test("1.1 default theme is dark", async ({ page }) => {
+    const theme = await page.evaluate(() =>
+      document.documentElement.getAttribute("data-theme"),
+    );
+    expect(theme).toBe("dark");
+  });
+
+  test("1.2 toggle to light mode via command palette", async ({ page }) => {
+    await page.keyboard.press("Meta+k");
+    await page.getByText("Toggle dark mode").click();
+
     const theme = await page.evaluate(() =>
       document.documentElement.getAttribute("data-theme"),
     );
     expect(theme).toBe("light");
   });
 
-  test("1.2 toggle to dark mode via command palette", async ({ page }) => {
+  test("1.3 toggle back to dark mode by toggling twice", async ({ page }) => {
+    // First toggle: dark → light
+    await page.keyboard.press("Meta+k");
+    await page.getByText("Toggle dark mode").click();
+
+    // Second toggle: light → dark (palette closes after each selection)
     await page.keyboard.press("Meta+k");
     await page.getByText("Toggle dark mode").click();
 
@@ -38,21 +53,6 @@ test.describe("Theme toggle", () => {
       document.documentElement.getAttribute("data-theme"),
     );
     expect(theme).toBe("dark");
-  });
-
-  test("1.3 toggle back to light mode by toggling twice", async ({ page }) => {
-    // First toggle: light → dark
-    await page.keyboard.press("Meta+k");
-    await page.getByText("Toggle dark mode").click();
-
-    // Second toggle: dark → light (palette closes after each selection)
-    await page.keyboard.press("Meta+k");
-    await page.getByText("Toggle dark mode").click();
-
-    const theme = await page.evaluate(() =>
-      document.documentElement.getAttribute("data-theme"),
-    );
-    expect(theme).toBe("light");
   });
 });
 

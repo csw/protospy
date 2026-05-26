@@ -93,7 +93,7 @@ describe("CommandPalette", () => {
 
   it("clicking 'Toggle dark mode' flips darkMode and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
-    expect(useStore.getState().darkMode).toBe(false);
+    expect(useStore.getState().darkMode).toBe(true);
     render(<CommandPalette />);
 
     const item = screen.getByText("Toggle dark mode");
@@ -102,7 +102,7 @@ describe("CommandPalette", () => {
     });
 
     await waitFor(() => {
-      expect(useStore.getState().darkMode).toBe(true);
+      expect(useStore.getState().darkMode).toBe(false);
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
