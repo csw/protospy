@@ -60,7 +60,6 @@ async function decompress(
   let format: string;
   if (encoding === "gzip") format = "gzip";
   else if (encoding === "deflate") format = "deflate";
-  else if (encoding === "deflate-raw") format = "raw";
   else throw new Error(`unsupported encoding: ${encoding}`);
 
   const ds = new DecompressionStream(format as CompressionFormat);
@@ -117,12 +116,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
 
   // Step 2: Decompress if needed
   const encoding = contentEncoding?.toLowerCase();
-  if (
-    encoding === "br" ||
-    encoding === "gzip" ||
-    encoding === "deflate" ||
-    encoding === "deflate-raw"
-  ) {
+  if (encoding === "br" || encoding === "gzip" || encoding === "deflate") {
     bytes = await decompress(bytes, encoding);
   }
 
