@@ -296,6 +296,37 @@ export function makePutRequest(
   };
 }
 
+/**
+ * Proxy-level error event. The Rust backend emits these when the upstream
+ * connection fails (connection refused, DNS failure, idle/read timeout,
+ * mid-stream disconnect, etc.) — the message is whatever string the
+ * backend derives from hyper's error chain. `direction` indicates which
+ * side of the proxy the failure occurred on:
+ *   - "Request"  — failed while connecting/sending to upstream (no
+ *                  response was ever produced)
+ *   - "Response" — upstream accepted the request but the response failed
+ *                  (e.g. mid-stream disconnect after headers)
+ *
+ * Pair this with a Request event sharing the same exchange_id to model
+ * the realistic shape of an error exchange. See PRO-217.
+ */
+export function makeProxyError(
+  id: number,
+  direction: "Request" | "Response",
+  message: string,
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction,
+    event: {
+      type: "Error",
+      direction,
+      message,
+    },
+  };
+}
+
 export function makeCompleteExchange(
   id: number,
   method: string,
