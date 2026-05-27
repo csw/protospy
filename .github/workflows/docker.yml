@@ -1,28 +1,67 @@
-name: docker-publish
+# Validates the release image end-to-end on every push to main and on PRs;
+# publishes (to ghcr) on manual dispatch. When tag-based releases land, see
+# the commented `tags:` trigger and the `if:` / metadata snippets below.
+name: docker
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "ui/**"
+      - "flix/**"
+      - "docker-compose.yaml"
+      - "Dockerfile.release"
+      - "scripts/smoke-test.sh"
+      - ".github/actions/smoke-test/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "ui/**"
+      - "flix/**"
+      - "docker-compose.yaml"
+      - "Dockerfile.release"
+      - "scripts/smoke-test.sh"
+      - ".github/actions/smoke-test/**"
+      - ".github/workflows/docker.yml"
   workflow_dispatch:
+  # push:
+  #   tags: ["v*"]
 
 jobs:
-  # Host-side build of the amd64 musl binary and the UI bundle.
-  # Split out from smoke-test so the smoke-test runner doesn't carry the
-  # cargo target/ directory while Docker pulls and extracts ES/jaeger layers.
+  # Host-side build of the amd64 musl binary and the UI bundle, with ui/dist
+  # cached so unchanged UI source doesn't re-run vite.
   build-amd64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
+      - uses: actions/cache@v4
+        id: ui-dist
+        with:
+          path: ui/dist
+          key: ui-dist-${{ hashFiles('ui/pnpm-lock.yaml', 'ui/package.json', 'ui/src/**', 'ui/index.html', 'ui/vite.config.ts', 'ui/tsconfig.json', 'ui/tsconfig.node.json') }}
+
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: ui/package.json
-      - uses: actions/setup-node@v4
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version-file: ui/package.json
           cache: pnpm
           cache-dependency-path: ui/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
         working-directory: ui
-      - run: pnpm run build
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        run: pnpm run build
         working-directory: ui
 
       - run: sudo apt-get update && sudo apt-get install -y musl-tools
@@ -53,8 +92,7 @@ jobs:
           retention-days: 1
 
   # Bring up the full compose stack against the freshly-built amd64 release
-  # image (and flix) and exercise it end-to-end before any multi-arch publish.
-  # Gates the publish jobs below via `needs:`.
+  # image (and flix) and exercise it end-to-end. Gates the publish jobs.
   smoke-test:
     needs: build-amd64
     runs-on: ubuntu-latest
@@ -89,8 +127,12 @@ jobs:
           protospy-image: protospy-protospy:latest
           flix-image: protospy-flix:latest
 
+  # Tag-based releases: change `if:` on the publish jobs to also accept tag
+  # pushes, e.g.
+  #   if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
   build-protospy:
     needs: smoke-test
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -135,6 +177,12 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: type=raw,value=dev
+          # Tag-aware variant for when tag pushes are wired up:
+          # tags: |
+          #   type=raw,value=dev,enable=${{ github.event_name == 'workflow_dispatch' }}
+          #   type=semver,pattern={{version}}
+          #   type=semver,pattern={{major}}.{{minor}}
+          #   type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
 
       - uses: docker/login-action@v4
         with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}" }
@@ -163,6 +211,7 @@ jobs:
 
   build-flix:
     needs: smoke-test
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -204,6 +253,7 @@ jobs:
     #       push-to-registry: true
 
   build-demo:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
