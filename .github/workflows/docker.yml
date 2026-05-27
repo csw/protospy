@@ -141,8 +141,17 @@ jobs:
 
       - name: Image sizes (loaded)
         run: |
-          docker images protospy-protospy:latest
-          docker images protospy-flix:latest
+          {
+            echo "### Loaded for smoke test"
+            echo
+            echo "| Image | Size |"
+            echo "|---|---|"
+            for img in protospy-protospy:latest protospy-flix:latest; do
+              size=$(docker images "$img" --format '{{.Size}}')
+              echo "| \`$img\` | $size |"
+            done
+            echo
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # TEMP: diagnostics for intermittent compose-up abort during pull.
       # Remove once we have a clean failure capture.
