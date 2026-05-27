@@ -30,7 +30,7 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
   const { path } = splitUri(uri);
-  const resSize = exchange.responseBody?.totalBytes ?? 0;
+  const resSize = exchange.responseBody?.wireBytes ?? 0;
 
   const rowHeight = density === "compact" ? 24 : 30;
 

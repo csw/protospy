@@ -17,7 +17,7 @@ function makeBody(overrides: Partial<BodyState> = {}): BodyState {
   return {
     chunks: [{ text: "irrelevant" }],
     atEnd: true,
-    totalBytes: 28,
+    wireBytes: 28,
     contentType: "application/json",
     ...overrides,
   };
@@ -33,12 +33,12 @@ describe("BodyPane size display", () => {
       kind: "text",
       text: "ok",
       mediaType: "text/plain",
-      size: 11,
-      // No decodedSize — decode pipeline did not run decompression.
+      wireBytes: 11,
+      // No decodedBytes — decode pipeline did not run decompression.
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
-    render(<BodyPane title="Response" body={makeBody({ totalBytes: 11 })} />);
+    render(<BodyPane title="Response" body={makeBody({ wireBytes: 11 })} />);
 
     const sizeEl = await screen.findByTestId("body-size");
     await waitFor(() => expect(sizeEl).toHaveTextContent("11B"));
@@ -52,12 +52,12 @@ describe("BodyPane size display", () => {
       kind: "json",
       text: '{"ok":true}',
       mediaType: "application/json",
-      size: 28, // wire bytes
-      decodedSize: 24, // bytes after decompression
+      wireBytes: 28,
+      decodedBytes: 24, // bytes after decompression
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
-    render(<BodyPane title="Response" body={makeBody({ totalBytes: 28 })} />);
+    render(<BodyPane title="Response" body={makeBody({ wireBytes: 28 })} />);
 
     const sizeEl = await screen.findByTestId("body-size");
     await waitFor(() => expect(sizeEl).toHaveTextContent("28B → 24B"));

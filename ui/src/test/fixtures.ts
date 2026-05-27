@@ -148,7 +148,7 @@ export function makeMsearchRequest(id: number, ts?: string): Msg {
 export function makeBinaryResponse(
   id: number,
   base64: string,
-  totalBytes: number,
+  wireBytes: number,
   ts?: string,
 ): Msg {
   return {
@@ -164,12 +164,12 @@ export function makeBinaryResponse(
         type: "Data",
         content: {
           offset: 0,
-          length: totalBytes,
+          length: wireBytes,
           payload: { binary: base64 },
         },
         trailers: null,
         at_end: true,
-        total_bytes: totalBytes,
+        total_bytes: wireBytes,
       },
     },
   };
@@ -178,7 +178,7 @@ export function makeBinaryResponse(
 export function makeGzipJsonResponse(
   id: number,
   gzippedBase64: string,
-  totalBytes: number,
+  wireBytes: number,
   ts?: string,
 ): Msg {
   return {
@@ -197,12 +197,12 @@ export function makeGzipJsonResponse(
         type: "Data",
         content: {
           offset: 0,
-          length: totalBytes,
+          length: wireBytes,
           payload: { binary: gzippedBase64 },
         },
         trailers: null,
         at_end: true,
-        total_bytes: totalBytes,
+        total_bytes: wireBytes,
       },
     },
   };
@@ -217,7 +217,7 @@ export function makeGzipJsonResponse(
 export function makeEncodedJsonResponse(
   id: number,
   encodedBase64: string,
-  totalBytes: number,
+  wireBytes: number,
   contentEncoding: string,
   ts?: string,
 ): Msg {
@@ -237,12 +237,12 @@ export function makeEncodedJsonResponse(
         type: "Data",
         content: {
           offset: 0,
-          length: totalBytes,
+          length: wireBytes,
           payload: { binary: encodedBase64 },
         },
         trailers: null,
         at_end: true,
-        total_bytes: totalBytes,
+        total_bytes: wireBytes,
       },
     },
   };

@@ -31,14 +31,14 @@ export function BodyPane({ title, body }: Props) {
               className="font-family-mono text-xs text-dim"
               data-testid="body-size"
               title={
-                result.decodedSize != null
-                  ? `${formatSize(result.size)} on the wire → ${formatSize(result.decodedSize)} after decompression`
+                result.decodedBytes != null
+                  ? `${formatSize(result.wireBytes)} on the wire → ${formatSize(result.decodedBytes)} after decompression`
                   : undefined
               }
             >
-              {result.decodedSize != null
-                ? `${formatSize(result.size)} → ${formatSize(result.decodedSize)}`
-                : formatSize(result.size)}
+              {result.decodedBytes != null
+                ? `${formatSize(result.wireBytes)} → ${formatSize(result.decodedBytes)}`
+                : formatSize(result.wireBytes)}
             </span>
           )}
           {body != null && <CopyButton text={result?.text} />}
@@ -54,7 +54,7 @@ export function BodyPane({ title, body }: Props) {
 
         {!loading && body != null && !body.atEnd && (
           <EmptyState>
-            Streaming… ({formatSize(body.totalBytes)} received)
+            Streaming… ({formatSize(body.wireBytes)} received)
           </EmptyState>
         )}
 
@@ -79,7 +79,7 @@ export function BodyPane({ title, body }: Props) {
           )}
 
         {!loading && result != null && result.kind === "binary" && (
-          <EmptyState>Binary data · {formatSize(result.size)}</EmptyState>
+          <EmptyState>Binary data · {formatSize(result.wireBytes)}</EmptyState>
         )}
       </div>
     </div>

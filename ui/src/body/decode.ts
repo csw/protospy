@@ -6,20 +6,20 @@ export interface DecodeResult {
   text?: string;
   mediaType: string;
   /**
-   * Wire (compressed) byte count, passed through from `BodyState.totalBytes`
-   * unchanged. For uncompressed bodies this equals the decoded size; for
-   * compressed bodies (`Content-Encoding: gzip | deflate | br | zstd`) it is
-   * the compressed size on the wire. The post-decompression size is
-   * reported separately as `decodedSize`.
+   * Wire byte count, passed through from `BodyState.wireBytes` unchanged.
+   * For uncompressed bodies this equals the decoded byte count; for
+   * compressed bodies (`Content-Encoding: gzip | deflate | br | zstd`) it
+   * is the compressed size on the wire. The post-decompression byte count
+   * is reported separately as `decodedBytes`.
    */
-  size: number;
+  wireBytes: number;
   /**
    * Decompressed byte count. Set only when a decompression step ran (i.e.
    * the body had a recognized `Content-Encoding`); `undefined` for
    * uncompressed bodies. The UI uses the presence of this field to render
-   * a dual-size display ("wire → decoded") rather than just `size`.
+   * a dual-size display ("wire → decoded") rather than just `wireBytes`.
    */
-  decodedSize?: number;
+  decodedBytes?: number;
 }
 
 function chunkToBytes(chunk: BodyChunk): Uint8Array {
@@ -150,19 +150,18 @@ function formatJsonl(text: string): string {
 }
 
 export async function decodeBody(body: BodyState): Promise<DecodeResult> {
-  const { chunks, totalBytes, contentType, contentEncoding } = body;
+  const { chunks, wireBytes, contentType, contentEncoding } = body;
   const mediaType = contentType ?? "application/octet-stream";
 
   // Step 1: Concatenate chunks into bytes
   const byteArrays = chunks.map(chunkToBytes);
   let bytes = concatenate(byteArrays);
 
-  // Step 2: Decompress if needed. `decodedSize` is set only when a
-  // decompression step actually ran — its presence is the signal that
-  // `size` (the wire byte count) and the post-decode size differ, and the
-  // UI uses it to render a dual-size display.
+  // Step 2: Decompress if needed. `decodedBytes` is set only when a
+  // decompression step actually ran — its presence is the signal to the UI
+  // that wire and decoded sizes differ.
   const encoding = contentEncoding?.toLowerCase();
-  let decodedSize: number | undefined;
+  let decodedBytes: number | undefined;
   if (
     encoding === "br" ||
     encoding === "gzip" ||
@@ -170,7 +169,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     encoding === "zstd"
   ) {
     bytes = await decompress(bytes, encoding);
-    decodedSize = bytes.byteLength;
+    decodedBytes = bytes.byteLength;
   }
 
   // Step 3: Decode bytes to text
@@ -183,8 +182,8 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       kind: "jsonl",
       text: formatJsonl(text),
       mediaType,
-      size: totalBytes,
-      decodedSize,
+      wireBytes,
+      decodedBytes,
     };
   }
 
@@ -197,8 +196,8 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         kind: "json",
         text: prettyText,
         mediaType,
-        size: totalBytes,
-        decodedSize,
+        wireBytes,
+        decodedBytes,
       };
     } catch {
       // fall through to plain text
@@ -213,9 +212,9 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     "application/octet-stream",
   ];
   if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
-    return { kind: "binary", mediaType, size: totalBytes, decodedSize };
+    return { kind: "binary", mediaType, wireBytes, decodedBytes };
   }
 
   // Step 7: Default to text
-  return { kind: "text", text, mediaType, size: totalBytes, decodedSize };
+  return { kind: "text", text, mediaType, wireBytes, decodedBytes };
 }
