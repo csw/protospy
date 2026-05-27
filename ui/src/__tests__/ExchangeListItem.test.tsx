@@ -261,6 +261,71 @@ describe("ExchangeListItem", () => {
     expect(screen.getByText("ERR")).toHaveClass("shrink-0");
   });
 
+  it("renders the compression indicator when responseBody has contentEncoding", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 28,
+            contentEncoding: "gzip",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    const indicator = screen.getByTestId("compression-indicator");
+    expect(indicator).toBeInTheDocument();
+    expect(indicator).toHaveAttribute("title", "Compressed: gzip");
+  });
+
+  it("does not render a compression indicator when no body is compressed", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: { chunks: [], atEnd: true, wireBytes: 28 },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(
+      screen.queryByTestId("compression-indicator"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders separate indicators for compressed request and response bodies", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          requestBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 10,
+            contentEncoding: "deflate",
+          },
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 100,
+            contentEncoding: "br",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    const indicators = screen.getAllByTestId("compression-indicator");
+    expect(indicators).toHaveLength(2);
+    expect(indicators[0]).toHaveAttribute("title", "Compressed: deflate");
+    expect(indicators[1]).toHaveAttribute("title", "Compressed: br");
+  });
+
   it("metadata row has whitespace-nowrap to prevent text wrapping at narrow widths", () => {
     render(
       <ExchangeListItem

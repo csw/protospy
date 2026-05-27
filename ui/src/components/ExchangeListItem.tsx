@@ -6,6 +6,7 @@ import {
   traceColor,
 } from "@ui/lib/utils";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
+import { CompressionIndicator } from "./CompressionIndicator";
 import { MethodBadge } from "./ui/MethodBadge";
 
 interface Props {
@@ -110,9 +111,19 @@ export function ExchangeListItem({
             <span className="text-dim">·</span>
           </>
         )}
-        <span>req {formatSize(reqSize)}</span>
+        <span className="inline-flex items-center gap-1">
+          req {formatSize(reqSize)}
+          <CompressionIndicator
+            encoding={exchange.requestBody?.contentEncoding}
+          />
+        </span>
         <span className="text-dim">·</span>
-        <span>res {formatSize(resSize)}</span>
+        <span className="inline-flex items-center gap-1">
+          res {formatSize(resSize)}
+          <CompressionIndicator
+            encoding={exchange.responseBody?.contentEncoding}
+          />
+        </span>
       </div>
     </button>
   );

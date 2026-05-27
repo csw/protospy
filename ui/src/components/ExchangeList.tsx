@@ -12,6 +12,7 @@ import {
   traceColor,
 } from "@ui/lib/utils";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
+import { CompressionIndicator } from "./CompressionIndicator";
 import { ExchangeListItem } from "./ExchangeListItem";
 
 const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
@@ -72,8 +73,11 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
-      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
+      <span className="font-family-mono text-xs text-dim px-1 text-right truncate inline-flex items-center justify-end gap-1">
         {formatSize(resSize)}
+        <CompressionIndicator
+          encoding={exchange.responseBody?.contentEncoding}
+        />
       </span>
       <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
         {relTime}
