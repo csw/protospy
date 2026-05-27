@@ -261,6 +261,96 @@ describe("ExchangeListItem", () => {
     expect(screen.getByText("ERR")).toHaveClass("shrink-0");
   });
 
+  it("renders a (gzip) tag when responseBody has gzip contentEncoding", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 28,
+            contentEncoding: "gzip",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.getByText("(gzip)")).toBeInTheDocument();
+    // Without decodedBytes cached, only the wire size shows; the tag follows.
+    const resSpan = screen.getByText(/^res /);
+    expect(resSpan).toHaveAttribute(
+      "title",
+      expect.stringContaining("decoded size unknown"),
+    );
+  });
+
+  it("renders dual wire/decoded size when both are known and differ", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 1024,
+            decodedBytes: 4096,
+            contentEncoding: "gzip",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    const resSpan = screen.getByText(/^res /);
+    expect(resSpan).toHaveTextContent("res 1.0KB/4.0KB (gzip)");
+    expect(resSpan).toHaveAttribute(
+      "title",
+      expect.stringContaining("after decompression"),
+    );
+  });
+
+  it("does not render a compression tag when no body is compressed", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: { chunks: [], atEnd: true, wireBytes: 28 },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
+  });
+
+  it("renders separate encoding tags for compressed request and response bodies", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          requestBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 10,
+            contentEncoding: "deflate",
+          },
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 100,
+            contentEncoding: "br",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    expect(screen.getByText("(deflate)")).toBeInTheDocument();
+    expect(screen.getByText("(br)")).toBeInTheDocument();
+  });
+
   it("metadata row has whitespace-nowrap to prevent text wrapping at narrow widths", () => {
     render(
       <ExchangeListItem

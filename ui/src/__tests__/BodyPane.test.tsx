@@ -28,7 +28,7 @@ describe("BodyPane size display", () => {
     decodeBodyMock.mockReset();
   });
 
-  it("renders a single size (no arrow) for an uncompressed body", async () => {
+  it("renders a single size (no slash) for an uncompressed body", async () => {
     const result: DecodeResult = {
       kind: "text",
       text: "ok",
@@ -42,12 +42,12 @@ describe("BodyPane size display", () => {
 
     const sizeEl = await screen.findByTestId("body-size");
     await waitFor(() => expect(sizeEl).toHaveTextContent("11B"));
-    expect(sizeEl).not.toHaveTextContent("→");
+    expect(sizeEl).not.toHaveTextContent("/");
     // No tooltip when there's only one size to show.
     expect(sizeEl).not.toHaveAttribute("title");
   });
 
-  it("renders wire → decoded with a tooltip for a compressed body", async () => {
+  it("renders wire / decoded with a tooltip for a compressed body", async () => {
     const result: DecodeResult = {
       kind: "json",
       text: '{"ok":true}',
@@ -60,10 +60,10 @@ describe("BodyPane size display", () => {
     render(<BodyPane title="Response" body={makeBody({ wireBytes: 28 })} />);
 
     const sizeEl = await screen.findByTestId("body-size");
-    await waitFor(() => expect(sizeEl).toHaveTextContent("28B → 24B"));
+    await waitFor(() => expect(sizeEl).toHaveTextContent("28B / 24B"));
     expect(sizeEl).toHaveAttribute(
       "title",
-      "28B on the wire → 24B after decompression",
+      "28B on the wire / 24B after decompression",
     );
   });
 });

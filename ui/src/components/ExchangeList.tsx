@@ -7,6 +7,7 @@ import {
   formatSize,
   matchesFilter,
   methodTextClass,
+  shortEncoding,
   splitUri,
   statusTextClass,
   traceColor,
@@ -31,6 +32,16 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
   const uri = exchange.uri ?? "/";
   const { path } = splitUri(uri);
   const resSize = exchange.responseBody?.wireBytes ?? 0;
+  const resEncoding = exchange.responseBody?.contentEncoding;
+  const resDecoded = exchange.responseBody?.decodedBytes;
+  const resTag = shortEncoding(resEncoding);
+  const hasDual =
+    resTag != null && resDecoded != null && resDecoded !== resSize;
+  const sizeTitle = resTag
+    ? hasDual
+      ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
+      : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
+    : undefined;
 
   const rowHeight = density === "compact" ? 24 : 30;
 
@@ -72,8 +83,14 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
-      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
-        {formatSize(resSize)}
+      <span
+        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        title={sizeTitle}
+      >
+        {hasDual
+          ? `${formatSize(resSize)}/${formatSize(resDecoded)}`
+          : formatSize(resSize)}
+        {resTag && <span> ({resTag})</span>}
       </span>
       <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
         {relTime}

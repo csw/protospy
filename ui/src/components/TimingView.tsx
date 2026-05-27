@@ -1,4 +1,4 @@
-import type { Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/reducer";
 import { formatSize, formatTime, statusTextClass } from "@ui/lib/utils";
 
 interface Props {
@@ -21,10 +21,30 @@ function FactRow({ label, value }: FactRowProps) {
   );
 }
 
-export function TimingView({ exchange }: Props) {
-  const reqSize = exchange.requestBody?.wireBytes ?? 0;
-  const resSize = exchange.responseBody?.wireBytes ?? 0;
+/**
+ * Render a body size as `wire / decoded (encoding)` when the body is
+ * compressed and the decode pipeline has populated `decodedBytes`, or as
+ * `wire (encoding)` when it hasn't, or as plain `wire` when uncompressed.
+ * Follows Chrome DevTools' slash convention for dual sizes.
+ */
+function bodySizeDisplay(body: BodyState | undefined): React.ReactNode {
+  const wire = body?.wireBytes ?? 0;
+  const encoding = body?.contentEncoding;
+  const decoded = body?.decodedBytes;
+  const hasDual = encoding && decoded != null && decoded !== wire;
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span>
+        {hasDual
+          ? `${formatSize(wire)} / ${formatSize(decoded)}`
+          : formatSize(wire)}
+      </span>
+      {encoding && <span className="text-dim">({encoding})</span>}
+    </span>
+  );
+}
 
+export function TimingView({ exchange }: Props) {
   return (
     <div className="overflow-auto p-3">
       {/* Fact table */}
@@ -36,8 +56,14 @@ export function TimingView({ exchange }: Props) {
         <FactRow label="Method" value={exchange.method ?? "—"} />
         <FactRow label="URI" value={exchange.uri ?? "—"} />
         <FactRow label="Version" value={exchange.version ?? "—"} />
-        <FactRow label="Request size" value={formatSize(reqSize)} />
-        <FactRow label="Response size" value={formatSize(resSize)} />
+        <FactRow
+          label="Request size"
+          value={bodySizeDisplay(exchange.requestBody)}
+        />
+        <FactRow
+          label="Response size"
+          value={bodySizeDisplay(exchange.responseBody)}
+        />
         <FactRow
           label="Status"
           value={

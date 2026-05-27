@@ -1,12 +1,47 @@
-import type { Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/reducer";
 import {
   formatSize,
+  shortEncoding,
   splitUri,
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { MethodBadge } from "./ui/MethodBadge";
+
+/**
+ * Inline size for the metadata row: shows `wire/decoded` when the body
+ * is compressed and the decode pipeline has populated `decodedBytes`,
+ * otherwise just `wire`. A short encoding tag (e.g. `gz`) appears after
+ * the size when the body has a `Content-Encoding`. Chrome DevTools'
+ * slash convention; space-constrained variant of the `TimingView`
+ * format (no parens around the encoding).
+ */
+function inlineSize(body: BodyState | undefined): {
+  text: string;
+  tag: string | null;
+  title: string | undefined;
+} {
+  const wire = body?.wireBytes ?? 0;
+  const encoding = body?.contentEncoding;
+  const decoded = body?.decodedBytes;
+  const tag = shortEncoding(encoding);
+  if (tag != null && decoded != null && decoded !== wire) {
+    return {
+      text: `${formatSize(wire)}/${formatSize(decoded)}`,
+      tag,
+      title: `${formatSize(wire)} on the wire / ${formatSize(decoded)} after decompression (${encoding})`,
+    };
+  }
+  if (tag != null) {
+    return {
+      text: formatSize(wire),
+      tag,
+      title: `${formatSize(wire)} on the wire (${encoding}; decoded size unknown until body is opened)`,
+    };
+  }
+  return { text: formatSize(wire), tag: null, title: undefined };
+}
 
 interface Props {
   exchange: Exchange;
@@ -26,8 +61,8 @@ export function ExchangeListItem({
   const uri = exchange.uri ?? "/";
   const { path, query } = splitUri(uri);
 
-  const reqSize = exchange.requestBody?.wireBytes ?? 0;
-  const resSize = exchange.responseBody?.wireBytes ?? 0;
+  const req = inlineSize(exchange.requestBody);
+  const res = inlineSize(exchange.responseBody);
 
   const hasError = exchange.error != null && exchange.status == null;
 
@@ -110,9 +145,15 @@ export function ExchangeListItem({
             <span className="text-dim">·</span>
           </>
         )}
-        <span>req {formatSize(reqSize)}</span>
+        <span title={req.title}>
+          req {req.text}
+          {req.tag && <span className="text-dim"> ({req.tag})</span>}
+        </span>
         <span className="text-dim">·</span>
-        <span>res {formatSize(resSize)}</span>
+        <span title={res.title}>
+          res {res.text}
+          {res.tag && <span className="text-dim"> ({res.tag})</span>}
+        </span>
       </div>
     </button>
   );

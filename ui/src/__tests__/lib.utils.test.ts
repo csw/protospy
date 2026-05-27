@@ -12,6 +12,7 @@ import {
   methodBadgeClass,
   methodTextClass,
   parseQueryParams,
+  shortEncoding,
   shortenTraceId,
   sortHeadersByPin,
   splitUri,
@@ -48,6 +49,29 @@ describe("formatSize", () => {
 
   it("formats larger MB values", () => {
     expect(formatSize(5.5 * 1024 * 1024)).toBe("5.5MB");
+  });
+});
+
+describe("shortEncoding", () => {
+  it("returns null for undefined", () => {
+    expect(shortEncoding(undefined)).toBeNull();
+  });
+  it("returns null for empty string", () => {
+    expect(shortEncoding("")).toBeNull();
+  });
+  it("returns null for 'identity'", () => {
+    expect(shortEncoding("identity")).toBeNull();
+  });
+  it("returns the lowercased encoding verbatim", () => {
+    expect(shortEncoding("gzip")).toBe("gzip");
+    expect(shortEncoding("GZIP")).toBe("gzip");
+    expect(shortEncoding("br")).toBe("br");
+    expect(shortEncoding("Br")).toBe("br");
+    expect(shortEncoding("zstd")).toBe("zstd");
+    expect(shortEncoding("deflate")).toBe("deflate");
+  });
+  it("preserves multi-encoding strings verbatim (lowercased)", () => {
+    expect(shortEncoding("gzip, br")).toBe("gzip, br");
   });
 });
 

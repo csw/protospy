@@ -15,6 +15,15 @@ export interface BodyState {
    * `DecodeResult.decodedBytes` (see body/decode.ts).
    */
   wireBytes: number;
+  /**
+   * Decompressed byte count. Populated by the body decode pipeline (see
+   * `body/decode.ts` and `hooks/useDecodeBody.ts`) once a body has been
+   * decoded — it is undefined until then, and for uncompressed bodies is
+   * equal to `wireBytes` once known. Surfaces that show sizes outside the
+   * body pane (timing view, exchange list) read this lazily; they fall
+   * back to `wireBytes` alone when the body has not yet been decoded.
+   */
+  decodedBytes?: number;
   contentEncoding?: string;
   contentType?: string;
 }

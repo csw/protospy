@@ -33,6 +33,18 @@ interface StoreState extends PersistedPrefs {
 
   // Core actions
   applyEvent: (msg: EventMessage) => void;
+  /**
+   * Cache the decompressed byte count for a body on its `BodyState`. Called
+   * from `useDecodeBody` once the decode pipeline produces a result, so
+   * surfaces outside the body pane (timing view, exchange list) can show a
+   * dual wire/decoded size without re-running decode themselves. No-ops if
+   * the exchange or body is gone or if the value hasn't changed.
+   */
+  setBodyDecodedBytes: (
+    exchangeId: number,
+    direction: "request" | "response",
+    decodedBytes: number,
+  ) => void;
   setConnection: (status: ConnectionStatus) => void;
   setService: (name: string) => void;
 
@@ -79,6 +91,24 @@ export const useStore = create<StoreState>()(
           const ids = [...state.ids];
           apply(exchanges, ids, msg);
           return { exchanges, ids };
+        }),
+
+      setBodyDecodedBytes: (exchangeId, direction, decodedBytes) =>
+        set((state) => {
+          const ex = state.exchanges.get(exchangeId);
+          if (ex == null) return {};
+          const body =
+            direction === "request" ? ex.requestBody : ex.responseBody;
+          if (body == null || body.decodedBytes === decodedBytes) return {};
+          const updatedBody = { ...body, decodedBytes };
+          const updatedEx = {
+            ...ex,
+            [direction === "request" ? "requestBody" : "responseBody"]:
+              updatedBody,
+          };
+          const exchanges = new Map(state.exchanges);
+          exchanges.set(exchangeId, updatedEx);
+          return { exchanges };
         }),
 
       setConnection: (status) => set({ connection: status }),
