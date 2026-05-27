@@ -77,11 +77,16 @@ test.describe("Compression indicator", () => {
     await page.getByText("/api/compressed").first().click();
     await page.getByRole("tab", { name: "Timing" }).click();
 
-    // The timing view adds one more indicator (next to "Response size").
-    const indicators = page.getByTestId("compression-indicator");
-    // 1 in list row + 1 in timing fact row = 2 visible at minimum.
-    await expect(indicators).toHaveCount(2);
-    await expect(page.getByText("(gzip)")).toBeVisible();
+    // Scope to the Timing tab panel so adding indicators elsewhere doesn't
+    // make this assertion brittle.
+    const timingPanel = page.getByRole("tabpanel");
+    const indicators = timingPanel.getByTestId("compression-indicator");
+    await expect(indicators).toHaveCount(1);
+    await expect(indicators.first()).toHaveAttribute(
+      "title",
+      "Compressed: gzip",
+    );
+    await expect(timingPanel.getByText("(gzip)")).toBeVisible();
   });
 
   test("is absent when no body is compressed", async ({ page }) => {
