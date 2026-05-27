@@ -140,7 +140,9 @@ jobs:
           tags: protospy-flix:latest
 
       - name: Image sizes (loaded)
-        run: docker images protospy-protospy:latest protospy-flix:latest
+        run: |
+          docker images protospy-protospy:latest
+          docker images protospy-flix:latest
 
       # TEMP: diagnostics for intermittent compose-up abort during pull.
       # Remove once we have a clean failure capture.
