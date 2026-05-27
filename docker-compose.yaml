@@ -1,5 +1,6 @@
 services:
   flix:
+    image: ${FLIX_IMAGE:-protospy-flix:latest}
     build:
       context: ./flix
     ports:
@@ -19,6 +20,7 @@ services:
       retries: 10
 
   protospy:
+    image: ${PROTOSPY_IMAGE:-protospy-protospy:latest}
     build:
       context: .
     ports:

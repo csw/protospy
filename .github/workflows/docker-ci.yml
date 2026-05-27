@@ -13,6 +13,7 @@ on:
       - "docker-compose.yaml"
       - "flix/**"
       - ".github/workflows/docker-ci.yml"
+      - ".github/actions/smoke-test/**"
   pull_request:
     paths:
       - "Dockerfile"
@@ -23,6 +24,7 @@ on:
       - "docker-compose.yaml"
       - "flix/**"
       - ".github/workflows/docker-ci.yml"
+      - ".github/actions/smoke-test/**"
 
 jobs:
   smoke-test:
@@ -48,17 +50,7 @@ jobs:
           tags: protospy-flix:latest
           cache-from: type=gha,scope=flix
           cache-to: type=gha,scope=flix,mode=max
-      - uses: hoverkraft-tech/compose-action@v2.6.0
+      - uses: ./.github/actions/smoke-test
         with:
-          compose-file: ./docker-compose.yaml
-          up-flags: --wait
-      - name: Load data
-        run: >-
-          docker compose run --rm
-          -e ELASTICSEARCH_URL=http://elasticsearch:9200
-          flix uv run python loader.py
-      - name: Smoke test
-        run: |
-          curl -sf http://localhost:8001/health
-          curl -sf http://localhost:3001/_cluster/health
-          curl -sf 'http://localhost:8001/search?q=test'
+          protospy-image: protospy-protospy:latest
+          flix-image: protospy-flix:latest

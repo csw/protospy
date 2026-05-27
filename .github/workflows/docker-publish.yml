@@ -4,17 +4,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-protospy:
+  # Build amd64-only versions of protospy (via Dockerfile.release) and flix,
+  # bring up the full compose stack, and validate end-to-end before any
+  # multi-arch publish runs. Gates the publish jobs below via `needs:`.
+  smoke-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@v6
 
-      # Build UI (embedded into binary via rust_embed)
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: ui/package.json
@@ -28,25 +25,93 @@ jobs:
       - run: pnpm run build
         working-directory: ui
 
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - run: |
+          mkdir -p publish/linux/amd64
+          cp target/x86_64-unknown-linux-musl/release/protospy publish/linux/amd64/protospy
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.release
+          platforms: linux/amd64
+          load: true
+          tags: protospy-protospy:latest
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./flix
+          platforms: linux/amd64
+          load: true
+          tags: protospy-flix:latest
+
+      - uses: ./.github/actions/smoke-test
+        with:
+          protospy-image: protospy-protospy:latest
+          flix-image: protospy-flix:latest
+
+      # Hand off the amd64 binary + embedded UI to build-protospy so it only
+      # needs to compile the arm64 binary before the multi-arch push.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protospy-amd64
+          path: publish/linux/amd64/protospy
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  build-protospy:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+
+      # amd64 binary + UI bundle were built and validated by smoke-test.
+      - uses: actions/download-artifact@v4
+        with:
+          name: protospy-amd64
+          path: publish/linux/amd64
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist
+
       # Cross toolchain for aarch64-musl (ring has C/asm that needs a C cross-compiler)
       - run: sudo apt-get update && sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
 
-      # Build Rust binaries natively per arch (embed pre-built ui/dist/)
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+          targets: aarch64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --target x86_64-unknown-linux-musl
       - run: cargo build --release --target aarch64-unknown-linux-musl
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
 
-      # Stage binaries where Dockerfile expects them (TARGETARCH = amd64 | arm64)
+      # Stage arm64 alongside the downloaded amd64 binary (TARGETARCH = amd64 | arm64)
       - run: |
-          mkdir -p publish/linux/amd64 publish/linux/arm64
-          cp target/x86_64-unknown-linux-musl/release/protospy publish/linux/amd64/protospy
-          cp target/aarch64-unknown-linux-musl/release/protospy  publish/linux/arm64/protospy
+          mkdir -p publish/linux/arm64
+          cp target/aarch64-unknown-linux-musl/release/protospy publish/linux/arm64/protospy
+          chmod +x publish/linux/amd64/protospy
 
       - uses: docker/metadata-action@v6
         id: meta
@@ -80,6 +145,7 @@ jobs:
     #       push-to-registry: true
 
   build-flix:
+    needs: smoke-test
     runs-on: ubuntu-latest
     permissions:
       contents: read

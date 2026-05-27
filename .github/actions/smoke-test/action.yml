@@ -1,0 +1,33 @@
+name: Smoke test
+description: Bring up the protospy + flix + elasticsearch stack and exercise it end-to-end.
+inputs:
+  protospy-image:
+    description: Image tag for the protospy service
+    required: false
+    default: protospy-protospy:latest
+  flix-image:
+    description: Image tag for the flix service
+    required: false
+    default: protospy-flix:latest
+runs:
+  using: composite
+  steps:
+    - uses: hoverkraft-tech/compose-action@v2.6.0
+      with:
+        compose-file: ./docker-compose.yaml
+        up-flags: --wait
+      env:
+        PROTOSPY_IMAGE: ${{ inputs.protospy-image }}
+        FLIX_IMAGE: ${{ inputs.flix-image }}
+    - name: Load data
+      shell: bash
+      run: >-
+        docker compose run --rm
+        -e ELASTICSEARCH_URL=http://elasticsearch:9200
+        flix uv run python loader.py
+      env:
+        PROTOSPY_IMAGE: ${{ inputs.protospy-image }}
+        FLIX_IMAGE: ${{ inputs.flix-image }}
+    - name: Smoke test
+      shell: bash
+      run: scripts/smoke-test.sh
