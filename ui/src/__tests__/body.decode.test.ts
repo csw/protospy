@@ -63,6 +63,10 @@ describe("decodeBody", () => {
     expect(result.text).toBe("hello world");
     expect(result.mediaType).toBe("text/plain");
     expect(result.size).toBe(11);
+    // No `Content-Encoding`, so no decompression step ran and
+    // `decodedSize` stays undefined — this is the signal the UI uses
+    // to render a single size rather than the dual-size form.
+    expect(result.decodedSize).toBeUndefined();
   });
 
   it("JSON body returns kind json with pretty-printed text", async () => {
@@ -109,7 +113,12 @@ describe("decodeBody", () => {
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
+    // `size` is the wire (compressed) byte count.
     expect(result.size).toBe(327);
+    // `decodedSize` is the post-decompression byte count — set only because
+    // a decompression step ran. The decompressed Elasticsearch cluster
+    // info response is 540 bytes of UTF-8 JSON.
+    expect(result.decodedSize).toBe(540);
     // The decompressed content is an Elasticsearch cluster info response
     expect(result.text).toContain("docker-cluster");
     expect(result.text).toContain("You Know, for Search");
@@ -130,28 +139,34 @@ describe("decodeBody", () => {
   });
 
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 28; decompresses to {"hello":"world","n":42}
+    // (24 bytes).
     const body: BodyState = {
       chunks: [{ binary: BROTLI_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      totalBytes: 28,
       contentType: "application/json",
       contentEncoding: "br",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(24);
+    // `size` is the wire (compressed) byte count from BodyState.totalBytes.
+    expect(result.size).toBe(28);
+    // `decodedSize` is the post-decompression byte count.
+    expect(result.decodedSize).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);
   });
 
   it("brotli-encoded text body decompresses to plain text", async () => {
+    // Fixture wire bytes: 22; decompresses to "hello brotli world"
+    // (18 bytes).
     const body: BodyState = {
       chunks: [{ binary: BROTLI_TEXT_BASE64 }],
       atEnd: true,
-      totalBytes: 18,
+      totalBytes: 22,
       contentType: "text/plain",
       contentEncoding: "br",
     };
@@ -159,6 +174,8 @@ describe("decodeBody", () => {
     expect(result.kind).toBe("text");
     expect(result.text).toBe("hello brotli world");
     expect(result.mediaType).toBe("text/plain");
+    expect(result.size).toBe(22);
+    expect(result.decodedSize).toBe(18);
   });
 
   it("corrupt brotli bytes cause decodeBody to reject", async () => {
@@ -176,29 +193,33 @@ describe("decodeBody", () => {
   });
 
   it("zstd-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 33; decompresses to {"hello":"world","n":42}
+    // (24 bytes). For this small payload zstd's frame header makes the
+    // compressed form larger than the input — fine; we're verifying
+    // round-trip semantics, not compression ratio.
     const body: BodyState = {
       chunks: [{ binary: ZSTD_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      totalBytes: 33,
       contentType: "application/json",
       contentEncoding: "zstd",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(24);
+    expect(result.size).toBe(33);
+    expect(result.decodedSize).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);
   });
 
   it("zstd-encoded text body decompresses to plain text", async () => {
-    // Fixture decompresses to "hello zstd world" (16 bytes).
+    // Fixture wire bytes: 25; decompresses to "hello zstd world" (16 bytes).
     const body: BodyState = {
       chunks: [{ binary: ZSTD_TEXT_BASE64 }],
       atEnd: true,
-      totalBytes: 16,
+      totalBytes: 25,
       contentType: "text/plain",
       contentEncoding: "zstd",
     };
@@ -206,6 +227,8 @@ describe("decodeBody", () => {
     expect(result.kind).toBe("text");
     expect(result.text).toBe("hello zstd world");
     expect(result.mediaType).toBe("text/plain");
+    expect(result.size).toBe(25);
+    expect(result.decodedSize).toBe(16);
   });
 
   it("corrupt zstd bytes cause decodeBody to reject", async () => {
@@ -350,17 +373,20 @@ describe("decodeBody JSONL", () => {
 
 describe("decodeBody edge cases", () => {
   it("deflate-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 32; decompresses to {"hello":"world","n":42}
+    // (24 bytes).
     const body: BodyState = {
       chunks: [{ binary: DEFLATE_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      totalBytes: 32,
       contentType: "application/json",
       contentEncoding: "deflate",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
+    expect(result.size).toBe(32);
+    expect(result.decodedSize).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);

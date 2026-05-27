@@ -27,8 +27,18 @@ export function BodyPane({ title, body }: Props) {
         )}
         <div className="ml-auto flex items-center gap-2">
           {result != null && (
-            <span className="font-family-mono text-xs text-dim">
-              {formatSize(result.size)}
+            <span
+              className="font-family-mono text-xs text-dim"
+              data-testid="body-size"
+              title={
+                result.decodedSize != null
+                  ? `${formatSize(result.size)} on the wire → ${formatSize(result.decodedSize)} after decompression`
+                  : undefined
+              }
+            >
+              {result.decodedSize != null
+                ? `${formatSize(result.size)} → ${formatSize(result.decodedSize)}`
+                : formatSize(result.size)}
             </span>
           )}
           {body != null && <CopyButton text={result?.text} />}

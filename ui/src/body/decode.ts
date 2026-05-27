@@ -5,7 +5,21 @@ export interface DecodeResult {
   kind: "json" | "jsonl" | "text" | "binary";
   text?: string;
   mediaType: string;
+  /**
+   * Wire (compressed) byte count, passed through from `BodyState.totalBytes`
+   * unchanged. For uncompressed bodies this equals the decoded size; for
+   * compressed bodies (`Content-Encoding: gzip | deflate | br | zstd`) it is
+   * the compressed size on the wire. The post-decompression size is
+   * reported separately as `decodedSize`.
+   */
   size: number;
+  /**
+   * Decompressed byte count. Set only when a decompression step ran (i.e.
+   * the body had a recognized `Content-Encoding`); `undefined` for
+   * uncompressed bodies. The UI uses the presence of this field to render
+   * a dual-size display ("wire → decoded") rather than just `size`.
+   */
+  decodedSize?: number;
 }
 
 function chunkToBytes(chunk: BodyChunk): Uint8Array {
@@ -143,8 +157,12 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   const byteArrays = chunks.map(chunkToBytes);
   let bytes = concatenate(byteArrays);
 
-  // Step 2: Decompress if needed
+  // Step 2: Decompress if needed. `decodedSize` is set only when a
+  // decompression step actually ran — its presence is the signal that
+  // `size` (the wire byte count) and the post-decode size differ, and the
+  // UI uses it to render a dual-size display.
   const encoding = contentEncoding?.toLowerCase();
+  let decodedSize: number | undefined;
   if (
     encoding === "br" ||
     encoding === "gzip" ||
@@ -152,6 +170,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     encoding === "zstd"
   ) {
     bytes = await decompress(bytes, encoding);
+    decodedSize = bytes.byteLength;
   }
 
   // Step 3: Decode bytes to text
@@ -165,6 +184,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       text: formatJsonl(text),
       mediaType,
       size: totalBytes,
+      decodedSize,
     };
   }
 
@@ -173,7 +193,13 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     try {
       const parsed: unknown = JSON.parse(text);
       const prettyText = JSON.stringify(parsed, null, 2);
-      return { kind: "json", text: prettyText, mediaType, size: totalBytes };
+      return {
+        kind: "json",
+        text: prettyText,
+        mediaType,
+        size: totalBytes,
+        decodedSize,
+      };
     } catch {
       // fall through to plain text
     }
@@ -187,9 +213,9 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     "application/octet-stream",
   ];
   if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
-    return { kind: "binary", mediaType, size: totalBytes };
+    return { kind: "binary", mediaType, size: totalBytes, decodedSize };
   }
 
   // Step 7: Default to text
-  return { kind: "text", text, mediaType, size: totalBytes };
+  return { kind: "text", text, mediaType, size: totalBytes, decodedSize };
 }

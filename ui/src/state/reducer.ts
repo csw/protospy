@@ -6,6 +6,14 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 export interface BodyState {
   chunks: BodyChunk[];
   atEnd: boolean;
+  /**
+   * Wire (compressed) byte count, as reported by the Rust backend's
+   * `BodyData.total_bytes`. For uncompressed bodies this equals the decoded
+   * size; for `Content-Encoding: gzip | deflate | br | zstd` bodies it is
+   * the compressed size on the wire. The decompressed size is computed by
+   * the decode pipeline and surfaced separately as
+   * `DecodeResult.decodedSize` (see body/decode.ts).
+   */
   totalBytes: number;
   contentEncoding?: string;
   contentType?: string;
