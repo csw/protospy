@@ -122,7 +122,7 @@ export function ExchangeListItem({
             className="font-family-mono text-ui-xs font-semibold shrink-0 text-red"
             title={exchange.error?.message}
           >
-            · interrupted
+            · Interrupted
           </span>
         )}
 

@@ -70,7 +70,7 @@ export function BodyPane({ title, body, cacheTo, error }: Props) {
             className="border-b border-red/30 bg-red/5 px-3 py-2 font-family-mono text-xs text-red"
           >
             <div className="font-semibold mb-0.5">Network error</div>
-            <div className="text-red/80 whitespace-pre-wrap break-all">
+            <div className="text-red/80 whitespace-pre-wrap break-words">
               {error.message}
             </div>
           </div>
