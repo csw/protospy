@@ -20,6 +20,11 @@ First, bring up the container services:
 docker compose up -d elasticsearch jaeger flix
 ```
 
+Load the movie data into Elasticsearch (one-time):
+```shell
+docker compose run --rm flix python loader.py
+```
+
 Then bring up protospy:
 ```shell
 just run
