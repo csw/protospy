@@ -83,7 +83,7 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: protospy-musl
+          shared-key: protospy-musl-${{ matrix.arch }}
       # The linker env vars are arm64-specific; they're harmless empties on amd64.
       - run: cargo build --release --target ${{ matrix.target }}
         env:
