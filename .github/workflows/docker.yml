@@ -41,22 +41,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ui/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
       - uses: actions/cache@v4
         id: ui-dist
         with:
           path: ui/dist
           key: ui-dist-${{ hashFiles('ui/pnpm-lock.yaml', 'ui/package.json', 'ui/src/**', 'ui/index.html', 'ui/vite.config.ts', 'ui/tsconfig.json', 'ui/tsconfig.node.json') }}
 
-      - if: steps.ui-dist.outputs.cache-hit != 'true'
-        uses: pnpm/action-setup@v6
-        with:
-          package_json_file: ui/package.json
-      - if: steps.ui-dist.outputs.cache-hit != 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: ui/package.json
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
       - if: steps.ui-dist.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
         working-directory: ui
