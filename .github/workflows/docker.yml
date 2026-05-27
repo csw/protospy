@@ -153,34 +153,10 @@ jobs:
             echo
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # TEMP: diagnostics for intermittent compose-up abort during pull.
-      # Remove once we have a clean failure capture.
-      - name: Disk + docker state before compose-up
-        run: |
-          df -h
-          docker system df || true
-      - name: Pre-pull registry images
-        run: docker compose pull elasticsearch jaeger
-        env:
-          PROTOSPY_IMAGE: protospy-protospy:latest
-          FLIX_IMAGE: protospy-flix:latest
-
       - uses: ./.github/actions/smoke-test
         with:
           protospy-image: protospy-protospy:latest
           flix-image: protospy-flix:latest
-
-      - name: Post-failure diagnostics
-        if: failure()
-        run: |
-          df -h || true
-          docker system df || true
-          sudo dmesg | tail -200 || true
-          docker compose ps || true
-          docker compose logs --tail=200 || true
-        env:
-          PROTOSPY_IMAGE: protospy-protospy:latest
-          FLIX_IMAGE: protospy-flix:latest
 
   # Tag-based releases: change `if:` on the publish jobs to also accept tag
   # pushes, e.g.
