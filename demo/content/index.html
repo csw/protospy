@@ -423,17 +423,14 @@
       }
 
       /* ── Canned exchange preview (step 2) ── */
+      /* Colors match protospy UI dark mode tokens exactly. */
       #exchange-preview {
-        background: var(--bg);
-        border: 1px solid var(--border);
+        background: #0c0f14;
+        border: 1px solid #1c222b;
         border-radius: 6px;
-        padding: 12px 14px;
-        font-family: var(--mono);
-        font-size: 11px;
-        line-height: 1.6;
-        margin-bottom: 20px;
-        max-height: 160px;
         overflow: hidden;
+        margin-bottom: 20px;
+        max-height: 200px;
         position: relative;
       }
 
@@ -444,35 +441,98 @@
         left: 0;
         right: 0;
         height: 48px;
-        background: linear-gradient(transparent, var(--bg));
+        background: linear-gradient(transparent, #0c0f14);
       }
 
-      .ex-method {
-        color: var(--amber);
+      /* List item (rows mode) — mirrors ExchangeListItem layout */
+      .ex-list-item {
+        background: #11151c;
+        border-bottom: 1px solid #1c222b;
+        border-left: 3px solid transparent;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
       }
 
-      .ex-url {
-        color: var(--text);
+      .ex-row1 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
 
+      /* Method badge — blue for POST, matching bg-m-post-bg / text-m-post */
+      .ex-method-badge {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        background: rgba(96, 165, 250, 0.14);
+        color: #60a5fa;
+        border-radius: 3px;
+        padding: 2px 6px;
+        min-width: 42px;
+        text-align: center;
+        display: inline-block;
+      }
+
+      /* 2xx status — text-green (#34d399) */
       .ex-status {
-        color: var(--green);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #34d399;
       }
 
-      .ex-dim {
-        color: var(--muted);
+      /* Relative timestamp — text-dim (#9aa5b6) */
+      .ex-time {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #9aa5b6;
+        margin-left: auto;
       }
 
+      /* URI path — text-ink-2 (#c5cee0) */
+      .ex-path {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: #c5cee0;
+      }
+
+      /* Elapsed + size row — text-mid (#94a3b8) */
+      .ex-meta {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #94a3b8;
+      }
+
+      .ex-sep {
+        color: #9aa5b6;
+      }
+
+      /* Body pane — JSON viewer */
+      .ex-body {
+        padding: 8px 12px;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.6;
+      }
+
+      /* JSON syntax tokens — match --color-j-* dark mode values */
       .ex-key {
-        color: var(--accent);
+        color: #93c5fd;
       }
 
       .ex-str {
-        color: var(--green);
+        color: #86efac;
       }
 
       .ex-num {
-        color: var(--amber);
+        color: #fdba74;
+      }
+
+      .ex-punct {
+        color: #475569;
       }
     </style>
   </head>
@@ -590,7 +650,7 @@
         },
         {
           title: "Here’s what a captured exchange looks like.",
-          body: '<div id="exchange-preview"><span class="ex-method">POST</span> <span class="ex-url">/movies/_search</span> → <span class="ex-status">200 OK</span> <span class="ex-dim">· 142 ms · 4.1 KB</span><br><br><span class="ex-dim">// request body</span><br>{<br>&nbsp;&nbsp;<span class="ex-key">"query"</span>: {<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"multi_match"</span>: {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"query"</span>: <span class="ex-str">"inception"</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">"fields"</span>: [<span class="ex-str">"title^3"</span>, <span class="ex-str">"overview"</span>]<br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;},<br>&nbsp;&nbsp;<span class="ex-key">"size"</span>: <span class="ex-num">10</span><br>}</div>Every exchange shows the full request and response bodies — no truncation, no noise.',
+          body: '<div id="exchange-preview"><div class="ex-list-item"><div class="ex-row1"><span class="ex-method-badge">POST</span><span class="ex-status">200</span><span class="ex-time">just now</span></div><div class="ex-path">/movies/_search</div><div class="ex-meta">142ms <span class="ex-sep">&middot;</span> req 408 B <span class="ex-sep">&middot;</span> res 4.1 KB</div></div><div class="ex-body"><span class="ex-punct">{</span><br>&nbsp;&nbsp;<span class="ex-key">&quot;query&quot;</span><span class="ex-punct">: {</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">&quot;multi_match&quot;</span><span class="ex-punct">: {</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">&quot;query&quot;</span><span class="ex-punct">:</span> <span class="ex-str">&quot;inception&quot;</span><span class="ex-punct">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-key">&quot;fields&quot;</span><span class="ex-punct">:</span> <span class="ex-punct">[</span><span class="ex-str">&quot;title^3&quot;</span><span class="ex-punct">,</span> <span class="ex-str">&quot;overview&quot;</span><span class="ex-punct">]</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ex-punct">}</span><br>&nbsp;&nbsp;<span class="ex-punct">},</span><br>&nbsp;&nbsp;<span class="ex-key">&quot;size&quot;</span><span class="ex-punct">:</span> <span class="ex-num">10</span><br><span class="ex-punct">}</span></div></div>Every exchange shows the full request and response bodies — no truncation, no noise.',
           spotlight: null,
           cta: "Next",
         },

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,15 +17,17 @@
           if (raw) {
             var parsed = JSON.parse(raw);
             if (parsed.state && typeof parsed.state.darkMode === "boolean") {
-              if (parsed.state.darkMode)
-                document.documentElement.setAttribute("data-theme", "dark");
+              // Honour stored user preference (dark or light).
+              document.documentElement.setAttribute(
+                "data-theme",
+                parsed.state.darkMode ? "dark" : "light",
+              );
               return;
             }
           }
         } catch (e) {}
-        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-          document.documentElement.setAttribute("data-theme", "dark");
-        }
+        // No stored preference: default to dark (matches store default).
+        document.documentElement.setAttribute("data-theme", "dark");
       })();
     </script>
   </head>

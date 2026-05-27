@@ -70,7 +70,7 @@ export const useStore = create<StoreState>()(
       density: "regular",
       traceGroupOn: false,
       cmdKOpen: false,
-      darkMode: false,
+      darkMode: true,
 
       // Core actions
       applyEvent: (msg) =>
