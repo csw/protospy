@@ -47,6 +47,27 @@ Before writing any code:
 - Read the relevant subproject's `CLAUDE.md` (e.g. `ui/CLAUDE.md` for UI work)
 - Consult `docs/agents/` files relevant to the type of work
 
+**Scope.** Read the ticket description and construe the scope to include
+adjacent problems you encounter in the same code, unless they're of a
+different nature or magnitude. If you're fixing a bug in a script and find
+another bug in the same script, fix it. If you're adjusting type
+configuration and a file is missing type coverage that's consistent with
+the ticket's intent, include it. Don't limit yourself to only the literal
+items enumerated in the description — ticket scope defines the primary
+objective, not the boundary of what you're allowed to touch.
+
+Conversely, if you find something that warrants a fundamentally different
+kind of work (a rewrite, a design change, a new dependency) or is much
+larger than the ticket itself, note it in the PR description and move on.
+Use `/pm:capture` for genuinely separate discoveries.
+
+**Getting unstuck.** If you've spent more than 5 minutes on the same
+problem without making progress — rummaging through files, trying the same
+approach repeatedly, or going in circles — stop and spawn an Opus subagent
+for a fresh perspective. Brief it on what you've tried and what's not
+working. A second set of eyes on a stuck problem is almost always faster
+than continuing to iterate in the same direction.
+
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
 When done, run the subproject's quality checks as listed in its `CLAUDE.md`.
