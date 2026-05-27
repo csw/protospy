@@ -22,8 +22,8 @@ function FactRow({ label, value }: FactRowProps) {
 }
 
 export function TimingView({ exchange }: Props) {
-  const reqSize = exchange.requestBody?.totalBytes ?? 0;
-  const resSize = exchange.responseBody?.totalBytes ?? 0;
+  const reqSize = exchange.requestBody?.wireBytes ?? 0;
+  const resSize = exchange.responseBody?.wireBytes ?? 0;
 
   return (
     <div className="overflow-auto p-3">

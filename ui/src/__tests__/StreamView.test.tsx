@@ -13,7 +13,7 @@ function makeSSEExchange(sseText: string, atEnd = true): Exchange {
     responseBody: {
       chunks: [{ text: sseText }],
       atEnd,
-      totalBytes: sseText.length,
+      wireBytes: sseText.length,
       contentType: "text/event-stream",
     },
   };

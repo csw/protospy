@@ -82,7 +82,7 @@ describe("Request event", () => {
     const body = ex.requestBody!;
     expect(body.chunks).toEqual([]);
     expect(body.atEnd).toBe(false);
-    expect(body.totalBytes).toBe(0);
+    expect(body.wireBytes).toBe(0);
     expect(body.contentType).toBe("text/plain");
     expect(body.contentEncoding).toBe("gzip");
   });
@@ -227,7 +227,7 @@ describe("BodyData event", () => {
     const body = exchanges.get(1)!.requestBody!;
     expect(body.chunks).toEqual([{ text: "hello" }, { text: " world" }]);
     expect(body.atEnd).toBe(true);
-    expect(body.totalBytes).toBe(11);
+    expect(body.wireBytes).toBe(11);
   });
 
   it("appends chunks to response body", () => {
@@ -260,7 +260,7 @@ describe("BodyData event", () => {
     const body = exchanges.get(1)!.responseBody!;
     expect(body.chunks).toEqual([{ text: "data" }]);
     expect(body.atEnd).toBe(false);
-    expect(body.totalBytes).toBe(4);
+    expect(body.wireBytes).toBe(4);
   });
 
   it("sets atEnd=true when at_end flag is set", () => {
@@ -394,7 +394,7 @@ describe("InitialBody conversion", () => {
     const body = exchanges.get(1)!.requestBody as BodyState;
     expect(body.chunks).toEqual([{ binary: "AAEC" }]);
     expect(body.atEnd).toBe(true);
-    expect(body.totalBytes).toBe(3);
+    expect(body.wireBytes).toBe(3);
     expect(body.contentType).toBe("application/octet-stream");
   });
 
@@ -760,7 +760,7 @@ describe("BodyData ordering", () => {
     const body = exchanges.get(1)!.responseBody!;
     expect(body.chunks).toEqual([{ text: "world" }, { text: "hello" }]);
     expect(body.atEnd).toBe(true);
-    expect(body.totalBytes).toBe(10);
+    expect(body.wireBytes).toBe(10);
   });
 });
 
@@ -870,6 +870,6 @@ describe("Error event after a completed exchange", () => {
     expect(ex.elapsedMs).toBe(73);
     expect(ex.responseBody?.chunks).toEqual([{ text: "ok" }]);
     expect(ex.responseBody?.atEnd).toBe(true);
-    expect(ex.responseBody?.totalBytes).toBe(2);
+    expect(ex.responseBody?.wireBytes).toBe(2);
   });
 });

@@ -136,7 +136,7 @@ describe("parseSSEBody field-parsing robustness", () => {
 
 describe("chunksToText", () => {
   it("returns empty string for a body with no chunks", () => {
-    const body: BodyState = { chunks: [], atEnd: true, totalBytes: 0 };
+    const body: BodyState = { chunks: [], atEnd: true, wireBytes: 0 };
     expect(chunksToText(body)).toBe("");
   });
 
@@ -144,7 +144,7 @@ describe("chunksToText", () => {
     const body: BodyState = {
       chunks: [{ text: "hello" }],
       atEnd: true,
-      totalBytes: 5,
+      wireBytes: 5,
     };
     expect(chunksToText(body)).toBe("hello");
   });
@@ -153,7 +153,7 @@ describe("chunksToText", () => {
     const body: BodyState = {
       chunks: [{ text: "foo" }, { text: "bar" }],
       atEnd: true,
-      totalBytes: 6,
+      wireBytes: 6,
     };
     expect(chunksToText(body)).toBe("foobar");
   });
@@ -162,7 +162,7 @@ describe("chunksToText", () => {
     const body: BodyState = {
       chunks: [{ binary: "aGVsbG8=" }],
       atEnd: true,
-      totalBytes: 5,
+      wireBytes: 5,
     };
     expect(chunksToText(body)).toBe("hello");
   });
@@ -171,7 +171,7 @@ describe("chunksToText", () => {
     const body: BodyState = {
       chunks: [{ text: "hello " }, { binary: "d29ybGQ=" }],
       atEnd: true,
-      totalBytes: 11,
+      wireBytes: 11,
     };
     expect(chunksToText(body)).toBe("hello world");
   });

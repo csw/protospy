@@ -101,10 +101,10 @@ type Event =
 
 - **`Request`** → sets `method/uri/version/requestHeaders/requestBody`. Also derives `traceId` from the `traceparent` header (the second `-`-delimited segment).
 - **`Response`** → sets `status/responseVersion/responseHeaders/elapsedMs/responseBody`.
-- **`BodyData`** → appends the chunk payload to `requestBody`/`responseBody` (chosen by `msg.direction`), updating `atEnd` and `totalBytes`.
+- **`BodyData`** → appends the chunk payload to `requestBody`/`responseBody` (chosen by `msg.direction`), updating `atEnd` and `wireBytes`.
 - **`Error`** → records `{ direction, message }`.
 
-`InitialBody` is normalized to the local `BodyState` (`{ chunks, atEnd, totalBytes, contentType?, contentEncoding? }`) by `initialBodyToState`, which pulls `content-type`/`content-encoding` off the headers at reduce time so decoders don't have to re-scan headers. `NoBody` → `undefined`; `NotRead` → empty-but-present body.
+`InitialBody` is normalized to the local `BodyState` (`{ chunks, atEnd, wireBytes, contentType?, contentEncoding? }`) by `initialBodyToState`, which pulls `content-type`/`content-encoding` off the headers at reduce time so decoders don't have to re-scan headers. `NoBody` → `undefined`; `NotRead` → empty-but-present body.
 
 The store also holds all **UI state**: `selectedId`, `filter`, `traceFilter`, `hoverTraceId`, `listMode` (`rows`/`table`), `listWidth`, `order` (`newest`/`oldest`), `density`, `traceGroupOn`, `cmdKOpen`, `darkMode`, plus `connection`, `service`, `protocol`. Each has a plain setter. `toggleDarkMode` additionally calls `applyThemeToDOM` as a side effect. The store uses Zustand's `persist` middleware to save UI preferences (`listWidth`, `density`, `order`, `listMode`, `traceGroupOn`, `darkMode`) to `localStorage` under the key `protospy-ui-prefs`, with `partialize` to exclude transient state.
 

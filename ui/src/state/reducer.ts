@@ -6,7 +6,15 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 export interface BodyState {
   chunks: BodyChunk[];
   atEnd: boolean;
-  totalBytes: number;
+  /**
+   * Wire byte count, as reported by the Rust backend's
+   * `BodyData.total_bytes`. For uncompressed bodies this equals the
+   * decoded byte count; for `Content-Encoding: gzip | deflate | br | zstd`
+   * bodies it is the compressed size on the wire. The decompressed byte
+   * count is computed by the decode pipeline and surfaced separately as
+   * `DecodeResult.decodedBytes` (see body/decode.ts).
+   */
+  wireBytes: number;
   contentEncoding?: string;
   contentType?: string;
 }
@@ -50,7 +58,7 @@ function initialBodyToState(
     return {
       chunks: [],
       atEnd: false,
-      totalBytes: 0,
+      wireBytes: 0,
       contentType,
       contentEncoding,
     };
@@ -61,7 +69,7 @@ function initialBodyToState(
   return {
     chunks,
     atEnd: body.at_end,
-    totalBytes: body.total_bytes,
+    wireBytes: body.total_bytes,
     contentType,
     contentEncoding,
   };
@@ -117,22 +125,22 @@ export function apply(
     const direction = msg.direction;
     if (direction === "Request") {
       if (ex.requestBody == null) {
-        ex.requestBody = { chunks: [], atEnd: false, totalBytes: 0 };
+        ex.requestBody = { chunks: [], atEnd: false, wireBytes: 0 };
       }
       if (event.content?.payload != null) {
         ex.requestBody.chunks.push(event.content.payload);
       }
       ex.requestBody.atEnd = event.at_end;
-      ex.requestBody.totalBytes = event.total_bytes;
+      ex.requestBody.wireBytes = event.total_bytes;
     } else {
       if (ex.responseBody == null) {
-        ex.responseBody = { chunks: [], atEnd: false, totalBytes: 0 };
+        ex.responseBody = { chunks: [], atEnd: false, wireBytes: 0 };
       }
       if (event.content?.payload != null) {
         ex.responseBody.chunks.push(event.content.payload);
       }
       ex.responseBody.atEnd = event.at_end;
-      ex.responseBody.totalBytes = event.total_bytes;
+      ex.responseBody.wireBytes = event.total_bytes;
     }
   } else if (event.type === "Error") {
     const ex = getOrCreate(exchanges, ids, id, timestamp);

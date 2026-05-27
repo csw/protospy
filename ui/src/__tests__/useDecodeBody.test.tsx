@@ -14,7 +14,7 @@ function makeBody(overrides: Partial<BodyState> = {}): BodyState {
   return {
     chunks: [],
     atEnd: true,
-    totalBytes: 0,
+    wireBytes: 0,
     ...overrides,
   };
 }
@@ -23,7 +23,7 @@ const sampleResult: DecodeResult = {
   kind: "text",
   text: "ok",
   mediaType: "text/plain",
-  size: 2,
+  wireBytes: 2,
 };
 
 describe("useDecodeBody", () => {
@@ -97,20 +97,20 @@ describe("useDecodeBody", () => {
         }),
     );
 
-    const firstBody = makeBody({ atEnd: true, totalBytes: 1 });
-    const secondBody = makeBody({ atEnd: true, totalBytes: 2 });
+    const firstBody = makeBody({ atEnd: true, wireBytes: 1 });
+    const secondBody = makeBody({ atEnd: true, wireBytes: 2 });
 
     const staleResult: DecodeResult = {
       kind: "text",
       text: "stale",
       mediaType: "text/plain",
-      size: 1,
+      wireBytes: 1,
     };
     const freshResult: DecodeResult = {
       kind: "text",
       text: "fresh",
       mediaType: "text/plain",
-      size: 2,
+      wireBytes: 2,
     };
 
     const { result, rerender } = renderHook(

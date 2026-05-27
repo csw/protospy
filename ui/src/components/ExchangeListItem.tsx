@@ -26,8 +26,8 @@ export function ExchangeListItem({
   const uri = exchange.uri ?? "/";
   const { path, query } = splitUri(uri);
 
-  const reqSize = exchange.requestBody?.totalBytes ?? 0;
-  const resSize = exchange.responseBody?.totalBytes ?? 0;
+  const reqSize = exchange.requestBody?.wireBytes ?? 0;
+  const resSize = exchange.responseBody?.wireBytes ?? 0;
 
   const hasError = exchange.error != null && exchange.status == null;
 

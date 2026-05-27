@@ -55,14 +55,18 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ text: "hello world" }],
       atEnd: true,
-      totalBytes: 11,
+      wireBytes: 11,
       contentType: "text/plain",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("text");
     expect(result.text).toBe("hello world");
     expect(result.mediaType).toBe("text/plain");
-    expect(result.size).toBe(11);
+    expect(result.wireBytes).toBe(11);
+    // No `Content-Encoding`, so no decompression step ran and
+    // `decodedBytes` stays undefined — this is the signal the UI uses
+    // to render a single size rather than the dual-size form.
+    expect(result.decodedBytes).toBeUndefined();
   });
 
   it("JSON body returns kind json with pretty-printed text", async () => {
@@ -70,13 +74,13 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ text: json }],
       atEnd: true,
-      totalBytes: json.length,
+      wireBytes: json.length,
       contentType: "application/json",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(json.length);
+    expect(result.wireBytes).toBe(json.length);
     // Should be pretty-printed
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.foo).toBe("bar");
@@ -89,7 +93,7 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ text: "not valid json {" }],
       atEnd: true,
-      totalBytes: 16,
+      wireBytes: 16,
       contentType: "application/json",
     };
     const result = await decodeBody(body);
@@ -102,14 +106,19 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ binary: GZIP_ES_BASE64 }],
       atEnd: true,
-      totalBytes: 327,
+      wireBytes: 327,
       contentType: "application/json",
       contentEncoding: "gzip",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(327);
+    // `wireBytes` is the wire (compressed) byte count.
+    expect(result.wireBytes).toBe(327);
+    // `decodedBytes` is the post-decompression byte count — set only because
+    // a decompression step ran. The decompressed Elasticsearch cluster
+    // info response is 540 bytes of UTF-8 JSON.
+    expect(result.decodedBytes).toBe(540);
     // The decompressed content is an Elasticsearch cluster info response
     expect(result.text).toContain("docker-cluster");
     expect(result.text).toContain("You Know, for Search");
@@ -119,39 +128,45 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
-      totalBytes: 3,
+      wireBytes: 3,
       contentType: "image/png",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("binary");
     expect(result.text).toBeUndefined();
     expect(result.mediaType).toBe("image/png");
-    expect(result.size).toBe(3);
+    expect(result.wireBytes).toBe(3);
   });
 
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 28; decompresses to {"hello":"world","n":42}
+    // (24 bytes).
     const body: BodyState = {
       chunks: [{ binary: BROTLI_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      wireBytes: 28,
       contentType: "application/json",
       contentEncoding: "br",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(24);
+    // `wireBytes` is the wire (compressed) byte count from BodyState.wireBytes.
+    expect(result.wireBytes).toBe(28);
+    // `decodedBytes` is the post-decompression byte count.
+    expect(result.decodedBytes).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);
   });
 
   it("brotli-encoded text body decompresses to plain text", async () => {
+    // Fixture wire bytes: 22; decompresses to "hello brotli world"
+    // (18 bytes).
     const body: BodyState = {
       chunks: [{ binary: BROTLI_TEXT_BASE64 }],
       atEnd: true,
-      totalBytes: 18,
+      wireBytes: 22,
       contentType: "text/plain",
       contentEncoding: "br",
     };
@@ -159,6 +174,8 @@ describe("decodeBody", () => {
     expect(result.kind).toBe("text");
     expect(result.text).toBe("hello brotli world");
     expect(result.mediaType).toBe("text/plain");
+    expect(result.wireBytes).toBe(22);
+    expect(result.decodedBytes).toBe(18);
   });
 
   it("corrupt brotli bytes cause decodeBody to reject", async () => {
@@ -168,7 +185,7 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
-      totalBytes: 3,
+      wireBytes: 3,
       contentType: "text/plain",
       contentEncoding: "br",
     };
@@ -176,29 +193,33 @@ describe("decodeBody", () => {
   });
 
   it("zstd-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 33; decompresses to {"hello":"world","n":42}
+    // (24 bytes). For this small payload zstd's frame header makes the
+    // compressed form larger than the input — fine; we're verifying
+    // round-trip semantics, not compression ratio.
     const body: BodyState = {
       chunks: [{ binary: ZSTD_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      wireBytes: 33,
       contentType: "application/json",
       contentEncoding: "zstd",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
-    expect(result.size).toBe(24);
+    expect(result.wireBytes).toBe(33);
+    expect(result.decodedBytes).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);
   });
 
   it("zstd-encoded text body decompresses to plain text", async () => {
-    // Fixture decompresses to "hello zstd world" (16 bytes).
+    // Fixture wire bytes: 25; decompresses to "hello zstd world" (16 bytes).
     const body: BodyState = {
       chunks: [{ binary: ZSTD_TEXT_BASE64 }],
       atEnd: true,
-      totalBytes: 16,
+      wireBytes: 25,
       contentType: "text/plain",
       contentEncoding: "zstd",
     };
@@ -206,6 +227,8 @@ describe("decodeBody", () => {
     expect(result.kind).toBe("text");
     expect(result.text).toBe("hello zstd world");
     expect(result.mediaType).toBe("text/plain");
+    expect(result.wireBytes).toBe(25);
+    expect(result.decodedBytes).toBe(16);
   });
 
   it("corrupt zstd bytes cause decodeBody to reject", async () => {
@@ -213,7 +236,7 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
-      totalBytes: 3,
+      wireBytes: 3,
       contentType: "text/plain",
       contentEncoding: "zstd",
     };
@@ -224,7 +247,7 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ text: "hello " }, { text: "world" }],
       atEnd: true,
-      totalBytes: 11,
+      wireBytes: 11,
       contentType: "text/plain",
     };
     const result = await decodeBody(body);
@@ -236,7 +259,7 @@ describe("decodeBody", () => {
     const body: BodyState = {
       chunks: [{ text: "some data" }],
       atEnd: true,
-      totalBytes: 9,
+      wireBytes: 9,
     };
     const result = await decodeBody(body);
     expect(result.mediaType).toBe("application/octet-stream");
@@ -251,7 +274,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: ndjsonText }],
       atEnd: true,
-      totalBytes: ndjsonText.length,
+      wireBytes: ndjsonText.length,
       contentType: "application/vnd.elasticsearch+x-ndjson",
     };
     const result = await decodeBody(body);
@@ -268,7 +291,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: line }],
       atEnd: true,
-      totalBytes: line.length,
+      wireBytes: line.length,
       contentType: "application/vnd.elasticsearch+x-ndjson; compatible-with=9",
     };
     const result = await decodeBody(body);
@@ -285,7 +308,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: lines }],
       atEnd: true,
-      totalBytes: lines.length,
+      wireBytes: lines.length,
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
@@ -297,7 +320,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: line }],
       atEnd: true,
-      totalBytes: line.length,
+      wireBytes: line.length,
       contentType: "application/ndjson",
     };
     const result = await decodeBody(body);
@@ -310,7 +333,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: `${r1}\n${r2}` }],
       atEnd: true,
-      totalBytes: r1.length + r2.length + 1,
+      wireBytes: r1.length + r2.length + 1,
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
@@ -324,7 +347,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: `${line}\n` }],
       atEnd: true,
-      totalBytes: line.length + 1,
+      wireBytes: line.length + 1,
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
@@ -338,7 +361,7 @@ describe("decodeBody JSONL", () => {
     const body: BodyState = {
       chunks: [{ text: `${valid}\n${invalid}` }],
       atEnd: true,
-      totalBytes: valid.length + invalid.length + 1,
+      wireBytes: valid.length + invalid.length + 1,
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
@@ -350,17 +373,20 @@ describe("decodeBody JSONL", () => {
 
 describe("decodeBody edge cases", () => {
   it("deflate-encoded JSON body decompresses and pretty-prints", async () => {
-    // Fixture decompresses to {"hello":"world","n":42} (24 bytes).
+    // Fixture wire bytes: 32; decompresses to {"hello":"world","n":42}
+    // (24 bytes).
     const body: BodyState = {
       chunks: [{ binary: DEFLATE_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 24,
+      wireBytes: 32,
       contentType: "application/json",
       contentEncoding: "deflate",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     expect(result.mediaType).toBe("application/json");
+    expect(result.wireBytes).toBe(32);
+    expect(result.decodedBytes).toBe(24);
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.hello).toBe("world");
     expect(parsed.n).toBe(42);
@@ -371,7 +397,7 @@ describe("decodeBody edge cases", () => {
     const body: BodyState = {
       chunks: [{ text: json }],
       atEnd: true,
-      totalBytes: json.length,
+      wireBytes: json.length,
       contentType: "application/json; charset=utf-8",
     };
     const result = await decodeBody(body);
@@ -389,7 +415,7 @@ describe("decodeBody edge cases", () => {
     const body: BodyState = {
       chunks: [{ binary: BOM_JSON_BASE64 }],
       atEnd: true,
-      totalBytes: 28,
+      wireBytes: 28,
       contentType: "application/json",
     };
     const result = await decodeBody(body);
@@ -403,11 +429,11 @@ describe("decodeBody edge cases", () => {
     const body: BodyState = {
       chunks: [],
       atEnd: true,
-      totalBytes: 0,
+      wireBytes: 0,
       contentType: "text/plain",
     };
     const result = await decodeBody(body);
-    expect(result.size).toBe(0);
+    expect(result.wireBytes).toBe(0);
     expect(result.mediaType).toBe("text/plain");
     // Default branch returns kind: "text" with an empty string.
     expect(result.kind).toBe("text");
@@ -418,7 +444,7 @@ describe("decodeBody edge cases", () => {
     const body: BodyState = {
       chunks: [{ binary: "!!!not-valid-base64!!!" }],
       atEnd: true,
-      totalBytes: 0,
+      wireBytes: 0,
       contentType: "application/octet-stream",
     };
     await expect(decodeBody(body)).rejects.toThrow();
@@ -429,7 +455,7 @@ describe("decodeBody edge cases", () => {
     const body: BodyState = {
       chunks: [{ text: json }],
       atEnd: true,
-      totalBytes: json.length,
+      wireBytes: json.length,
       contentType: "application/json; charset=utf-8; boundary=---xyz",
     };
     const result = await decodeBody(body);

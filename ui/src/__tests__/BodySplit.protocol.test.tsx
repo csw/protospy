@@ -14,7 +14,7 @@ function makeSSEExchange(): Exchange {
     responseBody: {
       chunks: [{ text: sseText }],
       atEnd: true,
-      totalBytes: sseText.length,
+      wireBytes: sseText.length,
       contentType: "text/event-stream",
     },
   };
@@ -29,7 +29,7 @@ function makeJsonExchange(): Exchange {
     responseBody: {
       chunks: [{ text: '{"ok":true}' }],
       atEnd: true,
-      totalBytes: 11,
+      wireBytes: 11,
       contentType: "application/json",
     },
   };

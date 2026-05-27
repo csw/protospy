@@ -27,8 +27,18 @@ export function BodyPane({ title, body }: Props) {
         )}
         <div className="ml-auto flex items-center gap-2">
           {result != null && (
-            <span className="font-family-mono text-xs text-dim">
-              {formatSize(result.size)}
+            <span
+              className="font-family-mono text-xs text-dim"
+              data-testid="body-size"
+              title={
+                result.decodedBytes != null
+                  ? `${formatSize(result.wireBytes)} on the wire → ${formatSize(result.decodedBytes)} after decompression`
+                  : undefined
+              }
+            >
+              {result.decodedBytes != null
+                ? `${formatSize(result.wireBytes)} → ${formatSize(result.decodedBytes)}`
+                : formatSize(result.wireBytes)}
             </span>
           )}
           {body != null && <CopyButton text={result?.text} />}
@@ -44,7 +54,7 @@ export function BodyPane({ title, body }: Props) {
 
         {!loading && body != null && !body.atEnd && (
           <EmptyState>
-            Streaming… ({formatSize(body.totalBytes)} received)
+            Streaming… ({formatSize(body.wireBytes)} received)
           </EmptyState>
         )}
 
@@ -69,7 +79,7 @@ export function BodyPane({ title, body }: Props) {
           )}
 
         {!loading && result != null && result.kind === "binary" && (
-          <EmptyState>Binary data · {formatSize(result.size)}</EmptyState>
+          <EmptyState>Binary data · {formatSize(result.wireBytes)}</EmptyState>
         )}
       </div>
     </div>
