@@ -14,6 +14,11 @@ interface PersistedPrefs {
   listMode: "rows" | "table";
   traceGroupOn: boolean;
   darkMode: boolean;
+  /**
+   * Time zone for absolute timestamps in the table-view "When" column.
+   * `local` uses the user's locale offset; `utc` is for log correlation.
+   */
+  timeZoneMode: "local" | "utc";
 }
 
 interface StoreState extends PersistedPrefs {
@@ -60,6 +65,8 @@ interface StoreState extends PersistedPrefs {
   toggleTraceGroup: () => void;
   setCmdKOpen: (open: boolean) => void;
   toggleDarkMode: () => void;
+  setTimeZoneMode: (mode: "local" | "utc") => void;
+  toggleTimeZoneMode: () => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -76,13 +83,16 @@ export const useStore = create<StoreState>()(
       filter: "",
       traceFilter: null,
       hoverTraceId: null,
-      listMode: "rows",
+      // Table mode is the default — it's the denser, scan-friendly view that
+      // users spend most time in. PRO-222 promoted it from a secondary toggle.
+      listMode: "table",
       listWidth: { rows: 340, table: 720 },
       order: "newest",
       density: "regular",
       traceGroupOn: false,
       cmdKOpen: false,
       darkMode: true,
+      timeZoneMode: "local",
 
       // Core actions
       applyEvent: (msg) =>
@@ -148,6 +158,13 @@ export const useStore = create<StoreState>()(
           applyThemeToDOM(next);
           return { darkMode: next };
         }),
+
+      setTimeZoneMode: (mode) => set({ timeZoneMode: mode }),
+
+      toggleTimeZoneMode: () =>
+        set((state) => ({
+          timeZoneMode: state.timeZoneMode === "local" ? "utc" : "local",
+        })),
     }),
     {
       name: "protospy-ui-prefs",
@@ -160,6 +177,7 @@ export const useStore = create<StoreState>()(
         listMode: state.listMode,
         traceGroupOn: state.traceGroupOn,
         darkMode: state.darkMode,
+        timeZoneMode: state.timeZoneMode,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

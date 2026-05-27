@@ -2,17 +2,7 @@ import { test, expect } from "@playwright/test";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
 import { makeGetRequest, makeResponse } from "./fixtures/exchanges";
 
-// Fixed epoch so all clock arithmetic is deterministic
-const FIXED_TIME = new Date("2024-06-01T12:00:00.000Z").getTime();
-
 test.beforeEach(async ({ page }) => {
-  // Install fake clock before navigation so React's setInterval is controlled
-  await page.clock.install({ time: FIXED_TIME });
-  // Freeze the clock so Date.now() doesn't drift under concurrent load.
-  // Without pauseAt, install() lets real time continue advancing, causing
-  // fastForward() to see extra elapsed time when tests run concurrently.
-  await page.clock.pauseAt(new Date(FIXED_TIME));
-
   await page.route("**/info", (route) =>
     route.fulfill({
       json: { services: [{ name: "test-backend" }] },
@@ -29,75 +19,61 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-test.describe("Relative timestamps", () => {
-  test("shows 'now' for a freshly injected exchange", async ({ page }) => {
-    const ts = new Date(FIXED_TIME).toISOString();
+test.describe("Absolute timestamps (table mode)", () => {
+  test("table mode shows absolute timestamp with millisecond resolution", async ({
+    page,
+  }) => {
+    // Use a stable UTC timestamp so we can assert exact text in UTC mode.
+    const ts = "2024-06-01T12:34:56.789Z";
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test", ts),
       makeResponse(1, "200 OK"),
     ]);
 
-    await expect(page.locator("button[aria-selected]").first()).toBeVisible();
-    const row = page.locator("button[aria-selected]").first();
-    // The timestamp cell shows "now" for a brand-new exchange
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "now",
-    );
+    // Default mode is table; switch to UTC so we can assert exact output.
+    await page
+      .getByLabel(/Time zone: local\. Click to toggle/)
+      .first()
+      .click();
+
+    const cell = page.locator('[data-testid="exchange-when"]').first();
+    await expect(cell).toHaveText("12:34:56.789");
   });
 
-  test("updates to '5s' after 5 seconds", async ({ page }) => {
-    const ts = new Date(FIXED_TIME).toISOString();
+  test("toggling the When header switches local <-> UTC", async ({ page }) => {
+    const ts = "2024-06-01T12:34:56.789Z";
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test", ts),
       makeResponse(1, "200 OK"),
     ]);
 
-    await page.locator("button[aria-selected]").first().waitFor();
+    const header = page.getByLabel(/Time zone:/).first();
+    await expect(header).toHaveText(/^When \(local\)$/);
 
-    // Advance clock by 5 seconds — the ticking hook should re-render
-    await page.clock.fastForward(5000);
+    // First click → UTC
+    await header.click();
+    await expect(header).toHaveText(/^When \(UTC\)$/);
+    const cell = page.locator('[data-testid="exchange-when"]').first();
+    await expect(cell).toHaveText("12:34:56.789");
 
-    const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "5s",
-    );
+    // Click again → back to local
+    await header.click();
+    await expect(header).toHaveText(/^When \(local\)$/);
   });
 
-  test("updates to '1m' after 60 seconds", async ({ page }) => {
-    const ts = new Date(FIXED_TIME).toISOString();
+  test("timestamp cell exposes both local and UTC in the tooltip", async ({
+    page,
+  }) => {
+    const ts = "2024-06-01T12:34:56.789Z";
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test", ts),
       makeResponse(1, "200 OK"),
     ]);
 
-    await page.locator("button[aria-selected]").first().waitFor();
-
-    await page.clock.fastForward(60_000);
-
-    const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "1m",
+    const cell = page.locator('[data-testid="exchange-when"]').first();
+    const title = await cell.getAttribute("title");
+    expect(title).toMatch(
+      /^\d{2}:\d{2}:\d{2}\.\d{3} local · 12:34:56\.789 UTC$/,
     );
-  });
-
-  test("table mode shows relative timestamp that ticks", async ({ page }) => {
-    const ts = new Date(FIXED_TIME).toISOString();
-    await injectExchanges(page, [
-      makeGetRequest(1, "/api/test", ts),
-      makeResponse(1, "200 OK"),
-    ]);
-
-    // Switch to table mode
-    await page.getByRole("button", { name: "Table mode" }).click();
-
-    await page.locator("button[aria-selected]").first().waitFor();
-
-    // Should initially show "now"
-    const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator("span").last()).toHaveText("now");
-
-    // Advance 5 seconds
-    await page.clock.fastForward(5000);
-    await expect(row.locator("span").last()).toHaveText("5s");
   });
 });

@@ -3,6 +3,7 @@ import {
   decodeBasicAuth,
   eventTypeBadgeClass,
   filterHeaders,
+  formatAbsoluteTime,
   formatRelative,
   formatSize,
   formatTime,
@@ -280,6 +281,70 @@ describe("formatTime", () => {
 
   it("does not throw on an invalid ISO string", () => {
     expect(() => formatTime("not-a-date")).not.toThrow();
+  });
+});
+
+describe("formatAbsoluteTime", () => {
+  // UTC mode is timezone-independent so we can assert exact strings.
+  it("formats UTC as HH:MM:SS.mmm by default", () => {
+    expect(formatAbsoluteTime("2024-06-01T12:34:56.789Z", { utc: true })).toBe(
+      "12:34:56.789",
+    );
+  });
+
+  it("formats UTC without millis when includeMillis is false", () => {
+    expect(
+      formatAbsoluteTime("2024-06-01T12:34:56.789Z", {
+        utc: true,
+        includeMillis: false,
+      }),
+    ).toBe("12:34:56");
+  });
+
+  it("pads single-digit milliseconds to three places", () => {
+    expect(formatAbsoluteTime("2024-06-01T12:34:56.007Z", { utc: true })).toBe(
+      "12:34:56.007",
+    );
+  });
+
+  it("pads single-digit hours/minutes/seconds to two places", () => {
+    expect(formatAbsoluteTime("2024-01-02T03:04:05.060Z", { utc: true })).toBe(
+      "03:04:05.060",
+    );
+  });
+
+  it("handles millisecond boundary just before next second", () => {
+    expect(formatAbsoluteTime("2024-06-01T12:34:56.999Z", { utc: true })).toBe(
+      "12:34:56.999",
+    );
+  });
+
+  it("returns empty string for invalid input", () => {
+    expect(formatAbsoluteTime("not-a-date")).toBe("");
+  });
+
+  it("returns empty string for an empty input", () => {
+    expect(formatAbsoluteTime("")).toBe("");
+  });
+
+  it("defaults to local time when utc is not set", () => {
+    // We can't assert an exact local string without knowing the runtime's
+    // time zone, but the output must match the HH:MM:SS.mmm shape.
+    const out = formatAbsoluteTime("2024-06-01T12:34:56.789Z");
+    expect(out).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+  });
+
+  it("local output for a Z timestamp may differ from UTC output (when the runtime's offset is non-zero)", () => {
+    // Runs locally in a non-UTC zone will differ; in UTC environments they
+    // will match. Both outcomes are valid — we just assert the shape.
+    const utcOut = formatAbsoluteTime("2024-06-01T12:34:56.789Z", {
+      utc: true,
+    });
+    const localOut = formatAbsoluteTime("2024-06-01T12:34:56.789Z", {
+      utc: false,
+    });
+    expect(localOut).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+    expect(utcOut).toBe("12:34:56.789");
   });
 });
 

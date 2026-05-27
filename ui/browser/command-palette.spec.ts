@@ -69,6 +69,13 @@ test.describe("Command palette — commands", () => {
   });
 
   test("2.3 switch to table view shows table headers", async ({ page }) => {
+    // Table is the default (PRO-222). Switch to rows first so the command
+    // palette offers "Switch to table view".
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setListMode("rows");
+    });
+
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /switch to table view/i }).click();
 
@@ -80,7 +87,9 @@ test.describe("Command palette — commands", () => {
     await expect(page.getByText("Path")).toBeVisible();
     await expect(page.getByText("Time")).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When", { exact: true })).toBeVisible();
+    // After PRO-222 the When header is a toggle button. Its visible text is
+    // "When (local)" or "When (UTC)"; its accessible name comes from aria-label.
+    await expect(page.getByText(/^When \(local\)$/)).toBeVisible();
   });
 
   test("2.4 toggle trace grouping changes store traceGroupOn state", async ({

@@ -86,15 +86,34 @@ test.describe("localStorage persistence", () => {
     await page.goto("/");
     await waitForStore(page);
 
+    // The default is "table" (PRO-222), so we set "rows" to prove that the
+    // non-default value really survives a reload — not just the default
+    // sneaking in on rehydrate.
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__test_store.getState().setListMode("table");
+      (window as any).__test_store.getState().setListMode("rows");
     });
-    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listMode")).toBe("rows");
 
     await page.reload();
     await waitForStore(page);
-    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listMode")).toBe("rows");
+  });
+
+  test("timeZoneMode persists across a reload", async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+
+    expect(await getStoreState(page, "timeZoneMode")).toBe("local");
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTimeZoneMode("utc");
+    });
+
+    await page.reload();
+    await waitForStore(page);
+    expect(await getStoreState(page, "timeZoneMode")).toBe("utc");
   });
 
   test("listWidth persists across a reload", async ({ page }) => {
@@ -126,11 +145,13 @@ test.describe("localStorage persistence", () => {
       const s = (window as any).__test_store.getState();
       s.setDensity("compact");
       s.setOrder("oldest");
-      s.setListMode("table");
+      // Default is "table" — set "rows" to make this a real assertion.
+      s.setListMode("rows");
       s.setListWidth("rows", 400);
       s.setListWidth("table", 500);
       s.toggleTraceGroup();
       s.toggleDarkMode();
+      s.setTimeZoneMode("utc");
     });
 
     await page.reload();
@@ -138,7 +159,7 @@ test.describe("localStorage persistence", () => {
 
     expect(await getStoreState(page, "density")).toBe("compact");
     expect(await getStoreState(page, "order")).toBe("oldest");
-    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listMode")).toBe("rows");
     expect(await getStoreState(page, "listWidth")).toEqual({
       rows: 400,
       table: 500,
@@ -147,5 +168,6 @@ test.describe("localStorage persistence", () => {
     // toggleDarkMode() starts from default true → persists false after reload
     expect(await getStoreState(page, "darkMode")).toBe(false);
     expect(await readTheme(page)).toBe("light");
+    expect(await getStoreState(page, "timeZoneMode")).toBe("utc");
   });
 });

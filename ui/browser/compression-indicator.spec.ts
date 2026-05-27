@@ -38,6 +38,9 @@ test.describe("Compression display", () => {
   test("is visible in rows mode for a gzip-compressed response", async ({
     page,
   }) => {
+    // Table mode is the default (PRO-222); switch to rows for this test.
+    await page.getByLabel("Rows mode").click();
+
     await injectExchanges(page, [
       makeGetRequest(1, "/api/compressed"),
       makeEncodedJsonResponse(1, GZIP_BASE64, GZIP_BYTES, "gzip"),

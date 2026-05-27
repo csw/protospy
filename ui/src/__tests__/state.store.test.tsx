@@ -22,12 +22,13 @@ describe("state/store", () => {
       expect(state.filter).toBe("");
       expect(state.traceFilter).toBeNull();
       expect(state.hoverTraceId).toBeNull();
-      expect(state.listMode).toBe("rows");
+      expect(state.listMode).toBe("table");
       expect(state.listWidth).toEqual({ rows: 340, table: 720 });
       expect(state.order).toBe("newest");
       expect(state.density).toBe("regular");
       expect(state.traceGroupOn).toBe(false);
       expect(state.cmdKOpen).toBe(false);
+      expect(state.timeZoneMode).toBe("local");
       expect(useStore.getState().protocol).toBeNull();
     });
 
@@ -117,6 +118,31 @@ describe("state/store", () => {
       expect(useStore.getState().traceGroupOn).toBe(true);
       useStore.getState().toggleTraceGroup();
       expect(useStore.getState().traceGroupOn).toBe(false);
+    });
+  });
+
+  describe("timeZoneMode", () => {
+    it("setTimeZoneMode sets and reads", () => {
+      useStore.getState().setTimeZoneMode("utc");
+      expect(useStore.getState().timeZoneMode).toBe("utc");
+      useStore.getState().setTimeZoneMode("local");
+      expect(useStore.getState().timeZoneMode).toBe("local");
+    });
+
+    it("toggleTimeZoneMode flips between local and utc", () => {
+      expect(useStore.getState().timeZoneMode).toBe("local");
+      useStore.getState().toggleTimeZoneMode();
+      expect(useStore.getState().timeZoneMode).toBe("utc");
+      useStore.getState().toggleTimeZoneMode();
+      expect(useStore.getState().timeZoneMode).toBe("local");
+    });
+
+    it("persists timeZoneMode to localStorage via persist middleware", () => {
+      useStore.getState().setTimeZoneMode("utc");
+      const stored = JSON.parse(
+        localStorage.getItem("protospy-ui-prefs") ?? "{}",
+      );
+      expect(stored.state.timeZoneMode).toBe("utc");
     });
   });
 

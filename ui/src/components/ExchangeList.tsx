@@ -4,6 +4,7 @@ import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
+  formatAbsoluteTime,
   formatSize,
   matchesFilter,
   methodTextClass,
@@ -12,10 +13,18 @@ import {
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
-import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { ExchangeListItem } from "./ExchangeListItem";
 
-const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
+// Table column widths.
+// - Method: covers "OPTIONS" (7 chars mono).
+// - Status: fits "200 OK" without truncation.
+// - Path: flex 1, with a small minimum so short paths still get space.
+// - Time: holds "1234ms".
+// - Size: accommodates the worst-case dual size with encoding tag —
+//   `1024.0KB/1024.0KB (deflate)`. See PRO-216 comment on PRO-222 for why
+//   the previous 76px allocation was too small after dual-size landed.
+// - When: holds `HH:MM:SS.mmm` (12 chars + padding).
+const TABLE_COLUMNS = "60px 60px minmax(140px, 1fr) 56px 168px 100px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -24,10 +33,16 @@ interface TableRowProps {
   selected: boolean;
   onSelect: () => void;
   density: "regular" | "compact";
+  timeZoneMode: "local" | "utc";
 }
 
-function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
-  const relTime = useRelativeTime(exchange.timestamp);
+function TableRow({
+  exchange,
+  selected,
+  onSelect,
+  density,
+  timeZoneMode,
+}: TableRowProps) {
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
   const { path } = splitUri(uri);
@@ -42,6 +57,13 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;
+  const isUtc = timeZoneMode === "utc";
+  const absTime = formatAbsoluteTime(exchange.timestamp, { utc: isUtc });
+  // Show both representations in the tooltip so users don't have to toggle to
+  // correlate with a log entry recorded in the other zone.
+  const localTitle = formatAbsoluteTime(exchange.timestamp, { utc: false });
+  const utcTitle = formatAbsoluteTime(exchange.timestamp, { utc: true });
+  const timeTitle = `${localTitle} local · ${utcTitle} UTC`;
 
   const rowHeight = density === "compact" ? 24 : 30;
 
@@ -72,18 +94,34 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       >
         {method}
       </span>
+      {(() => {
+        const hasError = exchange.error != null && exchange.status == null;
+        return (
+          <span
+            className={`font-family-mono text-xs px-1 truncate ${
+              exchange.status != null
+                ? statusTextClass(exchange.status)
+                : hasError
+                  ? "text-red font-semibold"
+                  : "text-dim"
+            }`}
+          >
+            {exchange.status ?? (hasError ? "ERR" : "—")}
+          </span>
+        );
+      })()}
       <span
-        className={`font-family-mono text-xs px-1 truncate ${exchange.status != null ? statusTextClass(exchange.status) : "text-dim"}`}
+        data-testid="exchange-path"
+        className="font-family-mono text-xs text-ink px-1 truncate"
+        title={uri}
       >
-        {exchange.status ?? "—"}
-      </span>
-      <span className="font-family-mono text-xs text-ink px-1 truncate">
         {path}
       </span>
       <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
       <span
+        data-testid="exchange-size"
         className="font-family-mono text-xs text-dim px-1 text-right truncate"
         title={sizeTitle}
       >
@@ -92,8 +130,12 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
           : formatSize(resSize)}
         {resTag && <span> ({resTag})</span>}
       </span>
-      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
-        {relTime}
+      <span
+        data-testid="exchange-when"
+        className="font-family-mono text-xs text-dim px-2 text-right truncate tabular-nums"
+        title={timeTitle}
+      >
+        {absTime}
       </span>
     </button>
   );
@@ -135,6 +177,8 @@ export function ExchangeList() {
   const traceGroupOn = useStore((s) => s.traceGroupOn);
   const cmdKOpen = useStore((s) => s.cmdKOpen);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
+  const timeZoneMode = useStore((s) => s.timeZoneMode);
+  const toggleTimeZoneMode = useStore((s) => s.toggleTimeZoneMode);
 
   // Derive filtered + ordered list
   const filtered = ids
@@ -333,9 +377,19 @@ export function ExchangeList() {
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
               Size
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right">
-              When
-            </span>
+            <button
+              type="button"
+              onClick={toggleTimeZoneMode}
+              className="font-family-ui text-ui-xs font-semibold text-mid hover:text-ink uppercase tracking-wider px-2 text-right cursor-pointer transition-colors"
+              aria-label={`Time zone: ${timeZoneMode === "utc" ? "UTC" : "local"}. Click to toggle.`}
+              title={
+                timeZoneMode === "utc"
+                  ? "Showing UTC — click for local time"
+                  : "Showing local time — click for UTC"
+              }
+            >
+              When ({timeZoneMode === "utc" ? "UTC" : "local"})
+            </button>
           </div>
 
           {ordered.length === 0 ? (
@@ -378,6 +432,7 @@ export function ExchangeList() {
                           selected={ex.id === selectedId}
                           onSelect={() => setSelectedId(ex.id)}
                           density={density}
+                          timeZoneMode={timeZoneMode}
                         />
                       </div>
                     );

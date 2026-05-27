@@ -148,16 +148,17 @@ test.describe("Layout and resize", () => {
       resetBox!.y + resetBox!.height / 2,
     );
 
-    // The list panel should now be close to the rows-mode default (340px).
+    // The list panel should now be close to the table-mode default (720px,
+    // since table is the default list mode after PRO-222).
     await expect
       .poll(async () => (await listPanel.boundingBox())?.width ?? 0, {
         timeout: 3000,
       })
-      .toBeCloseTo(340, -1); // within ~5px
+      .toBeCloseTo(720, -1); // within ~5px
 
     // The store should also reflect the reset.
     const storedWidth = await getStoreState(page, "listWidth");
-    expect((storedWidth as { rows: number }).rows).toBe(340);
+    expect((storedWidth as { table: number }).table).toBe(720);
   });
 
   test("9.5 virtual scroll limits DOM nodes with many exchanges", async ({

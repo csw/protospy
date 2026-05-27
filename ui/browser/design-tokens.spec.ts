@@ -40,6 +40,11 @@ test.describe("design token fidelity", () => {
   test("method badge uses mono font at correct weight and border-radius", async ({
     page,
   }) => {
+    // The MethodBadge component (with data-testid="method-badge") renders
+    // only in rows mode. Table mode (PRO-222 default) uses plain method
+    // text.
+    await page.getByLabel("Rows mode").click();
+
     const badge = page.locator('[data-testid="method-badge"]').first();
     await expect(badge).toBeVisible();
 
@@ -63,6 +68,9 @@ test.describe("design token fidelity", () => {
   test("status code uses design font size (text-ui-sm = 11.5px)", async ({
     page,
   }) => {
+    // The status-code testid is on the rows-mode badge; switch to rows mode.
+    await page.getByLabel("Rows mode").click();
+
     const status = page.locator('[data-testid="status-code"]').first();
     await expect(status).toBeVisible();
 
@@ -85,6 +93,10 @@ test.describe("design token fidelity", () => {
   });
 
   test("inspector tab bar is 32px tall", async ({ page }) => {
+    // Switch to rows mode so the method-badge testid is rendered (it's the
+    // click target used to select the exchange and open the inspector).
+    await page.getByLabel("Rows mode").click();
+
     // Select the exchange so the inspector renders with tabs
     await page.locator('[data-testid="method-badge"]').first().click();
 

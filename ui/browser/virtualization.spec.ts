@@ -59,6 +59,8 @@ test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({
     page,
   }) => {
+    // Table mode is the default (PRO-222); switch to rows for this test.
+    await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(200));
 
     await expect
@@ -93,6 +95,10 @@ test.describe("Virtualization", () => {
   test("switching from rows to table mode updates virtualizer measurements", async ({
     page,
   }) => {
+    // Table mode is the default (PRO-222); start in rows so the rows→table
+    // transition is exercised.
+    await setListMode(page, "rows");
+
     const N = 200;
     await injectExchanges(page, makeLargeDataset(N));
 
@@ -112,6 +118,10 @@ test.describe("Virtualization", () => {
   });
 
   test("density toggle updates virtualizer measurements", async ({ page }) => {
+    // Table mode is the default (PRO-222); start in rows so the test starts
+    // from a rows-mode measurement.
+    await setListMode(page, "rows");
+
     const N = 200;
     await injectExchanges(page, makeLargeDataset(N));
 

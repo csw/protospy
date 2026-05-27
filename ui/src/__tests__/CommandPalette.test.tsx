@@ -124,6 +124,9 @@ describe("CommandPalette", () => {
   });
 
   it("clicking 'Switch to table view' changes listMode and closes the palette", async () => {
+    // Table is the default (PRO-222); flip to rows so the palette offers
+    // "Switch to table view".
+    useStore.getState().setListMode("rows");
     useStore.getState().setCmdKOpen(true);
     expect(useStore.getState().listMode).toBe("rows");
     render(<CommandPalette />);
@@ -135,6 +138,23 @@ describe("CommandPalette", () => {
 
     await waitFor(() => {
       expect(useStore.getState().listMode).toBe("table");
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking the time zone command toggles timeZoneMode and closes the palette", async () => {
+    useStore.getState().setCmdKOpen(true);
+    expect(useStore.getState().timeZoneMode).toBe("local");
+    render(<CommandPalette />);
+
+    // Default is "local", so the palette offers the UTC option.
+    const item = screen.getByText("Show timestamps in UTC");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().timeZoneMode).toBe("utc");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });

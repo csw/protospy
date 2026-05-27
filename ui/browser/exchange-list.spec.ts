@@ -29,6 +29,11 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Exchange list — rows mode", () => {
+  test.beforeEach(async ({ page }) => {
+    // Table mode is the default (PRO-222); switch to rows mode for this block.
+    await page.getByLabel("Rows mode").click();
+  });
+
   test("1.1 shows empty state when no exchanges", async ({ page }) => {
     await expect(page.getByText("No requests yet")).toBeVisible();
     await expect(
@@ -116,10 +121,7 @@ test.describe("Exchange list — rows mode", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Exchange list — table mode", () => {
-  test.beforeEach(async ({ page }) => {
-    // Switch to table mode
-    await page.getByLabel("Table mode").click();
-  });
+  // Table mode is now the default (PRO-222) — no need to switch in beforeEach.
 
   test("2.1 table header columns are visible", async ({ page }) => {
     await expect(page.getByText("Method")).toBeVisible();
@@ -127,7 +129,13 @@ test.describe("Exchange list — table mode", () => {
     await expect(page.getByText("Path")).toBeVisible();
     await expect(page.getByText("Time")).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When", { exact: true })).toBeVisible();
+    // The When header is a toggle button. Its accessible name comes from
+    // aria-label ("Time zone: local. Click to toggle."); the visible text
+    // is "When (local)" or "When (UTC)".
+    await expect(
+      page.getByLabel(/Time zone: local\. Click to toggle/),
+    ).toBeVisible();
+    await expect(page.getByText(/^When \(local\)$/)).toBeVisible();
   });
 
   test("2.2 row data renders in table columns", async ({ page }) => {
@@ -168,6 +176,79 @@ test.describe("Exchange list — table mode", () => {
     expect(heightAfter).toBe(24);
   });
 
+  test("2.5 dual-size+encoding tag is fully rendered at default list width", async ({
+    page,
+  }) => {
+    // Inject a gzipped response and seed decodedBytes so the size cell
+    // renders `1.6KB/6.0KB (deflate)`-shape content — the worst case
+    // called out on PRO-222.
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/items"),
+      {
+        exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
+        direction: "Response",
+        event: {
+          type: "Response",
+          status: "200 OK",
+          version: "HTTP/1.1",
+          headers: [
+            { name: "Content-Type", value: "application/json" },
+            { name: "Content-Encoding", value: "deflate" },
+          ],
+          elapsed_ms: 42,
+          body: {
+            type: "Data",
+            content: {
+              offset: 0,
+              length: 1638,
+              payload: { binary: "" },
+            },
+            trailers: null,
+            at_end: true,
+            total_bytes: 1638,
+          },
+        },
+      },
+    ]);
+
+    // Seed decodedBytes via the store action exposed for the body pane.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store;
+      store.getState().setBodyDecodedBytes(1, "response", 6144);
+    });
+
+    // The size cell should contain both halves and the encoding tag.
+    const row = page.locator("button[aria-selected]").first();
+    await expect(row).toContainText("1.6KB/6.0KB");
+    await expect(row).toContainText("(deflate)");
+
+    // And the size span must not be horizontally clipped: scrollWidth
+    // should equal clientWidth (no truncation).
+    const size = page.locator('[data-testid="exchange-size"]').first();
+    const sizeMetrics = await size.evaluate((el: HTMLElement) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(sizeMetrics.scrollWidth).toBeLessThanOrEqual(
+      sizeMetrics.clientWidth,
+    );
+  });
+
+  test("2.6 long path gets a title tooltip with the full URI", async ({
+    page,
+  }) => {
+    const longPath =
+      "/api/v1/orders/customer/12345/items/sku-9876543210/history?since=2024-01-01";
+    await injectExchanges(page, [
+      makeGetRequest(1, longPath),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    const pathCell = page.locator('[data-testid="exchange-path"]').first();
+    await expect(pathCell).toHaveAttribute("title", longPath);
+  });
+
   test("2.4 mode switching preserves data", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/preserved"),
@@ -176,8 +257,11 @@ test.describe("Exchange list — table mode", () => {
 
     await expect(page.getByText("/api/preserved").first()).toBeVisible();
 
-    // Switch back to rows
+    // Switch to rows
     await page.getByLabel("Rows mode").click();
+    await expect(page.getByText("/api/preserved").first()).toBeVisible();
+    // ... and back to table
+    await page.getByLabel("Table mode").click();
     await expect(page.getByText("/api/preserved").first()).toBeVisible();
   });
 });
@@ -231,11 +315,9 @@ test.describe("Sort order", () => {
 
 test.describe("Edge cases", () => {
   test("11.1 pending exchange shows dashes", async ({ page }) => {
-    // Only inject request, no response
+    // Only inject request, no response. Table mode is the default and
+    // shows explicit status/elapsed columns.
     await injectExchanges(page, [makeGetRequest(1, "/api/pending")]);
-
-    // Switch to table mode to see explicit status/elapsed columns
-    await page.getByLabel("Table mode").click();
 
     // Status should show "—" and elapsed should show "—"
     const dashes = page.getByText("—");
@@ -256,6 +338,9 @@ test.describe("Edge cases", () => {
   test("11.3 compact rows mode allocates full row height so content is not clipped", async ({
     page,
   }) => {
+    // Table mode is the default — switch to rows for this rows-specific check.
+    await page.getByLabel("Rows mode").click();
+
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test"),
       makeResponse(1, "200 OK"),

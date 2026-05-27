@@ -144,6 +144,38 @@ export function formatTime(timestamp: string): string {
   });
 }
 
+/**
+ * Format an ISO timestamp as `HH:MM:SS.mmm` (or `HH:MM:SS` if
+ * `includeMillis` is false). When `utc` is true the time is rendered in
+ * UTC; otherwise the user's local time zone is used. Returns an empty
+ * string for invalid input.
+ *
+ * The output is intentionally locale-agnostic (always 24-hour, no AM/PM,
+ * `.` as the millisecond separator) so columns line up across locales
+ * and the value can be log-correlated.
+ */
+export function formatAbsoluteTime(
+  timestamp: string,
+  options: { utc?: boolean; includeMillis?: boolean } = {},
+): string {
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return "";
+  const { utc = false, includeMillis = true } = options;
+  const hh = (utc ? d.getUTCHours() : d.getHours()).toString().padStart(2, "0");
+  const mm = (utc ? d.getUTCMinutes() : d.getMinutes())
+    .toString()
+    .padStart(2, "0");
+  const ss = (utc ? d.getUTCSeconds() : d.getSeconds())
+    .toString()
+    .padStart(2, "0");
+  const base = `${hh}:${mm}:${ss}`;
+  if (!includeMillis) return base;
+  const ms = (utc ? d.getUTCMilliseconds() : d.getMilliseconds())
+    .toString()
+    .padStart(3, "0");
+  return `${base}.${ms}`;
+}
+
 export function matchesFilter(
   ex: { method?: string; uri?: string; status?: string },
   filter: string,

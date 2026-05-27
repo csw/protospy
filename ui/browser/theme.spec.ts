@@ -95,6 +95,11 @@ test.describe("Method badge colors", () => {
   test("3.1 GET and POST badges have distinct method-typed classes", async ({
     page,
   }) => {
+    // MethodBadge (with the bg-m-*-bg pill background) renders in rows mode.
+    // Table mode (PRO-222 default) uses plain method text without the
+    // background pill — a deliberate density tradeoff for the table layout.
+    await page.getByLabel("Rows mode").click();
+
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
