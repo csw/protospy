@@ -157,9 +157,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   const byteArrays = chunks.map(chunkToBytes);
   let bytes = concatenate(byteArrays);
 
-  // Step 2: Decompress if needed. `decodedBytes` is set only when a
-  // decompression step actually ran — its presence is the signal to the UI
-  // that wire and decoded sizes differ.
+  // Step 2: Decompress if needed. See `DecodeResult.decodedBytes`.
   const encoding = contentEncoding?.toLowerCase();
   let decodedBytes: number | undefined;
   if (
