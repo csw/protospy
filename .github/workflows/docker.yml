@@ -139,6 +139,9 @@ jobs:
           load: true
           tags: protospy-flix:latest
 
+      - name: Image sizes (loaded)
+        run: docker images protospy-protospy:latest protospy-flix:latest
+
       # TEMP: diagnostics for intermittent compose-up abort during pull.
       # Remove once we have a clean failure capture.
       - name: Disk + docker state before compose-up
@@ -230,6 +233,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
 
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
+
     # Need to make repo public first
     #   - uses: actions/attest-build-provenance@v2
     #     with:
@@ -273,6 +279,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
 
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
+
     # Need to make repo public first
     #   - uses: actions/attest-build-provenance@v2
     #     with:
@@ -314,6 +323,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
+
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
 
     # Need to make repo public first
     #   - uses: actions/attest-build-provenance@v2
