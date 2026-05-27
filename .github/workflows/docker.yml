@@ -1,0 +1,322 @@
+# Validates the release image end-to-end on every push to main and on PRs;
+# publishes (to ghcr) on manual dispatch. When tag-based releases land, see
+# the commented `tags:` trigger and the `if:` / metadata snippets below.
+name: docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "ui/**"
+      - "flix/**"
+      - "docker-compose.yaml"
+      - "docker/Dockerfile.release"
+      - "scripts/smoke-test.sh"
+      - ".github/actions/smoke-test/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "ui/**"
+      - "flix/**"
+      - "docker-compose.yaml"
+      - "docker/Dockerfile.release"
+      - "scripts/smoke-test.sh"
+      - ".github/actions/smoke-test/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+  # push:
+  #   tags: ["v*"]
+
+jobs:
+  # Host-side musl build of the protospy binary for each target arch, plus
+  # the UI bundle. Runs amd64 and arm64 in parallel; each uploads its own
+  # binary artifact. ui/dist is arch-independent so only the amd64 instance
+  # uploads it. arm64 builds every run (not just dispatch) so drift between
+  # the two builds is caught at PR time, not at release time.
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            target: x86_64-unknown-linux-musl
+            packages: musl-tools
+          - arch: arm64
+            target: aarch64-unknown-linux-musl
+            packages: musl-tools gcc-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ui/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - uses: actions/cache@v4
+        id: ui-dist
+        with:
+          path: ui/dist
+          key: ui-dist-${{ hashFiles('ui/pnpm-lock.yaml', 'ui/package.json', 'ui/src/**', 'ui/index.html', 'ui/vite.config.ts', 'ui/tsconfig.json', 'ui/tsconfig.node.json') }}
+
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+        working-directory: ui
+      - if: steps.ui-dist.outputs.cache-hit != 'true'
+        run: pnpm run build
+        working-directory: ui
+
+      - run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: protospy-musl-${{ matrix.arch }}
+      # The linker env vars are arm64-specific; they're harmless empties on amd64.
+      - run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: ${{ matrix.linker }}
+          CC_aarch64_unknown_linux_musl: ${{ matrix.linker }}
+
+      - run: |
+          mkdir -p publish/linux/${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/protospy publish/linux/${{ matrix.arch }}/protospy
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protospy-${{ matrix.arch }}
+          path: publish/linux/${{ matrix.arch }}/protospy
+          if-no-files-found: error
+          retention-days: 1
+      - if: matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  # Bring up the full compose stack against the freshly-built amd64 release
+  # image (and flix) and exercise it end-to-end. Gates the publish jobs.
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: protospy-amd64
+          path: publish/linux/amd64
+      - run: chmod +x publish/linux/amd64/protospy
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.release
+          platforms: linux/amd64
+          load: true
+          tags: protospy-protospy:latest
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./flix
+          platforms: linux/amd64
+          load: true
+          tags: protospy-flix:latest
+
+      - name: Image sizes (loaded)
+        run: |
+          {
+            echo "### Loaded for smoke test"
+            echo
+            echo "| Image | Size |"
+            echo "|---|---|"
+            for img in protospy-protospy:latest protospy-flix:latest; do
+              size=$(docker images "$img" --format '{{.Size}}')
+              echo "| \`$img\` | $size |"
+            done
+            echo
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: ./.github/actions/smoke-test
+        with:
+          protospy-image: protospy-protospy:latest
+          flix-image: protospy-flix:latest
+
+  # Tag-based releases: change `if:` on the publish jobs to also accept tag
+  # pushes, e.g.
+  #   if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+  publish-protospy:
+    needs: smoke-test
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+
+      # Per-arch binaries + UI bundle from `build` (amd64 validated by smoke-test).
+      - uses: actions/download-artifact@v4
+        with:
+          name: protospy-amd64
+          path: publish/linux/amd64
+      - uses: actions/download-artifact@v4
+        with:
+          name: protospy-arm64
+          path: publish/linux/arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist
+      - run: |
+          chmod +x publish/linux/amd64/protospy
+          chmod +x publish/linux/arm64/protospy
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: type=raw,value=dev
+          # Tag-aware variant for when tag pushes are wired up:
+          # tags: |
+          #   type=raw,value=dev,enable=${{ github.event_name == 'workflow_dispatch' }}
+          #   type=semver,pattern={{version}}
+          #   type=semver,pattern={{major}}.{{minor}}
+          #   type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+
+      - uses: docker/login-action@v4
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}" }
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        id: push
+        with:
+          context: .
+          file: docker/Dockerfile.release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
+
+    # Need to make repo public first
+    #   - uses: actions/attest-build-provenance@v2
+    #     with:
+    #       subject-name: ghcr.io/${{ github.repository }}
+    #       subject-digest: ${{ steps.push.outputs.digest }}
+    #       push-to-registry: true
+
+  publish-flix:
+    needs: smoke-test
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/elasticflix
+          tags: type=raw,value=dev
+
+      - uses: docker/login-action@v4
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}" }
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        id: push
+        with:
+          context: ./flix
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
+
+    # Need to make repo public first
+    #   - uses: actions/attest-build-provenance@v2
+    #     with:
+    #       subject-name: ghcr.io/${{ github.repository_owner }}/elasticflix
+    #       subject-digest: ${{ steps.push.outputs.digest }}
+    #       push-to-registry: true
+
+  publish-demo:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/protospy-demo
+          tags: type=raw,value=dev
+
+      - uses: docker/login-action@v4
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}" }
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        id: push
+        with:
+          context: ./demo
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+
+      - name: Pushed image sizes
+        run: scripts/ci/image-sizes.sh "${{ steps.meta.outputs.tags }}"
+
+    # Need to make repo public first
+    #   - uses: actions/attest-build-provenance@v2
+    #     with:
+    #       subject-name: ghcr.io/${{ github.repository_owner }}/protospy-demo
+    #       subject-digest: ${{ steps.push.outputs.digest }}
+    #       push-to-registry: true
