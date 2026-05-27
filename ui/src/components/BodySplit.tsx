@@ -15,6 +15,20 @@ function isSSE(exchange: Exchange): boolean {
 }
 
 export function BodySplit({ exchange, protocol }: Props) {
+  // Surface a proxy-level error inside the body pane that the error
+  // direction applies to. "Request"-direction errors (connection refused,
+  // upstream timeout before any response) belong on the request side
+  // semantically — the request never made it. "Response"-direction
+  // errors (mid-stream disconnect) belong on the response side.
+  const requestError =
+    exchange.error?.direction === "Request"
+      ? { message: exchange.error.message }
+      : undefined;
+  const responseError =
+    exchange.error?.direction === "Response"
+      ? { message: exchange.error.message }
+      : undefined;
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -22,6 +36,7 @@ export function BodySplit({ exchange, protocol }: Props) {
           title="Request"
           body={exchange.requestBody}
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
+          error={requestError}
         />
       </div>
       <div className="w-px bg-border shrink-0" />
@@ -37,6 +52,7 @@ export function BodySplit({ exchange, protocol }: Props) {
             title="Response"
             body={exchange.responseBody}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
+            error={responseError}
           />
         )}
       </div>

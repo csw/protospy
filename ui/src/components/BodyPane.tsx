@@ -8,16 +8,23 @@ import { JsonViewer } from "./JsonViewer";
 interface Props {
   title: string;
   body: BodyState | undefined;
-  /**
    * If provided, the decoded byte count from the decode pipeline is cached
    * back onto `BodyState.decodedBytes` so other surfaces (timing view,
    * exchange list) can show a dual wire/decoded size without re-running
    * decode themselves.
    */
   cacheTo?: { exchangeId: number; direction: "request" | "response" };
+  /**
+   * Proxy-level error affecting this direction (e.g. connection refused,
+   * mid-stream disconnect). When present, the body area shows the error
+   * message rather than "No body" or partial chunks. The error is shown
+   * regardless of body state — a partial body with a mid-stream error
+   * surfaces both the error context and the bytes that did arrive.
+   */
+  error?: { message: string };
 }
 
-export function BodyPane({ title, body, cacheTo }: Props) {
+export function BodyPane({ title, body, cacheTo, error }: Props) {
   const { loading, result } = useDecodeBody(body, cacheTo);
 
   return (
@@ -57,6 +64,18 @@ export function BodyPane({ title, body, cacheTo }: Props) {
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-bg-pane">
+        {error != null && (
+          <div
+            data-testid="body-error"
+            className="border-b border-red/30 bg-red/5 px-3 py-2 font-family-mono text-xs text-red"
+          >
+            <div className="font-semibold mb-0.5">Network error</div>
+            <div className="text-red/80 whitespace-pre-wrap break-all">
+              {error.message}
+            </div>
+          </div>
+        )}
+
         {loading && <EmptyState>Decoding…</EmptyState>}
 
         {!loading && body != null && !body.atEnd && (
@@ -65,7 +84,9 @@ export function BodyPane({ title, body, cacheTo }: Props) {
           </EmptyState>
         )}
 
-        {!loading && body == null && <EmptyState>No body</EmptyState>}
+        {!loading && body == null && error == null && (
+          <EmptyState>No body</EmptyState>
+        )}
 
         {!loading && body != null && body.atEnd && result == null && (
           <EmptyState>Could not decode body</EmptyState>

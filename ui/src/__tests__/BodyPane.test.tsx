@@ -47,6 +47,44 @@ describe("BodyPane size display", () => {
     expect(sizeEl).not.toHaveAttribute("title");
   });
 
+  it("renders the proxy error message in place of 'No body' when error is set and body is absent", () => {
+    render(
+      <BodyPane
+        title="Request"
+        body={undefined}
+        error={{ message: "Connection refused" }}
+      />,
+    );
+    const banner = screen.getByTestId("body-error");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("Network error");
+    expect(banner).toHaveTextContent("Connection refused");
+    // The "No body" empty state is suppressed when an error is shown.
+    expect(screen.queryByText("No body")).not.toBeInTheDocument();
+  });
+
+  it("renders the error banner alongside a partial body for mid-stream errors", async () => {
+    const result: DecodeResult = {
+      kind: "text",
+      text: "partial",
+      mediaType: "text/plain",
+      wireBytes: 7,
+    };
+    decodeBodyMock.mockResolvedValueOnce(result);
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ wireBytes: 7 })}
+        error={{ message: "connection reset by peer" }}
+      />,
+    );
+    await screen.findByTestId("body-size");
+    expect(screen.getByTestId("body-error")).toHaveTextContent(
+      "connection reset by peer",
+    );
+    expect(screen.getByText("partial")).toBeInTheDocument();
+  });
+
   it("renders wire / decoded with a tooltip for a compressed body", async () => {
     const result: DecodeResult = {
       kind: "json",

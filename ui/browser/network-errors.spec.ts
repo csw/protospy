@@ -38,25 +38,28 @@ function contextBar(page: import("@playwright/test").Page) {
 }
 
 test.describe("Network error rendering — proxy-level failures", () => {
-  test("connection refused: list shows ERR, context bar shows NET ERR, inspector does not crash", async ({
+  test("connection refused: list shows Error, context bar shows Network error, inspector does not crash", async ({
     page,
   }) => {
+    const msg =
+      "client error (Connect): tcp connect error: Connection refused (os error 61)";
     await injectExchanges(page, [
       makeGetRequest(1, "/api/connect-refused"),
-      makeProxyError(
-        1,
-        "Request",
-        "client error (Connect): tcp connect error: Connection refused (os error 61)",
-      ),
+      makeProxyError(1, "Request", msg),
     ]);
 
-    // Exchange-list row shows ERR badge
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    // Exchange-list row shows Error badge
+    await expect(page.getByText("Error").first()).toBeVisible();
 
     await page.getByText("/api/connect-refused").first().click();
 
-    // Context bar shows NET ERR
-    await expect(contextBar(page).getByText("NET ERR")).toBeVisible();
+    // Context bar shows Network error label + message
+    await expect(contextBar(page).getByText("Network error")).toBeVisible();
+    await expect(contextBar(page).getByText(msg)).toBeVisible();
+
+    // Request body pane shows the same error message
+    await page.getByRole("tab", { name: "Bodies" }).click();
+    await expect(page.getByTestId("body-error").getByText(msg)).toBeVisible();
 
     // Inspector tabs remain functional — clicking each does not throw
     await page.getByRole("tab", { name: "Headers" }).click();
@@ -88,9 +91,9 @@ test.describe("Network error rendering — proxy-level failures", () => {
       ),
     ]);
 
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    await expect(page.getByText("Error").first()).toBeVisible();
     await page.getByText("/api/timeout").first().click();
-    await expect(contextBar(page).getByText("NET ERR")).toBeVisible();
+    await expect(contextBar(page).getByText("Network error")).toBeVisible();
 
     // No status code badge in context bar (status is undefined for a
     // failed-to-connect exchange)
@@ -101,27 +104,34 @@ test.describe("Network error rendering — proxy-level failures", () => {
     page,
   }) => {
     // The proxy got headers + part of the body, then upstream disconnected.
-    // ExchangeListItem treats this as "has a status, no ERR badge" — the
-    // status code is what reaches the user, and the error is recorded on
-    // the exchange but does not promote to ERR (status is set).
+    // Both the list and the context bar should surface this: the status
+    // code stays primary (the response did start), and an "interrupted"
+    // / "Interrupted" indicator flags that the body never completed.
+    const msg =
+      "error reading a body from connection: connection reset by peer";
     await injectExchanges(page, [
       makeGetRequest(3, "/api/mid-stream"),
       makeResponse(3, "200 OK", "partial-body-prefix..."),
-      makeProxyError(
-        3,
-        "Response",
-        "error reading a body from connection: connection reset by peer",
-      ),
+      makeProxyError(3, "Response", msg),
     ]);
+
+    // List row shows status + an "interrupted" indicator
+    await expect(page.getByTestId("error-indicator").first()).toBeVisible();
 
     await page.getByText("/api/mid-stream").first().click();
 
     // Status is rendered (200 OK) — the response started successfully.
     await expect(contextBar(page).getByText("200 OK")).toBeVisible();
 
-    // The list ERR badge is suppressed in this case (hasError = error &&
-    // status == null) — but the exchange.error is still on the store.
-    // Verify the inspector remains operable.
+    // Context bar shows the "Interrupted" indicator and the message.
+    await expect(contextBar(page).getByText("Interrupted")).toBeVisible();
+    await expect(contextBar(page).getByText(msg)).toBeVisible();
+
+    // Response body pane surfaces the error inline (above the partial body).
+    await page.getByRole("tab", { name: "Bodies" }).click();
+    await expect(page.getByTestId("body-error").getByText(msg)).toBeVisible();
+
+    // Inspector remains operable across tabs.
     await page.getByRole("tab", { name: "Headers" }).click();
     await expect(page.getByRole("tab", { name: "Headers" })).toHaveAttribute(
       "data-state",
@@ -139,6 +149,6 @@ test.describe("Network error rendering — proxy-level failures", () => {
     ]);
 
     // A row exists for this exchange (no URI yet → falls back to "/")
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    await expect(page.getByText("Error").first()).toBeVisible();
   });
 });

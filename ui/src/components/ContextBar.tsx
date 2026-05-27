@@ -162,9 +162,18 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
             pending
           </span>
         )}
-        {!hasStatus && hasError && (
-          <span className="font-family-mono text-ui-sm font-semibold text-red shrink-0">
-            NET ERR
+        {hasError && exchange.error != null && (
+          <span
+            data-testid="error-display"
+            className="flex items-center gap-1.5 shrink-0 min-w-0 text-red font-family-mono text-ui-xs"
+            title={exchange.error.message}
+          >
+            <span className="font-semibold shrink-0">
+              {hasStatus ? "Interrupted" : "Network error"}
+            </span>
+            <span className="truncate text-red/80 max-w-[40ch]">
+              {exchange.error.message}
+            </span>
           </span>
         )}
 
