@@ -16,9 +16,8 @@ trap on_exit EXIT
 check() {
   current=$1
   shift
-  echo "==> ${current}"
-  curl --fail --silent --show-error "$@"
-  echo
+  status=$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' "$@")
+  echo "ok: ${current} (HTTP ${status})"
 }
 
 check "flix /health"                    http://localhost:8001/health
