@@ -23,6 +23,7 @@ services:
     image: ${PROTOSPY_IMAGE:-protospy-protospy:latest}
     build:
       context: .
+      dockerfile: docker/Dockerfile.local
     ports:
       - "3001:3000"
       - "3101:3100"
