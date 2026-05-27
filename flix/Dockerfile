@@ -1,11 +1,6 @@
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.14-alpine AS builder
 
 WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -18,9 +13,21 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy source and install the project itself
-COPY . /app
+COPY src /app/src
+COPY pyproject.toml uv.lock README.md /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
+
+FROM python:3.14-alpine
+
+RUN apk add --no-cache libgcc libstdc++
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY src /app/src
+COPY data /app/data
+COPY loader.py /app/loader.py
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENTRYPOINT []
