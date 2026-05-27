@@ -34,10 +34,23 @@ on:
   #   tags: ["v*"]
 
 jobs:
-  # Host-side build of the amd64 musl binary and the UI bundle, with ui/dist
-  # cached so unchanged UI source doesn't re-run vite.
-  build-amd64:
+  # Host-side musl build of the protospy binary for each target arch, plus
+  # the UI bundle. Runs amd64 and arm64 in parallel; each uploads its own
+  # binary artifact. ui/dist is arch-independent so only the amd64 instance
+  # uploads it. arm64 builds every run (not just dispatch) so drift between
+  # the two builds is caught at PR time, not at release time.
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            target: x86_64-unknown-linux-musl
+            packages: musl-tools
+          - arch: arm64
+            target: aarch64-unknown-linux-musl
+            packages: musl-tools gcc-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
     steps:
       - uses: actions/checkout@v6
 
@@ -63,27 +76,32 @@ jobs:
         run: pnpm run build
         working-directory: ui
 
-      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: protospy-musl
-      - run: cargo build --release --target x86_64-unknown-linux-musl
+      # The linker env vars are arm64-specific; they're harmless empties on amd64.
+      - run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: ${{ matrix.linker }}
+          CC_aarch64_unknown_linux_musl: ${{ matrix.linker }}
 
       - run: |
-          mkdir -p publish/linux/amd64
-          cp target/x86_64-unknown-linux-musl/release/protospy publish/linux/amd64/protospy
+          mkdir -p publish/linux/${{ matrix.arch }}
+          cp target/${{ matrix.target }}/release/protospy publish/linux/${{ matrix.arch }}/protospy
 
       - uses: actions/upload-artifact@v4
         with:
-          name: protospy-amd64
-          path: publish/linux/amd64/protospy
+          name: protospy-${{ matrix.arch }}
+          path: publish/linux/${{ matrix.arch }}/protospy
           if-no-files-found: error
           retention-days: 1
-      - uses: actions/upload-artifact@v4
+      - if: matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v4
         with:
           name: ui-dist
           path: ui/dist
@@ -93,7 +111,7 @@ jobs:
   # Bring up the full compose stack against the freshly-built amd64 release
   # image (and flix) and exercise it end-to-end. Gates the publish jobs.
   smoke-test:
-    needs: build-amd64
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -129,7 +147,7 @@ jobs:
   # Tag-based releases: change `if:` on the publish jobs to also accept tag
   # pushes, e.g.
   #   if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-  build-protospy:
+  publish-protospy:
     needs: smoke-test
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -141,35 +159,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # amd64 binary + UI bundle from build-amd64 (validated by smoke-test).
+      # Per-arch binaries + UI bundle from `build` (amd64 validated by smoke-test).
       - uses: actions/download-artifact@v4
         with:
           name: protospy-amd64
           path: publish/linux/amd64
       - uses: actions/download-artifact@v4
         with:
+          name: protospy-arm64
+          path: publish/linux/arm64
+      - uses: actions/download-artifact@v4
+        with:
           name: ui-dist
           path: ui/dist
-
-      # Cross toolchain for aarch64-musl (ring has C/asm that needs a C cross-compiler)
-      - run: sudo apt-get update && sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: protospy-musl
-      - run: cargo build --release --target aarch64-unknown-linux-musl
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
-          CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
-
-      # Stage arm64 alongside the downloaded amd64 binary (TARGETARCH = amd64 | arm64)
       - run: |
-          mkdir -p publish/linux/arm64
-          cp target/aarch64-unknown-linux-musl/release/protospy publish/linux/arm64/protospy
           chmod +x publish/linux/amd64/protospy
+          chmod +x publish/linux/arm64/protospy
 
       - uses: docker/metadata-action@v6
         id: meta
@@ -208,7 +213,7 @@ jobs:
     #       subject-digest: ${{ steps.push.outputs.digest }}
     #       push-to-registry: true
 
-  build-flix:
+  publish-flix:
     needs: smoke-test
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -251,7 +256,7 @@ jobs:
     #       subject-digest: ${{ steps.push.outputs.digest }}
     #       push-to-registry: true
 
-  build-demo:
+  publish-demo:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
