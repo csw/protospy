@@ -59,6 +59,27 @@ const DEFAULT_OUT = path.join(
 );
 const OUT_DIR = process.env.BESTIARY_OUT || DEFAULT_OUT;
 
+// ─── Window/store typing ──────────────────────────────────────────────────────
+// `window.__test_store` is the dev-only Zustand store exposed by the UI for
+// browser-test harnesses (state/store.ts). We don't pull in the real store
+// types here — that would couple the script to internal UI types — so we
+// describe just the surface the script touches.
+
+interface StoreLike {
+  getState: () => {
+    applyEvent: (msg: unknown) => void;
+    darkMode: boolean;
+    toggleDarkMode: () => void;
+  };
+  getInitialState: () => unknown;
+  setState: (s: unknown, replace?: boolean) => void;
+  persist?: { hasHydrated?: () => boolean };
+}
+
+interface WindowWithStore extends Window {
+  __test_store: StoreLike;
+}
+
 // ─── Ports ────────────────────────────────────────────────────────────────────
 // Pick a port that doesn't collide with the hero-screenshots pipeline
 // (6220–6223) or a running dev server (5173).
@@ -72,7 +93,12 @@ const t = (s: number) => new Date(Date.now() - s * 1000).toISOString();
 
 // Compressed JSON payload reused across compression scenarios. Same source
 // JSON: {"items":[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]}
-// Copied from browser/body-compressed.spec.ts — keep in sync if regenerated.
+// Copied verbatim from browser/body-compressed.spec.ts — those base64
+// strings round-trip through DecompressionStream / brotli-dec-wasm /
+// zstd-wasm in the live browser-test suite, so they're known-good.
+// (The brotli payload looks plaintext-ish because brotli encodes small
+// inputs as literal blocks; this is correct output, not a degraded one.)
+// Keep in sync if regenerated.
 const GZIP_B64 =
   "H4sIAAAAAAAAE6tWyixJzS1WsoquVspMUbIy1FHKS8xNVbJSSswpyEhUqtWBiBvBxZNSSxKVamNrAXGp+bs6AAAA";
 const GZIP_WIRE_BYTES = 66;
@@ -244,7 +270,14 @@ const SCENARIOS: Scenario[] = [
     captures: [
       {
         slug: "selected",
-        description: "Stream tab — note the (incorrect) `live` indicator.",
+        description:
+          "Full viewport — list ERR badge absent, context bar lacks NET ERR.",
+      },
+      {
+        slug: "stream-view",
+        description:
+          "Stream view only — note the (incorrect) `live` indicator. PRO-221.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
       },
     ],
   },
@@ -276,6 +309,12 @@ const SCENARIOS: Scenario[] = [
         description:
           "List shows `res 66B/58B (gzip)`; body pane shows `66B / 58B`.",
       },
+      {
+        slug: "body-pane",
+        description:
+          "Body pane head close-up: `66B → 58B` dual-size indicator.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
     ],
   },
   {
@@ -298,7 +337,11 @@ const SCENARIOS: Scenario[] = [
       await page.getByText("/api/search").first().click();
     },
     captures: [
-      { slug: "selected", description: "Body pane with `(deflate)`." },
+      {
+        slug: "body-pane",
+        description: "Body pane only — `(deflate)` indicator.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
     ],
   },
   {
@@ -315,7 +358,13 @@ const SCENARIOS: Scenario[] = [
     interact: async (page) => {
       await page.getByText("/api/brotli").first().click();
     },
-    captures: [{ slug: "selected", description: "Body pane with `(br)`." }],
+    captures: [
+      {
+        slug: "body-pane",
+        description: "Body pane only — `(br)` indicator.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
+    ],
   },
 
   // ── Binary bodies ────────────────────────────────────────────────────────
@@ -335,7 +384,11 @@ const SCENARIOS: Scenario[] = [
       await page.getByText("/images/pixel.png").first().click();
     },
     captures: [
-      { slug: "selected", description: "Bodies tab — binary classification." },
+      {
+        slug: "body-pane",
+        description: "Body pane only — binary classification.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
     ],
   },
 
@@ -357,8 +410,9 @@ const SCENARIOS: Scenario[] = [
     },
     captures: [
       {
-        slug: "selected",
-        description: "JSON viewer top of a 500-item document.",
+        slug: "body-pane",
+        description: "JSON viewer only — top of a 500-item document.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
       },
     ],
   },
@@ -384,8 +438,9 @@ const SCENARIOS: Scenario[] = [
     },
     captures: [
       {
-        slug: "selected",
+        slug: "stream-view",
         description: "Stream tab — `live` indicator visible.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
       },
     ],
   },
@@ -406,7 +461,13 @@ const SCENARIOS: Scenario[] = [
     interact: async (page) => {
       await page.getByText("/api/events-final").first().click();
     },
-    captures: [{ slug: "selected", description: "Stream tab — final state." }],
+    captures: [
+      {
+        slug: "stream-view",
+        description: "Stream tab — final state.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
+    ],
   },
 
   // ── HTTP error status codes ──────────────────────────────────────────────
@@ -427,7 +488,12 @@ const SCENARIOS: Scenario[] = [
       makeResponse(3, "500 Internal Server Error", '{"error":"boom"}', t(4)),
     ],
     captures: [
-      { slug: "list", description: "Exchange list — status colour treatment." },
+      {
+        slug: "list",
+        description:
+          "Exchange list only — status colour treatment for 200 / 404 / 500.",
+        componentSelector: '[aria-label="Requests"]',
+      },
     ],
   },
 
@@ -447,7 +513,11 @@ const SCENARIOS: Scenario[] = [
       await page.getByText("/api/resources/1").first().click();
     },
     captures: [
-      { slug: "selected", description: "Bodies tab — empty response." },
+      {
+        slug: "body-pane",
+        description: "Body pane only — empty response.",
+        componentSelector: '[role="tabpanel"][data-state="active"]',
+      },
     ],
   },
 ];
@@ -527,10 +597,9 @@ async function setupPage(page: Page): Promise<void> {
   // Wait for the store to mount and (if applicable) for persist to hydrate.
   await page.waitForFunction(
     () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const s = (window as any).__test_store;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return s != null && ((s as any).persist?.hasHydrated?.() ?? true);
+      const w = window as unknown as WindowWithStore;
+      const s = w.__test_store;
+      return s != null && (s.persist?.hasHydrated?.() ?? true);
     },
     undefined,
     { timeout: 10_000 },
@@ -538,15 +607,13 @@ async function setupPage(page: Page): Promise<void> {
 
   // Defensive reset (clears any persisted prefs / leftover state).
   await page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const s = (window as any).__test_store;
+    const s = (window as unknown as WindowWithStore).__test_store;
     s.setState(s.getInitialState(), true);
   });
 
   // Force dark mode to match the hero-screenshot baseline.
   await page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const st = (window as any).__test_store.getState();
+    const st = (window as unknown as WindowWithStore).__test_store.getState();
     if (!st.darkMode) st.toggleDarkMode();
   });
 }
@@ -559,8 +626,9 @@ async function runScenario(
   await setupPage(page);
 
   await page.evaluate((msgs) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { applyEvent } = (window as any).__test_store.getState();
+    const { applyEvent } = (
+      window as unknown as WindowWithStore
+    ).__test_store.getState();
     for (const m of msgs) applyEvent(m);
   }, scenario.messages);
 
