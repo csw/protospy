@@ -24,7 +24,7 @@ runs:
       run: >-
         docker compose run --rm
         -e ELASTICSEARCH_URL=http://elasticsearch:9200
-        flix uv run python loader.py
+        flix python loader.py
       env:
         PROTOSPY_IMAGE: ${{ inputs.protospy-image }}
         FLIX_IMAGE: ${{ inputs.flix-image }}
