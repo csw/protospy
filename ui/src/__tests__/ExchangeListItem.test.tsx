@@ -261,7 +261,7 @@ describe("ExchangeListItem", () => {
     expect(screen.getByText("ERR")).toHaveClass("shrink-0");
   });
 
-  it("renders the compression indicator when responseBody has contentEncoding", () => {
+  it("renders a (gzip) tag when responseBody has gzip contentEncoding", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -277,12 +277,41 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const indicator = screen.getByTestId("compression-indicator");
-    expect(indicator).toBeInTheDocument();
-    expect(indicator).toHaveAttribute("title", "Compressed: gzip");
+    expect(screen.getByText("(gzip)")).toBeInTheDocument();
+    // Without decodedBytes cached, only the wire size shows; the tag follows.
+    const resSpan = screen.getByText(/^res /);
+    expect(resSpan).toHaveAttribute(
+      "title",
+      expect.stringContaining("decoded size unknown"),
+    );
   });
 
-  it("does not render a compression indicator when no body is compressed", () => {
+  it("renders dual wire/decoded size when both are known and differ", () => {
+    render(
+      <ExchangeListItem
+        exchange={makeExchange({
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 1024,
+            decodedBytes: 4096,
+            contentEncoding: "gzip",
+          },
+        })}
+        selected={false}
+        onSelect={() => {}}
+        density="regular"
+      />,
+    );
+    const resSpan = screen.getByText(/^res /);
+    expect(resSpan).toHaveTextContent("res 1.0KB/4.0KB (gzip)");
+    expect(resSpan).toHaveAttribute(
+      "title",
+      expect.stringContaining("after decompression"),
+    );
+  });
+
+  it("does not render a compression tag when no body is compressed", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -293,12 +322,10 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    expect(
-      screen.queryByTestId("compression-indicator"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
   });
 
-  it("renders separate indicators for compressed request and response bodies", () => {
+  it("renders separate encoding tags for compressed request and response bodies", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -320,10 +347,8 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const indicators = screen.getAllByTestId("compression-indicator");
-    expect(indicators).toHaveLength(2);
-    expect(indicators[0]).toHaveAttribute("title", "Compressed: deflate");
-    expect(indicators[1]).toHaveAttribute("title", "Compressed: br");
+    expect(screen.getByText("(deflate)")).toBeInTheDocument();
+    expect(screen.getByText("(br)")).toBeInTheDocument();
   });
 
   it("metadata row has whitespace-nowrap to prevent text wrapping at narrow widths", () => {

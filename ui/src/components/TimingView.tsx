@@ -1,6 +1,5 @@
-import type { Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/reducer";
 import { formatSize, formatTime, statusTextClass } from "@ui/lib/utils";
-import { CompressionIndicator } from "./CompressionIndicator";
 
 interface Props {
   exchange: Exchange;
@@ -22,12 +21,30 @@ function FactRow({ label, value }: FactRowProps) {
   );
 }
 
-export function TimingView({ exchange }: Props) {
-  const reqSize = exchange.requestBody?.wireBytes ?? 0;
-  const resSize = exchange.responseBody?.wireBytes ?? 0;
-  const reqEncoding = exchange.requestBody?.contentEncoding;
-  const resEncoding = exchange.responseBody?.contentEncoding;
+/**
+ * Render a body size as `wire / decoded (encoding)` when the body is
+ * compressed and the decode pipeline has populated `decodedBytes`, or as
+ * `wire (encoding)` when it hasn't, or as plain `wire` when uncompressed.
+ * Follows Chrome DevTools' slash convention for dual sizes.
+ */
+function bodySizeDisplay(body: BodyState | undefined): React.ReactNode {
+  const wire = body?.wireBytes ?? 0;
+  const encoding = body?.contentEncoding;
+  const decoded = body?.decodedBytes;
+  const hasDual = encoding && decoded != null && decoded !== wire;
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span>
+        {hasDual
+          ? `${formatSize(wire)} / ${formatSize(decoded)}`
+          : formatSize(wire)}
+      </span>
+      {encoding && <span className="text-dim">({encoding})</span>}
+    </span>
+  );
+}
 
+export function TimingView({ exchange }: Props) {
   return (
     <div className="overflow-auto p-3">
       {/* Fact table */}
@@ -41,23 +58,11 @@ export function TimingView({ exchange }: Props) {
         <FactRow label="Version" value={exchange.version ?? "—"} />
         <FactRow
           label="Request size"
-          value={
-            <span className="inline-flex items-center gap-1.5">
-              {formatSize(reqSize)}
-              {reqEncoding && <span className="text-dim">({reqEncoding})</span>}
-              <CompressionIndicator encoding={reqEncoding} />
-            </span>
-          }
+          value={bodySizeDisplay(exchange.requestBody)}
         />
         <FactRow
           label="Response size"
-          value={
-            <span className="inline-flex items-center gap-1.5">
-              {formatSize(resSize)}
-              {resEncoding && <span className="text-dim">({resEncoding})</span>}
-              <CompressionIndicator encoding={resEncoding} />
-            </span>
-          }
+          value={bodySizeDisplay(exchange.responseBody)}
         />
         <FactRow
           label="Status"

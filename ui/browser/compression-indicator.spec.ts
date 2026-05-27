@@ -1,11 +1,13 @@
 /**
- * Browser tests for the compression indicator shown alongside `wireBytes`
+ * Browser tests for the compression display shown alongside `wireBytes`
  * in the exchange list (both rows and table modes) and in the timing view.
  *
- * The indicator is a small icon next to the size value with a tooltip and
- * accessible label naming the encoding. It appears for any exchange whose
- * request or response body has `Content-Encoding` set, and is absent for
- * uncompressed exchanges.
+ * A compressed body shows a `(encoding)` tag after the wire size, e.g.
+ * `res 28B (gzip)`. The size cell also carries a tooltip explaining the
+ * wire/decoded distinction. Uncompressed bodies show no tag. When the
+ * body has been opened in the inspector once, the decoded byte count is
+ * cached back on the store, and surfaces switch to dual `wire/decoded`
+ * display (Chrome DevTools convention).
  */
 
 import { test, expect } from "@playwright/test";
@@ -32,7 +34,7 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-test.describe("Compression indicator", () => {
+test.describe("Compression display", () => {
   test("is visible in rows mode for a gzip-compressed response", async ({
     page,
   }) => {
@@ -43,13 +45,9 @@ test.describe("Compression indicator", () => {
       makeResponse(2, "200 OK", '{"ok":true}'),
     ]);
 
-    const indicators = page.getByTestId("compression-indicator");
-    // One in the list row for exchange 1; none for exchange 2.
-    await expect(indicators).toHaveCount(1);
-    await expect(indicators.first()).toHaveAttribute(
-      "title",
-      "Compressed: gzip",
-    );
+    // The compressed row should show "(gzip)"; the plain row should not.
+    const tags = page.getByText("(gzip)");
+    await expect(tags).toHaveCount(1);
   });
 
   test("is visible in table mode for a compressed response", async ({
@@ -63,9 +61,7 @@ test.describe("Compression indicator", () => {
       makeEncodedJsonResponse(1, GZIP_BASE64, GZIP_BYTES, "gzip"),
     ]);
 
-    const indicator = page.getByTestId("compression-indicator").first();
-    await expect(indicator).toBeVisible();
-    await expect(indicator).toHaveAttribute("title", "Compressed: gzip");
+    await expect(page.getByText("(gzip)").first()).toBeVisible();
   });
 
   test("appears in timing view for a compressed response", async ({ page }) => {
@@ -77,15 +73,9 @@ test.describe("Compression indicator", () => {
     await page.getByText("/api/compressed").first().click();
     await page.getByRole("tab", { name: "Timing" }).click();
 
-    // Scope to the Timing tab panel so adding indicators elsewhere doesn't
-    // make this assertion brittle.
+    // Scope to the Timing tab panel so the list-row "(gzip)" doesn't
+    // bleed into this assertion.
     const timingPanel = page.getByRole("tabpanel");
-    const indicators = timingPanel.getByTestId("compression-indicator");
-    await expect(indicators).toHaveCount(1);
-    await expect(indicators.first()).toHaveAttribute(
-      "title",
-      "Compressed: gzip",
-    );
     await expect(timingPanel.getByText("(gzip)")).toBeVisible();
   });
 
@@ -98,6 +88,7 @@ test.describe("Compression indicator", () => {
     await page.getByText("/api/plain").first().click();
     await page.getByRole("tab", { name: "Timing" }).click();
 
-    await expect(page.getByTestId("compression-indicator")).toHaveCount(0);
+    // No parenthesised encoding label anywhere on the page.
+    await expect(page.getByText(/^\([a-z]+\)$/)).toHaveCount(0);
   });
 });

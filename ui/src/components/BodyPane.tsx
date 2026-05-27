@@ -8,10 +8,17 @@ import { JsonViewer } from "./JsonViewer";
 interface Props {
   title: string;
   body: BodyState | undefined;
+  /**
+   * If provided, the decoded byte count from the decode pipeline is cached
+   * back onto `BodyState.decodedBytes` so other surfaces (timing view,
+   * exchange list) can show a dual wire/decoded size without re-running
+   * decode themselves.
+   */
+  cacheTo?: { exchangeId: number; direction: "request" | "response" };
 }
 
-export function BodyPane({ title, body }: Props) {
-  const { loading, result } = useDecodeBody(body);
+export function BodyPane({ title, body, cacheTo }: Props) {
+  const { loading, result } = useDecodeBody(body, cacheTo);
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
@@ -32,12 +39,12 @@ export function BodyPane({ title, body }: Props) {
               data-testid="body-size"
               title={
                 result.decodedBytes != null
-                  ? `${formatSize(result.wireBytes)} on the wire → ${formatSize(result.decodedBytes)} after decompression`
+                  ? `${formatSize(result.wireBytes)} on the wire / ${formatSize(result.decodedBytes)} after decompression`
                   : undefined
               }
             >
               {result.decodedBytes != null
-                ? `${formatSize(result.wireBytes)} → ${formatSize(result.decodedBytes)}`
+                ? `${formatSize(result.wireBytes)} / ${formatSize(result.decodedBytes)}`
                 : formatSize(result.wireBytes)}
             </span>
           )}

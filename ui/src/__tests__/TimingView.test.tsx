@@ -31,7 +31,7 @@ describe("TimingView", () => {
     expect(screen.getByText("256B")).toBeInTheDocument();
   });
 
-  it("does not render a compression indicator when no body is compressed", () => {
+  it("does not render any (encoding) label when no body is compressed", () => {
     render(
       <TimingView
         exchange={makeExchange({
@@ -39,12 +39,11 @@ describe("TimingView", () => {
         })}
       />,
     );
-    expect(
-      screen.queryByTestId("compression-indicator"),
-    ).not.toBeInTheDocument();
+    // No "(...)" parenthesised text should appear for an uncompressed body.
+    expect(screen.queryByText(/^\(.+\)$/)).not.toBeInTheDocument();
   });
 
-  it("renders a compression indicator and encoding label for a compressed response", () => {
+  it("renders only wire size with (encoding) when decodedBytes is not yet cached", () => {
     render(
       <TimingView
         exchange={makeExchange({
@@ -57,14 +56,31 @@ describe("TimingView", () => {
         })}
       />,
     );
-    expect(screen.getByTestId("compression-indicator")).toHaveAttribute(
-      "title",
-      "Compressed: gzip",
+    expect(screen.getByText("256B")).toBeInTheDocument();
+    expect(screen.getByText("(gzip)")).toBeInTheDocument();
+    // No dual size (no `X / Y` pattern) when decodedBytes is absent.
+    expect(screen.queryByText(/\d+B\s*\/\s*\d+B/)).not.toBeInTheDocument();
+  });
+
+  it("renders dual wire/decoded size with (encoding) when decodedBytes is cached", () => {
+    render(
+      <TimingView
+        exchange={makeExchange({
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 1024,
+            decodedBytes: 6144,
+            contentEncoding: "gzip",
+          },
+        })}
+      />,
     );
+    expect(screen.getByText("1.0KB / 6.0KB")).toBeInTheDocument();
     expect(screen.getByText("(gzip)")).toBeInTheDocument();
   });
 
-  it("renders separate indicators for compressed request and response", () => {
+  it("renders separate encoding labels for compressed request and response", () => {
     render(
       <TimingView
         exchange={makeExchange({
@@ -83,10 +99,6 @@ describe("TimingView", () => {
         })}
       />,
     );
-    const indicators = screen.getAllByTestId("compression-indicator");
-    expect(indicators).toHaveLength(2);
-    expect(indicators[0]).toHaveAttribute("title", "Compressed: deflate");
-    expect(indicators[1]).toHaveAttribute("title", "Compressed: br");
     expect(screen.getByText("(deflate)")).toBeInTheDocument();
     expect(screen.getByText("(br)")).toBeInTheDocument();
   });

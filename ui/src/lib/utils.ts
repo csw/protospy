@@ -12,6 +12,22 @@ export function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+/**
+ * Normalised `Content-Encoding` value for inline display next to a wire
+ * size (e.g. `1.6KB (gzip)`). Returns `null` for absent or trivial
+ * encodings (`identity`, empty) so callers can `&&` it inline.
+ *
+ * Returns the lowercased encoding verbatim for anything else — including
+ * comma-separated multi-encodings (`gzip, br`). We'd rather show the raw
+ * string than guess at canonicalising it.
+ */
+export function shortEncoding(encoding: string | undefined): string | null {
+  if (!encoding) return null;
+  const lower = encoding.toLowerCase().trim();
+  if (lower === "" || lower === "identity") return null;
+  return lower;
+}
+
 export function statusClass(
   status: string | undefined,
 ): "ok" | "redir" | "cli" | "srv" | "pending" | "err" {

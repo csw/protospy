@@ -18,7 +18,11 @@ export function BodySplit({ exchange, protocol }: Props) {
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
-        <BodyPane title="Request" body={exchange.requestBody} />
+        <BodyPane
+          title="Request"
+          body={exchange.requestBody}
+          cacheTo={{ exchangeId: exchange.id, direction: "request" }}
+        />
       </div>
       <div className="w-px bg-border shrink-0" />
       <div className="flex-1 overflow-hidden">
@@ -29,7 +33,11 @@ export function BodySplit({ exchange, protocol }: Props) {
             <StreamView exchange={exchange} />
           )
         ) : (
-          <BodyPane title="Response" body={exchange.responseBody} />
+          <BodyPane
+            title="Response"
+            body={exchange.responseBody}
+            cacheTo={{ exchangeId: exchange.id, direction: "response" }}
+          />
         )}
       </div>
     </div>

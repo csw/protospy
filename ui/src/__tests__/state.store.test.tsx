@@ -158,6 +158,85 @@ describe("state/store", () => {
     });
   });
 
+  describe("setBodyDecodedBytes", () => {
+    it("writes decodedBytes onto the response body and returns a new exchange", () => {
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(1) as unknown as EventMessage);
+      // Seed a response body so the action has something to update.
+      useStore.setState((s) => {
+        const exchanges = new Map(s.exchanges);
+        const ex = exchanges.get(1)!;
+        exchanges.set(1, {
+          ...ex,
+          responseBody: { chunks: [], atEnd: true, wireBytes: 28 },
+        });
+        return { exchanges };
+      });
+      useStore.getState().setBodyDecodedBytes(1, "response", 64);
+      const body = useStore.getState().exchanges.get(1)?.responseBody;
+      expect(body?.decodedBytes).toBe(64);
+    });
+
+    it("writes decodedBytes onto the request body", () => {
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(1) as unknown as EventMessage);
+      useStore.setState((s) => {
+        const exchanges = new Map(s.exchanges);
+        const ex = exchanges.get(1)!;
+        exchanges.set(1, {
+          ...ex,
+          requestBody: { chunks: [], atEnd: true, wireBytes: 10 },
+        });
+        return { exchanges };
+      });
+      useStore.getState().setBodyDecodedBytes(1, "request", 20);
+      const body = useStore.getState().exchanges.get(1)?.requestBody;
+      expect(body?.decodedBytes).toBe(20);
+    });
+
+    it("no-ops when the exchange is missing", () => {
+      const before = useStore.getState().exchanges;
+      useStore.getState().setBodyDecodedBytes(999, "response", 64);
+      expect(useStore.getState().exchanges).toBe(before);
+    });
+
+    it("no-ops when the body for the direction is missing", () => {
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(1) as unknown as EventMessage);
+      const before = useStore.getState().exchanges;
+      // No response body on a fresh GET request.
+      useStore.getState().setBodyDecodedBytes(1, "response", 64);
+      expect(useStore.getState().exchanges).toBe(before);
+    });
+
+    it("no-ops when decodedBytes is unchanged", () => {
+      useStore
+        .getState()
+        .applyEvent(makeGetRequest(1) as unknown as EventMessage);
+      useStore.setState((s) => {
+        const exchanges = new Map(s.exchanges);
+        const ex = exchanges.get(1)!;
+        exchanges.set(1, {
+          ...ex,
+          responseBody: {
+            chunks: [],
+            atEnd: true,
+            wireBytes: 28,
+            decodedBytes: 64,
+          },
+        });
+        return { exchanges };
+      });
+      const before = useStore.getState().exchanges;
+      useStore.getState().setBodyDecodedBytes(1, "response", 64);
+      // Same identity — proves we short-circuited.
+      expect(useStore.getState().exchanges).toBe(before);
+    });
+  });
+
   describe("setConnection / setService", () => {
     it("setConnection updates connection status", () => {
       useStore.getState().setConnection("open");
