@@ -12,7 +12,7 @@ services:
       - protospy
       - jaeger
     healthcheck:
-      test: curl -sf http://localhost:8000/health
+      test: python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
       interval: 10s
       start_period: 30s
       start_interval: 2s
