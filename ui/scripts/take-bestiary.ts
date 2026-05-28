@@ -197,8 +197,9 @@ const SCENARIOS: Scenario[] = [
     title: "Connect refused",
     description:
       "Upstream refused the TCP connection before the response started. " +
-      "List row shows `ERR`, context bar shows `NET ERR`, inspector tabs " +
-      "render as if the exchange were empty. See PRO-217 / PRO-220.",
+      "List row shows `Error`; context bar shows `Network error` with the " +
+      "full message inline; the request body pane surfaces the same error " +
+      "above the (empty) body area. See PRO-217 / PRO-220.",
     messages: [
       makeGetRequest(1, "/api/users/42", t(30)),
       makeProxyError(
@@ -251,9 +252,11 @@ const SCENARIOS: Scenario[] = [
     title: "Mid-stream disconnect",
     description:
       "Response started (`status` is set), then the upstream closed mid-body. " +
-      "Asymmetric: list `ERR` and context-bar `NET ERR` do **not** activate " +
-      "because status arrived. SSE Stream view currently shows `live` " +
-      "incorrectly — see PRO-221.",
+      "After PRO-220 the error is surfaced symmetrically: the status code " +
+      "stays primary, and an `Interrupted` indicator + error message appear " +
+      "in the list row (`· Interrupted`) and the context bar. The response " +
+      "body pane shows the error banner above any partial bytes. SSE Stream " +
+      "view currently shows `live` incorrectly — see PRO-221.",
     messages: [
       makeGetRequest(3, "/api/stream", t(10)),
       makeStreamingSSE(3, 'data: {"event":"start"}\n', t(10)),
@@ -271,7 +274,8 @@ const SCENARIOS: Scenario[] = [
       {
         slug: "selected",
         description:
-          "Full viewport — list ERR badge absent, context bar lacks NET ERR.",
+          "Full viewport — status code primary, with `Interrupted` indicator " +
+          "+ error message in the list row and context bar.",
       },
       {
         slug: "stream-view",

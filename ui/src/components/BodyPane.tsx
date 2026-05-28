@@ -8,6 +8,7 @@ import { JsonViewer } from "./JsonViewer";
 interface Props {
   title: string;
   body: BodyState | undefined;
+  /**
    * If provided, the decoded byte count from the decode pipeline is cached
    * back onto `BodyState.decodedBytes` so other surfaces (timing view,
    * exchange list) can show a dual wire/decoded size without re-running
