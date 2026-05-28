@@ -70,6 +70,9 @@ interface StoreLike {
     applyEvent: (msg: unknown) => void;
     darkMode: boolean;
     toggleDarkMode: () => void;
+    setListMode: (mode: "rows" | "table") => void;
+    setTimeZoneMode: (mode: "local" | "utc") => void;
+    setCmdKOpen: (open: boolean) => void;
   };
   getInitialState: () => unknown;
   setState: (s: unknown, replace?: boolean) => void;
@@ -493,6 +496,116 @@ const SCENARIOS: Scenario[] = [
         description:
           "Exchange list only — status colour treatment for 200 / 404 / 500.",
         componentSelector: '[aria-label="Requests"]',
+      },
+    ],
+  },
+
+  // ── Table mode (PRO-222) ─────────────────────────────────────────────────
+  {
+    family: "Table mode (PRO-222)",
+    slug: "table-mode-default",
+    title: "Table mode is the default list view",
+    description:
+      "PRO-222: table mode is now the default `listMode`. Each row is a single " +
+      "tabular line with method, path, status, size, when, and elapsed " +
+      "columns. The When column shows absolute times (HH:MM:SS.mmm) by " +
+      "default in the user's local zone — click the column header to toggle " +
+      "to UTC. The size column uses the dual `wire / decoded` format " +
+      "introduced in PRO-216. The list pane defaults to a wider 720px so " +
+      "the columns fit without horizontal scroll.",
+    messages: [
+      makeGetRequest(1, "/api/products/featured", t(45)),
+      makeEncodedJsonResponse(1, GZIP_B64, GZIP_WIRE_BYTES, "gzip", t(45)),
+      makeGetRequest(2, "/api/healthz", t(38)),
+      makeResponse(2, "200 OK", '{"ok":true}', t(38)),
+      makePostRequest(3, "/api/orders", '{"qty":1}', t(31)),
+      makeResponse(3, "201 Created", '{"id":"o-1234"}', t(31)),
+      makeGetRequest(4, "/api/users/missing", t(24)),
+      makeResponse(4, "404 Not Found", '{"error":"not found"}', t(24)),
+      makeGetRequest(5, "/api/items", t(17)),
+      makeResponse(5, "200 OK", makeLargeJson(50), t(17)),
+      makeGetRequest(6, "/api/crash", t(11)),
+      makeResponse(6, "500 Internal Server Error", '{"error":"boom"}', t(11)),
+      makeGetRequest(7, "/api/stream", t(8)),
+      makeProxyError(
+        7,
+        "Request",
+        "client error (Connect): tcp connect error: Connection refused (os error 61)",
+        t(8),
+      ),
+      makeGetRequest(8, "/api/search?q=widgets&limit=20", t(4)),
+      makeResponse(8, "200 OK", '{"results":[]}', t(4)),
+    ],
+    captures: [
+      {
+        slug: "list-local",
+        description:
+          "Default view: table mode, local time. Method/Path/Status/Size/When/Elapsed.",
+        componentSelector: "[data-panel]:first-of-type",
+      },
+      {
+        slug: "list-utc",
+        description:
+          "Same data, after clicking the When column header to switch to UTC. " +
+          "Header reads `WHEN (UTC)`; timestamps are absolute, zone-explicit.",
+        componentSelector: "[data-panel]:first-of-type",
+        prepare: async (page) => {
+          await page.evaluate(() => {
+            (window as unknown as WindowWithStore).__test_store
+              .getState()
+              .setTimeZoneMode("utc");
+          });
+        },
+      },
+      {
+        slug: "list-rows",
+        description:
+          "Rows mode for comparison — each exchange is a multi-line card with " +
+          "method badge, full path, status, relative time, and elapsed. " +
+          "Still available via Cmd-K → `Switch to rows view` (or the rows " +
+          "toggle in the top bar).",
+        componentSelector: "[data-panel]:first-of-type",
+        prepare: async (page) => {
+          await page.evaluate(() => {
+            const s = (
+              window as unknown as WindowWithStore
+            ).__test_store.getState();
+            s.setTimeZoneMode("local");
+            s.setListMode("rows");
+          });
+        },
+      },
+    ],
+  },
+  {
+    family: "Table mode (PRO-222)",
+    slug: "table-mode-cmdk",
+    title: "Command palette: time zone + view-mode commands",
+    description:
+      "The command palette exposes the new time-zone toggle and the (now " +
+      "reversed) view-mode switch. With table as the default, the palette " +
+      "offers `Switch to rows view`. With local as the default zone, the " +
+      "palette offers `Show timestamps in UTC` (the label flips to " +
+      "`Show timestamps in local time` when in UTC mode).",
+    messages: [
+      makeGetRequest(1, "/api/products/featured", t(20)),
+      makeResponse(1, "200 OK", '{"ok":true}', t(20)),
+      makeGetRequest(2, "/api/healthz", t(10)),
+      makeResponse(2, "200 OK", '{"ok":true}', t(10)),
+    ],
+    captures: [
+      {
+        slug: "open",
+        description:
+          "Cmd-K palette open — note `Switch to rows view` and " +
+          "`Show timestamps in UTC` items.",
+        prepare: async (page) => {
+          await page.evaluate(() => {
+            (window as unknown as WindowWithStore).__test_store
+              .getState()
+              .setCmdKOpen(true);
+          });
+        },
       },
     ],
   },
