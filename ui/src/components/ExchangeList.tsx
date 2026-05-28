@@ -24,7 +24,7 @@ import { ExchangeListItem } from "./ExchangeListItem";
 //   `1024.0KB/1024.0KB (deflate)`. See PRO-216 comment on PRO-222 for why
 //   the previous 76px allocation was too small after dual-size landed.
 // - When: holds `HH:MM:SS.mmm` (12 chars + padding).
-const TABLE_COLUMNS = "60px 60px minmax(140px, 1fr) 56px 168px 100px";
+const TABLE_COLUMNS = "60px 60px minmax(140px, 1fr) 56px 168px 116px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -57,6 +57,7 @@ function TableRow({
       ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;
+  const hasError = exchange.error != null && exchange.status == null;
   const isUtc = timeZoneMode === "utc";
   const absTime = formatAbsoluteTime(exchange.timestamp, { utc: isUtc });
   // Show both representations in the tooltip so users don't have to toggle to
@@ -94,22 +95,17 @@ function TableRow({
       >
         {method}
       </span>
-      {(() => {
-        const hasError = exchange.error != null && exchange.status == null;
-        return (
-          <span
-            className={`font-family-mono text-xs px-1 truncate ${
-              exchange.status != null
-                ? statusTextClass(exchange.status)
-                : hasError
-                  ? "text-red font-semibold"
-                  : "text-dim"
-            }`}
-          >
-            {exchange.status ?? (hasError ? "ERR" : "—")}
-          </span>
-        );
-      })()}
+      <span
+        className={`font-family-mono text-xs px-1 truncate ${
+          exchange.status != null
+            ? statusTextClass(exchange.status)
+            : hasError
+              ? "text-red font-semibold"
+              : "text-dim"
+        }`}
+      >
+        {exchange.status ?? (hasError ? "ERR" : "—")}
+      </span>
       <span
         data-testid="exchange-path"
         className="font-family-mono text-xs text-ink px-1 truncate"
