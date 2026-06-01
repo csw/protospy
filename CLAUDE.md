@@ -66,7 +66,7 @@ responsive quality (at 1280/1440/1920px widths).
 
 - Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
 - Accessibility scope: **keyboard/focus visual quality only** — axe violations are
-  handled by `browser/a11y.spec.ts` (hard-fail gate) and must not be duplicated here
+  scanned (advisory) by `browser/a11y.spec.ts` and must not be duplicated here
 - Use the `frontend-engineer` agent to take screenshots via the Playwright CLI
 
 The `frontend@jezweb-skills` plugin is also installed and provides `frontend:react-patterns`,

@@ -133,7 +133,7 @@ Vitest auto-selects the project from file extension. **Any module that touches `
 
 `@testing-library/jest-dom@^6` matchers are auto-imported via `src/test/setup.ts` for the `jsdom` project — use `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, etc. instead of raw DOM querying.
 
-`browser/a11y.spec.ts` runs an `@axe-core/playwright` scan on the empty page and on the inspector with an exchange selected. It is a **hard-fail** — any axe violation fails the test. Violations are also recorded as `testInfo.annotations` (visible in the HTML report, silent with `--reporter=dot`) and attached as JSON for triage detail.
+`browser/a11y.spec.ts` runs an `@axe-core/playwright` scan on the empty page and on the inspector with an exchange selected. It is **advisory, not a gate** — a11y is low priority for protospy (no screen-reader target), so axe violations never fail the test, block merge, or fail pre-commit. Violations surface as `console.warn` lines in the test output and are also recorded as `testInfo.annotations` (HTML report) and attached as JSON for triage detail. The scan keeps the full WCAG tag set, so keyboard/focus rules still run — keyboard/focus quality remains the a11y bar.
 
 ### Browser test scope and framing
 
