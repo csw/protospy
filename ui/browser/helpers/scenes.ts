@@ -1,6 +1,5 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { SCENES, type Scene } from "../../src/test/scenes";
 
 // Re-export the canonical scene matrix so specs can iterate cells without a
 // running page. The dev-only `window.__test_scenes` harness (installed by
@@ -85,9 +84,4 @@ export async function dragListPaneTo(
   const listPanel = page.locator("[data-panel]").first();
   const resultBox = await listPanel.boundingBox();
   return resultBox?.width ?? 0;
-}
-
-/** All scene ids, in matrix order. */
-export function sceneIds(): string[] {
-  return SCENES.map((s: Scene) => s.id);
 }
