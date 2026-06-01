@@ -58,6 +58,21 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 
+## Visual design reviews
+
+Use the `/design-review` skill for visual quality checks on the protospy UI. It covers
+layout, typography, colour, hierarchy, component consistency, interaction design, and
+responsive quality (at 1280/1440/1920px widths).
+
+- Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
+- Accessibility scope: **keyboard/focus visual quality only** — axe violations are
+  handled by `browser/a11y.spec.ts` (hard-fail gate) and must not be duplicated here
+- Use the `frontend-engineer` agent to take screenshots via the Playwright CLI
+
+The `frontend@jezweb-skills` plugin is also installed and provides `frontend:react-patterns`,
+`frontend:shadcn-ui`, and `frontend:tailwind-theme-builder` skills for the `frontend-engineer`
+agent. Use them when writing, reviewing, or adding components.
+
 ## Worktrees
 
 Worktrees go in `.worktrees/` at the project root. Not `.claude/worktrees/`, not `ui/.worktrees/`, not anywhere else. Use `EnterWorktree` with path `.worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit.
