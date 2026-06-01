@@ -1,0 +1,82 @@
+# Fixture matrix
+
+The fixture matrix is the set of deterministic UI states the visual-review
+workflow ([PRO-229](https://linear.app/protospy/issue/PRO-229)) walks. Every
+cell is reachable by **store injection** — no live traffic — so a reviewer (or
+the PRO-235 review subagent) can render each meaningful state reproducibly at
+each supported width.
+
+The canonical definitions live in [`src/test/scenes.ts`](../src/test/scenes.ts).
+Each _scene_ bundles the `EventMessage`s to inject plus the store configuration
+(selection, connection, view mode, density, decoded-size caches) needed to reach
+its cell. The same definitions drive both consumers:
+
+- **Browser test suite** — `browser/fixture-matrix.spec.ts` imports `SCENES` /
+  `applySceneToStore` and asserts every cell renders at every width with no
+  console errors.
+- **Visual-review subagent** — drives a running dev server through the dev-only
+  `window.__test_scenes` harness (installed by `main.tsx`, mirroring
+  `window.__test_store`).
+
+## Reaching a cell
+
+Run the dev server (`pnpm dev`) and inject a scene by id from the page:
+
+```js
+window.__test_scenes.apply("dual-size"); // resets the store, then applies the cell
+window.__test_scenes.list(); // metadata for every scene, in matrix order
+window.__test_scenes.widths; // [1280, 1440, 1920]
+```
+
+`apply` returns `false` for an unknown id. The harness exists only in dev
+builds; the dynamic import is dead-code-eliminated from production.
+
+Inspect each cell at the three supported widths — **1280** (minimum), **1440**
+(baseline), **1920** (wide). Below 1280 is unsupported.
+
+## The matrix
+
+### State axis
+
+| Scene id    | Cell            | Notes                                                                   |
+| ----------- | --------------- | ----------------------------------------------------------------------- |
+| `empty`     | Empty list      | "No requests yet" empty state; status bar shows `connected`.            |
+| `loading`   | Loading         | No exchanges, connection `connecting` (amber pulse).                    |
+| `error-row` | Error row (ERR) | Upstream failure → red `ERR` badge; selected so the inspector shows it. |
+| `selected`  | Selected        | Populated list, one row selected; inspector populated.                  |
+| `hover`     | Row hover       | Populated list; **hover a row** (CSS `:hover`, not store-injectable).   |
+
+### Data-size axis
+
+| Scene id      | Cell                   | Notes                                                              |
+| ------------- | ---------------------- | ------------------------------------------------------------------ |
+| `long-uri`    | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip. |
+| `long-status` | Long status text       | Verbose status phrase; check status column / context bar.          |
+| `long-error`  | Long error text        | Verbose hyper-style error chain.                                   |
+| `many-rows`   | Many rows (120)        | Virtualization, scroll, status-bar count.                          |
+| `dual-size`   | Dual wire/decoded size | gzip response; list shows `66B/58B (gzip)`; hover for the tooltip. |
+
+### View axis
+
+| Scene id        | Cell                    | Notes                                  |
+| --------------- | ----------------------- | -------------------------------------- |
+| `table-mode`    | Table mode              | Columnar list (vs. default rows mode). |
+| `compact-rows`  | Compact density (rows)  | Tighter row height.                    |
+| `compact-table` | Compact density (table) | Tightest row height.                   |
+
+## List-pane width axis (interaction, not a scene)
+
+The list-pane "narrow vs wide" axis is an **interaction**, not store state: the
+pane width is the panel `defaultSize` at mount (`minSize` 200px), not a value the
+store can push afterward. Drive it by dragging the resize separator. In tests,
+use `dragListPaneTo(page, "min" | "wide")` from `browser/helpers/scenes.ts`;
+interactively, drag the divider (double-click resets it to the mode default).
+Combine with any scene to inspect that cell at the pane's minimum and wide
+extents.
+
+## Adding a cell
+
+Add a `Scene` to `SCENES` in `src/test/scenes.ts` (reuse or extend builders in
+`src/test/fixtures.ts` — don't duplicate fixtures in `browser/`). The
+`fixture-matrix.spec.ts` breadth test and the `window.__test_scenes` harness
+pick it up automatically. Update the tables above.

@@ -327,6 +327,113 @@ export function makeProxyError(
   };
 }
 
+/**
+ * A deliberately long URI: deep path plus a long query string. Exercises
+ * truncation / clipping affordances in the exchange list and context bar.
+ * Both `path` and `query` overflow their containers at every supported width.
+ */
+export const LONG_URI =
+  "/api/v2/organizations/acme-corporation/workspaces/production-east-1/" +
+  "projects/customer-analytics-pipeline/datasets/clickstream-events-2024/" +
+  "records?filter=status%3Aactive%20AND%20region%3Aus-east-1%20AND%20" +
+  "created_at%3E2024-01-01&sort=-updated_at,name&fields=id,name,status," +
+  "owner,created_at,updated_at,tags&page=7&page_size=100&include=metadata," +
+  "permissions,audit_log&expand=owner.team,project.workspace";
+
+/** A status phrase far longer than the usual three-digit code + short reason. */
+export const LONG_STATUS =
+  "599 Network Connect Timeout Error While Negotiating Upstream TLS Session " +
+  "With Origin After Exhausting All Configured Retry Attempts";
+
+/** A verbose proxy error message (mirrors a deep hyper error chain). */
+export const LONG_ERROR_MESSAGE =
+  "error sending request for url (https://upstream.internal.example.com:8443/" +
+  "v1/ingest): connection error: connection reset by peer (os error 104); " +
+  "after 3 retries over 12.4s; last upstream resolved to 10.4.21.7:8443 via " +
+  "service discovery record ingest.prod.svc.cluster.local";
+
+/**
+ * Pre-computed gzip of
+ *   {"items":[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]}
+ * (66 wire bytes → 58 decoded bytes). Shared with browser/body-gzip.spec.ts's
+ * inline constant; kept here so the dual wire/decoded size cell can show a
+ * label whose two numbers differ and whose body still decodes cleanly when
+ * the inspector opens it.
+ */
+export const GZIP_JSON_BASE64 =
+  "H4sIAAAAAAAAE6tWyixJzS1WsoquVspMUbIy1FHKS8xNVbJSSswpyEhUqtWBiBvBxZNSSxKVamNrAXGp+bs6AAAA";
+export const GZIP_JSON_WIRE_BYTES = 66;
+export const GZIP_JSON_DECODED_BYTES = 58;
+
+/**
+ * Gzip-compressed JSON response used by the dual wire/decoded size cell.
+ * Pair with a `setBodyDecodedBytes(id, "response", GZIP_JSON_DECODED_BYTES)`
+ * call to surface the `wire/decoded` label in the list before the body pane
+ * runs the decode pipeline itself.
+ */
+export function makeDualSizeResponse(id: number, ts?: string): Msg {
+  return makeGzipJsonResponse(id, GZIP_JSON_BASE64, GZIP_JSON_WIRE_BYTES, ts);
+}
+
+/** Request whose URI overflows: long path + long query string. */
+export function makeLongUriRequest(
+  id: number,
+  uri = LONG_URI,
+  ts?: string,
+): Msg {
+  return makeGetRequest(id, uri, ts);
+}
+
+/**
+ * Response carrying an unusually long status phrase. The list and context bar
+ * render the raw status string, so this stresses the status column / header.
+ */
+export function makeLongStatusResponse(
+  id: number,
+  status = LONG_STATUS,
+  ts?: string,
+): Msg {
+  return makeResponse(id, status, undefined, ts);
+}
+
+/**
+ * Generate `count` complete exchanges (request + response) for the
+ * many-rows / virtualization cell. Methods, statuses, paths, and elapsed
+ * times rotate deterministically so the list looks realistic without any
+ * randomness (timestamps are fixed). Returns a flat `Msg[]` ready to inject.
+ */
+export function makeManyExchanges(count: number, startId = 1): Msg[] {
+  const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+  const statuses = [
+    "200 OK",
+    "201 Created",
+    "304 Not Modified",
+    "404 Not Found",
+    "500 Internal Server Error",
+  ];
+  const paths = [
+    "/api/users",
+    "/api/orders/recent",
+    "/api/products/search",
+    "/_search",
+    "/api/sessions/refresh",
+  ];
+  const msgs: Msg[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = startId + i;
+    msgs.push(
+      ...makeCompleteExchange(
+        id,
+        methods[i % methods.length],
+        `${paths[i % paths.length]}/${id}`,
+        statuses[i % statuses.length],
+        { elapsed: 8 + ((i * 37) % 1200) },
+      ),
+    );
+  }
+  return msgs;
+}
+
 export function makeCompleteExchange(
   id: number,
   method: string,
