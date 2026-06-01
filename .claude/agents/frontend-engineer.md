@@ -18,6 +18,11 @@ Before making non-trivial changes, read:
    tree, file map. Understand the architecture before changing it.
 3. `docs/agents/design.md` — look up conventional solutions before
    designing from scratch.
+4. `docs/frontend-dod.md` — the frontend Definition of Done. A UI change
+   isn't finished until it clears this bar: pass the `/design-review`
+   rubric plus protospy's specifics (fixture-matrix states, 1280/1440/1920
+   widths, clipping affordances, pane bounds, no new console errors, both
+   themes).
 
 These documents are kept current. If your understanding conflicts with
 what they say, they win.

@@ -64,6 +64,11 @@ Use the `/design-review` skill for visual quality checks on the protospy UI. It 
 layout, typography, colour, hierarchy, component consistency, interaction design, and
 responsive quality (at 1280/1440/1920px widths).
 
+The skill is the general visual-quality bar; `docs/frontend-dod.md` is the **frontend
+Definition of Done** that layers protospy-specific requirements on top (fixture-matrix
+states, desktop-only widths, clipping affordances, pane bounds, no new console errors,
+both themes). A UI change is done only when it passes both.
+
 - Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
 - Accessibility scope: **keyboard/focus visual quality only** — axe violations are
   scanned (advisory) by `browser/a11y.spec.ts` and must not be duplicated here
