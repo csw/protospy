@@ -22,8 +22,8 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Load-bearing details — don't break these:**
 
-- `window.__test_store` (DEV-only) in `state/store.ts` is required by the Playwright harness (`browser/helpers/inject.ts`). Do not remove.
-- `window.__test_scenes` (DEV-only), installed by `main.tsx` from `src/test/scenes.ts`, is the **fixture matrix** used by the visual-review workflow (PRO-229). Each `SCENES` cell is an injectable UI state; `browser/fixture-matrix.spec.ts` walks them. See `docs/fixture-matrix.md`.
+- `window.__test_store` in `state/store.ts` is required by the Playwright harness (`browser/helpers/inject.ts`). Exposed when `import.meta.env.DEV` **or** `VITE_EXPOSE_TEST_HOOKS === "true"` (from `.env.test`, set by `pnpm build:test` — the build the browser suite previews); tree-shaken from a plain `pnpm build`. Do not remove.
+- `window.__test_scenes`, installed by `main.tsx` from `src/test/scenes.ts` under the same gate as `__test_store`, is the **fixture matrix** used by the visual-review workflow (PRO-229). Each `SCENES` cell is an injectable UI state; `browser/fixture-matrix.spec.ts` walks them. See `docs/fixture-matrix.md`.
 - Persisted prefs `localStorage` key is `protospy-ui-prefs`; the `partialize` list in `state/store.ts` defines which UI prefs persist. Renaming the key strands users.
 - `state/reducer.ts` is pure on purpose so it can be unit-tested in the `node` project. Do not import React, the store, or anything with side effects into it.
 

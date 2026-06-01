@@ -9,11 +9,13 @@ import "./theme/tailwind.css";
 import { useStore } from "./state/store";
 import App from "./App.tsx";
 
-// Dev-only fixture-matrix harness (PRO-234). Mirrors the window.__test_store
-// exposure in state/store.ts. The dynamic import is dead-code-eliminated from
-// production builds (import.meta.env.DEV is statically false there), so the
-// scene definitions and their test fixtures never reach the prod bundle.
-if (import.meta.env.DEV) {
+// Fixture-matrix harness (PRO-234). Mirrors the window.__test_store exposure in
+// state/store.ts: present in dev, and in test-mode preview builds via the
+// VITE_EXPOSE_TEST_HOOKS flag from .env.test (see the `build:test` script). A
+// plain production build sets neither, so the dynamic import is
+// dead-code-eliminated and the scene definitions + their test fixtures never
+// reach the prod bundle.
+if (import.meta.env.DEV || import.meta.env.VITE_EXPOSE_TEST_HOOKS === "true") {
   void import("./test/scenes").then(({ installSceneHarness }) => {
     installSceneHarness(useStore);
   });
