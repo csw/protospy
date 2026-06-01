@@ -70,11 +70,17 @@ These patterns are load-bearing. Work with them, not around them:
 
 ## Accessibility
 
-The project enforces `@axe-core/playwright` scans as a hard-fail gate.
-Any change that affects rendered HTML — new components, layout changes,
-styling — must not introduce axe violations. Run `pnpm test:browser` to
-verify. If you're unsure whether a change affects accessibility, run the
-scan anyway.
+a11y is low priority for protospy (no screen-reader target), so the
+`@axe-core/playwright` scan is **advisory, not a gate**. Violations surface
+as warnings in `pnpm test:browser` output (and as annotations/JSON
+attachments in the HTML report) but do not fail the test, block merge, or
+fail pre-commit. Treat them as triage signal, not a blocker.
+
+The a11y bar that does matter is **keyboard and focus quality** — this is a
+keyboard-driven UI. Keep the keyboard/focus axe rules running (they're part
+of the WCAG tag set the scan already uses) and fix keyboard/focus
+regressions you introduce, even though the gate is advisory. Don't ship a
+change that breaks tab order, focus visibility, or keyboard operability.
 
 ## Using the Playwright CLI
 
