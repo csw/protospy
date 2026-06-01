@@ -1,0 +1,147 @@
+import { test, expect, type Page } from "@playwright/test";
+import { waitForStore } from "./helpers/inject";
+import {
+  SCENES,
+  SUPPORTED_WIDTHS,
+  applyScene,
+  dragListPaneTo,
+  listScenes,
+  waitForSceneHarness,
+} from "./helpers/scenes";
+
+// Console/page-error noise we don't care about (e.g. missing favicon on the
+// stubbed dev page). Everything else is treated as a regression.
+const IGNORED_CONSOLE = [/favicon/i];
+
+let consoleErrors: string[] = [];
+let pageErrors: string[] = [];
+
+function attachErrorCapture(page: Page) {
+  page.on("console", (msg) => {
+    if (msg.type() !== "error") return;
+    const text = msg.text();
+    if (IGNORED_CONSOLE.some((re) => re.test(text))) return;
+    consoleErrors.push(text);
+  });
+  page.on("pageerror", (err) => pageErrors.push(String(err)));
+}
+
+test.beforeEach(async ({ page }) => {
+  consoleErrors = [];
+  pageErrors = [];
+  attachErrorCapture(page);
+
+  // Empty services → AppShell never opens a live SSE subscription, so the
+  // scene-driven `connection` stays deterministic.
+  await page.route("**/info", (route) =>
+    route.fulfill({ json: { services: [] } }),
+  );
+
+  await page.goto("/");
+  await waitForStore(page);
+  await waitForSceneHarness(page);
+});
+
+function expectNoErrors(label: string) {
+  expect(pageErrors, `${label}: uncaught page errors`).toEqual([]);
+  expect(consoleErrors, `${label}: console errors`).toEqual([]);
+}
+
+test.describe("Fixture matrix", () => {
+  test("harness exposes every scene in matrix order", async ({ page }) => {
+    const live = (await listScenes(page)).map((s) => s.id);
+    expect(live).toEqual(SCENES.map((s) => s.id));
+  });
+
+  // Every scene renders at every supported width with no console errors and
+  // both panes present. This is the breadth check the review subagent relies
+  // on; targeted visual assertions live in the per-feature specs.
+  for (const scene of SCENES) {
+    test(`scene "${scene.id}" renders at all supported widths`, async ({
+      page,
+    }) => {
+      for (const width of SUPPORTED_WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await applyScene(page, scene.id);
+
+        const label = `${scene.id}@${width}`;
+
+        // Both panels mount.
+        await expect(
+          page.locator("[data-panel]"),
+          `${label}: both panes present`,
+        ).toHaveCount(2);
+        // List toolbar always renders.
+        await expect(page.getByText("Requests").first()).toBeVisible();
+
+        // Scene-specific signal that injection actually took effect.
+        if (scene.id === "empty" || scene.id === "loading") {
+          await expect(page.getByText("No requests yet")).toBeVisible();
+        }
+        if (scene.id === "loading") {
+          await expect(page.getByText("connecting")).toBeVisible();
+        }
+        if (scene.id === "empty") {
+          await expect(page.getByText("connected")).toBeVisible();
+        }
+        if (scene.id === "many-rows") {
+          await expect(page.getByText("120 requests").first()).toBeVisible();
+        }
+        if (scene.id === "error-row") {
+          await expect(page.getByText("ERR").first()).toBeVisible();
+        }
+
+        expectNoErrors(label);
+      }
+    });
+  }
+
+  test("list pane clamps to minSize when dragged narrow and grows when wide", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await applyScene(page, "selected");
+
+    const minWidth = await dragListPaneTo(page, "min");
+    const wideWidth = await dragListPaneTo(page, "wide");
+
+    // minSize is 200px on the list Panel (AppShell).
+    expect(minWidth).toBeGreaterThanOrEqual(195);
+    expect(minWidth).toBeLessThan(280);
+    expect(wideWidth).toBeGreaterThan(minWidth + 200);
+
+    expectNoErrors("list-pane-resize");
+  });
+
+  test("dual-size scene shows a wire/decoded size label with a tooltip", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await applyScene(page, "dual-size");
+
+    // 66 wire bytes → 58 decoded bytes, tagged (gzip).
+    await expect(page.getByText("66B/58B").first()).toBeVisible();
+    await expect(page.getByText("(gzip)").first()).toBeVisible();
+    expectNoErrors("dual-size");
+  });
+
+  test("light mode renders the matrix backdrop without errors", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await applyScene(page, "selected");
+    await page.evaluate(() => {
+      (
+        window as unknown as {
+          __test_store: { getState: () => { toggleDarkMode: () => void } };
+        }
+      ).__test_store
+        .getState()
+        .toggleDarkMode();
+    });
+
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.getByText("Requests").first()).toBeVisible();
+    expectNoErrors("light-mode");
+  });
+});

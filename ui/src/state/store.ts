@@ -16,7 +16,7 @@ interface PersistedPrefs {
   darkMode: boolean;
 }
 
-interface StoreState extends PersistedPrefs {
+export interface StoreState extends PersistedPrefs {
   exchanges: Map<number, import("./reducer").Exchange>;
   ids: number[];
   connection: ConnectionStatus;
@@ -169,6 +169,14 @@ export const useStore = create<StoreState>()(
     },
   ),
 );
+
+/**
+ * The bound Zustand store API. Exported as a type so the dev-only scene
+ * harness (`src/test/scenes.ts`) can be typed against the real store shape
+ * without importing the store value (which would pull `window` side effects
+ * into node-project unit tests).
+ */
+export type AppStore = typeof useStore;
 
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__test_store = useStore;

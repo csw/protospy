@@ -23,6 +23,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 **Load-bearing details — don't break these:**
 
 - `window.__test_store` (DEV-only) in `state/store.ts` is required by the Playwright harness (`browser/helpers/inject.ts`). Do not remove.
+- `window.__test_scenes` (DEV-only), installed by `main.tsx` from `src/test/scenes.ts`, is the **fixture matrix** used by the visual-review workflow (PRO-229). Each `SCENES` cell is an injectable UI state; `browser/fixture-matrix.spec.ts` walks them. See `docs/fixture-matrix.md`.
 - Persisted prefs `localStorage` key is `protospy-ui-prefs`; the `partialize` list in `state/store.ts` defines which UI prefs persist. Renaming the key strands users.
 - `state/reducer.ts` is pure on purpose so it can be unit-tested in the `node` project. Do not import React, the store, or anything with side effects into it.
 
@@ -37,8 +38,9 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
 - `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant), `applyTheme.ts`
 - `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
-- `src/test/` (`setup.ts`, `fixtures.ts`), `src/__tests__/` (Vitest)
-- `browser/` — Playwright specs + `helpers/inject.ts` (drives the store via `window.__test_store`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
+- `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
+- `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
+- `docs/fixture-matrix.md` — the injectable state matrix and how to reach each cell
 
 ## Commands
 
@@ -174,7 +176,9 @@ expect(styles.fontWeight).toBe("600");
 
 ### Fixtures
 
-Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
+Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, plus data-extreme builders `makeLongUriRequest`, `makeLongStatusResponse`, `makeManyExchanges`, `makeDualSizeResponse`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
+
+`src/test/scenes.ts` composes these builders into the **fixture matrix**: `SCENES`, a list of injectable UI-state cells (one per matrix cell), the pure `applySceneToStore` applier, and the dev-only `window.__test_scenes` harness. The browser breadth check is `browser/fixture-matrix.spec.ts`; the full matrix and per-cell injection calls are documented in `docs/fixture-matrix.md`. Add a new cell by appending to `SCENES`.
 
 ### Coverage thresholds
 

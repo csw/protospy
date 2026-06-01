@@ -141,6 +141,7 @@ Rendering a body never touches raw chunks directly — it goes through the decod
 - **shadcn/ui primitives.** `components/ui/` holds shadcn-generated Radix/cmdk wrappers (`components.json`, new-york style, lucide icons). Treat them as vendored primitives; app-specific composition lives in `components/`. Coverage and some lint conventions treat `components/ui/**` as generated.
 - **Theming via Tailwind tokens.** `theme/tailwind.css` defines semantic color tokens under `@theme`, with a `dark` custom variant bound to `[data-theme=dark]`. `applyTheme` toggles the attribute; components reference token classes (`bg-bg`, `text-ink`, `text-m-get`, …) rather than raw colors.
 - **Dev-only `window.__test_store`.** `state/store.ts` exposes the store on `window.__test_store` when `import.meta.env.DEV`. This is **load-bearing** for the Playwright harness (`browser/helpers/inject.ts` drives `applyEvent`/`getState`/`setState` through it). Do not remove it.
+- **Dev-only fixture matrix (`window.__test_scenes`).** `src/test/scenes.ts` defines `SCENES` — a deterministic, injectable matrix of UI states (empty/loading/error/selected, long URI/status/error, many rows, dual wire/decoded size, rows vs table, compact vs regular) used by the visual-review workflow (PRO-229/PRO-235). `main.tsx` installs a dev-only `window.__test_scenes` harness (`list`/`apply`/`widths`) via a dynamic import that is dead-code-eliminated from production. `applySceneToStore` is the pure applier shared by the harness and `browser/fixture-matrix.spec.ts`. The list-pane width axis is an interaction (`dragListPaneTo` in `browser/helpers/scenes.ts`), not store state. See [`docs/fixture-matrix.md`](./docs/fixture-matrix.md).
 
 ## High-level structure / file map
 
@@ -159,12 +160,13 @@ ui/
     components/     # App components (AppShell, TopBar, FilterBar, ExchangeList, ExchangeListItem, Inspector, ContextBar, BodySplit, BodyPane, StreamView, LiveIndicator, HeadersSplit, HeadersPane, JsonViewer, TimingView, StatusBar, CommandPalette, CopyButton)
       ui/           # shadcn/ui primitives (Radix/cmdk wrappers): button, dialog, popover, tabs, tooltip, dropdown-menu, command, scroll-area, separator + EmptyState, MethodBadge
       anthropic/    # ChatStreamView.tsx — Anthropic SSE/chat-transcript renderer
-    test/           # setup.ts (jest-dom for jsdom project); fixtures.ts (shared EventMessage builders)
+    test/           # setup.ts (jest-dom for jsdom project); fixtures.ts (shared EventMessage builders); scenes.ts (fixture matrix + window.__test_scenes harness)
     __tests__/      # Vitest tests — *.test.ts (node) and *.test.tsx (jsdom)
     App.tsx         # Root component (renders AppShell)
-    main.tsx        # Entry point — fonts + early dark-mode bootstrap from persist key + createRoot render
+    main.tsx        # Entry point — fonts + early dark-mode bootstrap from persist key + dev-only __test_scenes install + createRoot render
     vite-env.d.ts   # Vite ambient types
-  browser/          # Playwright specs (*.spec.ts) + fixtures/exchanges.ts (re-export of src/test/fixtures.ts) + helpers/inject.ts
+  docs/             # fixture-matrix.md — the injectable state matrix and how to reach each cell
+  browser/          # Playwright specs (*.spec.ts, incl. fixture-matrix.spec.ts) + fixtures/exchanges.ts (re-export of src/test/fixtures.ts) + helpers/inject.ts, helpers/scenes.ts
   index.html        # HTML shell; inline pre-React theme script; mounts /src/main.tsx
   vite.config.ts    # Vite: react + tailwind plugins, @bindings/@ui aliases, dev proxy to :3100
   vitest.config.ts  # Vitest: node + jsdom projects, coverage include/exclude + thresholds

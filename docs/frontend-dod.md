@@ -18,12 +18,14 @@ These are the requirements the rubric can't check on its own, because they depen
 on protospy's state model, supported widths, and runtime behaviour.
 
 1. **All fixture-matrix states render correctly.** Every cell of the state +
-   data-size matrix — driven through `window.__test_store` injection
-   (`ui/browser/helpers/inject.ts`), not live traffic — must render without
-   breakage: empty, loading, error row (`ERR`), selected, hover; long URI path /
-   long query, very long status or error text, many rows, dual wire/decoded size
-   labels; rows vs. table mode, compact vs. regular density, list pane at min vs.
-   wide. The rubric doesn't know protospy's state model; you have to drive it.
+   data-size matrix — driven through injection, not live traffic — must render
+   without breakage: empty, loading, error row (`ERR`), selected, hover; long URI
+   path / long query, very long status or error text, many rows, dual wire/decoded
+   size labels; rows vs. table mode, compact vs. regular density, list pane at min
+   vs. wide. The matrix is codified in `ui/src/test/scenes.ts` and reachable via
+   the dev-only `window.__test_scenes` harness (`apply('<scene-id>')`); the full
+   cell list and injection calls are in `ui/docs/fixture-matrix.md`. The rubric
+   doesn't know protospy's state model; you have to drive it.
 
 2. **Target widths are 1280 / 1440 / 1920 — desktop only.** protospy is
    desktop-only (≥1280). Check the window fixed at **1280** (minimum supported),
