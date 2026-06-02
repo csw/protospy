@@ -31,22 +31,28 @@ re-reviewing the code.
 
 ## Inputs
 
-The caller gives you the ticket ID, the PR number, and which reviews ran.
-The review reports are on disk in
-`~/obsidian/protospy/Claude/Reviews/` for this PR:
+The caller gives you the ticket ID, the PR number, the round number, and which
+reviews ran. The review reports live in this round's directory under
+`~/obsidian/protospy/Claude/Reviews/<ticket>-PR-<PR>/`. **Resolve the paths
+with the shared helper — do not hand-roll them:**
 
-- Code review: `review-<ticket>-pr-<PR>.md`
-- Visual review: `review-design-<ticket>-pr-<PR>.md` (UI tickets only)
-- Convention review: `review-convention-<ticket>-pr-<PR>.md` (UI-source
-  diffs only)
+```bash
+scripts/agents/review-paths <ticket> <PR> --current
+```
 
-These paths must stay in lockstep with where `handle-ticket` step 8 writes
-the reports — **step 8 is the source of truth**. If the naming changes there,
-update it here too.
+It prints `round=<N>` (the latest round — the one whose reports you reconcile,
+which should match the round the caller named) and the absolute path of each
+report for that round: `code_review` (always), `visual_review` (UI tickets
+only), and `convention_review` (UI-source diffs only). The `synthesis` path it
+also prints is where the caller will write *your* output — you do not write it
+(you are read-only).
 
-Read whichever exist. If the caller passes the report text inline instead,
-use that. If only **one** review ran, there is nothing to synthesize — say
-so and return the single review's findings unchanged.
+`scripts/agents/review-paths` is the single source of truth for these paths,
+shared with `handle-ticket` step 8, so the writer and reader can never drift.
+
+Read whichever reports exist. If the caller passes the report text inline
+instead, use that. If only **one** review ran, there is nothing to
+synthesize — say so and return the single review's findings unchanged.
 
 You may read **cited source** (the specific `file:line` a finding points to)
 to judge whether two findings share a root cause — but you work primarily
