@@ -40,6 +40,10 @@ The review reports are on disk in
 - Convention review: `review-convention-<ticket>-pr-<PR>.md` (UI-source
   diffs only)
 
+These paths must stay in lockstep with where `handle-ticket` step 8 writes
+the reports — **step 8 is the source of truth**. If the naming changes there,
+update it here too.
+
 Read whichever exist. If the caller passes the report text inline instead,
 use that. If only **one** review ran, there is nothing to synthesize — say
 so and return the single review's findings unchanged.
