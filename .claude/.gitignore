@@ -1,5 +1,6 @@
 /agents/*
 !/agents/frontend-engineer.md
+!/agents/visual-review.md
 /commands
 /settings.local.json
 /skills
