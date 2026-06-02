@@ -101,15 +101,16 @@ This step runs differently for UI tickets and non-UI tickets.
 
 #### 4a — Start the dev server
 
-Start the UI dev server on a non-default port (avoid 5173, which is the Vite
-default). Pick an available port — check with `lsof -i :<port>` first if
-unsure. Example:
+Start the UI dev server using a **hashed port** derived from the worktree path,
+the same approach used by `ui/playwright.config.ts` to avoid collisions between
+concurrent worktree runs:
 
 ```bash
-cd ui && pnpm dev --port 5174 &
+port=$((49152 + (16#$(echo -n "$(pwd)/ui/" | shasum -a 256 | cut -c1-4) % 16383)))
+cd ui && pnpm dev --port "$port" &
 ```
 
-Wait for it to be ready (check that the chosen URL responds). The
+Wait for it to be ready (check that `http://localhost:$port/` responds). The
 visual-review subagent needs a running app to screenshot the fixture matrix.
 
 #### 4b — Determine review scope
