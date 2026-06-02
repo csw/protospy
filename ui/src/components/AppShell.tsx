@@ -17,9 +17,22 @@ import { ExchangeList } from "./ExchangeList";
 import { Inspector } from "./Inspector";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
+import {
+  DEFAULT_LIST_WIDTH,
+  LIST_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+  INSPECTOR_MIN_WIDTH,
+} from "./paneBounds";
 
-/** Default list-pane widths (px) by mode — must match the store defaults. */
-export const DEFAULT_LIST_WIDTH = { rows: 340, table: 720 } as const;
+// Re-export so existing importers of these layout constants keep working;
+// the definitions now live in the React-free ./paneBounds module so the
+// browser layout tests can import them as the single source of truth.
+export {
+  DEFAULT_LIST_WIDTH,
+  LIST_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+  INSPECTOR_MIN_WIDTH,
+};
 
 export function AppShell() {
   const applyEvent = useStore((s) => s.applyEvent);
@@ -109,7 +122,8 @@ export function AppShell() {
       <Group orientation="horizontal" className="flex-1 overflow-hidden">
         <Panel
           defaultSize={listWidth[listMode]}
-          minSize={200}
+          minSize={LIST_MIN_WIDTH}
+          maxSize={LIST_MAX_WIDTH}
           onResize={handleListPanelResize}
           panelRef={listPanelRef}
         >
@@ -141,7 +155,7 @@ export function AppShell() {
             interacting.current = false;
           }}
         />
-        <Panel>
+        <Panel minSize={INSPECTOR_MIN_WIDTH}>
           <Inspector />
         </Panel>
       </Group>

@@ -8,6 +8,7 @@ import {
   listScenes,
   waitForSceneHarness,
 } from "./helpers/scenes";
+import { LIST_MAX_WIDTH, LIST_MIN_WIDTH } from "../src/components/paneBounds";
 
 // Console/page-error noise we don't care about (e.g. missing favicon on the
 // stubbed dev page). Everything else is treated as a regression.
@@ -105,10 +106,14 @@ test.describe("Fixture matrix", () => {
     const minWidth = await dragListPaneTo(page, "min");
     const wideWidth = await dragListPaneTo(page, "wide");
 
-    // minSize is 200px on the list Panel (AppShell).
-    expect(minWidth).toBeGreaterThanOrEqual(195);
+    // The list Panel pins minSize=LIST_MIN_WIDTH and maxSize=LIST_MAX_WIDTH
+    // (a % of the group). Dragging narrow clamps at the floor; dragging wide
+    // grows toward the cap (≈65% of the 1440px group here).
+    const maxWidth = (parseFloat(LIST_MAX_WIDTH) / 100) * 1440;
+    expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_WIDTH - 5);
     expect(minWidth).toBeLessThan(280);
     expect(wideWidth).toBeGreaterThan(minWidth + 200);
+    expect(wideWidth).toBeLessThanOrEqual(maxWidth + 10);
 
     expectNoErrors("list-pane-resize");
   });
