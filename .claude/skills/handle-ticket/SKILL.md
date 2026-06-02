@@ -307,7 +307,7 @@ helper (`--current`); do not hand-roll these paths anywhere.
 ### Code review (always)
 
 Write the code review subagent's output **verbatim** to the `code_review`
-path. Prepend a front matter block and links table:
+path. Prepend a front matter block and links list:
 
 ```yaml
 ---
@@ -319,10 +319,8 @@ date: <today's date>
 type: code-review
 ---
 
-| | |
-|---|---|
-| Linear | [$ticket](<url from step 1>) |
-| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+- **Linear**: [$ticket](<url from step 1>)
+- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
 ### Visual review (UI tickets only)
@@ -334,14 +332,12 @@ includes its own YAML front matter (`title`, `scope`, `scenes_checked`,
 block. Ensure `ticket`, `title`, `pr`, `round`, and `date` are present; add
 them if missing. Do not duplicate fields the subagent already provides.
 
-After the merged front matter's closing `---`, insert a links table before
+After the merged front matter's closing `---`, insert a links list before
 the first heading:
 
 ```
-| | |
-|---|---|
-| Linear | [$ticket](<url from step 1>) |
-| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+- **Linear**: [$ticket](<url from step 1>)
+- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
 ### Convention review (only if 7b ran)
@@ -352,14 +348,12 @@ matter (`type: convention-review`, `title`, `scope`, `files_reviewed`,
 `skills_applied`). Use it as the primary block; ensure `ticket`, `title`,
 `pr`, `round`, and `date` are present, adding any that are missing.
 
-After the merged front matter's closing `---`, insert a links table before
+After the merged front matter's closing `---`, insert a links list before
 the first heading:
 
 ```
-| | |
-|---|---|
-| Linear | [$ticket](<url from step 1>) |
-| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+- **Linear**: [$ticket](<url from step 1>)
+- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
 ---
@@ -402,10 +396,8 @@ date: <today's date>
 type: synthesis
 ---
 
-| | |
-|---|---|
-| Linear | [$ticket](<url from step 1>) |
-| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+- **Linear**: [$ticket](<url from step 1>)
+- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
 This keeps the merged triage alongside the reports it reconciles, one

@@ -95,9 +95,9 @@ your remit is reconciliation of what the reviews already found.
 ## Output format
 
 Return a single Markdown document. Your output is the triage content only — no
-YAML front matter, no links table. The caller (`handle-ticket` step 9a)
+YAML front matter, no links list. The caller (`handle-ticket` step 9a)
 prepends the front matter block (`ticket`, `title`, `pr`, `round`, `date`,
-`type: synthesis`) and the Linear + PR links table before writing to disk.
+`type: synthesis`) and the Linear + PR links list before writing to disk.
 
 ```markdown
 # Merged Review Triage: <ticket> — PR #<PR>
