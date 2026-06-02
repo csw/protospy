@@ -158,19 +158,49 @@ interface SceneHarness {
 }
 ```
 
-### Initial theme setup
+### Setting and verifying the theme (run at every batch boundary)
 
-Before walking any scenes, ensure dark mode is active (protospy is
-dark-first). Check and force it once at the start of the session:
+**Why batch-boundary verification is necessary.** The store exposes only
+`toggleDarkMode()` — there is no absolute setter — so the rendered theme
+depends on the *current* state, not on how many times you have toggled.
+Blind toggling drifts: after a `light` batch the store is left in light
+mode, and changing the viewport width does **not** reset it. If the next
+width's `dark` batch assumes "dark first" without re-checking, it silently
+captures light mode under `-dark` filenames. This is exactly the PRO-253
+bug — 1440-dark and 1920-dark were captured in light mode because the theme
+was forced only once at session start, then toggled blindly across width
+transitions.
+
+The fix: **force the theme to the batch's target and positively verify it
+at the start of every width × theme batch** — never rely on toggle
+bookkeeping or a once-at-session-start setup.
+
+**Step 1 — Force the target theme (idempotent).** Read the actual
+`darkMode` state and toggle only if it does not already match the target.
+For a `dark` batch the target (`want`) is `true`; for a `light` batch it is
+`false`. This is correct regardless of what the previous batch left behind,
+whereas an unconditional toggle is not:
 
 ```bash
-# Check current theme
-playwright-cli eval "window.__test_store.getState().darkMode"
-# Force dark mode if not already active
-playwright-cli eval "(() => { const s = window.__test_store.getState(); if (!s.darkMode) s.toggleDarkMode(); })()"
+# dark batch → want = true ; light batch → want = false
+playwright-cli eval "(() => { const want = true; const s = window.__test_store.getState(); if (s.darkMode !== want) s.toggleDarkMode(); })()"
+playwright-cli eval "new Promise(r => setTimeout(r, 200))"
 ```
 
-This guarantees the first screenshot of each cell is dark mode.
+**Step 2 — Verify positively before capturing.** Confirm both the store
+flag *and* the rendered DOM attribute (`<html data-theme>`, set by
+`applyThemeToDOM`) match the target. This is a positive check on actual
+rendered state, not a count of toggles:
+
+```bash
+# expected = "dark" for a dark batch, "light" for a light batch
+playwright-cli eval "(() => { const expected = 'dark'; const store = window.__test_store.getState().darkMode ? 'dark' : 'light'; const dom = document.documentElement.getAttribute('data-theme'); return JSON.stringify({ expected, store, dom, ok: store === expected && dom === expected }); })()"
+```
+
+If `ok` is not `true`, **re-run Step 1 and re-verify before capturing
+anything**. Never write screenshots for a batch whose theme is unverified —
+that is how mislabeled files are produced. Note any persistent discrepancy
+in the report.
 
 ### Two-phase capture and assessment
 
@@ -189,7 +219,15 @@ all assessments overlap.
 ### Phase 1: Capture loop
 
 The outer loop is: for each width in scope, for each theme (dark first),
-capture all in-scope scenes, then check the console once for the batch.
+**force and verify the batch's theme**, capture all in-scope scenes, then
+check the console once for the batch.
+
+**At the start of every batch — before the first screenshot — force the
+batch's target theme and positively verify it** using the two steps in
+"Setting and verifying the theme" above. This is not a session-start-only
+step: the theme must be re-established at each width × theme boundary
+because a width change does not preserve a "dark first" assumption. Skipping
+this is what caused the PRO-253 mislabeled-screenshot bug.
 
 For each scene within a batch, use `applyAndSettle` — it combines
 `apply()` + a 150 ms render-settle into a single async call, saving one
@@ -215,16 +253,20 @@ playwright-cli console
 
 Note any errors with the batch label (width × theme) for the report.
 
-Between batches, change the viewport or toggle the theme:
+Between batches, change the viewport, then **force and verify** the next
+batch's target theme — do **not** blind-toggle:
 
 ```bash
 # Change width
 playwright-cli resize <width> 900
-
-# Toggle theme
-playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
-playwright-cli eval "new Promise(r => setTimeout(r, 200))"
 ```
+
+Then run Step 1 (force) and Step 2 (verify) from "Setting and verifying the
+theme" for the next batch's target theme. Forcing reads the current
+`darkMode` and toggles only if it does not match the target, so it is
+correct no matter what the previous batch (or a width change) left behind.
+An unconditional `toggleDarkMode()` here is the bug that produced
+mislabeled `-dark` screenshots at 1440 and 1920 in PRO-242.
 
 ### Screenshot naming convention
 
