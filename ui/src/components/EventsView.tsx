@@ -5,7 +5,10 @@ function EventDataSummary({ event }: { event: SSEEvent }) {
   const summary =
     event.data.length > 80 ? event.data.slice(0, 80) + "…" : event.data;
   return (
-    <span className="font-family-mono text-xs text-dim truncate">
+    <span
+      className="font-family-mono text-xs text-dim truncate"
+      title={event.data}
+    >
       {summary}
     </span>
   );
