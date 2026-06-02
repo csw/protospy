@@ -86,6 +86,32 @@ The `frontend@jezweb-skills` plugin is also installed and provides `frontend:rea
 `frontend:shadcn-ui`, and `frontend:tailwind-theme-builder` skills for the `frontend-engineer`
 agent. Use them when writing, reviewing, or adding components.
 
+## Code-convention reviews
+
+Visual review covers *rendered output*; **convention review** covers the *code* —
+React/Tailwind/shadcn idioms that `/review` doesn't catch. The built-in `/review`
+focuses on correctness bugs and CLAUDE.md compliance and deliberately filters out
+style/quality findings not mandated by CLAUDE.md, so convention drift (no-op Tailwind
+tokens, missing `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
+composition drift) slips through it.
+
+For any PR whose diff touches `ui/src/**`, the `handle-ticket` skill runs a convention
+review automatically (step 7b) via the **`convention-review` subagent**
+(`.claude/agents/convention-review.md`): a read-only agent that scopes from the diff,
+applies the three `frontend:*` skills above as review checklists, and returns a
+prioritized findings report alongside the code and visual reviews. It runs on UI-source
+diffs regardless of the ticket's `UI` label. You can also spawn it ad-hoc via the Agent
+tool for a convention pass outside `handle-ticket`.
+
+The code, visual, and convention reviews run **independently and blind to each other**.
+When two or more of them run, `handle-ticket` step 9 reconciles their findings via the
+**`review-synthesis` subagent** (`.claude/agents/review-synthesis.md`): a read-only agent
+that reads the review reports (not the raw code), deduplicates overlapping findings, links
+same-root-cause findings across reviews ("one fix resolves both"), surfaces conflicting
+recommendations, and re-ranks everything blocking vs. advisory on one scale. This keeps
+the reviews separately tuned (and `/review` upstream-maintained) while making their
+*combined output* coherent.
+
 ## Worktrees
 
 Worktrees go in `.worktrees/` at the project root. Not `.claude/worktrees/`, not `ui/.worktrees/`, not anywhere else. Use `EnterWorktree` with path `.worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit.

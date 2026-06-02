@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#
+# review-paths — single source of truth for handle-ticket review report paths.
+#
+# The PR review reports (code / visual / convention / synthesis) for a ticket
+# live in a per-PR directory, grouped into numbered rounds so that a re-review
+# after addressing findings doesn't clobber the first pass:
+#
+#   <Reviews>/<TICKET>-PR-<PR>/
+#     code-review-<N>.md
+#     visual-review-<N>.md
+#     convention-review-<N>.md
+#     synthesis-<N>.md
+#
+# All four files in one review round share the same round number <N>. Round 1
+# is the first review pass; each subsequent pass (after pushing fixes) is the
+# next integer. Screenshots are temporary and PR-agnostic (they're captured
+# before the PR exists), so they live in a ticket-scoped directory instead:
+#
+#   <Reviews>/screenshots/<TICKET>/<scene>-<width>-<theme>.png
+#
+# Both the writer (handle-ticket) and the reader (review-synthesis) call this
+# script so the convention is defined in exactly one place. handle-ticket calls
+# it ONCE per round with --next to establish the round and create the dir, then
+# reuses the printed paths for every file it writes that round. review-synthesis
+# calls it with --current to locate the latest round's reports to read.
+#
+# Usage:
+#   review-paths <TICKET> <PR>              Writer: next round. Creates the dir,
+#                                           prints paths for the new round.
+#   review-paths <TICKET> <PR> --current    Reader: latest existing round.
+#                                           Does not create anything. round=0
+#                                           (and exit 0) when no reports exist.
+#   review-paths <TICKET> --screenshots     Print (and create) the ticket-scoped
+#                                           screenshots dir. No PR needed.
+#
+# Output is KEY=value lines (valid shell, so callers may `eval` it):
+#   round=<N>
+#   dir=<abs round dir>
+#   code_review=<abs path>
+#   visual_review=<abs path>
+#   convention_review=<abs path>
+#   synthesis=<abs path>
+#   screenshots=<abs ticket screenshots dir>
+#
+# The Reviews base defaults to the Obsidian vault but can be overridden with
+# OBSIDIAN_REVIEWS (useful for testing).
+
+set -euo pipefail
+
+REVIEWS_BASE="${OBSIDIAN_REVIEWS:-$HOME/obsidian/protospy/Claude/Reviews}"
+
+die() {
+	echo "review-paths: $*" >&2
+	exit 2
+}
+
+usage() {
+	sed -n '3,200{/^# Usage:/,/^# The Reviews base/p}' "$0" | sed 's/^# \{0,1\}//' >&2
+	exit 2
+}
+
+# Normalise a ticket id to uppercase (PRO-250). Validates the shape.
+normalise_ticket() {
+	local t
+	t="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
+	case "$t" in
+	PRO-[0-9]*) printf '%s' "$t" ;;
+	*) die "ticket must look like PRO-NNN, got '$1'" ;;
+	esac
+}
+
+# Highest existing round number in $1, or 0 if none / dir missing.
+max_round() {
+	local dir="$1" base n max=0 f
+	[ -d "$dir" ] || {
+		printf '0'
+		return
+	}
+	for f in "$dir"/*-[0-9]*.md; do
+		[ -e "$f" ] || continue
+		base="${f##*/}"
+		n="${base##*-}"
+		n="${n%.md}"
+		case "$n" in
+		'' | *[!0-9]*) continue ;;
+		esac
+		[ "$n" -gt "$max" ] && max="$n"
+	done
+	printf '%s' "$max"
+}
+
+screenshots_dir() {
+	printf '%s/screenshots/%s' "$REVIEWS_BASE" "$1"
+}
+
+emit_round() {
+	local ticket="$1" pr="$2" round="$3"
+	local dir="$REVIEWS_BASE/${ticket}-PR-${pr}"
+	printf 'round=%s\n' "$round"
+	printf 'dir=%s\n' "$dir"
+	printf 'code_review=%s/code-review-%s.md\n' "$dir" "$round"
+	printf 'visual_review=%s/visual-review-%s.md\n' "$dir" "$round"
+	printf 'convention_review=%s/convention-review-%s.md\n' "$dir" "$round"
+	printf 'synthesis=%s/synthesis-%s.md\n' "$dir" "$round"
+	printf 'screenshots=%s\n' "$(screenshots_dir "$ticket")"
+}
+
+main() {
+	[ $# -ge 1 ] || usage
+
+	# review-paths <TICKET> --screenshots
+	if [ $# -eq 2 ] && [ "$2" = "--screenshots" ]; then
+		local ticket sdir
+		ticket="$(normalise_ticket "$1")"
+		sdir="$(screenshots_dir "$ticket")"
+		mkdir -p "$sdir"
+		printf 'screenshots=%s\n' "$sdir"
+		return
+	fi
+
+	[ $# -ge 2 ] || usage
+	local ticket pr mode="next"
+	ticket="$(normalise_ticket "$1")"
+	pr="$2"
+	case "$pr" in
+	'' | *[!0-9]*) die "PR must be numeric, got '$pr'" ;;
+	esac
+
+	if [ $# -ge 3 ]; then
+		case "$3" in
+		--current) mode="current" ;;
+		--next) mode="next" ;;
+		*) die "unknown option '$3'" ;;
+		esac
+	fi
+
+	local dir="$REVIEWS_BASE/${ticket}-PR-${pr}"
+	local max round
+	max="$(max_round "$dir")"
+
+	if [ "$mode" = "current" ]; then
+		# Reader: latest existing round; do not create anything.
+		emit_round "$ticket" "$pr" "$max"
+	else
+		# Writer: next round; create the dir so writes succeed.
+		round=$((max + 1))
+		mkdir -p "$dir"
+		emit_round "$ticket" "$pr" "$round"
+	fi
+}
+
+main "$@"

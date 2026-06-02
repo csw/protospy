@@ -1,5 +1,7 @@
 /agents/*
+!/agents/convention-review.md
 !/agents/frontend-engineer.md
+!/agents/review-synthesis.md
 !/agents/visual-review.md
 /commands
 /settings.local.json

@@ -227,7 +227,7 @@ subprocess round-trip per scene:
 
 2. **Screenshot to disk:**
    ```bash
-   playwright-cli screenshot --filename=~/obsidian/protospy/Claude/screenshots/visual-review/<scene-id>-<width>-<theme>.png
+   playwright-cli screenshot --filename=<screenshots-dir>/<scene-id>-<width>-<theme>.png
    ```
 
 After all scenes in a batch are captured, **check the console once**
@@ -251,18 +251,28 @@ playwright-cli resize <width> 900
 Then run Step 1 (force) and Step 2 (verify) from "Setting and verifying the
 theme" for the next batch's target theme.
 
-### Screenshot naming convention
+### Screenshot output directory and naming
 
-Save screenshots to `~/obsidian/protospy/Claude/screenshots/visual-review/`:
+Save screenshots to the **screenshots directory the caller gives you** in the
+spawn prompt. It is ticket-scoped and temporary (screenshots are scratch for
+the review, not round artifacts):
+`~/obsidian/protospy/Claude/Reviews/screenshots/<ticket>/`. This is the value
+referred to as `<screenshots-dir>` throughout this document.
+
+If the caller did not provide one, compute it with the shared path helper —
+which also creates the directory and prints `screenshots=<dir>`:
+
+```bash
+scripts/agents/review-paths <ticket> --screenshots   # with a ticket
+```
+
+For an ad-hoc run with no ticket, fall back to
+`~/obsidian/protospy/Claude/Reviews/screenshots/_adhoc/` and `mkdir -p` it
+yourself. Name files within the directory:
 
 ```
 <scene-id>-<width>-dark.png     # e.g. selected-1440-dark.png
 <scene-id>-<width>-light.png    # e.g. selected-1440-light.png
-```
-
-Create the output directory first:
-```bash
-mkdir -p ~/obsidian/protospy/Claude/screenshots/visual-review/
 ```
 
 ### Interaction-required scenes
@@ -413,7 +423,7 @@ Agent({ prompt: "...", description: "assess 1920-light" })
 Each subagent gets this prompt shape:
 
 > Read the screenshots in
-> `~/obsidian/protospy/Claude/screenshots/visual-review/` matching
+> `<screenshots-dir>` matching
 > `*-<width>-<theme>.png`. These show the protospy UI fixture matrix
 > at <width>px in <theme> mode.
 >
