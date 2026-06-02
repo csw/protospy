@@ -242,9 +242,10 @@ If that lists any files, spawn the **`convention-review` subagent**
 code review so they run in parallel. Give it this prompt shape:
 
 > Run a React/Tailwind/shadcn convention review for $ticket. Scope from the
-> diff against `main` (branch `<branch-name>`). Apply the react-patterns,
-> shadcn-ui, and tailwind-theme-builder skills to the changed UI source and
-> return your prioritized convention-findings report.
+> diff against `main` (branch `<branch-name>`). Apply the
+> frontend:react-patterns, frontend:shadcn-ui, and
+> frontend:tailwind-theme-builder skills to the changed UI source and return
+> your prioritized convention-findings report.
 
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,

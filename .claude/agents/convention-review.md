@@ -2,9 +2,10 @@
 name: convention-review
 description: >-
   Read-only React/Tailwind/shadcn convention review agent for the protospy
-  UI. Derives scope from the diff, applies the react-patterns, shadcn-ui,
-  and tailwind-theme-builder skills as review checklists against changed UI
-  source, and returns a prioritized convention-findings report.
+  UI. Derives scope from the diff, applies the frontend:react-patterns,
+  frontend:shadcn-ui, and frontend:tailwind-theme-builder skills as review
+  checklists against changed UI source, and returns a prioritized
+  convention-findings report.
 disallowedTools: Write, Edit, NotebookEdit
 ---
 
