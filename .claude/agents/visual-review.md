@@ -90,16 +90,21 @@ The caller may include scope parameters in the prompt, e.g.:
 
 > Check all inspector-visible scenes at 1280 and 1440.
 
-> Full sweep — periodic audit.
-
 Parse these into: scenes to check, widths, rubric categories to
 emphasize. Union them with the change-derived scope.
+
+The caller can also explicitly request a full sweep:
+
+> Full sweep.
+
+This overrides change-derived scoping and checks all scenes at all 3
+widths against the full rubric, regardless of what the diff says.
 
 ### 3. Fallback: full sweep
 
 When no diff is available (e.g. `git diff main` is empty or the branch
-is `main`) and the caller doesn't specify scope, check all scenes at all
-3 widths against the full rubric. This is the periodic-audit mode.
+is `main`) and the caller doesn't specify scope, also fall back to a
+full sweep.
 
 ### Reporting scope decisions
 
