@@ -3,18 +3,24 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { StreamView } from "@ui/components/StreamView";
 import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
 import type { Exchange } from "@ui/state/reducer";
+import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
 function makeSSEExchange(sseText: string, atEnd = true): Exchange {
+  let sseState = createSSEStreamState();
+  if (sseText) {
+    sseState = feedChunk(sseState, sseText);
+  }
   return {
     id: 1,
     timestamp: "2024-01-01T00:00:00Z",
     method: "POST",
     uri: "/v1/messages",
     responseBody: {
-      chunks: [{ text: sseText }],
+      chunks: [],
       atEnd,
       wireBytes: sseText.length,
       contentType: "text/event-stream",
+      sseState,
     },
   };
 }

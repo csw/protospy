@@ -2,6 +2,13 @@ import type { BodyChunk } from "@bindings/BodyChunk";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { InitialBody } from "@bindings/InitialBody";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
+import type { SSEStreamState } from "@ui/body/sse-stream";
+import {
+  createSSEStreamState,
+  feedChunk,
+  chunkToText,
+  applyRetention,
+} from "@ui/body/sse-stream";
 
 export interface BodyState {
   chunks: BodyChunk[];
@@ -26,6 +33,13 @@ export interface BodyState {
   decodedBytes?: number;
   contentEncoding?: string;
   contentType?: string;
+  /**
+   * Incrementally-parsed SSE stream state. Present only for
+   * `text/event-stream` bodies. When set, `chunks` is kept empty — parsed
+   * events are the canonical representation (no double-storage). `wireBytes`
+   * still tracks the wire size.
+   */
+  sseState?: SSEStreamState;
 }
 
 export interface Exchange {
@@ -54,6 +68,10 @@ function getHeader(headers: ProxyHeaders, name: string): string | undefined {
     ?.value;
 }
 
+function isSSEContentType(ct: string | undefined): boolean {
+  return ct?.toLowerCase().startsWith("text/event-stream") ?? false;
+}
+
 function initialBodyToState(
   body: InitialBody,
   headers: ProxyHeaders,
@@ -70,9 +88,28 @@ function initialBodyToState(
       wireBytes: 0,
       contentType,
       contentEncoding,
+      sseState: isSSEContentType(contentType)
+        ? createSSEStreamState()
+        : undefined,
     };
   }
-  // "Data"
+  // "Data" — for SSE bodies, parse the initial chunk into sseState and keep
+  // chunks empty (parsed events are the canonical representation).
+  if (isSSEContentType(contentType)) {
+    let sseState = createSSEStreamState();
+    if (body.content?.payload != null) {
+      sseState = feedChunk(sseState, chunkToText(body.content.payload));
+      sseState = applyRetention(sseState);
+    }
+    return {
+      chunks: [],
+      atEnd: body.at_end,
+      wireBytes: body.total_bytes,
+      contentType,
+      contentEncoding,
+      sseState,
+    };
+  }
   const chunks: BodyChunk[] =
     body.content?.payload != null ? [body.content.payload] : [];
   return {
@@ -88,12 +125,32 @@ function initialBodyToState(
  * Append a `BodyData` chunk immutably, returning a NEW `BodyState` with a new
  * `chunks` array (when a payload is present). The previous body — if any — is
  * the base; otherwise a fresh empty body is seeded.
+ *
+ * For SSE bodies (`sseState` present), the chunk is parsed incrementally into
+ * the SSE stream state and `chunks` stays empty.
  */
 function appendBodyData(
   prev: BodyState | undefined,
   event: Extract<EventMessage["event"], { type: "BodyData" }>,
 ): BodyState {
   const base: BodyState = prev ?? { chunks: [], atEnd: false, wireBytes: 0 };
+
+  // SSE path: parse the chunk incrementally; don't accumulate raw bytes.
+  if (base.sseState != null) {
+    let sseState = base.sseState;
+    if (event.content?.payload != null) {
+      sseState = feedChunk(sseState, chunkToText(event.content.payload));
+      sseState = applyRetention(sseState);
+    }
+    return {
+      ...base,
+      sseState,
+      atEnd: event.at_end,
+      wireBytes: event.total_bytes,
+    };
+  }
+
+  // Non-SSE path: accumulate raw chunks.
   const chunks =
     event.content?.payload != null
       ? [...base.chunks, event.content.payload]

@@ -116,7 +116,12 @@ export function makeRequestWithTrace(
   };
 }
 
-export function makeSSEResponse(id: number, body: string, ts?: string): Msg {
+export function makeSSEResponse(
+  id: number,
+  body: string,
+  ts?: string,
+  atEnd = true,
+): Msg {
   return {
     exchange: meta(id, ts),
     direction: "Response",
@@ -134,9 +139,38 @@ export function makeSSEResponse(id: number, body: string, ts?: string): Msg {
           payload: { text: body },
         },
         trailers: null,
-        at_end: true,
+        at_end: atEnd,
         total_bytes: body.length,
       },
+    },
+  };
+}
+
+/**
+ * A `BodyData` event for an SSE stream — sends a text chunk as a streaming
+ * update. Pair with a preceding `makeSSEResponse` (with `atEnd: false`) to
+ * model an incrementally-arriving SSE body.
+ */
+export function makeSSEBodyData(
+  id: number,
+  text: string,
+  atEnd: boolean,
+  totalBytes: number,
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction: "Response",
+    event: {
+      type: "BodyData",
+      content: {
+        offset: 0,
+        length: text.length,
+        payload: { text },
+      },
+      trailers: null,
+      at_end: atEnd,
+      total_bytes: totalBytes,
     },
   };
 }

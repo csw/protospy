@@ -18,7 +18,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Types.** Wire types come from `@bindings/*` (→ `../bindings/`, generated from Rust by ts-rs — **do not edit**). `@ui/*` → `./src/*`.
 
-**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate` via `DecompressionStream`; `br` via `brotli-dec-wasm` WASM, lazy-loaded; `zstd` via `@bokuweb/zstd-wasm` WASM, lazy-loaded) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies go through `body/sse.ts` (`parseSSEBody`); Anthropic transcripts fold via `anthropic/transcript.ts`.
+**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate` via `DecompressionStream`; `br` via `brotli-dec-wasm` WASM, lazy-loaded; `zstd` via `@bokuweb/zstd-wasm` WASM, lazy-loaded) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies (`text/event-stream`) are parsed incrementally in the reducer via `body/sse-stream.ts` — each chunk is fed through `feedChunk()` (O(chunk), not O(total stream)), parsed events live in `BodyState.sseState`, and `chunks` stays empty. `StreamView`/`ChatStreamView` read `sseState.events` directly (no component-layer parse). Retention is bounded at `MAX_SSE_EVENTS` (10,000). Shared scroll-follow logic is in `hooks/useStreamFollow.ts`; shared event rendering in `components/EventsView.tsx`. Anthropic transcripts fold via `anthropic/transcript.ts`.
 
 **Load-bearing details — don't break these:**
 
@@ -31,13 +31,13 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 - `src/api/` — `info.ts` (`fetchInfo`, `/info`), `sse.ts` (`subscribeToEvents`, `ConnectionStatus`, parent-frame `postMessage`)
 - `src/state/` — `store.ts` (Zustand + `subscribeWithSelector` + `persist` + theme subscriber + dev `__test_store`), `reducer.ts` (pure `apply`, `Exchange`/`BodyState` shapes)
-- `src/body/` — `decode.ts` (chunks→bytes→decompress→classify), `sse.ts` (parse SSE event stream)
+- `src/body/` — `decode.ts` (chunks→bytes→decompress→classify), `sse.ts` (parseSSEBlock, parseSSEBody, chunksToText), `sse-stream.ts` (SSEStreamState, feedChunk, applyRetention — incremental SSE parser)
 - `src/anthropic/` — `transcript.ts` (fold SSE events into chat transcript)
 - `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)
-- `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton)
+- `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton), `useStreamFollow` (shared scroll-follow for SSE views)
 - `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
 - `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant + `@theme inline` shadcn semantic aliases + `@layer base` default border-color), `applyTheme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveTheme`, `applyThemeToDOM`, theme ownership contract)
-- `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
+- `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `EventsView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
 - `docs/fixture-matrix.md` — the injectable state matrix and how to reach each cell
