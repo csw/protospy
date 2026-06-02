@@ -156,12 +156,38 @@ describe("feedChunk immutability", () => {
     expect(next.events).toHaveLength(1);
   });
 
-  it("returns a new events array", () => {
+  it("returns a new events array when new events are parsed", () => {
     const first = feedChunk(createSSEStreamState(), "data: a\n\n");
     const second = feedChunk(first, "data: b\n\n");
     expect(second.events).not.toBe(first.events);
     expect(first.events).toHaveLength(1);
     expect(second.events).toHaveLength(2);
+  });
+
+  it("reuses the events array when no new events are parsed (partial chunk)", () => {
+    const first = feedChunk(createSSEStreamState(), "data: a\n\n");
+    // This chunk extends the remainder but produces no complete event
+    const second = feedChunk(first, "data: partial");
+    expect(second.events).toBe(first.events); // same identity
+    expect(second.parserRemainder).toBe("data: partial");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// feedChunk — edge cases
+// ---------------------------------------------------------------------------
+
+describe("feedChunk edge cases", () => {
+  it("handles triple newline (\\n\\n\\n) — empty block between delimiters", () => {
+    // \n\n\n splits into ["event...", "", "remaining"] — the empty block
+    // is skipped by parseSSEBlock, so only the real event is produced.
+    const state = feedChunk(
+      createSSEStreamState(),
+      "data: first\n\n\ndata: second\n\n",
+    );
+    expect(state.events).toHaveLength(2);
+    expect(state.events[0].data).toBe("first");
+    expect(state.events[1].data).toBe("second");
   });
 });
 

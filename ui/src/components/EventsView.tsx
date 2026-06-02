@@ -1,5 +1,5 @@
 import type { SSEEvent } from "@ui/body/sse";
-import { eventTypeBadgeClass } from "@ui/lib/utils";
+import { cn, eventTypeBadgeClass } from "@ui/lib/utils";
 
 function EventDataSummary({ event }: { event: SSEEvent }) {
   const summary =
@@ -30,7 +30,10 @@ export function EventsView({ events }: { events: SSEEvent[] }) {
             {event.index}
           </span>
           <span
-            className={`font-family-mono text-xs px-1.5 py-0.5 rounded shrink-0 ${eventTypeBadgeClass(event.type)}`}
+            className={cn(
+              "font-family-mono text-xs px-1.5 py-0.5 rounded shrink-0",
+              eventTypeBadgeClass(event.type),
+            )}
           >
             {event.type}
           </span>

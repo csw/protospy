@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
+import { cn } from "@ui/lib/utils";
 import { LiveIndicator } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
@@ -94,13 +95,19 @@ export function ChatStreamView({ exchange }: Props) {
         <LiveIndicator atEnd={atEnd} isFollowing={isFollowing} />
         <div className="flex items-center gap-0.5 bg-bg-pane rounded px-0.5 py-0.5">
           <button
-            className={`${segmentBase} ${mode === "transcript" ? segmentActive : segmentInactive}`}
+            className={cn(
+              segmentBase,
+              mode === "transcript" ? segmentActive : segmentInactive,
+            )}
             onClick={() => setMode("transcript")}
           >
             transcript
           </button>
           <button
-            className={`${segmentBase} ${mode === "events" ? segmentActive : segmentInactive}`}
+            className={cn(
+              segmentBase,
+              mode === "events" ? segmentActive : segmentInactive,
+            )}
             onClick={() => setMode("events")}
           >
             events
@@ -127,7 +134,7 @@ export function ChatStreamView({ exchange }: Props) {
         {!isFollowing && !atEnd && (
           <button
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-white text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
           >
             Jump to latest
           </button>

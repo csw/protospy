@@ -67,8 +67,14 @@ export function feedChunk(
     }
   }
 
+  // Identity-stable: when no new events were parsed, reuse the existing
+  // events array so downstream memos/selectors keyed on array identity
+  // don't see a spurious change on every partial chunk.
+  const events =
+    newEvents.length > 0 ? [...prev.events, ...newEvents] : prev.events;
+
   return {
-    events: [...prev.events, ...newEvents],
+    events,
     totalEventCount: nextIndex,
     parserRemainder: remainder,
   };

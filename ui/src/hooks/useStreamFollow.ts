@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import type { DependencyList, RefObject } from "react";
 
 interface StreamFollowResult {
   isFollowing: boolean;
@@ -17,7 +17,7 @@ interface StreamFollowResult {
  *               `[events.length]`). The caller decides what constitutes
  *               "new content".
  */
-export function useStreamFollow(deps: unknown[]): StreamFollowResult {
+export function useStreamFollow(deps: DependencyList): StreamFollowResult {
   const [isFollowing, setIsFollowing] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
