@@ -6,6 +6,8 @@ For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the p
 
 **UI code changes require tests.** Every change to `ui/src/` or `ui/browser/` must include corresponding tests — unit, component, or browser depending on the code changed. See the "Test-Writing Requirements" section of `ui/CLAUDE.md` for the full policy, including which test type to use for which kind of change.
 
+**LLM visual review is a separate layer from the deterministic browser tests — they don't replace each other.** The `ui/browser/` Playwright suite (including `browser/design-tokens.spec.ts`) makes *repeatable, deterministic* assertions about rendered properties and behaviour. LLM-based **visual review** — the `visual-review` subagent and the `/design-review` skill, judged against `docs/frontend-dod.md` — assesses *holistic* visual quality across the fixture matrix (layout, hierarchy, clipping, both themes at 1280/1440/1920). Deterministic tests can't judge whether a layout "looks right," and a visual review isn't a repeatable assertion. A UI change needs both: write/extend browser tests for what you changed, and let the visual review cover the look. See the root `CLAUDE.md` "Visual design reviews" section for how the review runs.
+
 ## Conformance tests
 
 The conformance test suite needs to be able to run against a pre-existing protospy instance, for the sake of debuggability. You can assume it will have an appropriate configuration in that case, but the test suite must not rely on starting protospy itself. (Protospy is not yet implemented, but allow for this in test suite design.)

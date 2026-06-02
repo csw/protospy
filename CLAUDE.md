@@ -69,10 +69,18 @@ Definition of Done** that layers protospy-specific requirements on top (fixture-
 states, desktop-only widths, clipping affordances, pane bounds, no new console errors,
 both themes). A UI change is done only when it passes both.
 
+For UI tickets, the `handle-ticket` skill runs this review automatically via the
+**`visual-review` subagent** (`.claude/agents/visual-review.md`): a read-only agent
+that derives scope from the diff, walks the **fixture matrix**
+(`ui/src/test/scenes.ts`, documented in `ui/docs/fixture-matrix.md`) at the target
+widths in both themes, and returns a prioritized findings report. It drives the browser
+through the **`playwright-cli`** skill. You can also invoke `/design-review` directly
+for an ad-hoc check.
+
 - Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
 - Accessibility scope: **keyboard/focus visual quality only** — axe violations are
   scanned (advisory) by `browser/a11y.spec.ts` and must not be duplicated here
-- Use the `frontend-engineer` agent to take screenshots via the Playwright CLI
+- Use the `frontend-engineer` agent to take screenshots via the `playwright-cli` skill
 
 The `frontend@jezweb-skills` plugin is also installed and provides `frontend:react-patterns`,
 `frontend:shadcn-ui`, and `frontend:tailwind-theme-builder` skills for the `frontend-engineer`
