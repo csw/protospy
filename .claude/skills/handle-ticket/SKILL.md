@@ -21,8 +21,9 @@ linear issue view $ticket --json
 ```
 
 Extract `title`, `description`, `url`, and `branchName`. Read the description
-fully — it defines the scope of work. Save `title` and `url` (the Linear ticket
-URL) — both are needed when writing review front matter in step 8.
+fully — it defines the scope of work. Save `title` and `url` (the Linear ticket URL) — both are needed when writing
+review front matter in step 8. Derive the app URL by replacing the `https://`
+scheme with `linear://` (e.g. `https://linear.app/...` → `linear://linear.app/...`).
 
 **Branch name**: use `branchName` from Linear. If it exceeds 50 characters,
 truncate the slug on a word boundary — keep the full `<type>/pro-NNN-` prefix
@@ -319,7 +320,7 @@ date: <today's date>
 type: code-review
 ---
 
-- **Linear**: [$ticket](<url from step 1>)
+- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
@@ -336,7 +337,7 @@ After the merged front matter's closing `---`, insert a links list before
 the first heading:
 
 ```
-- **Linear**: [$ticket](<url from step 1>)
+- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
@@ -352,7 +353,7 @@ After the merged front matter's closing `---`, insert a links list before
 the first heading:
 
 ```
-- **Linear**: [$ticket](<url from step 1>)
+- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
@@ -396,7 +397,7 @@ date: <today's date>
 type: synthesis
 ---
 
-- **Linear**: [$ticket](<url from step 1>)
+- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
