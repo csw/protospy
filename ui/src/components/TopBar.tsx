@@ -98,10 +98,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <ChevronDown size={11} className="text-dim ml-0.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="bg-bg-pane border-border text-ink min-w-[200px]"
-            align="start"
-          >
+          <DropdownMenuContent className="min-w-[200px]" align="start">
             {services.length === 0 ? (
               <DropdownMenuItem
                 disabled
