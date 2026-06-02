@@ -4,7 +4,7 @@ import {
   LayoutGrid,
   Sun,
   Moon,
-  Monitor,
+  SunMoon,
   ChevronDown,
 } from "lucide-react";
 import { useStore } from "@ui/state/store";
@@ -42,7 +42,7 @@ function ThemeIcon({ theme }: { theme: ThemePreference }) {
     case "light":
       return <Sun size={15} />;
     case "system":
-      return <Monitor size={15} />;
+      return <SunMoon size={15} />;
   }
 }
 

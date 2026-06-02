@@ -11,7 +11,7 @@ import {
 import {
   Sun,
   Moon,
-  Monitor,
+  SunMoon,
   LayoutGrid,
   Rows3,
   TableProperties,
@@ -30,7 +30,7 @@ const THEME_OPTIONS: Array<{
 }> = [
   { value: "light", label: "Light mode", icon: Sun },
   { value: "dark", label: "Dark mode", icon: Moon },
-  { value: "system", label: "System theme", icon: Monitor },
+  { value: "system", label: "System theme", icon: SunMoon },
 ];
 
 export function CommandPalette() {
