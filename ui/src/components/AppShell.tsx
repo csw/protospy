@@ -41,10 +41,14 @@ export const DEFAULT_LIST_WIDTH = { rows: 340, table: 720 } as const;
  *
  * The two bounds are mutually consistent at the narrowest supported width
  * (1280px): `LIST_MAX_WIDTH` (≈832px) leaves ≈447px for the inspector, above
- * `INSPECTOR_MIN_WIDTH`.
+ * `INSPECTOR_MIN_WIDTH`. They only stay consistent while the group is wider
+ * than ≈1143px (`INSPECTOR_MIN_WIDTH / (1 - 0.65)`); below that the px floor
+ * and the % cap would fight. The app is desktop-only at ≥1280px, so this
+ * holds — but if the minimum supported width is ever lowered past ≈1143px,
+ * revisit these two values together.
  */
 export const LIST_MIN_WIDTH = 200;
-export const LIST_MAX_WIDTH = "65%";
+export const LIST_MAX_WIDTH = "65%" as const;
 export const INSPECTOR_MIN_WIDTH = 400;
 
 export function AppShell() {
