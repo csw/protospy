@@ -82,13 +82,17 @@ These checks are enforced automatically at commit time — see
 Passing lint/typecheck/tests is necessary but not sufficient for a UI change. A change
 is "done" only when it also clears the **frontend Definition of Done**
 ([`../docs/frontend-dod.md`](../docs/frontend-dod.md)): the `/design-review` rubric plus
-protospy-specific requirements — every **fixture-matrix** state renders correctly (the
-matrix lives in `src/test/scenes.ts`, reachable via `window.__test_scenes`; the full cell
-list and injection calls are in [`docs/fixture-matrix.md`](./docs/fixture-matrix.md)) at
-1280/1440/1920 in both themes, clipping affordances, pane bounds, and no new console
-errors. The `visual-review` subagent automates this check (see the root `CLAUDE.md`
-"Visual design reviews" section); it does **not** replace the deterministic `browser/`
-tests below.
+protospy-specific requirements —
+
+- every **fixture-matrix** state renders correctly (the matrix lives in
+  `src/test/scenes.ts`, reachable via `window.__test_scenes`; the full cell list and
+  injection calls are in [`docs/fixture-matrix.md`](./docs/fixture-matrix.md)),
+- at 1280/1440/1920 in both light and dark themes,
+- with clipping affordances, pane bounds respected, and no new console errors.
+
+The `visual-review` subagent automates this check (see the root `CLAUDE.md` "Visual
+design reviews" section); it does **not** replace the deterministic `browser/` tests
+below.
 
 ## Test-Writing Requirements
 
