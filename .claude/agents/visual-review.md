@@ -330,6 +330,7 @@ it to the appropriate Obsidian path.
 ```markdown
 ---
 ticket: <ticket-id if provided, otherwise omit>
+title: "<ticket title if provided, otherwise omit>"
 date: <YYYY-MM-DD>
 type: visual-review
 scope: <"scoped" or "full-sweep">
