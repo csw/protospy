@@ -41,6 +41,8 @@ repos:
         files: ^flix/
         exclude: '\.md$'
         pass_filenames: false
+        # Fast check: halt before the heavyweight suites if linting fails.
+        fail_fast: true
       - id: ruff-format-flix
         name: ruff-format (flix)
         entry: bash -c 'cd flix && uv run ruff format .'
@@ -48,6 +50,7 @@ repos:
         files: ^flix/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: pyright-flix
         name: pyright (flix)
         entry: bash -c 'cd flix && uv run pyright'
@@ -55,6 +58,7 @@ repos:
         files: ^flix/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: pytest-unit-flix
         name: pytest unit (flix)
         entry: just flix test-unit
@@ -78,6 +82,7 @@ repos:
         files: ^conformance/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: ruff-format-conformance
         name: ruff-format (conformance)
         entry: bash -c 'cd conformance && uv run ruff format .'
@@ -85,6 +90,7 @@ repos:
         files: ^conformance/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: pyright-conformance
         name: pyright (conformance)
         entry: bash -c 'cd conformance && uv run pyright'
@@ -92,6 +98,7 @@ repos:
         files: ^conformance/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       # Note: conformance tests require a live protospy instance plus managed
       # proxy infrastructure (caddy, haproxy) — not runnable in a cold
       # pre-commit context. Run manually: just conformance test
@@ -101,6 +108,7 @@ repos:
         language: system
         files: ^(src/|Cargo\.)
         pass_filenames: false
+        fail_fast: true
       # Note: the ui hooks below use language: system and depend on node_modules
       # built for the host platform. Working trees must not be shared across
       # Mac and Linux — each platform needs its own checkout with its own
@@ -111,6 +119,7 @@ repos:
         language: system
         files: ^ui/
         pass_filenames: false
+        fail_fast: true
       - id: prettier-demo
         name: prettier (demo)
         language: node
@@ -119,6 +128,7 @@ repos:
         additional_dependencies: ["prettier@3.8.3"]
         files: ^demo/content/
         pass_filenames: false
+        fail_fast: true
       - id: eslint-ui
         name: eslint (ui)
         entry: bash -c 'cd ui && pnpm run lint'
@@ -126,6 +136,7 @@ repos:
         files: ^ui/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: pnpm-typecheck-ui
         name: pnpm typecheck (ui)
         entry: bash -c 'cd ui && pnpm run typecheck'
@@ -133,6 +144,7 @@ repos:
         files: ^ui/
         exclude: '\.md$'
         pass_filenames: false
+        fail_fast: true
       - id: pnpm-test-coverage-ui
         name: pnpm test:coverage (ui)
         entry: just ui test-coverage

@@ -26,8 +26,17 @@ across the staged subcomponents. Specifically:
 - **Rust**: regenerates ts-rs bindings when `src/` or `Cargo.*` change
 - Commit-message conventional-commits validation
 
-Within each subcomponent, checks run cheapest first. The first failure
-short-circuits the rest.
+Within each subcomponent, checks run cheapest first. The cheap checks
+(lint, format, type checks, ts-rs bindings) carry `fail_fast: true`, so a
+failure in any of them halts the run before the heavyweight test suites
+execute — you don't wait on Playwright or pytest when formatting is already
+broken. The expensive suites themselves do not fail-fast: if they run, they
+all run and report their failures together.
+
+Note this is per-hook `fail_fast`, not a global one: pre-commit's default is
+to run *every* hook regardless of failures. Only the hooks marked
+`fail_fast: true` short-circuit, and they only short-circuit because they are
+ordered ahead of the expensive suites.
 
 Test commands are defined in each subproject's `justfile` and invoked via
 `just <module> <recipe>` (e.g. `just ui test-browser`). This means the
