@@ -2,6 +2,7 @@ import type { BodyState } from "@ui/state/reducer";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import { formatSize } from "@ui/lib/utils";
 import { CopyButton } from "./CopyButton";
+import { SimpleTooltip } from "./ui/SimpleTooltip";
 import { EmptyState } from "./ui/EmptyState";
 import { JsonViewer } from "./JsonViewer";
 
@@ -34,19 +35,22 @@ export function BodyPane({ title, body, cacheTo }: Props) {
         )}
         <div className="ml-auto flex items-center gap-2">
           {result != null && (
-            <span
-              className="font-family-mono text-xs text-dim"
-              data-testid="body-size"
-              title={
+            <SimpleTooltip
+              content={
                 result.decodedBytes != null
                   ? `${formatSize(result.wireBytes)} on the wire / ${formatSize(result.decodedBytes)} after decompression`
                   : undefined
               }
             >
-              {result.decodedBytes != null
-                ? `${formatSize(result.wireBytes)} / ${formatSize(result.decodedBytes)}`
-                : formatSize(result.wireBytes)}
-            </span>
+              <span
+                className="font-family-mono text-xs text-dim"
+                data-testid="body-size"
+              >
+                {result.decodedBytes != null
+                  ? `${formatSize(result.wireBytes)} / ${formatSize(result.decodedBytes)}`
+                  : formatSize(result.wireBytes)}
+              </span>
+            </SimpleTooltip>
           )}
           {body != null && <CopyButton text={result?.text} />}
         </div>

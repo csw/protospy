@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { render } from "@ui/test/render";
 import { ExchangeListItem } from "@ui/components/ExchangeListItem";
 import type { Exchange } from "@ui/state/reducer";
 
