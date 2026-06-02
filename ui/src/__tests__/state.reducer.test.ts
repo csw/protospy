@@ -797,6 +797,140 @@ describe("Response event missing elapsed_ms", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Immutability — new object identity per event (PRO-260)
+// ---------------------------------------------------------------------------
+
+describe("immutable updates (object identity)", () => {
+  function makeRequest(): EventMessage {
+    return {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "Request",
+        method: "POST",
+        uri: "/upload",
+        version: "HTTP/1.1",
+        headers: [],
+        body: { type: "NotRead" },
+      },
+    };
+  }
+
+  function bodyChunk(at_end: boolean, total_bytes: number): EventMessage {
+    return {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "BodyData",
+        content: { offset: 0, length: 5, payload: { text: "hello" } },
+        trailers: null,
+        at_end,
+        total_bytes,
+      },
+    };
+  }
+
+  it("produces a new Exchange identity when a Response updates an existing one", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, makeRequest());
+    const before = exchanges.get(1)!;
+
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: [],
+        elapsed_ms: 5,
+        body: { type: "NoBody" },
+      },
+    });
+    const after = exchanges.get(1)!;
+
+    expect(after).not.toBe(before);
+    // Earlier fields are carried over onto the new object.
+    expect(after.method).toBe("POST");
+    expect(after.status).toBe("200 OK");
+  });
+
+  it("produces a new BodyState identity (and new chunks array) on each BodyData chunk", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, makeRequest());
+
+    apply(exchanges, ids, bodyChunk(false, 5));
+    const exAfterFirst = exchanges.get(1)!;
+    const bodyAfterFirst = exAfterFirst.requestBody!;
+    const chunksAfterFirst = bodyAfterFirst.chunks;
+
+    apply(exchanges, ids, bodyChunk(true, 10));
+    const exAfterSecond = exchanges.get(1)!;
+    const bodyAfterSecond = exAfterSecond.requestBody!;
+
+    // The exchange, the body, and the chunks array are all new identities.
+    expect(exAfterSecond).not.toBe(exAfterFirst);
+    expect(bodyAfterSecond).not.toBe(bodyAfterFirst);
+    expect(bodyAfterSecond.chunks).not.toBe(chunksAfterFirst);
+    // The prior snapshot is not mutated retroactively.
+    expect(chunksAfterFirst).toHaveLength(1);
+    expect(bodyAfterFirst.atEnd).toBe(false);
+    expect(bodyAfterFirst.wireBytes).toBe(5);
+    // The new snapshot reflects the appended chunk.
+    expect(bodyAfterSecond.chunks).toHaveLength(2);
+    expect(bodyAfterSecond.atEnd).toBe(true);
+    expect(bodyAfterSecond.wireBytes).toBe(10);
+  });
+
+  it("reuses the chunks array when a BodyData event carries no payload", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, makeRequest());
+    apply(exchanges, ids, bodyChunk(false, 5));
+    const bodyBefore = exchanges.get(1)!.requestBody!;
+
+    // A payload-less BodyData (e.g. a terminal at_end signal) still yields a
+    // new BodyState identity, but the unchanged chunks array can be shared.
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: {
+        type: "BodyData",
+        content: null,
+        trailers: null,
+        at_end: true,
+        total_bytes: 5,
+      },
+    });
+    const bodyAfter = exchanges.get(1)!.requestBody!;
+
+    expect(bodyAfter).not.toBe(bodyBefore);
+    expect(bodyAfter.chunks).toBe(bodyBefore.chunks);
+    expect(bodyAfter.atEnd).toBe(true);
+  });
+
+  it("does not mutate a prior snapshot held across an Error event", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, makeRequest());
+    const before = exchanges.get(1)!;
+
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Request",
+      event: { type: "Error", direction: "Request", message: "boom" },
+    });
+    const after = exchanges.get(1)!;
+
+    expect(after).not.toBe(before);
+    expect(before.error).toBeUndefined();
+    expect(after.error).toEqual({ direction: "Request", message: "boom" });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Error event after a completed exchange
 // ---------------------------------------------------------------------------
 

@@ -97,7 +97,7 @@ type Event =
 
 `state/store.ts` defines the single Zustand store. The only domain action is `applyEvent(msg)`, which copies `exchanges` (a `Map<number, Exchange>`) and `ids` (insertion-ordered `number[]`), then delegates to the **pure reducer** `apply(exchanges, ids, msg)` in `state/reducer.ts`. Keeping `apply` pure makes it unit-testable in the node project without React or the store.
 
-`apply` upserts the `Exchange` keyed by `meta.exchange_id` (`getOrCreate` pushes new ids onto `ids`) and merges by event type:
+`apply` upserts the `Exchange` keyed by `meta.exchange_id` (pushing new ids onto `ids`) and merges by event type. It updates **immutably**: each matched event shallow-copies the prior `Exchange` (seeding a fresh one if absent), applies the event's fields to the copy, and stores the new object — so object identity changes on every update rather than the prior in-place mutation. `BodyData` likewise produces a new `BodyState` (and a new `chunks` array when a payload is appended; the unchanged array is shared when an event carries no payload). This matches the store's `setBodyDecodedBytes` action and lets identity-based memoization (e.g. `React.memo`, or the `StreamView`/`ChatStreamView` `useMemo` keyed on `body`) track streaming updates instead of silently missing them. The merges by event type:
 
 - **`Request`** → sets `method/uri/version/requestHeaders/requestBody`. Also derives `traceId` from the `traceparent` header (the second `-`-delimited segment).
 - **`Response`** → sets `status/responseVersion/responseHeaders/elapsedMs/responseBody`.
