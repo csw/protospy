@@ -79,8 +79,46 @@
   --text-ctx-path: 13.5px; /* design calc(--text-mono + 1px): inspector path  */
 }
 
+/* ── shadcn semantic tokens (aliased onto the protospy palette) ──
+   Stock shadcn primitives (components/ui/*) reference these tokens.
+   In Tailwind v4, a --color-* utility is only generated when the token
+   exists in @theme, so without these aliases every shadcn class that
+   uses them (bg-primary, text-muted-foreground, ring-ring, …) is a
+   no-op that emits no CSS.
+
+   @theme inline is required here (not @theme) because the values are
+   var() references to other custom properties — @theme uses @property
+   declarations which require concrete initial values.                  */
+@theme inline {
+  --color-background: var(--color-bg-pane);
+  --color-foreground: var(--color-ink);
+
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: var(--color-bg-sub);
+  --color-secondary-foreground: var(--color-ink-2);
+
+  --color-destructive: var(--color-red);
+
+  --color-muted: var(--color-bg-sub);
+  --color-muted-foreground: var(--color-mid);
+
+  --color-accent-foreground: var(--color-ink);
+
+  --color-popover: var(--color-bg-pane);
+  --color-popover-foreground: var(--color-ink);
+
+  --color-ring: var(--color-border-focus);
+  --color-input: var(--color-border);
+}
+
 /* ── Modern Dark overrides ── */
 [data-theme="dark"] {
+  /* shadcn alias that needs an explicit dark value (white text on light
+     blue has insufficient contrast; dark bg on light-blue primary is fine) */
+  --color-primary-foreground: var(--color-bg);
+
   --color-bg: #0c0f14;
   --color-bg-pane: #11151c;
   --color-bg-sub: #161b23;
@@ -138,6 +176,19 @@
 }
 
 /* ── Base styles ── */
+
+/* Restore a sensible default border color (Tailwind v4 preflight uses
+   currentColor; shadcn primitives expect the theme border token). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+}
+
 html {
   background-color: var(--color-bg);
   color: var(--color-ink);

@@ -98,10 +98,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <ChevronDown size={11} className="text-dim ml-0.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="bg-bg-pane border-border text-ink min-w-[200px]"
-            align="start"
-          >
+          <DropdownMenuContent className="min-w-[200px]" align="start">
             {services.length === 0 ? (
               <DropdownMenuItem
                 disabled
@@ -151,9 +148,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <Layers size={15} />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="bg-bg-pane border-border text-ink text-xs">
-            Group by trace
-          </TooltipContent>
+          <TooltipContent>Group by trace</TooltipContent>
         </Tooltip>
 
         {/* Density toggle */}
@@ -169,7 +164,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <LayoutGrid size={15} />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="bg-bg-pane border-border text-ink text-xs">
+          <TooltipContent>
             {density === "regular"
               ? "Switch to compact view"
               : "Switch to regular view"}
@@ -187,9 +182,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <ThemeIcon theme={theme} />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="bg-bg-pane border-border text-ink text-xs">
-            {themeTooltip(theme)}
-          </TooltipContent>
+          <TooltipContent>{themeTooltip(theme)}</TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>

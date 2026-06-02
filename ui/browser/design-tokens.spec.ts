@@ -105,3 +105,106 @@ test.describe("design token fidelity", () => {
     expect(borderRadius).toBe("4px");
   });
 });
+
+test.describe("shadcn semantic tokens", () => {
+  test("all shadcn semantic color tokens resolve to concrete colors", async ({
+    page,
+  }) => {
+    // These aliases were missing (PRO-258), making every shadcn utility that
+    // referenced them (bg-primary, ring-ring, text-muted-foreground, …) a
+    // no-op.  Probe each token via a scratch element to confirm it resolves
+    // to an actual rgb(…) color, not an empty string or transparent.
+    const tokens = [
+      "--color-background",
+      "--color-foreground",
+      "--color-primary",
+      "--color-primary-foreground",
+      "--color-secondary",
+      "--color-secondary-foreground",
+      "--color-destructive",
+      "--color-muted",
+      "--color-muted-foreground",
+      "--color-accent-foreground",
+      "--color-popover",
+      "--color-popover-foreground",
+      "--color-ring",
+      "--color-input",
+    ];
+
+    const results = await page.evaluate((names) => {
+      return names.map((token) => {
+        const el = document.createElement("div");
+        document.body.appendChild(el);
+        el.style.color = `var(${token})`;
+        const resolved = getComputedStyle(el).color;
+        el.remove();
+        return { token, resolved };
+      });
+    }, tokens);
+
+    for (const { token, resolved } of results) {
+      expect(resolved, `${token} should resolve to an rgb color`).toMatch(
+        /^rgba?\(/,
+      );
+    }
+  });
+
+  test("focus-ring token resolves so ring-ring utility produces visible CSS", async ({
+    page,
+  }) => {
+    // The critical fix: focus-visible:ring-ring/50 was a no-op because
+    // --color-ring didn't exist.  Verify the ring color resolves to the
+    // theme's border-focus blue (not transparent, not empty).
+    const ringColor = await page.evaluate(() => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      el.style.color = "var(--color-ring)";
+      const resolved = getComputedStyle(el).color;
+      el.remove();
+      return resolved;
+    });
+
+    // --color-ring aliases --color-border-focus which is blue in both themes
+    expect(ringColor).toMatch(/^rgb/);
+    // Should NOT be transparent or black (which would indicate a broken chain)
+    expect(ringColor).not.toBe("rgba(0, 0, 0, 0)");
+  });
+
+  test("default border color uses theme border token (light)", async ({
+    page,
+  }) => {
+    // Tailwind v4 changed the default border color from gray-200 to
+    // currentColor.  A @layer base rule restores it to --color-border so
+    // shadcn's plain `border` class renders the correct separator color.
+    const borderColor = await page.evaluate(() => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const resolved = getComputedStyle(el).borderColor;
+      el.remove();
+      return resolved;
+    });
+
+    // In light mode, --color-border is #e3e6ec = rgb(227, 230, 236)
+    expect(borderColor).toBe("rgb(227, 230, 236)");
+  });
+
+  test("default border color uses theme border token (dark)", async ({
+    page,
+  }) => {
+    // Switch to dark theme and verify the border token follows
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "dark");
+    });
+
+    const borderColor = await page.evaluate(() => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const resolved = getComputedStyle(el).borderColor;
+      el.remove();
+      return resolved;
+    });
+
+    // In dark mode, --color-border is #1c222b = rgb(28, 34, 43)
+    expect(borderColor).toBe("rgb(28, 34, 43)");
+  });
+});

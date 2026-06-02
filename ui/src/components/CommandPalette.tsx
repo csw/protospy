@@ -80,7 +80,7 @@ export function CommandPalette() {
       open={cmdKOpen}
       onOpenChange={setCmdKOpen}
       showCloseButton={false}
-      className="top-[12vh] translate-y-0 max-w-[600px] bg-bg-pane border border-border rounded-[10px] shadow-lg"
+      className="top-[12vh] translate-y-0 max-w-[600px] rounded-[10px] shadow-lg"
     >
       <CommandInput
         placeholder="Search commands…"

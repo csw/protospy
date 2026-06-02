@@ -36,7 +36,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)
 - `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton)
 - `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
-- `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant), `applyTheme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveTheme`, `applyThemeToDOM`, theme ownership contract)
+- `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant + `@theme inline` shadcn semantic aliases + `@layer base` default border-color), `applyTheme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveTheme`, `applyThemeToDOM`, theme ownership contract)
 - `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
