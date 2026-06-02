@@ -32,6 +32,8 @@ For subproject commands, see the subproject's CLAUDE.md.
 
 Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs` container. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — see `docs/agents/host-sandbox.md`.)
 
+**After pushing a branch or PR, watch its CI to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token **cannot** read it (`gh pr checks` and `gh api .../check-runs` both return `403 Resource not accessible by personal access token`). Query CI through the Actions API by commit SHA instead (`gh run list --commit <sha>`), which is exactly what `ci-watch` does.
+
 ## Documentation
 
 **Consult documentation before reasoning from first principles.** Use Context7 or a web search to look up:
