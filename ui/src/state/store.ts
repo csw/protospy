@@ -178,6 +178,9 @@ export const useStore = create<StoreState>()(
  */
 export type AppStore = typeof useStore;
 
-if (import.meta.env.DEV) {
+// Expose the store for the Playwright harness (browser/helpers/inject.ts).
+// Available in dev, and in test-mode preview builds via the VITE_EXPOSE_TEST_HOOKS
+// flag from .env.test (see the `build:test` script) — but never in production.
+if (import.meta.env.DEV || import.meta.env.VITE_EXPOSE_TEST_HOOKS === "true") {
   (window as unknown as Record<string, unknown>).__test_store = useStore;
 }

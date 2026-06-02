@@ -36,7 +36,7 @@ export async function applyScene(page: Page, id: string): Promise<void> {
   }, id);
   if (ok === null) {
     throw new Error(
-      "window.__test_scenes harness not installed (is the dev server running?)",
+      "window.__test_scenes harness not installed (is the test-harness build being served?)",
     );
   }
   if (!ok) {
