@@ -11,6 +11,7 @@ interface SceneWindow {
     list: () => unknown[];
     widths: readonly number[];
     apply: (id: string) => boolean;
+    applyAndSettle: (id: string, settleMs?: number) => Promise<boolean>;
   };
 }
 

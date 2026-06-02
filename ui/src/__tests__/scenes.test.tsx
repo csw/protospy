@@ -148,4 +148,40 @@ describe("installSceneHarness", () => {
     expect(useStore.getState().ids).toHaveLength(120);
     expect(harness.apply("nope")).toBe(false);
   });
+
+  it("applyAndSettle applies scene and resolves after settle delay", async () => {
+    installSceneHarness(useStore);
+    const harness = window.__test_scenes!;
+
+    const start = performance.now();
+    const result = await harness.applyAndSettle("many-rows", 50);
+    const elapsed = performance.now() - start;
+
+    expect(result).toBe(true);
+    expect(useStore.getState().ids).toHaveLength(120);
+    // Should have waited at least the settle time (50ms).
+    expect(elapsed).toBeGreaterThanOrEqual(40); // allow small timer jitter
+  });
+
+  it("applyAndSettle returns false for unknown scene id", async () => {
+    installSceneHarness(useStore);
+    const harness = window.__test_scenes!;
+
+    const result = await harness.applyAndSettle("does-not-exist");
+    expect(result).toBe(false);
+    // Store should be unchanged (no scene applied).
+    expect(useStore.getState().ids).toHaveLength(0);
+  });
+
+  it("applyAndSettle uses default settle time when omitted", async () => {
+    installSceneHarness(useStore);
+    const harness = window.__test_scenes!;
+
+    const start = performance.now();
+    await harness.applyAndSettle("empty");
+    const elapsed = performance.now() - start;
+
+    // Default settle is 150ms; allow timer jitter.
+    expect(elapsed).toBeGreaterThanOrEqual(130);
+  });
 });
