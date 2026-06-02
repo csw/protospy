@@ -67,6 +67,20 @@ interface SceneHarness {
 }
 ```
 
+### Initial theme setup
+
+Before walking any scenes, ensure dark mode is active (protospy is
+dark-first). Check and force it once at the start of the session:
+
+```bash
+# Check current theme
+playwright-cli eval "window.__test_store.getState().darkMode"
+# Force dark mode if not already active
+playwright-cli eval "(() => { const s = window.__test_store.getState(); if (!s.darkMode) s.toggleDarkMode(); })()"
+```
+
+This guarantees the first screenshot of each cell is dark mode.
+
 ### Step-by-step procedure
 
 For each scene, at each width, in both themes:
@@ -92,21 +106,21 @@ For each scene, at each width, in both themes:
    playwright-cli console
    ```
 
-5. **Screenshot to disk:**
+5. **Screenshot dark mode:**
    ```bash
    playwright-cli screenshot --filename=<screenshot-path>
    ```
 
 6. **Read the screenshot** (use the Read tool to view the PNG).
 
-7. **Toggle the theme and repeat** (screenshot + read):
+7. **Toggle to light mode, screenshot, and read:**
    ```bash
    playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
    playwright-cli eval "new Promise(r => setTimeout(r, 200))"
    playwright-cli screenshot --filename=<screenshot-path>
    ```
 
-8. **Toggle back** to restore the original theme before the next cell:
+8. **Toggle back to dark mode** before the next cell:
    ```bash
    playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
    ```
