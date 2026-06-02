@@ -48,7 +48,7 @@ Many problems you encounter are standard: dark mode persistence, form validation
 There are specific agent guidelines in `docs/agents/`; read them when working with the relevant kind of code.
 
 - `docs/agents/implementation.md`: when writing code
-- `docs/agents/python.md`: when working with Python
+- `docs/agents/python.md`: when working with Python, or writing an ad-hoc/one-off Python script (e.g. a verification or analysis helper)
 - `docs/agents/testing.md`: when writing or maintaining tests
 - `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, worktree/git-prompt avoidance, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
