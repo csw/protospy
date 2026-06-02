@@ -214,14 +214,50 @@ Note the PR number.
 
 ---
 
-## 7 — Spawn a code review subagent
+## 7 — Spawn review subagents
+
+Two reviews run here. The first always runs; the second runs only when the
+diff touches UI source.
+
+### 7a — Code review (always)
 
 Spawn a general-purpose subagent. Give it this exact prompt (substitute the
 actual PR number):
 
 > /review PR #<PR-number> for $ticket
 
-Wait for the subagent to finish. Capture its complete output.
+This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
+the React/Tailwind/shadcn convention checklists — that's what 7b is for.
+
+### 7b — Convention review (UI source diffs only)
+
+Check whether the diff touches UI source:
+
+```bash
+git diff main --name-only -- 'ui/src/**'
+```
+
+If that lists any files, spawn the **`convention-review` subagent**
+(`subagent_type: "convention-review"`) in the **same message** as the 7a
+code review so they run in parallel. Give it this prompt shape:
+
+> Run a React/Tailwind/shadcn convention review for $ticket. Scope from the
+> diff against `main` (branch `<branch-name>`). Apply the react-patterns,
+> shadcn-ui, and tailwind-theme-builder skills to the changed UI source and
+> return your prioritized convention-findings report.
+
+This is a read-only agent that audits convention drift (no-op tokens, missing
+`cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
+composition drift) — the recurring class of issue that `/review` structurally
+suppresses (it filters out style/quality findings not mandated by CLAUDE.md).
+See `.claude/agents/convention-review.md`.
+
+If the diff touches **no** `ui/src/**` files, skip 7b — there are no
+React/Tailwind/shadcn conventions to review.
+
+Wait for both subagents to finish. Capture each one's complete output. If a
+subagent fails or returns empty, note it and continue — the other review
+still stands.
 
 ---
 
@@ -271,38 +307,47 @@ The visual-review report already includes its own YAML front matter (`scope`,
 the primary block. Ensure `ticket`, `pr`, and `date` are present; add them if
 missing. Do not duplicate fields the subagent already provides.
 
+### Convention review (only if 7b ran)
+
+If a convention review ran in step 7b, write its findings to:
+
+```
+~/obsidian/protospy/Claude/Reviews/review-convention-$ticket-pr-<PR-number>.md
+```
+
+The report already includes its own YAML front matter (`type:
+convention-review`, `scope`, `files_reviewed`, `skills_applied`). Use it as
+the primary block; ensure `ticket`, `pr`, and `date` are present, adding any
+that are missing.
+
 ---
 
 ## 9 — Evaluate and discuss
 
-### UI tickets — combined triage
+Triage **every** review that ran: the code review (always), the visual
+review (UI tickets, step 4c), and the convention review (UI source diffs,
+step 7b). A non-UI-labeled ticket that still touched `ui/src/**` has a
+convention review to fold in even though it has no visual review.
 
-Merge the code-review and visual-review findings into a single triage. For each
-finding from either review:
+### Combined triage
+
+Merge the findings from all reviews that ran into a single triage. For each
+finding:
 
 - Is it **blocking** (correctness bugs, spec violations, security issues,
-  high-severity visual defects)?
+  high-severity visual defects, convention violations with a functional
+  consequence)?
 - Is it **advisory** (style nits, minor improvements, low-severity visual
-  polish)?
+  polish, convention idiom preferences)?
 - Would you address it immediately or defer to a follow-up?
-- Does it appear low-signal, redundant across the two reviews, or likely
+- Does it appear low-signal, redundant across the reviews, or likely
   incorrect?
 
 Present the merged analysis in a clear structure — group by blocking vs.
-advisory, noting which review surfaced each finding. Then invite the user to
-discuss.
-
-### Non-UI tickets
-
-Analyze the code review:
-- Which findings are **blocking** (correctness, spec violations, security)?
-- Which are **advisory** (style, minor improvements, nice-to-haves)?
-- Which would you address immediately vs. defer to a follow-up?
-- Any findings that appear low-signal, redundant, or likely incorrect?
-
-Present this analysis clearly. Then invite the user to discuss: which findings
-to act on, which to push back on, what to do next. Continue the conversation
-as long as the user wants.
+advisory, noting which review surfaced each finding (code / visual /
+convention). Then invite the user to discuss: which findings to act on,
+which to push back on, what to do next. Continue the conversation as long as
+the user wants.
 
 ### Visual-review follow-up
 
