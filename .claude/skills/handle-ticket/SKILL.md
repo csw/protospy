@@ -329,25 +329,37 @@ review (UI tickets, step 4c), and the convention review (UI source diffs,
 step 7b). A non-UI-labeled ticket that still touched `ui/src/**` has a
 convention review to fold in even though it has no visual review.
 
-### Combined triage
+### 9a — Synthesize (when two or more reviews ran)
 
-Merge the findings from all reviews that ran into a single triage. For each
-finding:
+The reviews run **independently and blind to each other**, so the same issue
+can surface twice with different framings, recommendations can conflict, and
+severities are ranked on separate scales. When **two or more** reviews ran,
+spawn the **`review-synthesis` subagent** (`subagent_type:
+"review-synthesis"`) to reconcile them into one cross-aware triage. Give it:
 
-- Is it **blocking** (correctness bugs, spec violations, security issues,
-  high-severity visual defects, convention violations with a functional
-  consequence)?
-- Is it **advisory** (style nits, minor improvements, low-severity visual
-  polish, convention idiom preferences)?
-- Would you address it immediately or defer to a follow-up?
-- Does it appear low-signal, redundant across the reviews, or likely
-  incorrect?
+- The ticket ID and PR number
+- Which reviews ran (code / visual / convention)
 
-Present the merged analysis in a clear structure — group by blocking vs.
-advisory, noting which review surfaced each finding (code / visual /
-convention). Then invite the user to discuss: which findings to act on,
-which to push back on, what to do next. Continue the conversation as long as
-the user wants.
+It reads the review reports written to Obsidian in step 8 and returns a
+single merged triage: deduplicated, with same-root-cause findings linked
+("one fix resolves both"), conflicts surfaced, and everything re-ranked
+blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
+
+If only **one** review ran (e.g. a non-UI change, where just the code review
+fires), skip synthesis — there is nothing to reconcile. Present that review's
+findings directly using the triage shape below.
+
+### 9b — Present and discuss
+
+Present the merged triage (from 9a, or the single review's findings if
+synthesis was skipped). Group by **blocking** vs. **advisory**, note which
+review surfaced each finding (code / visual / convention), and call out the
+cross-review links and any conflicts the synthesis raised. For each finding,
+say whether you'd address it now or defer, and flag anything low-signal,
+redundant, or likely incorrect.
+
+Then invite the user to discuss: which findings to act on, which to push back
+on, what to do next. Continue the conversation as long as the user wants.
 
 ### Visual-review follow-up
 
