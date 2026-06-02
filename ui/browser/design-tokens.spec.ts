@@ -170,22 +170,41 @@ test.describe("shadcn semantic tokens", () => {
     expect(ringColor).not.toBe("rgba(0, 0, 0, 0)");
   });
 
-  test("default border color uses theme border token", async ({ page }) => {
+  test("default border color uses theme border token (light)", async ({
+    page,
+  }) => {
     // Tailwind v4 changed the default border color from gray-200 to
     // currentColor.  A @layer base rule restores it to --color-border so
     // shadcn's plain `border` class renders the correct separator color.
     const borderColor = await page.evaluate(() => {
       const el = document.createElement("div");
       document.body.appendChild(el);
-      // Read the inherited border-color (set via the @layer base rule)
       const resolved = getComputedStyle(el).borderColor;
       el.remove();
       return resolved;
     });
 
-    // Should be the theme border color (a gray), not currentColor (text color)
-    expect(borderColor).toMatch(/^rgb/);
     // In light mode, --color-border is #e3e6ec = rgb(227, 230, 236)
     expect(borderColor).toBe("rgb(227, 230, 236)");
+  });
+
+  test("default border color uses theme border token (dark)", async ({
+    page,
+  }) => {
+    // Switch to dark theme and verify the border token follows
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "dark");
+    });
+
+    const borderColor = await page.evaluate(() => {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const resolved = getComputedStyle(el).borderColor;
+      el.remove();
+      return resolved;
+    });
+
+    // In dark mode, --color-border is #1c222b = rgb(28, 34, 43)
+    expect(borderColor).toBe("rgb(28, 34, 43)");
   });
 });
