@@ -160,47 +160,69 @@ interface SceneHarness {
 
 ### Setting and verifying the theme (run at every batch boundary)
 
-**Why batch-boundary verification is necessary.** The store exposes only
-`toggleDarkMode()` — there is no absolute setter — so the rendered theme
-depends on the *current* state, not on how many times you have toggled.
-Blind toggling drifts: after a `light` batch the store is left in light
-mode, and changing the viewport width does **not** reset it. If the next
-width's `dark` batch assumes "dark first" without re-checking, it silently
-captures light mode under `-dark` filenames. This is exactly the PRO-253
-bug — 1440-dark and 1920-dark were captured in light mode because the theme
-was forced only once at session start, then toggled blindly across width
-transitions.
+**Why batch-boundary verification is necessary.** Two independent quirks
+make the theme drift during capture, and both bit the PRO-242 sweep
+(1440-dark and 1920-dark were captured in light mode):
 
-The fix: **force the theme to the batch's target and positively verify it
-at the start of every width × theme batch** — never rely on toggle
-bookkeeping or a once-at-session-start setup.
+1. **No absolute setter.** The store exposes only `toggleDarkMode()`, which
+   flips `darkMode` and writes the new value to the DOM via
+   `applyThemeToDOM`. The rendered theme depends on *current* state, not on
+   how many times you have toggled. After a `light` batch the theme is left
+   in light mode, and changing the viewport width does **not** reset it.
+   Forcing dark once at session start and toggling blindly between batches
+   drifts.
 
-**Step 1 — Force the target theme (idempotent).** Read the actual
-`darkMode` state and toggle only if it does not already match the target.
-For a `dark` batch the target (`want`) is `true`; for a `light` batch it is
-`false`. This is correct regardless of what the previous batch left behind,
-whereas an unconditional toggle is not:
+2. **Scene injection resets the store flag but not the DOM.**
+   `applySceneToStore` (in `src/test/scenes.ts`) hard-resets the store with
+   `setState(getInitialState(), true)` on every `apply` / `applyAndSettle`.
+   That restores `darkMode` to its initial `true` (dark) default **without
+   calling `applyThemeToDOM`** — so after any scene apply, the store
+   `darkMode` flag and the rendered `<html data-theme>` attribute can
+   **disagree**. The `data-theme` attribute is what actually drives CSS, so
+   it is the source of truth; the store flag is unreliable once a scene has
+   been applied.
+
+Quirk (2) is what makes a store-flag-based force fail: after a `light`
+batch's last scene apply, the store reads `darkMode: true` (reset default)
+while the DOM is still `light`. A force that toggles "only if
+`darkMode !== want`" sees `darkMode === true`, concludes it is already dark,
+and does nothing — leaving the DOM in **light** for the entire following
+`dark` batch, which then captures light under `-dark` filenames.
+**So the force must key on the DOM, not the store flag.**
+
+The fix: **at the start of every width × theme batch, force the rendered
+DOM theme to the batch's target, then positively verify it** — keyed on
+`data-theme`, never on toggle bookkeeping or the store flag alone.
+
+**Step 1 — Force the DOM to the target theme.** `toggleDarkMode` is keyed
+on the store flag, which may be desynced from the DOM (quirk 2), so a single
+conditional toggle is not reliable. Instead, **toggle until the DOM
+attribute matches the target.** A small guard prevents an infinite loop;
+because every toggle leaves the store flag and DOM consistent, this
+converges in at most two toggles:
 
 ```bash
-# dark batch → want = true ; light batch → want = false
-playwright-cli eval "(() => { const want = true; const s = window.__test_store.getState(); if (s.darkMode !== want) s.toggleDarkMode(); })()"
+# dark batch → target = 'dark' ; light batch → target = 'light'
+playwright-cli eval "(() => { const target = 'dark'; const dom = () => document.documentElement.getAttribute('data-theme'); let g = 0; while (dom() !== target && g++ < 4) window.__test_store.getState().toggleDarkMode(); return dom(); })()"
 playwright-cli eval "new Promise(r => setTimeout(r, 200))"
 ```
 
-**Step 2 — Verify positively before capturing.** Confirm both the store
-flag *and* the rendered DOM attribute (`<html data-theme>`, set by
-`applyThemeToDOM`) match the target. This is a positive check on actual
-rendered state, not a count of toggles:
+**Step 2 — Verify positively before capturing.** Confirm the rendered DOM
+attribute matches the target. The DOM is authoritative; report the store
+flag too for diagnostics, but do **not** treat a store/DOM mismatch as a
+failure on its own — scene applies legitimately desync the store flag while
+the DOM (and therefore every screenshot) stays correct:
 
 ```bash
 # expected = "dark" for a dark batch, "light" for a light batch
-playwright-cli eval "(() => { const expected = 'dark'; const store = window.__test_store.getState().darkMode ? 'dark' : 'light'; const dom = document.documentElement.getAttribute('data-theme'); return JSON.stringify({ expected, store, dom, ok: store === expected && dom === expected }); })()"
+playwright-cli eval "(() => { const expected = 'dark'; const dom = document.documentElement.getAttribute('data-theme'); const store = window.__test_store.getState().darkMode ? 'dark' : 'light'; return JSON.stringify({ expected, dom, store, ok: dom === expected }); })()"
 ```
 
 If `ok` is not `true`, **re-run Step 1 and re-verify before capturing
-anything**. Never write screenshots for a batch whose theme is unverified —
-that is how mislabeled files are produced. Note any persistent discrepancy
-in the report.
+anything**. Because Step 1 keys on the DOM, the re-run actually converges
+(a store-flag force would stay stuck). Never write screenshots for a batch
+whose DOM theme is unverified — that is how mislabeled files are produced.
+Note any persistent discrepancy in the report.
 
 ### Two-phase capture and assessment
 
@@ -262,11 +284,12 @@ playwright-cli resize <width> 900
 ```
 
 Then run Step 1 (force) and Step 2 (verify) from "Setting and verifying the
-theme" for the next batch's target theme. Forcing reads the current
-`darkMode` and toggles only if it does not match the target, so it is
-correct no matter what the previous batch (or a width change) left behind.
-An unconditional `toggleDarkMode()` here is the bug that produced
-mislabeled `-dark` screenshots at 1440 and 1920 in PRO-242.
+theme" for the next batch's target theme. Step 1 toggles until the rendered
+`data-theme` matches the target, so it is correct no matter what the
+previous batch, a width change, or a scene reset left behind. An
+unconditional `toggleDarkMode()` here — or a force keyed on the store
+`darkMode` flag — is the bug that produced mislabeled `-dark` screenshots at
+1440 and 1920 in PRO-242.
 
 ### Screenshot naming convention
 
