@@ -43,11 +43,11 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;
 
-  const rowHeight = density === "compact" ? 24 : 30;
-
   const traceBarStyle: React.CSSProperties = exchange.traceId
     ? { borderLeftColor: traceColor(exchange.traceId) }
     : {};
+
+  const heightClass = density === "compact" ? "h-6" : "h-[30px]";
 
   return (
     <button
@@ -55,13 +55,13 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       className={[
         "w-full text-left grid items-center border-b border-border",
         "border-l-[3px] cursor-pointer transition-colors overflow-hidden",
+        heightClass,
         selected
           ? "bg-bg-active border-l-accent"
           : "bg-bg-pane hover:bg-bg-hover",
       ].join(" ")}
       style={{
         gridTemplateColumns: TABLE_COLUMNS,
-        height: rowHeight,
         ...(selected ? undefined : traceBarStyle),
       }}
       role="option"
@@ -150,10 +150,10 @@ export function ExchangeList() {
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Row heights are empirical: they must match the actual rendered button height for
-  // each mode/density combination. browser/exchange-list.spec.ts test 11.3 guards the
-  // compact rows value (66px); if fonts or padding change, update both together.
-  const rowHeight =
+
+  // Estimate sizes are initial approximations; measureElement measures actual
+  // rendered heights via ResizeObserver, so these don't need to be pixel-exact.
+  const estimatedHeight =
     listMode === "table"
       ? density === "compact"
         ? 24
@@ -162,18 +162,17 @@ export function ExchangeList() {
         ? 66
         : 74;
 
-  // Include rowHeight in item keys so the virtualizer's internal
-  // getMeasurements memo invalidates when mode or density changes.
-  // Without this, estimateSize updates don't bust the measurement
-  // cache and rows render at stale positions.
+  // Include listMode and density in item keys so the virtualizer invalidates
+  // its measurement cache when mode or density changes. Without this, stale
+  // measurements persist and rows render at wrong positions.
   //
   // `ordered` is intentionally excluded from deps: it rebuilds every
   // render, so including it would give getItemKey a new reference each
   // time, defeating the virtualizer's measurement cache entirely.
   const getItemKey = useCallback(
-    (index: number) => `${ordered[index]?.id ?? index}|${rowHeight}`,
+    (index: number) => `${ordered[index]?.id ?? index}|${listMode}|${density}`,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rowHeight],
+    [listMode, density],
   );
 
   // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`)
@@ -185,7 +184,7 @@ export function ExchangeList() {
   const virtualizer = useVirtualizer({
     count: ordered.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
+    estimateSize: () => estimatedHeight,
     getItemKey,
     overscan: 5,
   });
@@ -364,13 +363,15 @@ export function ExchangeList() {
                     const ex = ordered[virtualItem.index];
                     return (
                       <div
-                        key={ex.id}
+                        key={virtualItem.key}
+                        ref={virtualizer.measureElement}
+                        data-index={virtualItem.index}
                         style={{
                           position: "absolute",
-                          top: virtualItem.start,
+                          top: 0,
+                          left: 0,
                           width: "100%",
-                          height: rowHeight,
-                          overflow: "hidden",
+                          transform: `translateY(${virtualItem.start}px)`,
                         }}
                       >
                         <TableRow
@@ -413,13 +414,15 @@ export function ExchangeList() {
                 const ex = ordered[virtualItem.index];
                 return (
                   <div
-                    key={ex.id}
+                    key={virtualItem.key}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualItem.index}
                     style={{
                       position: "absolute",
-                      top: virtualItem.start,
+                      top: 0,
+                      left: 0,
                       width: "100%",
-                      height: rowHeight,
-                      overflow: "hidden",
+                      transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
                     <ExchangeListItem

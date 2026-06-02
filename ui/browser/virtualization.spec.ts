@@ -52,8 +52,11 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-// Row heights from ExchangeList.tsx (rows: 74/66, table: 30/24)
-const ROW_HEIGHT = { rows: 74, rowsCompact: 66, table: 30, tableCompact: 24 };
+/** Parse the virtualizer container's height style to a number. */
+async function getContainerHeightPx(page: Page): Promise<number> {
+  const raw = await getVirtualContainerHeight(page);
+  return parseFloat(raw);
+}
 
 test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({
@@ -96,43 +99,55 @@ test.describe("Virtualization", () => {
     const N = 200;
     await injectExchanges(page, makeLargeDataset(N));
 
+    // Wait for initial render and capture rows-mode height
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.rows}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeGreaterThan(0);
+    const rowsHeight = await getContainerHeightPx(page);
 
+    // Table rows are shorter — total height should decrease
     await setListMode(page, "table");
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.table}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeLessThan(rowsHeight);
+    const tableHeight = await getContainerHeightPx(page);
 
+    // Switching back to rows should restore the taller height
     await setListMode(page, "rows");
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.rows}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeGreaterThan(tableHeight);
   });
 
   test("density toggle updates virtualizer measurements", async ({ page }) => {
     const N = 200;
     await injectExchanges(page, makeLargeDataset(N));
 
+    // rows + regular
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.rows}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeGreaterThan(0);
+    const rowsRegular = await getContainerHeightPx(page);
 
+    // rows + compact → shorter
     await setDensity(page, "compact");
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.rowsCompact}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeLessThan(rowsRegular);
+    const rowsCompact = await getContainerHeightPx(page);
 
+    // table + compact → even shorter (table rows are shorter than rows-mode rows)
     await setListMode(page, "table");
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.tableCompact}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeLessThan(rowsCompact);
+    const tableCompact = await getContainerHeightPx(page);
 
+    // table + regular → taller than table compact
     await setDensity(page, "regular");
     await expect
-      .poll(() => getVirtualContainerHeight(page), { timeout: 5000 })
-      .toBe(`${N * ROW_HEIGHT.table}px`);
+      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .toBeGreaterThan(tableCompact);
   });
 
   test("keyboard navigation scrolls off-screen item into view", async ({

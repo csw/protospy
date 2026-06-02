@@ -148,24 +148,23 @@ test.describe("Exchange list — table mode", () => {
       makeResponse(1, "200 OK"),
     ]);
 
-    // Regular density: 30px
+    // Measure row height at regular density
     const rowBefore = page.locator("button[aria-selected]").first();
     await expect(rowBefore).toBeVisible();
     const heightBefore = await rowBefore.evaluate(
       (el) => el.getBoundingClientRect().height,
     );
-    expect(heightBefore).toBe(30);
 
     // Toggle to compact via command palette
     await page.keyboard.press("Meta+k");
     await page.getByText("Toggle density").click();
 
-    // Compact density: 24px
+    // Compact density should produce a shorter row
     const rowAfter = page.locator("button[aria-selected]").first();
     const heightAfter = await rowAfter.evaluate(
       (el) => el.getBoundingClientRect().height,
     );
-    expect(heightAfter).toBe(24);
+    expect(heightAfter).toBeLessThan(heightBefore);
   });
 
   test("2.4 mode switching preserves data", async ({ page }) => {
@@ -253,7 +252,7 @@ test.describe("Edge cases", () => {
     await expect(status).toHaveClass(/text-red/);
   });
 
-  test("11.3 compact rows mode allocates full row height so content is not clipped", async ({
+  test("11.3 compact rows mode sizes wrapper to fit content without clipping", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -265,14 +264,20 @@ test.describe("Edge cases", () => {
     await page.keyboard.press("Meta+k");
     await page.getByText("Toggle density").click();
 
-    // The virtualizer wrapper div is the parent of the button; its inline height
-    // is the authoritative rowHeight used for positioning. We check it matches
-    // the value expected by the spec (66px) so content is not clipped.
-    const wrapperHeight = await page
+    // With dynamic measurement the virtualizer wrapper sizes to content.
+    // The wrapper (parent of the button) should be at least as tall as the
+    // button's rendered height so nothing is clipped.
+    const { wrapperHeight, buttonHeight } = await page
       .locator("button[aria-selected]")
       .first()
-      .evaluate((el) => (el.parentElement as HTMLElement).style.height);
-    expect(wrapperHeight).toBe("66px");
+      .evaluate((el) => {
+        const wrapper = el.parentElement as HTMLElement;
+        return {
+          wrapperHeight: wrapper.getBoundingClientRect().height,
+          buttonHeight: el.getBoundingClientRect().height,
+        };
+      });
+    expect(wrapperHeight).toBeGreaterThanOrEqual(buttonHeight);
   });
 
   test("11.4 rows don't overlap at narrow viewport width", async ({ page }) => {
@@ -292,9 +297,9 @@ test.describe("Edge cases", () => {
     const rows = page.locator("button[role='option']");
     await expect(rows).toHaveCount(3);
 
-    // Compare the virtualizer wrapper divs (explicit height: rowHeight), not the
-    // buttons inside them — buttons include a border-b that can push .bottom past
-    // the next wrapper's .top by a sub-pixel amount.
+    // Compare the virtualizer wrapper divs, not the buttons inside them —
+    // buttons include a border-b that can push .bottom past the next
+    // wrapper's .top by a sub-pixel amount.
     const boxes = await rows.evaluateAll((els) =>
       els.map((el) => {
         const wrapper = el.parentElement as HTMLElement;
@@ -303,8 +308,8 @@ test.describe("Edge cases", () => {
       }),
     );
 
-    // Adjacent wrappers are placed at consecutive multiples of rowHeight so
-    // wrapper[i].bottom should equal wrapper[i+1].top exactly.
+    // Adjacent wrappers should not overlap: wrapper[i].bottom should be
+    // at or before wrapper[i+1].top.
     for (let i = 0; i < boxes.length - 1; i++) {
       expect(boxes[i].bottom).toBeLessThanOrEqual(boxes[i + 1].top + 1); // +1 px for sub-pixel rounding
     }
