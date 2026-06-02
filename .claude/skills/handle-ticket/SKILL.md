@@ -31,11 +31,13 @@ for the exact rule.
 **UI ticket detection**: check whether this ticket carries the `UI` label:
 
 ```bash
-linear issue list --label UI --all-states --limit 0 | grep -q "$ticket"
+linear issue list --label UI --all-states --limit 0 | awk '{print $2}' | grep -qx "$ticket"
 ```
 
-If grep succeeds (exit 0), this is a **UI ticket**. Note this for step 4 — it
-determines whether a visual review runs.
+This extracts the ID column and does an exact-line match (avoiding substring
+collisions like `PRO-23` matching `PRO-236`). If grep succeeds (exit 0), this
+is a **UI ticket**. Note this for step 4 — it determines whether a visual
+review runs.
 
 ---
 
@@ -100,13 +102,15 @@ This step runs differently for UI tickets and non-UI tickets.
 
 #### 4a — Start the dev server
 
-Start the UI dev server on a non-default port:
+Start the UI dev server on a non-default port (avoid 5173, which is the Vite
+default). Pick an available port — check with `lsof -i :<port>` first if
+unsure. Example:
 
 ```bash
 cd ui && pnpm dev --port 5174 &
 ```
 
-Wait for it to be ready (check that `http://localhost:5174/` responds). The
+Wait for it to be ready (check that the chosen URL responds). The
 visual-review subagent needs a running app to screenshot the fixture matrix.
 
 #### 4b — Determine review scope
@@ -151,7 +155,9 @@ Example prompt shape:
 > ticket: <caller hints if any>.
 
 Wait for the subagent to finish. **Save its findings report** — you will need
-it in steps 8 and 9.
+it in steps 8 and 9. If the subagent fails or returns an empty report (e.g.
+dev server not responding, playwright-cli issues, no scenes found), note the
+failure and continue to step 5 — the code review in step 7 still runs.
 
 #### 4d — Stop the dev server
 
@@ -257,9 +263,10 @@ type: visual-review
 ---
 ```
 
-The visual-review report already includes its own YAML front matter (scope,
-scenes checked, widths, themes). Merge or nest rather than duplicating — use the
-subagent's front matter as the primary block and add `pr` to it if missing.
+The visual-review report already includes its own YAML front matter (`scope`,
+`scenes_checked`, `widths`, `themes`). Use the subagent's front matter block as
+the primary block. Ensure `ticket`, `pr`, and `date` are present; add them if
+missing. Do not duplicate fields the subagent already provides.
 
 ---
 
