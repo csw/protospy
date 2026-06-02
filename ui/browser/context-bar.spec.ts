@@ -246,9 +246,8 @@ test.describe("ContextBar — trace pill", () => {
 
     await page.getByText("/api/traced").first().click();
 
-    // The trace pill container (not the copy/external buttons inside it) should set the filter.
-    // The pill div has title="Filter by trace" and contains the short trace text.
-    await page.getByTitle("Filter by trace").click();
+    // The trace pill's swatch + trace ID button has aria-label="Filter by trace".
+    await page.getByLabel("Filter by trace").click();
 
     const traceFilter = await getStoreState(page, "traceFilter");
     expect(traceFilter).toBe(traceId);

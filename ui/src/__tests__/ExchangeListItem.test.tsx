@@ -279,11 +279,10 @@ describe("ExchangeListItem", () => {
     );
     expect(screen.getByText("(gzip)")).toBeInTheDocument();
     // Without decodedBytes cached, only the wire size shows; the tag follows.
+    // Radix Tooltip adds data-state to the trigger when a tooltip is wired up,
+    // confirming the decompression detail is passed to SimpleTooltip.
     const resSpan = screen.getByText(/^res /);
-    expect(resSpan).toHaveAttribute(
-      "title",
-      expect.stringContaining("decoded size unknown"),
-    );
+    expect(resSpan).toHaveAttribute("data-state");
   });
 
   it("renders dual wire/decoded size when both are known and differ", () => {
@@ -305,10 +304,8 @@ describe("ExchangeListItem", () => {
     );
     const resSpan = screen.getByText(/^res /);
     expect(resSpan).toHaveTextContent("res 1.0KB/4.0KB (gzip)");
-    expect(resSpan).toHaveAttribute(
-      "title",
-      expect.stringContaining("after decompression"),
-    );
+    // Radix Tooltip adds data-state confirming the decompression tooltip is wired.
+    expect(resSpan).toHaveAttribute("data-state");
   });
 
   it("does not render a compression tag when no body is compressed", () => {

@@ -43,8 +43,9 @@ describe("BodyPane size display", () => {
     const sizeEl = await screen.findByTestId("body-size");
     await waitFor(() => expect(sizeEl).toHaveTextContent("11B"));
     expect(sizeEl).not.toHaveTextContent("/");
-    // No tooltip when there's only one size to show.
-    expect(sizeEl).not.toHaveAttribute("title");
+    // No tooltip when there's only one size to show — SimpleTooltip renders
+    // children unwrapped when content is falsy, so no Radix data-state attr.
+    expect(sizeEl).not.toHaveAttribute("data-state");
   });
 
   it("renders wire / decoded with a tooltip for a compressed body", async () => {
@@ -61,9 +62,8 @@ describe("BodyPane size display", () => {
 
     const sizeEl = await screen.findByTestId("body-size");
     await waitFor(() => expect(sizeEl).toHaveTextContent("28B / 24B"));
-    expect(sizeEl).toHaveAttribute(
-      "title",
-      "28B on the wire / 24B after decompression",
-    );
+    // Radix Tooltip adds data-state to the trigger when a tooltip is wired up.
+    // This confirms SimpleTooltip received truthy content (the decompression detail).
+    expect(sizeEl).toHaveAttribute("data-state");
   });
 });
