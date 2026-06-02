@@ -28,16 +28,15 @@ truncate the slug on a word boundary — keep the full `<type>/pro-NNN-` prefix
 intact (Linear needs it for the GitHub integration). See `docs/agents/linear.md`
 for the exact rule.
 
-**UI ticket detection**: check whether this ticket carries the `UI` label:
+**UI ticket detection**: query the ticket's labels via GraphQL:
 
 ```bash
-linear issue list --label UI --all-states --limit 0 | awk '{print $2}' | grep -qx "$ticket"
+linear api '{ issue(id: "$ticket") { labels { nodes { name } } } }' \
+  | jq -e '.data.issue.labels.nodes | map(.name) | index("UI") != null'
 ```
 
-This extracts the ID column and does an exact-line match (avoiding substring
-collisions like `PRO-23` matching `PRO-236`). If grep succeeds (exit 0), this
-is a **UI ticket**. Note this for step 4 — it determines whether a visual
-review runs.
+If `jq -e` exits 0 (the expression evaluated to `true`), this is a **UI
+ticket**. Note this for step 4 — it determines whether a visual review runs.
 
 ---
 
