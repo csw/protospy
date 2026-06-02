@@ -87,6 +87,21 @@ occupies ids 1..4; the stress row is id 5.
 | `compact-rows-dual-size` | Compact rows + dual size | Rows mode, compact density; compound size label in a tighter row.              |
 | `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + ERR rows together; realistic column pressure.   |
 
+### Trace axis (traceparent grouping)
+
+Exchanges sharing a `traceparent` trace-id correlate into a distributed trace.
+The list draws a coloured left trace bar + rail, the context bar gains a "next in
+trace" jump, and the id surfaces in TimingView and (when filtered) the FilterBar
+chip. No single-axis scene set a `traceId`, so none of this rendered in the
+matrix ([PRO-250](https://linear.app/protospy/issue/PRO-250)). Both scenes inject
+the same 7-exchange `tracedTraffic()` (trace A: ids 1/3/5, trace B: ids 4/6,
+untraced: ids 2/7).
+
+| Scene id         | Cell                | Notes                                                                                   |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------- |
+| `trace-group`    | Trace grouping      | Two distinct trace colours + untraced rows; id 5 selected for the "next in trace" jump. |
+| `trace-filtered` | Trace filter active | Narrowed to trace A via an active trace filter; FilterBar chip + `N of M` count.        |
+
 ## List-pane width axis (interaction, not a scene)
 
 The list-pane "narrow vs wide" axis is an **interaction**, not store state: the

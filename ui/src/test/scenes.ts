@@ -23,6 +23,7 @@
 //   - view:  rows vs table, compact vs regular density
 //   - cross: view × data combinations (table/compact crossed with a data
 //            extreme) that stress column-width allocation
+//   - trace: traceparent grouping (colour bars, trace rail, trace filter chip)
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
@@ -61,6 +62,12 @@ export interface SceneConfig {
   service?: string | null;
   selectedId?: number | null;
   filter?: string;
+  /**
+   * Active trace filter (a 32-hex traceparent trace-id). Set it to drive the
+   * `FilterBar` trace chip and narrow the list to one trace, mirroring a click
+   * on a row's trace pill.
+   */
+  traceFilter?: string | null;
   listMode?: "rows" | "table";
   density?: "regular" | "compact";
   /** Sets the stored list width for a mode (drives the panel default at mount). */
@@ -115,6 +122,46 @@ function backdrop(): Msg[] {
         elapsed: 503,
       },
     ),
+  ];
+}
+
+// Two distinct W3C `traceparent` trace-ids (the spec's canonical examples).
+// They hash to different `traceColor()` palette entries, so a scene mixing
+// them shows two visibly distinct trace rails / color bars.
+const TRACE_A = "4bf92f3577b34da6a3ce929d0e0e4736";
+const TRACE_B = "0af7651916cd43dd8448eb211c80319c";
+
+// Heterogeneous traffic where some exchanges share a `traceparent` trace-id and
+// others carry none. Trace A spans three hops (ids 1, 3, 5), trace B spans two
+// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows coloured trace
+// bars, the trace rail, and (with a trace member selected) the context bar's
+// "next in trace" jump. Deterministic ids 1..7.
+function tracedTraffic(): Msg[] {
+  return [
+    ...makeCompleteExchange(1, "POST", "/api/checkout/cart", "200 OK", {
+      traceId: TRACE_A,
+      elapsed: 41,
+    }),
+    ...makeCompleteExchange(2, "GET", "/api/users", "200 OK", { elapsed: 28 }),
+    ...makeCompleteExchange(3, "POST", "/api/checkout/payment", "201 Created", {
+      traceId: TRACE_A,
+      elapsed: 173,
+    }),
+    ...makeCompleteExchange(4, "GET", "/api/search?q=boots", "200 OK", {
+      traceId: TRACE_B,
+      elapsed: 64,
+    }),
+    ...makeCompleteExchange(5, "GET", "/api/checkout/confirm", "200 OK", {
+      traceId: TRACE_A,
+      elapsed: 52,
+    }),
+    ...makeCompleteExchange(6, "POST", "/api/search/refine", "200 OK", {
+      traceId: TRACE_B,
+      elapsed: 39,
+    }),
+    ...makeCompleteExchange(7, "GET", "/api/products/42", "404 Not Found", {
+      elapsed: 12,
+    }),
   ];
 }
 
@@ -343,6 +390,33 @@ export const SCENES: Scene[] = [
       ],
     },
   },
+
+  // ---- trace axis (traceparent grouping) ----------------------------------
+  // Distributed-trace correlation: exchanges sharing a `traceparent` trace-id
+  // render a coloured trace bar + rail, the context bar gains "next in trace"
+  // navigation, and the trace-id surfaces in TimingView and (when filtered) the
+  // FilterBar chip. No single-axis scene set a traceId, so none of this was in
+  // the matrix (PRO-250).
+  {
+    id: "trace-group",
+    title: "Trace grouping",
+    axis: "data",
+    description:
+      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the context bar's 'next in trace' jump and TimingView's Trace ID row.",
+    messages: tracedTraffic(),
+    // Newest-first order displays trace A as [5, 3, 1]; selecting id 5 (the
+    // newest hop) guarantees a forward "next in trace" target (id 3).
+    config: { selectedId: 5 },
+  },
+  {
+    id: "trace-filtered",
+    title: "Trace filter active",
+    axis: "state",
+    description:
+      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (coloured dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
+    messages: tracedTraffic(),
+    config: { traceFilter: TRACE_A, selectedId: 1 },
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */
@@ -388,6 +462,7 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
     s.setListWidth(c.listWidth.mode, c.listWidth.width);
   }
   if (c?.filter !== undefined) s.setFilter(c.filter);
+  if (c?.traceFilter !== undefined) s.setTraceFilter(c.traceFilter);
   for (const d of c?.decoded ?? []) {
     s.setBodyDecodedBytes(d.id, d.direction, d.bytes);
   }

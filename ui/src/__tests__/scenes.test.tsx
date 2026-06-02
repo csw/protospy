@@ -153,6 +153,44 @@ describe("applySceneToStore", () => {
     );
   });
 
+  it("trace-group parses traceparent into shared trace ids", () => {
+    applySceneToStore(useStore, getScene("trace-group")!);
+    const ex = (id: number) => useStore.getState().exchanges.get(id);
+    expect(useStore.getState().ids).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    // Trace A spans ids 1/3/5; trace B spans 4/6; 2 and 7 are untraced.
+    const traceA = ex(1)?.traceId;
+    const traceB = ex(4)?.traceId;
+    expect(traceA).toBeDefined();
+    expect(traceB).toBeDefined();
+    expect(traceA).not.toBe(traceB);
+    expect(ex(3)?.traceId).toBe(traceA);
+    expect(ex(5)?.traceId).toBe(traceA);
+    expect(ex(6)?.traceId).toBe(traceB);
+    expect(ex(2)?.traceId).toBeUndefined();
+    expect(ex(7)?.traceId).toBeUndefined();
+    // Selected id 5 has a forward "next in trace" target under newest-first.
+    expect(useStore.getState().selectedId).toBe(5);
+    // No trace filter is active in the grouping scene.
+    expect(useStore.getState().traceFilter).toBeNull();
+  });
+
+  it("trace-filtered activates the trace filter on trace A", () => {
+    applySceneToStore(useStore, getScene("trace-filtered")!);
+    const state = useStore.getState();
+    // The active filter equals trace A (the trace of ids 1/3/5).
+    expect(state.traceFilter).toBe(state.exchanges.get(1)?.traceId);
+    expect(state.traceFilter).not.toBeNull();
+    // All seven exchanges still injected; the filter is applied at render time.
+    expect(state.ids).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("resets the trace filter back to null on a non-trace scene", () => {
+    applySceneToStore(useStore, getScene("trace-filtered")!);
+    expect(useStore.getState().traceFilter).not.toBeNull();
+    applySceneToStore(useStore, getScene("selected")!);
+    expect(useStore.getState().traceFilter).toBeNull();
+  });
+
   it("resets prior scene state on each apply", () => {
     applySceneToStore(useStore, getScene("many-rows")!);
     expect(useStore.getState().ids).toHaveLength(120);
