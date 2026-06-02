@@ -334,6 +334,15 @@ export interface SceneHarness {
   widths: readonly number[];
   /** Reset the store and apply the named scene. Returns false if unknown. */
   apply: (id: string) => boolean;
+  /**
+   * Apply a scene and wait for React to settle. Combines apply + setTimeout
+   * into a single async call, saving an IPC round-trip when called from
+   * `playwright-cli eval` or `page.evaluate()`.
+   *
+   * @param settleMs — milliseconds to wait after applying (default 150).
+   * @returns false if the scene id is unknown.
+   */
+  applyAndSettle: (id: string, settleMs?: number) => Promise<boolean>;
 }
 
 declare global {
@@ -356,6 +365,13 @@ export function installSceneHarness(store: AppStore): void {
       const scene = getScene(id);
       if (scene == null) return false;
       applySceneToStore(store, scene);
+      return true;
+    },
+    applyAndSettle: async (id: string, settleMs?: number) => {
+      const scene = getScene(id);
+      if (scene == null) return false;
+      applySceneToStore(store, scene);
+      await new Promise((r) => setTimeout(r, settleMs ?? 150));
       return true;
     },
   };

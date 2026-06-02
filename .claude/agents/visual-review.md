@@ -153,6 +153,8 @@ interface SceneHarness {
   list(): SceneMeta[];           // all scenes in matrix order
   widths: readonly number[];     // [1280, 1440, 1920]
   apply(id: string): boolean;    // reset store + inject scene; false if unknown
+  applyAndSettle(id: string, settleMs?: number): Promise<boolean>;
+    // apply + wait in a single async call (saves an IPC round-trip)
 }
 ```
 
@@ -170,34 +172,48 @@ playwright-cli eval "(() => { const s = window.__test_store.getState(); if (!s.d
 
 This guarantees the first screenshot of each cell is dark mode.
 
-### Capture loop (per width × theme batch)
+### Two-phase capture and assessment
 
-The outer loop is: for each width in scope, for each theme, capture all
-in-scope scenes, then hand the batch to a subagent (see "Managing
-context" below). **Do not Read screenshots yourself** — that pulls image
-tokens into your context. The subagent reads them.
+**Phase 1 — Capture.** Walk **all** in-scope width × theme × scene
+combinations and write every screenshot to disk. The browser is used
+continuously with no idle time. Do **not** read screenshots yourself —
+that pulls image tokens into your context. The assessment subagents
+read them.
 
-For each scene within a batch:
+**Phase 2 — Assessment.** After all screenshots are on disk, dispatch
+**all** assessment subagents concurrently (one per width × theme batch).
+This is the critical parallelization: previously each assessment
+blocked the next batch's capture. Now capture runs uninterrupted and
+all assessments overlap.
 
-1. **Apply the scene:**
+### Phase 1: Capture loop
+
+The outer loop is: for each width in scope, for each theme (dark first),
+capture all in-scope scenes, then check the console once for the batch.
+
+For each scene within a batch, use `applyAndSettle` — it combines
+`apply()` + a 150 ms render-settle into a single async call, saving one
+subprocess round-trip per scene:
+
+1. **Apply the scene and wait for render:**
    ```bash
-   playwright-cli eval "window.__test_scenes.apply('<scene-id>')"
+   playwright-cli eval "window.__test_scenes.applyAndSettle('<scene-id>')"
    ```
 
-2. **Wait for render to settle** (short pause for React + transitions):
-   ```bash
-   playwright-cli eval "new Promise(r => setTimeout(r, 300))"
-   ```
-
-3. **Check the console for errors:**
-   ```bash
-   playwright-cli console
-   ```
-
-4. **Screenshot to disk:**
+2. **Screenshot to disk:**
    ```bash
    playwright-cli screenshot --filename=~/obsidian/protospy/Claude/screenshots/visual-review/<scene-id>-<width>-<theme>.png
    ```
+
+After all scenes in a batch are captured, **check the console once**
+for the whole batch (messages accumulate, so one check catches
+everything):
+
+```bash
+playwright-cli console
+```
+
+Note any errors with the batch label (width × theme) for the report.
 
 Between batches, change the viewport or toggle the theme:
 
@@ -345,36 +361,49 @@ review can produce enough images to crowd out assessment quality. **Do not
 Read screenshots yourself** except to investigate a specific finding
 reported by a subagent.
 
-**Batch by width × theme.** Walk all in-scope scenes at one width in one
-theme, save them to disk, then send the batch to a single subagent for
-assessment. Each subagent gets cross-scene context for consistency
-findings.
+### Phase 2: Concurrent assessment dispatch
 
-The workflow for each batch:
+After Phase 1 completes (all screenshots on disk), dispatch assessment
+subagents for each width × theme batch **concurrently** — send all
+`Agent()` calls in a single message so they run in parallel. Each
+subagent gets cross-scene context for consistency findings within its
+batch.
 
-1. Set the viewport width and theme.
-2. Loop through in-scope scenes: apply, wait, screenshot to disk.
-3. Spawn a subagent with a prompt like:
+**Build the batch list** as you capture: for each width × theme batch,
+record the batch label (e.g. "1440-dark"), the list of screenshot
+filenames, and any console errors noted during capture.
 
-   > Read the screenshots in
-   > `~/obsidian/protospy/Claude/screenshots/visual-review/` matching
-   > `*-<width>-<theme>.png`. These show the protospy UI fixture matrix
-   > at <width>px in <theme> mode.
-   >
-   > For each screenshot, check against these criteria:
-   > [paste the in-scope DoD checks and rubric categories]
-   >
-   > Also check cross-scene consistency: do badges, spacing, typography,
-   > and colour treatment stay uniform across scenes?
-   >
-   > Report findings as a Markdown list grouped by severity
-   > (high/medium/low). Reference screenshots by filename. Be specific
-   > about what's wrong and where. Under 500 words.
+**Dispatch all at once.** Send a single message containing one `Agent()`
+call per batch. Example for 6 batches (3 widths × 2 themes):
 
-4. Collect the subagent's text findings into your report.
+```
+Agent({ prompt: "...", description: "assess 1280-dark" })
+Agent({ prompt: "...", description: "assess 1280-light" })
+Agent({ prompt: "...", description: "assess 1440-dark" })
+Agent({ prompt: "...", description: "assess 1440-light" })
+Agent({ prompt: "...", description: "assess 1920-dark" })
+Agent({ prompt: "...", description: "assess 1920-light" })
+```
 
-After all batches, synthesize the findings: deduplicate, prioritize,
-and write the final report.
+Each subagent gets this prompt shape:
+
+> Read the screenshots in
+> `~/obsidian/protospy/Claude/screenshots/visual-review/` matching
+> `*-<width>-<theme>.png`. These show the protospy UI fixture matrix
+> at <width>px in <theme> mode.
+>
+> For each screenshot, check against these criteria:
+> [paste the in-scope DoD checks and rubric categories]
+>
+> Also check cross-scene consistency: do badges, spacing, typography,
+> and colour treatment stay uniform across scenes?
+>
+> Report findings as a Markdown list grouped by severity
+> (high/medium/low). Reference screenshots by filename. Be specific
+> about what's wrong and where. Under 500 words.
+
+When all subagents return, collect their findings: deduplicate,
+prioritize, and synthesize into the final report.
 
 ## Efficiency tips
 
