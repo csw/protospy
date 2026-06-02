@@ -133,21 +133,26 @@ has_name=$(echo "$input" | jq -r '.tool_input.name // empty')
 has_path=$(echo "$input" | jq -r '.tool_input.path // empty')
 
 # Case 1: agent used path. Accept paths under .claude/worktrees/ (canonical) or
-# .worktrees/ (legacy alias); normalize both to the canonical location.
+# .worktrees/ (legacy alias); normalize both to the canonical location. The
+# patterns require a real directory boundary before .claude/worktrees/ so a
+# malformed path like "foo.claude/worktrees/x" is not mistaken for canonical.
 if [[ -n "$has_path" ]]; then
   case "$has_path" in
-    *.claude/worktrees/*) name="${has_path##*.claude/worktrees/}" ;;
-    .worktrees/*)         name="${has_path#.worktrees/}" ;;
-    */.worktrees/*)       name="${has_path##*/.worktrees/}" ;;
+    .claude/worktrees/*)   name="${has_path#.claude/worktrees/}" ;;
+    */.claude/worktrees/*) name="${has_path##*/.claude/worktrees/}" ;;
+    .worktrees/*)          name="${has_path#.worktrees/}" ;;
+    */.worktrees/*)        name="${has_path##*/.worktrees/}" ;;
     *)
       deny "Project policy: worktrees must live under .claude/worktrees/ at the repo root (a legacy .worktrees/ path is also accepted). Use path: \".claude/worktrees/<name>\" or pass name instead of path."
       exit 0
       ;;
   esac
-  # Keep the path flat: only the first segment under the worktrees dir is a name.
-  name="${name%%/*}"
-  if [[ -z "$name" ]]; then
-    deny "Project policy: worktree path must include a name under .claude/worktrees/."
+  # The name must be a single flat segment under the worktrees dir. Reject extra
+  # path segments rather than silently truncating to a different worktree than
+  # was requested (a trailing slash is tolerated and stripped).
+  name="${name%/}"
+  if [[ -z "$name" || "$name" == */* ]]; then
+    deny "Project policy: worktree path must be a single flat name under .claude/worktrees/ (got: \"$has_path\"). Pass path: \".claude/worktrees/<name>\" with no extra segments, or pass name instead."
     exit 0
   fi
   worktree_path="$wt_dir/$name"

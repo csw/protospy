@@ -112,6 +112,23 @@ OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":"src/some/wher
 assert_jq "bad path → deny decision" \
   '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
 
+# 4b. Multi-segment name under .claude/worktrees/ → deny (no silent truncation)
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".claude/worktrees/sub/nested"}}')
+assert_jq "multi-segment path → deny (not silently truncated)" \
+  '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
+[[ ! -e "$WT_DIR/sub" ]] && pass "multi-segment path → no worktree created" \
+  || fail "multi-segment path → unexpectedly created $WT_DIR/sub"
+
+# 4c. Malformed prefix (no real boundary before .claude) → deny, not treated as canonical
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":"foo.claude/worktrees/x"}}')
+assert_jq "malformed .claude prefix → deny" \
+  '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
+
+# 4d. Trailing slash on an otherwise valid path → tolerated (stripped), creates
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".claude/worktrees/trailing/"}}')
+assert_jq "trailing slash → tolerated and normalized" \
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/trailing" "$OUT"
+
 # 5. Name without slashes → creates worktree under .claude/worktrees, rewrites
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"my-feature"}}')
 assert_valid_json "simple name → stdout is valid JSON" "$OUT"
