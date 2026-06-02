@@ -48,13 +48,20 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 
 ### Data-size axis
 
-| Scene id      | Cell                   | Notes                                                              |
-| ------------- | ---------------------- | ------------------------------------------------------------------ |
-| `long-uri`    | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip. |
-| `long-status` | Long status text       | Verbose status phrase; check status column / context bar.          |
-| `long-error`  | Long error text        | Verbose hyper-style error chain.                                   |
-| `many-rows`   | Many rows (120)        | Virtualization, scroll, status-bar count.                          |
-| `dual-size`   | Dual wire/decoded size | gzip response; list shows `66B/58B (gzip)`; hover for the tooltip. |
+| Scene id     | Cell                   | Notes                                                              |
+| ------------ | ---------------------- | ------------------------------------------------------------------ |
+| `long-uri`   | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip. |
+| `long-error` | Long error text        | Verbose hyper-style error chain.                                   |
+| `many-rows`  | Many rows (120)        | Virtualization, scroll, status-bar count.                          |
+| `dual-size`  | Dual wire/decoded size | gzip response; list shows `66B/58B (gzip)`; hover for the tooltip. |
+
+There is intentionally **no long-status cell**. HTTP status phrases are short by
+design (200/302/404/500/502 dominate real traffic; even exotic codes carry short
+reason phrases), so a fabricated 100-character phrase would test a state that
+never occurs. Status-column truncation, if it needs coverage, should be driven
+by a realistic three-digit code clipping in a very narrow column — not an
+invented long phrase. See the note near the data-extreme fixtures in
+`src/test/fixtures.ts`.
 
 ### View axis
 
@@ -63,6 +70,22 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 | `table-mode`    | Table mode              | Columnar list (vs. default rows mode). |
 | `compact-rows`  | Compact density (rows)  | Tighter row height.                    |
 | `compact-table` | Compact density (table) | Tightest row height.                   |
+
+### Cross-axis (view × data combinations)
+
+The single-axis scenes above never combine view mode with a data extreme, so
+column-width allocation under realistic pressure went untested. These cross the
+two ([PRO-250](https://linear.app/protospy/issue/PRO-250), gap surfaced during
+the [PRO-242](https://linear.app/protospy/issue/PRO-242) sweep). `backdrop()`
+occupies ids 1..4; the stress row is id 5.
+
+| Scene id                 | Cell                     | Notes                                                                          |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------ |
+| `table-dual-size`        | Table + dual size        | Table mode; Size column carries a `wire/decoded (gz)` label beside plain rows. |
+| `table-long-uri`         | Table + long URI         | Table mode; Path column must truncate without pushing Time/Size/When off-edge. |
+| `compact-table-long-uri` | Compact table + long URI | `table-long-uri` pressure at the tightest row height.                          |
+| `compact-rows-dual-size` | Compact rows + dual size | Rows mode, compact density; compound size label in a tighter row.              |
+| `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + ERR rows together; realistic column pressure.   |
 
 ## List-pane width axis (interaction, not a scene)
 

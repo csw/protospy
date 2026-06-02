@@ -105,6 +105,54 @@ describe("applySceneToStore", () => {
     expect(useStore.getState().density).toBe("compact");
   });
 
+  it("table-dual-size crosses table mode with a cached dual-size row", () => {
+    applySceneToStore(useStore, getScene("table-dual-size")!);
+    const state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    // backdrop ids 1..4 plus the gzip stress row at id 5.
+    expect(state.ids).toEqual([1, 2, 3, 4, 5]);
+    const body = state.exchanges.get(5)?.responseBody;
+    expect(body?.contentEncoding).toBe("gzip");
+    expect(body?.decodedBytes).toBe(GZIP_JSON_DECODED_BYTES);
+    expect(body?.decodedBytes).not.toBe(body?.wireBytes);
+    expect(state.selectedId).toBe(5);
+  });
+
+  it("compact cross-axis scenes set both density and their data extreme", () => {
+    applySceneToStore(useStore, getScene("compact-table-long-uri")!);
+    let state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    expect(state.density).toBe("compact");
+    expect(state.exchanges.get(5)?.uri).toBe(LONG_URI);
+
+    applySceneToStore(useStore, getScene("compact-rows-dual-size")!);
+    state = useStore.getState();
+    // Rows mode is the default, so listMode stays "rows".
+    expect(state.listMode).toBe("rows");
+    expect(state.density).toBe("compact");
+    expect(state.exchanges.get(5)?.responseBody?.decodedBytes).toBe(
+      GZIP_JSON_DECODED_BYTES,
+    );
+  });
+
+  it("mixed-table composes plain, dual-size, long-uri, and error rows", () => {
+    applySceneToStore(useStore, getScene("mixed-table")!);
+    const state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    expect(state.ids).toEqual([1, 2, 3, 4, 5, 6]);
+    // gzip dual-size row.
+    expect(state.exchanges.get(3)?.responseBody?.decodedBytes).toBe(
+      GZIP_JSON_DECODED_BYTES,
+    );
+    // long-uri row.
+    expect(state.exchanges.get(4)?.uri).toBe(LONG_URI);
+    // error row: no status, carries an error.
+    expect(state.exchanges.get(5)?.status).toBeUndefined();
+    expect(state.exchanges.get(5)?.error?.message).toContain(
+      "connection refused",
+    );
+  });
+
   it("resets prior scene state on each apply", () => {
     applySceneToStore(useStore, getScene("many-rows")!);
     expect(useStore.getState().ids).toHaveLength(120);

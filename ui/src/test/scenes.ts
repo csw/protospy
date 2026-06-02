@@ -19,8 +19,10 @@
 //
 // Axes covered (see docs/fixture-matrix.md for the full table):
 //   - state: empty, loading, error row (ERR), selected, hover
-//   - data:  long URI + query, long status, long error, many rows, dual size
+//   - data:  long URI + query, long error, many rows, dual size
 //   - view:  rows vs table, compact vs regular density
+//   - cross: view × data combinations (table/compact crossed with a data
+//            extreme) that stress column-width allocation
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
@@ -29,12 +31,10 @@ import type { AppStore } from "@ui/state/store";
 import {
   GZIP_JSON_DECODED_BYTES,
   LONG_ERROR_MESSAGE,
-  LONG_STATUS,
   LONG_URI,
   makeCompleteExchange,
   makeDualSizeResponse,
   makeGetRequest,
-  makeLongStatusResponse,
   makeLongUriRequest,
   makeManyExchanges,
   makeProxyError,
@@ -181,18 +181,6 @@ export const SCENES: Scene[] = [
     config: { selectedId: 1 },
   },
   {
-    id: "long-status",
-    title: "Long status text",
-    axis: "data",
-    description:
-      "A response with an unusually verbose status phrase. Verify the status column and context bar clip/wrap gracefully.",
-    messages: [
-      makeGetRequest(1, "/api/slow"),
-      makeLongStatusResponse(1, LONG_STATUS),
-    ],
-    config: { selectedId: 1 },
-  },
-  {
     id: "long-error",
     title: "Long error text",
     axis: "data",
@@ -255,6 +243,105 @@ export const SCENES: Scene[] = [
       "Table mode at compact density — the tightest row height in the app.",
     messages: backdrop(),
     config: { listMode: "table", density: "compact", selectedId: 2 },
+  },
+
+  // ---- cross-axis (view × data combinations) ------------------------------
+  // The single-axis scenes above exercise table/compact density and the
+  // data-extremes (long URI, dual size, many rows) independently, but never
+  // together — so column-width allocation under realistic pressure went
+  // untested. These cross the view axis with the data axis (PRO-250, gap
+  // surfaced during the PRO-242 sweep). All reuse existing builders; the
+  // `backdrop()` exchanges occupy ids 1..4 and the stress row is id 5.
+  {
+    id: "table-dual-size",
+    title: "Table + dual size",
+    axis: "view",
+    description:
+      "Table mode with a gzip row whose Size column shows the dual `wire/decoded (gz)` label beside plainly-sized rows. Verify the Size column absorbs the wider compound label without crowding Time/When.",
+    messages: [
+      ...backdrop(),
+      makeGetRequest(5, "/api/gzipped"),
+      makeDualSizeResponse(5),
+    ],
+    config: {
+      listMode: "table",
+      selectedId: 5,
+      decoded: [
+        { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
+  },
+  {
+    id: "table-long-uri",
+    title: "Table + long URI",
+    axis: "view",
+    description:
+      "Table mode with one deep-path + long-query row among normal rows. Verify the Path column truncates/ellipsises and holds its width instead of pushing Time/Size/When off-screen.",
+    messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
+    config: { listMode: "table", selectedId: 5 },
+  },
+  {
+    id: "compact-table-long-uri",
+    title: "Compact table + long URI",
+    axis: "view",
+    description:
+      "The table-long-uri pressure at compact density — tightest rows plus an overflowing Path. Verify truncation and vertical rhythm hold at the smallest row height.",
+    messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
+    config: { listMode: "table", density: "compact", selectedId: 5 },
+  },
+  {
+    id: "compact-rows-dual-size",
+    title: "Compact rows + dual size",
+    axis: "view",
+    description:
+      "Rows mode at compact density with a gzip dual `wire/decoded (gz)` size label. Verify the compound size label fits the tighter row without overlapping the path or timing.",
+    messages: [
+      ...backdrop(),
+      makeGetRequest(5, "/api/gzipped"),
+      makeDualSizeResponse(5),
+    ],
+    config: {
+      density: "compact",
+      selectedId: 5,
+      decoded: [
+        { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
+  },
+  {
+    id: "mixed-table",
+    title: "Mixed realistic table",
+    axis: "view",
+    description:
+      "Heterogeneous traffic in table mode: plain rows, a gzip dual-size row, a long-URI row, and an ERR row. Real traffic is mixed, so this stresses column allocation more realistically than any single-axis scene.",
+    messages: [
+      ...makeCompleteExchange(1, "GET", "/api/users", "200 OK", {
+        elapsed: 34,
+      }),
+      ...makeCompleteExchange(2, "POST", "/api/orders", "201 Created", {
+        elapsed: 88,
+      }),
+      makeGetRequest(3, "/api/gzipped"),
+      makeDualSizeResponse(3),
+      makeLongUriRequest(4),
+      makeResponse(4, "200 OK"),
+      makeGetRequest(5, "/api/flaky"),
+      makeProxyError(5, "Request", "connection refused (os error 111)"),
+      ...makeCompleteExchange(
+        6,
+        "DELETE",
+        "/api/sessions/abc",
+        "500 Internal Server Error",
+        { elapsed: 503 },
+      ),
+    ],
+    config: {
+      listMode: "table",
+      selectedId: 3,
+      decoded: [
+        { id: 3, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
   },
 ];
 

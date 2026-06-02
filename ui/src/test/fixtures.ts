@@ -340,10 +340,13 @@ export const LONG_URI =
   "owner,created_at,updated_at,tags&page=7&page_size=100&include=metadata," +
   "permissions,audit_log&expand=owner.team,project.workspace";
 
-/** A status phrase far longer than the usual three-digit code + short reason. */
-export const LONG_STATUS =
-  "599 Network Connect Timeout Error While Negotiating Upstream TLS Session " +
-  "With Origin After Exhausting All Configured Retry Attempts";
+// NOTE: there is intentionally no "long status" fixture. HTTP status phrases
+// are short by design — real traffic is overwhelmingly 200/302/400/404/500/502,
+// and even exotic codes (507, 511) carry short reason phrases. Fabricating a
+// 100-character reason phrase to stress the status column tests a state that
+// never occurs in practice. If status-display truncation needs coverage, drive
+// it with realistic content (e.g. a normal three-digit code clipping when the
+// column is made very narrow), not an invented long phrase. (PRO-250)
 
 /** A verbose proxy error message (mirrors a deep hyper error chain). */
 export const LONG_ERROR_MESSAGE =
@@ -382,18 +385,6 @@ export function makeLongUriRequest(
   ts?: string,
 ): Msg {
   return makeGetRequest(id, uri, ts);
-}
-
-/**
- * Response carrying an unusually long status phrase. The list and context bar
- * render the raw status string, so this stresses the status column / header.
- */
-export function makeLongStatusResponse(
-  id: number,
-  status = LONG_STATUS,
-  ts?: string,
-): Msg {
-  return makeResponse(id, status, undefined, ts);
 }
 
 /**

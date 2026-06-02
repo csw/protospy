@@ -176,7 +176,7 @@ expect(styles.fontWeight).toBe("600");
 
 ### Fixtures
 
-Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, plus data-extreme builders `makeLongUriRequest`, `makeLongStatusResponse`, `makeManyExchanges`, `makeDualSizeResponse`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
+Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, plus data-extreme builders `makeLongUriRequest`, `makeManyExchanges`, `makeDualSizeResponse`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
 
 `src/test/scenes.ts` composes these builders into the **fixture matrix**: `SCENES`, a list of injectable UI-state cells (one per matrix cell), the pure `applySceneToStore` applier, and the dev-only `window.__test_scenes` harness. The browser breadth check is `browser/fixture-matrix.spec.ts`; the full matrix and per-cell injection calls are documented in `docs/fixture-matrix.md`. Add a new cell by appending to `SCENES`.
 
