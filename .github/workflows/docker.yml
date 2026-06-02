@@ -17,6 +17,8 @@ on:
       - "scripts/smoke-test.sh"
       - ".github/actions/smoke-test/**"
       - ".github/workflows/docker.yml"
+      # Docs never affect the image; exclude them even under src/ui/flix.
+      - "!**/*.md"
   pull_request:
     paths:
       - "Cargo.toml"
@@ -29,6 +31,8 @@ on:
       - "scripts/smoke-test.sh"
       - ".github/actions/smoke-test/**"
       - ".github/workflows/docker.yml"
+      # Docs never affect the image; exclude them even under src/ui/flix.
+      - "!**/*.md"
   workflow_dispatch:
   # push:
   #   tags: ["v*"]
