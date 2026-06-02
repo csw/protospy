@@ -41,7 +41,7 @@ Linear's branch names include the issue ID (e.g. `feature/pro-136-give-agents-in
 - Full: `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`
 - Truncated: `feature/pro-136-give-agents-instructions`
 
-Pass the result as the branch name to `EnterWorktree` (with path `.worktrees/<branch-name>`). Do not use `git worktree add` separately — `EnterWorktree` handles both creation and entry.
+Pass the result as the branch name to `EnterWorktree` (with path `.claude/worktrees/<branch-name>`). Do not use `git worktree add` separately — `EnterWorktree` handles both creation and entry.
 
 ## Getting issue details
 
