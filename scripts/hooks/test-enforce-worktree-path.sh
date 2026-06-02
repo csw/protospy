@@ -82,7 +82,9 @@ cd "$REPO_DIR"
 # Copy hook into the temp repo tree
 mkdir -p scripts/hooks
 cp "$OLDPWD/$HOOK" scripts/hooks/enforce-worktree-path.sh
-mkdir -p .worktrees
+
+# Canonical (real) worktree location and legacy alias.
+WT_DIR="$REPO_DIR/.claude/worktrees"
 
 # ── test cases ────────────────────────────────────────────────────────────────
 
@@ -90,34 +92,41 @@ mkdir -p .worktrees
 OUT=$(run_hook '{"tool_name":"Bash","tool_input":{"command":"ls"}}')
 assert_eq "non-EnterWorktree exits silently" "" "$OUT"
 
-# 2. Path already under .worktrees/ → pass through (no output / exit 0)
-OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".worktrees/my-branch"}}')
-assert_eq "good path passes through silently" "" "$OUT"
+# 2. Canonical path under .claude/worktrees/ → rewrite to absolute path, create
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".claude/worktrees/my-branch"}}')
+assert_valid_json "canonical path → valid JSON" "$OUT"
+assert_jq "canonical path → rewritten to absolute .claude/worktrees path" \
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/my-branch" "$OUT"
+[[ -d "$WT_DIR/my-branch" ]] && pass "canonical path → worktree dir created" \
+  || fail "canonical path → worktree dir NOT created"
 
-# 3. Path under nested .worktrees/ → pass through
-OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":"/abs/path/.worktrees/foo"}}')
-assert_eq "absolute path with .worktrees/ passes through" "" "$OUT"
+# 3. Legacy .worktrees/ path → normalized to .claude/worktrees/, create
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".worktrees/legacy-branch"}}')
+assert_jq "legacy .worktrees path → normalized to .claude/worktrees" \
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/legacy-branch" "$OUT"
+[[ -d "$WT_DIR/legacy-branch" ]] && pass "legacy path → worktree dir created under .claude/worktrees" \
+  || fail "legacy path → worktree dir NOT created"
 
-# 4. Path NOT under .worktrees/ → deny
-OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":".claude/worktrees/foo"}}')
+# 4. Path NOT under a recognized worktrees dir → deny
+OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"path":"src/some/where"}}')
 assert_jq "bad path → deny decision" \
   '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
 
-# 5. Name without slashes → creates worktree, rewrites to path
+# 5. Name without slashes → creates worktree under .claude/worktrees, rewrites
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"my-feature"}}')
 assert_valid_json "simple name → stdout is valid JSON" "$OUT"
-assert_jq "simple name → updatedInput present" \
-  '.hookSpecificOutput.updatedInput.path' ".worktrees/my-feature" "$OUT"
+assert_jq "simple name → updatedInput is absolute .claude/worktrees path" \
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/my-feature" "$OUT"
 assert_jq "simple name → updatedInput has no name key" \
   '.hookSpecificOutput.updatedInput | has("name")' "false" "$OUT"
-[[ -d ".worktrees/my-feature" ]] && pass "simple name → worktree dir created" \
+[[ -d "$WT_DIR/my-feature" ]] && pass "simple name → worktree dir created" \
   || fail "simple name → worktree dir NOT created"
 
 # 5b. Idempotency: calling with the same name again reuses the existing worktree
 OUT2=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"my-feature"}}')
 assert_valid_json "simple name (repeat) → stdout is valid JSON" "$OUT2"
 assert_jq "simple name (repeat) → same path returned" \
-  '.hookSpecificOutput.updatedInput.path' ".worktrees/my-feature" "$OUT2"
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/my-feature" "$OUT2"
 
 # 6. Name WITH slashes (the bug): should sanitize, not silently fail
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{"name":"feature/pro-189-fix-test-regressions"}}')
@@ -125,8 +134,8 @@ assert_valid_json "slashed name → stdout is valid JSON" "$OUT"
 REWRITTEN_PATH=$(echo "$OUT" | jq -r '.hookSpecificOutput.updatedInput.path' 2>/dev/null || echo "")
 assert_jq "slashed name → updatedInput present" \
   '.hookSpecificOutput | has("updatedInput")' "true" "$OUT"
-# Path must not contain slashes below .worktrees/
-SUFFIX="${REWRITTEN_PATH#.worktrees/}"
+# Path must be flat under .claude/worktrees/ (no sub-slashes below the wt dir)
+SUFFIX="${REWRITTEN_PATH#$WT_DIR/}"
 if [[ -n "$SUFFIX" ]] && [[ "$SUFFIX" != */* ]]; then
   pass "slashed name → flat path (no sub-slashes)"
 else
@@ -136,17 +145,37 @@ fi
   && pass "slashed name → worktree dir created" \
   || fail "slashed name → worktree dir NOT created (path='$REWRITTEN_PATH')"
 
-# 7. Empty name → generates timestamped fallback, rewrites to path
+# 7. Empty name → generates timestamped fallback under .claude/worktrees/
 OUT=$(run_hook '{"tool_name":"EnterWorktree","tool_input":{}}')
 assert_valid_json "empty name → stdout is valid JSON" "$OUT"
 assert_jq "empty name → updatedInput present" \
   '.hookSpecificOutput | has("updatedInput")' "true" "$OUT"
 GEN_PATH=$(echo "$OUT" | jq -r '.hookSpecificOutput.updatedInput.path' 2>/dev/null || echo "")
-if [[ "$GEN_PATH" == .worktrees/wt-* ]]; then
-  pass "empty name → generated path under .worktrees/"
+if [[ "$GEN_PATH" == "$WT_DIR/wt-"* ]]; then
+  pass "empty name → generated path under .claude/worktrees/"
 else
   fail "empty name → unexpected path: '$GEN_PATH'"
 fi
+
+# 8. Legacy `.worktrees` alias symlink is created when nothing is there yet
+if [[ -L "$REPO_DIR/.worktrees" ]] \
+   && [[ "$(cd "$REPO_DIR" && readlink .worktrees)" == ".claude/worktrees" ]]; then
+  pass "legacy .worktrees alias → symlinked to .claude/worktrees"
+else
+  fail "legacy .worktrees alias → not a symlink to .claude/worktrees"
+fi
+
+# 9. Anchoring: invoking the hook with CWD inside a worktree still places the
+#    new worktree under the MAIN repo's .claude/worktrees (never nested).
+OUT=$(cd "$WT_DIR/my-feature" && echo '{"tool_name":"EnterWorktree","tool_input":{"name":"from-nested"}}' \
+  | bash "$REPO_DIR/$HOOK" 2>/dev/null || true)
+assert_jq "nested CWD → placed under main repo .claude/worktrees" \
+  '.hookSpecificOutput.updatedInput.path' "$WT_DIR/from-nested" "$OUT"
+[[ -d "$WT_DIR/from-nested" ]] && pass "nested CWD → created at main root (not nested)" \
+  || fail "nested CWD → worktree NOT created at main root"
+[[ ! -e "$WT_DIR/my-feature/.claude/worktrees/from-nested" ]] \
+  && pass "nested CWD → no nested worktree created" \
+  || fail "nested CWD → worktree was nested inside another worktree"
 
 # ── summary ──────────────────────────────────────────────────────────────────
 

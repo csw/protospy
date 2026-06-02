@@ -42,14 +42,16 @@ ticket**. Note this for step 4 — it determines whether a visual review runs.
 
 ## 2 — Create a worktree
 
-Call `EnterWorktree` with path `.worktrees/<branch-name>`.
+Call `EnterWorktree` with path `.claude/worktrees/<branch-name>`.
 
 You do **not** need to pre-create the worktree, despite what the tool's own
 description implies about `path` requiring an existing worktree. A project
 `PreToolUse` hook (`scripts/hooks/enforce-worktree-path.sh`) creates it under
-`.worktrees/` first — on a branch named exactly `<branch-name>` so Linear's
+`.claude/worktrees/` first — on a branch named exactly `<branch-name>` so Linear's
 GitHub integration links the PR. Do not pass `name` and do not run
-`git worktree add` yourself; the hook owns placement and branch naming.
+`git worktree add` yourself; the hook owns placement and branch naming. (A legacy
+`.worktrees/<branch-name>` path is still accepted and normalized to the canonical
+location, but prefer `.claude/worktrees/`.)
 
 All implementation, quality checks, commits, and pushes happen inside this
 worktree.

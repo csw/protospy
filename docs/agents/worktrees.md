@@ -1,5 +1,45 @@
 # Worktree Claude config
 
+## Where worktrees live
+
+Worktrees are created under **`.claude/worktrees/`** at the project root — the
+directory the `EnterWorktree` tool manages. A **`.worktrees` → `.claude/worktrees`
+symlink** is kept as an alias so external tooling (editors, scripts) that expects
+the old `.worktrees/` path keeps working. The `enforce-worktree-path.sh` hook also
+accepts a legacy `.worktrees/<name>` path and normalizes it to the canonical
+location.
+
+**Why not `.worktrees/` directly?** The tool enforces that *managed* worktrees
+live under `.claude/worktrees/`. From the main checkout it will enter any path in
+`git worktree list`, but **switching from inside one worktree into another** (the
+nesting scenario) is rejected unless the target is a real directory under
+`.claude/worktrees/`. The tool also explicitly refuses a `.claude/worktrees`
+*symlink* ("the managed worktrees directory must not be a symlink"), so the
+inverse — real `.worktrees/` aliased by a `.claude/worktrees` symlink — is
+impossible. `.claude/worktrees/` as the real location is the only arrangement the
+tool accepts in every mode. See PRO-247.
+
+The hook anchors placement to the **main repo root** (via `git rev-parse
+--git-common-dir`), so a worktree is never nested inside another even when the
+current directory is already inside a worktree.
+
+### Migration / transition
+
+Worktrees created **before** this change remain under the real `.worktrees/`
+directory and continue to work; they drain in place. While any exist there, the
+`.worktrees` path stays a real directory (the alias symlink is created only when
+nothing is there yet, e.g. on a fresh clone). New worktrees go under
+`.claude/worktrees/`.
+
+**Residual limitation during the transition:** the hook is registered with a
+CWD-relative command, so inside a worktree it runs *that worktree's* checked-out
+copy. New worktrees carry a copy that re-execs the main repo's canonical hook, so
+they behave correctly; the pre-existing (draining) worktrees run their older copy
+and may reject a `.claude/worktrees/` switch. The normal flow avoids this by
+always entering from the main checkout (and `ExitWorktree`-ing back to it). If you
+hit a rejection switching directly between two old worktrees, `ExitWorktree` to
+main first.
+
 ## What gets symlinked
 
 When a new worktree is created (via `git worktree add` or the `EnterWorktree` tool),
@@ -65,4 +105,4 @@ If the `post-checkout` stage was not included when you originally ran
 `pre-commit install`, re-run the command above — it is safe to re-run.
 
 See the Worktrees section of the root `CLAUDE.md` for the path convention
-(`worktrees go in .worktrees/`).
+(worktrees go in `.claude/worktrees/`, aliased by a `.worktrees` symlink).

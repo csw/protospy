@@ -95,8 +95,11 @@ symlink_item "$main_claude/settings.local.json" "$worktree_claude/settings.local
 
 # CLAUDE.local.md at the root and in all subdirectories.
 # Found dynamically so new subdirs with local overrides are picked up
-# automatically. Excludes .git/ and .worktrees/ to avoid recursing into
-# other worktrees or git internals.
+# automatically. Excludes .git/ and the worktree storage dirs to avoid
+# recursing into other worktrees or git internals. Worktrees now live under
+# .claude/worktrees/ (with .worktrees as a legacy symlink alias); both are
+# excluded. find does not follow the .worktrees symlink, so excluding the real
+# .claude/worktrees/ path is what actually prevents descending into siblings.
 while IFS= read -r -d '' src; do
     rel="${src#$main_root/}"
     dst="$worktree_root/$rel"
@@ -105,6 +108,7 @@ while IFS= read -r -d '' src; do
 done < <(find "$main_root" -name "CLAUDE.local.md" \
     -not -path "$main_root/.git/*" \
     -not -path "$main_root/.worktrees/*" \
+    -not -path "$main_root/.claude/worktrees/*" \
     -print0)
 
 echo "Claude config setup complete." >&2

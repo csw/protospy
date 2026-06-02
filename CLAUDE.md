@@ -114,7 +114,9 @@ the reviews separately tuned (and `/review` upstream-maintained) while making th
 
 ## Worktrees
 
-Worktrees go in `.worktrees/` at the project root. Not `.claude/worktrees/`, not `ui/.worktrees/`, not anywhere else. Use `EnterWorktree` with path `.worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit.
+Worktrees go in `.claude/worktrees/` at the project root — the location the `EnterWorktree` tool manages. Use `EnterWorktree` with path `.claude/worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit. (A `.worktrees` symlink → `.claude/worktrees` is kept as an alias for external tooling, and a legacy `.worktrees/<branch-name>` path is still accepted and normalized; prefer the canonical `.claude/worktrees/` form.)
+
+Why `.claude/worktrees/` and not `.worktrees/`: the tool only lets you *switch* from one worktree into another when the target is a real directory under `.claude/worktrees/`, and it refuses a `.claude/worktrees` symlink. A `.worktrees/` location worked from the main checkout but broke worktree→worktree switching (and caused nested worktrees). See PRO-247.
 
 When a worktree is created, a `post-checkout` hook automatically symlinks non-version-controlled Claude config (skills, hooks, agents, `settings.local.json`, `CLAUDE.local.md`) from the main repo into the worktree. **Do not manually copy or recreate these files in a worktree.** See `docs/agents/worktrees.md` for details.
 
