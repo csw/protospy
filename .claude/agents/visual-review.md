@@ -51,6 +51,9 @@ Read the diff to identify which files changed:
 git diff main --name-only
 ```
 
+Diff output paths are repo-relative (e.g. `ui/src/components/ExchangeList.tsx`).
+Strip the `ui/` prefix when matching against the table below.
+
 Map changed files to components, scenes, widths, and rubric categories:
 
 | Changed files | Scenes to check | Widths | Rubric emphasis |
@@ -58,12 +61,15 @@ Map changed files to components, scenes, widths, and rubric categories:
 | `src/components/ExchangeList*` | all list-visible scenes (most of them); especially `many-rows`, `table-mode`, `compact-rows`, `compact-table` | all 3 | layout, typography, responsive |
 | `src/components/Inspector*`, `src/components/BodySplit*`, `src/components/HeadersSplit*` | scenes with `selectedId` (`selected`, `error-row`, `long-uri`, `long-status`, `long-error`, `dual-size`) | 1440 baseline + 1280 if layout-sensitive | layout, typography |
 | `src/components/TopBar*`, `src/components/FilterBar*`, `src/components/CommandPalette*` | `empty`, `selected`, `many-rows` (toolbar always visible) | all 3 | layout, spacing, responsive |
+| `src/components/ContextBar*`, `src/components/StatusBar*` | scenes with `selectedId` (ContextBar); `empty`, `loading`, `many-rows` (StatusBar) | all 3 | layout, spacing, responsive |
+| `src/components/StreamView*`, `src/components/JsonViewer*`, `src/components/TimingView*` | scenes with `selectedId` and relevant body/tab content | 1440 baseline | layout, typography |
 | `src/theme/tailwind.css`, `src/theme/applyTheme*` | all scenes (global tokens) | all 3 | colour, contrast |
 | `src/lib/utils.ts` (formatters, matchers) | scenes that exercise the changed formatter (e.g. size formatting → `dual-size`; status formatting → `long-status`) | 1440 baseline | typography |
 | `src/components/ui/*` (shadcn primitives) | all scenes using the changed primitive | all 3 | component consistency |
 | `src/body/*`, `src/hooks/useDecodeBody*` | `selected`, `dual-size` | 1440 baseline | layout |
 | `src/state/*` | all scenes (store affects everything) | 1440 baseline | — (focus on render correctness) |
 | `src/api/*` | `empty`, `loading` | 1440 baseline | — (connection states) |
+| any other `src/components/*` | scenes most likely to render the component; when uncertain, use `selected` + `empty` | 1440 baseline | layout, component consistency |
 
 **Width rules:**
 - Changes to layout, responsive, or split-pane code → all 3 widths
