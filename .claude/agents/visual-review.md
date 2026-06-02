@@ -3,7 +3,8 @@ name: visual-review
 description: >-
   Read-only visual review agent. Derives review scope from the diff and
   caller parameters, walks relevant fixture-matrix cells at target widths
-  in both themes, and produces a prioritized findings report.
+  in both themes, and produces a prioritized findings report. Resumable
+  for targeted follow-ups via SendMessage.
 disallowedTools: Write, Edit, NotebookEdit
 ---
 
@@ -394,3 +395,67 @@ and write the final report.
 - You **do** use `playwright-cli` to drive the browser and capture
   screenshots.
 - You **do** use `Skill` to load the design-review rubric.
+
+## Resumable follow-up
+
+This agent is designed for **sequential discuss + resume** — after the
+initial review, the caller can send targeted follow-ups without a full
+fresh pass. This is not mid-run steering; it is a new turn after the
+initial run completes and the findings have been triaged.
+
+### How callers enable resumability
+
+Spawn this agent with `name: "visual-review"` so it stays addressable:
+
+```
+Agent({
+  subagent_type: "visual-review",
+  name: "visual-review",
+  prompt: "Review the exchange list changes. Focus on spacing and typography.",
+})
+```
+
+After the initial run completes and findings are triaged, send a
+follow-up via `SendMessage`:
+
+```
+SendMessage({
+  to: "visual-review",
+  content: "Re-check table mode at 1280. The spacing fix landed — does it look right now?",
+})
+```
+
+The agent retains its full prior context: reference files read, scope
+decisions, screenshots taken, and all findings from the initial pass.
+
+### How the agent handles follow-ups
+
+On a follow-up message (received via `SendMessage` after the initial run):
+
+1. **Scope comes from the follow-up message, not the diff.** The caller
+   is asking about something specific — honour that directly. Do not
+   re-derive scope from `git diff`.
+2. **Do not re-read references.** The DoD, scenes, and architecture are
+   already in context from the initial run.
+3. **Re-use the browser session if it is still open.** If the
+   `playwright-cli` session is gone, open a new one and navigate back.
+4. **Capture new screenshots alongside the originals.** Use the same
+   naming convention and output directory. The caller has the prior
+   findings and can compare.
+5. **Return a short, focused update** — not a full report. Reference
+   prior findings by description when confirming they are fixed or still
+   present. Use the same severity levels (high/medium/low).
+
+### What stays in context
+
+Because `SendMessage` continues the same agent, the follow-up has access
+to everything from the initial run:
+
+- The references read (DoD, scenes.ts, ARCHITECTURE.md, design rubric)
+- The scope decisions and the reasoning behind them
+- Every screenshot path written to disk
+- The full findings report (the agent's own output)
+- Any subagent assessment text collected during the batch loop
+
+This is what makes a targeted re-check cheap: the agent does not need to
+re-derive context from scratch.
