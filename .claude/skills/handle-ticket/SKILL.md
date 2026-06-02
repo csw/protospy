@@ -101,17 +101,22 @@ This step runs differently for UI tickets and non-UI tickets.
 
 #### 4a — Start the dev server
 
-Start the UI dev server using a **hashed port** derived from the worktree path,
-the same approach used by `ui/playwright.config.ts` to avoid collisions between
-concurrent worktree runs:
+Start the UI dev server on a port that **won't collide** with the Playwright
+test suite's preview server (which runs during the pre-commit hook in step 5).
+The Playwright suite hashes the worktree path to pick its port; offset by 1
+so both can coexist:
 
 ```bash
-port=$((49152 + (16#$(echo -n "$(pwd)/ui/" | shasum -a 256 | cut -c1-4) % 16383)))
+pw_port=$((49152 + (16#$(echo -n "$(pwd)/ui/" | shasum -a 256 | cut -c1-4) % 16383)))
+port=$((pw_port + 1))
 cd ui && pnpm dev --port "$port" &
 ```
 
 Wait for it to be ready (check that `http://localhost:$port/` responds). The
 visual-review subagent needs a running app to screenshot the fixture matrix.
+
+The dev server stays alive through step 9 so the visual-review agent can be
+resumed for targeted follow-ups. It is cleaned up in step 10.
 
 #### 4b — Determine review scope
 
@@ -136,7 +141,9 @@ scope.
 
 #### 4c — Spawn the visual-review subagent
 
-Spawn a subagent with `subagent_type: "visual-review"`. Include in the prompt:
+Spawn a subagent with `subagent_type: "visual-review"` and `name:
+"visual-review"` (so it can be resumed for targeted follow-ups in step 9
+via `SendMessage`). Include in the prompt:
 
 - The ticket ID (`$ticket`)
 - The dev server URL (e.g. `http://localhost:5174/`)
@@ -159,11 +166,7 @@ it in steps 8 and 9. If the subagent fails or returns an empty report (e.g.
 dev server not responding, playwright-cli issues, no scenes found), note the
 failure and continue to step 5 — the code review in step 7 still runs.
 
-#### 4d — Stop the dev server
-
-Kill the background dev server process before proceeding.
-
-#### 4e — Handle `$check`
+#### 4d — Handle `$check`
 
 **If `$check` is set**: present the screenshots from the visual review to the
 user. The screenshots are at
@@ -301,6 +304,17 @@ Present this analysis clearly. Then invite the user to discuss: which findings
 to act on, which to push back on, what to do next. Continue the conversation
 as long as the user wants.
 
+### Visual-review follow-up
+
+If a `visual-review` agent was spawned in step 4c, it is still addressable
+via `SendMessage(to: "visual-review", ...)`. The dev server from step 4a is
+still running, so the agent can screenshot immediately. The user can request
+a targeted re-check — e.g. "re-check table mode at 1280" — and you resume
+the existing agent instead of spawning a fresh one. The agent retains its
+prior context (references, scope, screenshots, findings) so the follow-up
+is scoped and cheap. See the "Resumable follow-up" section in the
+`visual-review` agent definition for details.
+
 ---
 
 ## 10 — Address findings and close out
@@ -309,5 +323,7 @@ Make any changes the user wants to address from the review. You are still in
 the worktree, so changes go directly on the branch. Commit and push each
 round of fixes; the open PR picks them up automatically.
 
-When the user is satisfied and there is nothing left to act on, call
-`ExitWorktree` to return to the main checkout.
+When the user is satisfied and there is nothing left to act on:
+
+1. **Kill the dev server** if one is still running from step 4a.
+2. Call `ExitWorktree` to return to the main checkout.
