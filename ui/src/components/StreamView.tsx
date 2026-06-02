@@ -32,7 +32,7 @@ export function StreamView({ exchange }: Props) {
           className="flex flex-col flex-1 overflow-auto"
           onScroll={handleScroll}
         >
-          <EventsView events={events} />
+          <EventsView events={events} scrollRef={scrollRef} />
         </div>
         {!isFollowing && !atEnd && (
           <button

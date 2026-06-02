@@ -126,7 +126,7 @@ export function ChatStreamView({ exchange }: Props) {
           onScroll={handleScroll}
         >
           {mode === "events" ? (
-            <EventsView events={events} />
+            <EventsView events={events} scrollRef={scrollRef} />
           ) : (
             <TranscriptView events={events} atEnd={atEnd} />
           )}
