@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { screen, fireEvent, act } from "@testing-library/react";
+import { render } from "@ui/test/render";
 import { StreamView } from "@ui/components/StreamView";
 import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
 import type { Exchange } from "@ui/state/reducer";

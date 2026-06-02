@@ -9,12 +9,7 @@ import {
   traceColor,
 } from "@ui/lib/utils";
 import { MethodBadge } from "./ui/MethodBadge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
+import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 interface Props {
   exchange: Exchange;
@@ -86,154 +81,156 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
   }
 
   return (
-    <TooltipProvider>
-      <div
-        className={`flex items-center gap-2 px-3 ${height} bg-bg-pane border-b border-border shrink-0 overflow-hidden`}
-      >
-        {/* Prev/Next navigation */}
-        <div className="flex items-center gap-0.5 shrink-0">
+    <div
+      className={`flex items-center gap-2 px-3 ${height} bg-bg-pane border-b border-border shrink-0 overflow-hidden`}
+    >
+      {/* Prev/Next navigation */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <SimpleTooltip content="Previous exchange">
           <button
             onClick={() => prevId != null && setSelectedId(prevId)}
             disabled={prevId == null}
             className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
             aria-label="Previous exchange"
-            title="Previous exchange"
           >
             <ChevronLeft size={16} />
           </button>
+        </SimpleTooltip>
+        <SimpleTooltip content="Next exchange">
           <button
             onClick={() => nextId != null && setSelectedId(nextId)}
             disabled={nextId == null}
             className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
             aria-label="Next exchange"
-            title="Next exchange"
           >
             <ChevronRight size={16} />
           </button>
-        </div>
+        </SimpleTooltip>
+      </div>
 
-        {/* Method badge */}
-        <MethodBadge method={method} size="md" />
+      {/* Method badge */}
+      <MethodBadge method={method} size="md" />
 
-        {/* Path + query params */}
-        <div className="flex items-center gap-0 font-family-mono text-ctx-path flex-1 overflow-hidden min-w-0">
-          <span className="text-ink truncate shrink-0 max-w-[40%]">
-            {pathOnly}
+      {/* Path + query params */}
+      <div className="flex items-center gap-0 font-family-mono text-ctx-path flex-1 overflow-hidden min-w-0">
+        <SimpleTooltip content={uri} side="bottom">
+          <span className="flex items-center gap-0 overflow-hidden min-w-0">
+            <span className="text-ink truncate shrink-0 max-w-[40%]">
+              {pathOnly}
+            </span>
+            {queryParams.length > 0 && (
+              <>
+                <span className="text-dim shrink-0">?</span>
+                <span className="flex items-center gap-0 overflow-hidden truncate">
+                  {queryParams.map(({ key, value }, i) => (
+                    <span key={i} className="shrink-0">
+                      {i > 0 && <span className="text-dim">&amp;</span>}
+                      <span className="text-accent-ink">{key}</span>
+                      <span className="text-dim">=</span>
+                      <span className="text-ink-2">{value}</span>
+                    </span>
+                  ))}
+                </span>
+              </>
+            )}
           </span>
-          {queryParams.length > 0 && (
-            <>
-              <span className="text-dim shrink-0">?</span>
-              <span className="flex items-center gap-0 overflow-hidden truncate">
-                {queryParams.map(({ key, value }, i) => (
-                  <span key={i} className="shrink-0">
-                    {i > 0 && <span className="text-dim">&amp;</span>}
-                    <span className="text-accent-ink">{key}</span>
-                    <span className="text-dim">=</span>
-                    <span className="text-ink-2">{value}</span>
-                  </span>
-                ))}
-              </span>
-            </>
-          )}
-          {/* Next matching button */}
-          {nextMatchingId != null && (
+        </SimpleTooltip>
+        {/* Next matching button */}
+        {nextMatchingId != null && (
+          <SimpleTooltip content="Next exchange with same method + path">
             <button
               onClick={() => setSelectedId(nextMatchingId)}
               className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer shrink-0 ml-1"
               aria-label="Next matching exchange"
-              title="Next exchange with same method + path"
             >
               <ChevronRight size={14} />
             </button>
-          )}
-        </div>
+          </SimpleTooltip>
+        )}
+      </div>
 
-        {/* Status display */}
-        {hasStatus && exchange.status != null && (
-          <span
-            className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
-          >
-            {exchange.status}
-          </span>
-        )}
-        {!hasStatus && !hasError && (
-          <span className="flex items-center gap-1.5 shrink-0 text-amber font-family-mono text-ui-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />
-            pending
-          </span>
-        )}
-        {!hasStatus && hasError && (
-          <span className="font-family-mono text-ui-sm font-semibold text-red shrink-0">
-            NET ERR
-          </span>
-        )}
+      {/* Status display */}
+      {hasStatus && exchange.status != null && (
+        <span
+          className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
+        >
+          {exchange.status}
+        </span>
+      )}
+      {!hasStatus && !hasError && (
+        <span className="flex items-center gap-1.5 shrink-0 text-amber font-family-mono text-ui-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />
+          pending
+        </span>
+      )}
+      {!hasStatus && hasError && (
+        <span className="font-family-mono text-ui-sm font-semibold text-red shrink-0">
+          NET ERR
+        </span>
+      )}
 
-        {/* Elapsed pill */}
-        {exchange.elapsedMs != null && (
-          <span className="font-family-mono text-xs bg-bg-sub border border-border rounded-full px-2 h-5 flex items-center shrink-0">
-            {exchange.elapsedMs}ms
-          </span>
-        )}
+      {/* Elapsed pill */}
+      {exchange.elapsedMs != null && (
+        <span className="font-family-mono text-xs bg-bg-sub border border-border rounded-full px-2 h-5 flex items-center shrink-0">
+          {exchange.elapsedMs}ms
+        </span>
+      )}
 
-        {/* Trace pill */}
-        {traceId != null && (
-          <div
-            className="flex items-center gap-1 border border-border rounded-full px-2 h-5 shrink-0 cursor-pointer"
-            style={{ borderColor: traceColor(traceId) }}
-            onClick={() => setTraceFilter(traceId)}
-            title="Filter by trace"
-          >
-            {/* Color swatch */}
-            <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: traceColor(traceId) }}
-            />
-            {/* Trace ID short */}
-            <span className="font-family-mono text-xs text-ink-2">
-              {shortTrace}
-            </span>
-            {/* Copy trace ID */}
+      {/* Trace pill */}
+      {traceId != null && (
+        <div
+          className="flex items-center gap-1 border border-border rounded-full px-2 h-5 shrink-0"
+          style={{ borderColor: traceColor(traceId) }}
+        >
+          {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only */}
+          <SimpleTooltip content="Filter by trace">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                copyTraceId();
-              }}
+              onClick={() => setTraceFilter(traceId)}
+              className="flex items-center gap-1 cursor-pointer"
+              aria-label="Filter by trace"
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: traceColor(traceId) }}
+              />
+              <span className="font-family-mono text-xs text-ink-2">
+                {shortTrace}
+              </span>
+            </button>
+          </SimpleTooltip>
+          {/* Copy trace ID */}
+          <SimpleTooltip content="Copy trace ID">
+            <button
+              onClick={copyTraceId}
               className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
               aria-label="Copy trace ID"
-              title="Copy trace ID"
             >
               <Copy size={12} />
             </button>
-            {/* Open in Jaeger (placeholder) */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
-                  aria-label="Open in Jaeger"
-                >
-                  <ExternalLink size={12} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Jaeger integration coming soon</TooltipContent>
-            </Tooltip>
-            {/* Next in trace */}
-            {nextInTraceId != null && (
+          </SimpleTooltip>
+          {/* Open in Jaeger (placeholder) */}
+          <SimpleTooltip content="Jaeger integration coming soon">
+            <button
+              className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
+              aria-label="Open in Jaeger"
+            >
+              <ExternalLink size={12} />
+            </button>
+          </SimpleTooltip>
+          {/* Next in trace */}
+          {nextInTraceId != null && (
+            <SimpleTooltip content="Next in trace">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedId(nextInTraceId);
-                }}
+                onClick={() => setSelectedId(nextInTraceId)}
                 className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
                 aria-label="Next exchange in trace"
-                title="Next in trace"
               >
                 <ChevronRight size={12} />
               </button>
-            )}
-          </div>
-        )}
-      </div>
-    </TooltipProvider>
+            </SimpleTooltip>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

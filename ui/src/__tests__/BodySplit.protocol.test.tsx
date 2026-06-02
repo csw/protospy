@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { render } from "@ui/test/render";
 import { BodySplit } from "@ui/components/BodySplit";
 import type { Exchange } from "@ui/state/reducer";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";

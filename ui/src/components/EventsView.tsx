@@ -6,17 +6,17 @@ import {
 } from "@tanstack/react-virtual";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn, eventTypeBadgeClass } from "@ui/lib/utils";
+import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 function EventDataSummary({ event }: { event: SSEEvent }) {
   const summary =
     event.data.length > 80 ? event.data.slice(0, 80) + "…" : event.data;
   return (
-    <span
-      className="font-family-mono text-xs text-dim truncate"
-      title={event.data}
-    >
-      {summary}
-    </span>
+    <SimpleTooltip content={event.data}>
+      <span className="font-family-mono text-xs text-dim truncate">
+        {summary}
+      </span>
+    </SimpleTooltip>
   );
 }
 

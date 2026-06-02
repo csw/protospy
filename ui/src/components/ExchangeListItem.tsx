@@ -8,6 +8,7 @@ import {
 } from "@ui/lib/utils";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { MethodBadge } from "./ui/MethodBadge";
+import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 /**
  * Inline size for the metadata row: shows `wire/decoded` when the body
@@ -122,17 +123,16 @@ export function ExchangeListItem({
       </div>
 
       {/* Row 2: URI path + query */}
-      <div
-        className="flex min-w-0 overflow-hidden font-family-mono text-sm"
-        title={uri}
-      >
-        <span className="text-ink-2 truncate">{path}</span>
-        {query && (
-          <span className="text-dim truncate shrink-0 max-w-[40%]">
-            {query}
-          </span>
-        )}
-      </div>
+      <SimpleTooltip content={uri} side="right">
+        <div className="flex min-w-0 overflow-hidden font-family-mono text-sm">
+          <span className="text-ink-2 truncate">{path}</span>
+          {query && (
+            <span className="text-dim truncate shrink-0 max-w-[40%]">
+              {query}
+            </span>
+          )}
+        </div>
+      </SimpleTooltip>
 
       {/* Row 3: elapsed + sizes.
           whitespace-nowrap prevents spans from wrapping at narrow widths (which would
@@ -145,15 +145,19 @@ export function ExchangeListItem({
             <span className="text-dim">·</span>
           </>
         )}
-        <span title={req.title}>
-          req {req.text}
-          {req.tag && <span className="text-dim"> ({req.tag})</span>}
-        </span>
+        <SimpleTooltip content={req.title}>
+          <span>
+            req {req.text}
+            {req.tag && <span className="text-dim"> ({req.tag})</span>}
+          </span>
+        </SimpleTooltip>
         <span className="text-dim">·</span>
-        <span title={res.title}>
-          res {res.text}
-          {res.tag && <span className="text-dim"> ({res.tag})</span>}
-        </span>
+        <SimpleTooltip content={res.title}>
+          <span>
+            res {res.text}
+            {res.tag && <span className="text-dim"> ({res.tag})</span>}
+          </span>
+        </SimpleTooltip>
       </div>
     </button>
   );
