@@ -9,43 +9,54 @@ export interface SSEEvent {
   index: number; // sequential index (0-based)
 }
 
+/**
+ * Parse a single SSE block (text between blank-line delimiters) into an
+ * SSEEvent. Returns null if the block has no data lines (e.g. comment-only).
+ */
+export function parseSSEBlock(block: string, index: number): SSEEvent | null {
+  const trimmed = block.trim();
+  if (!trimmed) return null;
+
+  let type = "message";
+  const dataLines: string[] = [];
+  let id: string | undefined;
+
+  for (const line of trimmed.split("\n")) {
+    if (line.startsWith(":")) continue; // comment
+    const colonIdx = line.indexOf(":");
+    if (colonIdx === -1) continue;
+    const field = line.slice(0, colonIdx).trim();
+    const value = line.slice(colonIdx + 1).trimStart();
+
+    if (field === "event") type = value;
+    else if (field === "data") dataLines.push(value);
+    else if (field === "id") id = value;
+  }
+
+  if (dataLines.length === 0) return null;
+
+  const data = dataLines.join("\n");
+  let parsedData: unknown;
+  try {
+    parsedData = JSON.parse(data);
+  } catch {
+    /* not JSON */
+  }
+
+  return { type, data, id, parsedData, index };
+}
+
 export function parseSSEBody(text: string): SSEEvent[] {
   const events: SSEEvent[] = [];
   const blocks = text.split(/\n\n+/);
   let index = 0;
 
   for (const block of blocks) {
-    const trimmed = block.trim();
-    if (!trimmed) continue;
-
-    let type = "message";
-    const dataLines: string[] = [];
-    let id: string | undefined;
-
-    for (const line of trimmed.split("\n")) {
-      if (line.startsWith(":")) continue; // comment
-      const colonIdx = line.indexOf(":");
-      if (colonIdx === -1) continue;
-      const field = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trimStart();
-
-      if (field === "event") type = value;
-      else if (field === "data") dataLines.push(value);
-      else if (field === "id") id = value;
+    const event = parseSSEBlock(block, index);
+    if (event != null) {
+      events.push(event);
+      index++;
     }
-
-    if (dataLines.length === 0) continue;
-
-    const data = dataLines.join("\n");
-    let parsedData: unknown;
-    try {
-      parsedData = JSON.parse(data);
-    } catch {
-      /* not JSON */
-    }
-
-    events.push({ type, data, id, parsedData, index });
-    index++;
   }
 
   return events;

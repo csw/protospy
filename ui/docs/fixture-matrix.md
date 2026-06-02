@@ -38,13 +38,16 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 
 ### State axis
 
-| Scene id    | Cell            | Notes                                                                   |
-| ----------- | --------------- | ----------------------------------------------------------------------- |
-| `empty`     | Empty list      | "No requests yet" empty state; status bar shows `connected`.            |
-| `loading`   | Loading         | No exchanges, connection `connecting` (amber pulse).                    |
-| `error-row` | Error row (ERR) | Upstream failure → red `ERR` badge; selected so the inspector shows it. |
-| `selected`  | Selected        | Populated list, one row selected; inspector populated.                  |
-| `hover`     | Row hover       | Populated list; **hover a row** (CSS `:hover`, not store-injectable).   |
+| Scene id           | Cell                  | Notes                                                                                                 |
+| ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `empty`            | Empty list            | "No requests yet" empty state; status bar shows `connected`.                                          |
+| `loading`          | Loading               | No exchanges, connection `connecting` (amber pulse).                                                  |
+| `error-row`        | Error row (ERR)       | Upstream failure → red `ERR` badge; selected so the inspector shows it.                               |
+| `selected`         | Selected              | Populated list, one row selected; inspector populated.                                                |
+| `hover`            | Row hover             | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                 |
+| `stream-complete`  | SSE stream (complete) | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.               |
+| `stream-live`      | SSE stream (live)     | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.           |
+| `stream-anthropic` | Anthropic SSE stream  | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`. |
 
 ### Data-size axis
 

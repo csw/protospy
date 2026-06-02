@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BodySplit } from "@ui/components/BodySplit";
 import type { Exchange } from "@ui/state/reducer";
+import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
 function makeSSEExchange(): Exchange {
   const sseText =
@@ -12,10 +13,11 @@ function makeSSEExchange(): Exchange {
     method: "POST",
     uri: "/v1/messages",
     responseBody: {
-      chunks: [{ text: sseText }],
+      chunks: [],
       atEnd: true,
       wireBytes: sseText.length,
       contentType: "text/event-stream",
+      sseState: feedChunk(createSSEStreamState(), sseText),
     },
   };
 }

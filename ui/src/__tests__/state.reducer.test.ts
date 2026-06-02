@@ -1007,3 +1007,210 @@ describe("Error event after a completed exchange", () => {
     expect(ex.responseBody?.wireBytes).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SSE stream support (incremental parsing via sseState)
+// ---------------------------------------------------------------------------
+
+const SSE_HEADERS: ProxyHeaders = [
+  { name: "Content-Type", value: "text/event-stream" },
+];
+
+describe("SSE stream support", () => {
+  it("initializes sseState on an SSE Response event with inline body", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: SSE_HEADERS,
+        elapsed_ms: 10,
+        body: {
+          type: "Data",
+          content: {
+            offset: 0,
+            length: 28,
+            payload: { text: "event: ping\ndata: hello\n\n" },
+          },
+          trailers: null,
+          at_end: false,
+          total_bytes: 28,
+        },
+      },
+    });
+
+    const body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState).toBeDefined();
+    expect(body.sseState!.events).toHaveLength(1);
+    expect(body.sseState!.events[0]).toMatchObject({
+      type: "ping",
+      data: "hello",
+      index: 0,
+    });
+    expect(body.sseState!.totalEventCount).toBe(1);
+    // Chunks stay empty for SSE bodies
+    expect(body.chunks).toEqual([]);
+    expect(body.contentType).toBe("text/event-stream");
+  });
+
+  it("initializes sseState on an SSE Response with NotRead body", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: SSE_HEADERS,
+        elapsed_ms: 10,
+        body: { type: "NotRead" },
+      },
+    });
+
+    const body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState).toBeDefined();
+    expect(body.sseState!.events).toHaveLength(0);
+    expect(body.chunks).toEqual([]);
+  });
+
+  it("feeds BodyData into sseState (not chunks) for SSE bodies", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    // SSE Response with NotRead
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: SSE_HEADERS,
+        elapsed_ms: 10,
+        body: { type: "NotRead" },
+      },
+    });
+
+    // First BodyData chunk
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "BodyData",
+        content: {
+          offset: 0,
+          length: 20,
+          payload: { text: "data: chunk-one\n\n" },
+        },
+        trailers: null,
+        at_end: false,
+        total_bytes: 20,
+      },
+    });
+
+    let body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState!.events).toHaveLength(1);
+    expect(body.sseState!.events[0].data).toBe("chunk-one");
+    expect(body.chunks).toEqual([]); // chunks still empty
+
+    // Second BodyData chunk
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "BodyData",
+        content: {
+          offset: 20,
+          length: 20,
+          payload: { text: "data: chunk-two\n\n" },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: 40,
+      },
+    });
+
+    body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState!.events).toHaveLength(2);
+    expect(body.sseState!.events[1].data).toBe("chunk-two");
+    expect(body.sseState!.events[1].index).toBe(1);
+    expect(body.sseState!.totalEventCount).toBe(2);
+    expect(body.atEnd).toBe(true);
+    expect(body.wireBytes).toBe(40);
+    expect(body.chunks).toEqual([]);
+  });
+
+  it("does not set sseState for non-SSE responses (regression)", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: CONTENT_TYPE_JSON,
+        elapsed_ms: 5,
+        body: {
+          type: "Data",
+          content: {
+            offset: 0,
+            length: 2,
+            payload: { text: "{}" },
+          },
+          trailers: null,
+          at_end: true,
+          total_bytes: 2,
+        },
+      },
+    });
+
+    const body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState).toBeUndefined();
+    expect(body.chunks).toEqual([{ text: "{}" }]);
+  });
+
+  it("non-SSE BodyData still accumulates chunks (regression)", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "200 OK",
+        version: "HTTP/1.1",
+        headers: CONTENT_TYPE_JSON,
+        elapsed_ms: 5,
+        body: { type: "NotRead" },
+      },
+    });
+
+    apply(exchanges, ids, {
+      exchange: BASE_META,
+      direction: "Response",
+      event: {
+        type: "BodyData",
+        content: {
+          offset: 0,
+          length: 4,
+          payload: { text: "data" },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: 4,
+      },
+    });
+
+    const body = exchanges.get(1)!.responseBody!;
+    expect(body.sseState).toBeUndefined();
+    expect(body.chunks).toEqual([{ text: "data" }]);
+    expect(body.atEnd).toBe(true);
+  });
+});

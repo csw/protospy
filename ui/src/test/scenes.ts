@@ -29,6 +29,7 @@
 
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { AppStore } from "@ui/state/store";
+import type { Protocol } from "@bindings/Protocol";
 import {
   GZIP_JSON_DECODED_BYTES,
   LONG_ERROR_MESSAGE,
@@ -38,8 +39,11 @@ import {
   makeGetRequest,
   makeLongUriRequest,
   makeManyExchanges,
+  makePostRequest,
   makeProxyError,
   makeResponse,
+  makeSSEBodyData,
+  makeSSEResponse,
 } from "./fixtures";
 
 type Msg = Record<string, unknown>;
@@ -82,6 +86,8 @@ export interface SceneConfig {
     direction: "request" | "response";
     bytes: number;
   }>;
+  /** Protocol for SSE rendering (e.g. "Anthropic" for ChatStreamView). */
+  protocol?: Protocol | null;
 }
 
 export interface Scene {
@@ -417,6 +423,70 @@ export const SCENES: Scene[] = [
     messages: tracedTraffic(),
     config: { traceFilter: TRACE_A, selectedId: 1 },
   },
+
+  // ---- state axis: SSE stream scenes --------------------------------------
+  // These exercise the incremental SSE pipeline end-to-end: the reducer
+  // parses events into `sseState`, and the stream views consume them directly.
+  {
+    id: "stream-complete",
+    title: "SSE stream (complete)",
+    axis: "state",
+    description:
+      "A generic SSE stream with several events, completed (atEnd: true). StreamView renders the event list with a gray 'complete' indicator.",
+    messages: [
+      makePostRequest(1, "/api/stream"),
+      makeSSEResponse(
+        1,
+        'event: ping\ndata: keepalive\n\nevent: message\ndata: hello world\n\nevent: update\ndata: {"count":42}\n\n',
+      ),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "stream-live",
+    title: "SSE stream (live)",
+    axis: "state",
+    description:
+      "A generic SSE stream still receiving events (atEnd: false). StreamView shows a green pulsing 'live' indicator. Initial response delivers two events; a BodyData event adds a third.",
+    messages: [
+      makePostRequest(1, "/api/stream"),
+      makeSSEResponse(
+        1,
+        "event: ping\ndata: keepalive\n\nevent: message\ndata: first event\n\n",
+        undefined,
+        false,
+      ),
+      makeSSEBodyData(
+        1,
+        "event: update\ndata: streaming chunk\n\n",
+        false,
+        120,
+      ),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "stream-anthropic",
+    title: "Anthropic SSE stream",
+    axis: "state",
+    description:
+      "An Anthropic-protocol SSE stream (complete). ChatStreamView renders transcript/events toggle. Protocol set to 'Anthropic'.",
+    messages: [
+      makePostRequest(1, "/v1/messages"),
+      makeSSEResponse(
+        1,
+        [
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","model":"claude-3-5-sonnet-20241022","role":"assistant","content":[],"stop_reason":null,"usage":{"input_tokens":25,"output_tokens":1}}}\n\n',
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello! How can I help you today?"}}\n\n',
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}\n\n',
+          'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ].join(""),
+      ),
+    ],
+    config: { selectedId: 1, protocol: "Anthropic" },
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */
@@ -461,6 +531,7 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
   }
 
   const c = scene.config;
+  if (c?.protocol !== undefined) s.setProtocol(c.protocol);
   if (c?.listMode !== undefined) s.setListMode(c.listMode);
   if (c?.density !== undefined) s.setDensity(c.density);
   if (c?.listWidth !== undefined) {
