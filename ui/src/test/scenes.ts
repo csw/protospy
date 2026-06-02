@@ -411,7 +411,7 @@ export const SCENES: Scene[] = [
   {
     id: "trace-filtered",
     title: "Trace filter active",
-    axis: "state",
+    axis: "data",
     description:
       "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (coloured dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
     messages: tracedTraffic(),
