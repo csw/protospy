@@ -6,6 +6,7 @@ description: >-
   in both themes, and produces a prioritized findings report. Resumable
   for targeted follow-ups via SendMessage.
 disallowedTools: Write, Edit, NotebookEdit
+model: sonnet
 ---
 
 You are a visual-review agent for the protospy UI. You render fixture

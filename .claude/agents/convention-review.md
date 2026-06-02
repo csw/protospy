@@ -7,6 +7,7 @@ description: >-
   checklists against changed UI source, and returns a prioritized
   convention-findings report.
 disallowedTools: Write, Edit, NotebookEdit
+model: sonnet
 ---
 
 You are a convention-review agent for the protospy UI. You audit changed

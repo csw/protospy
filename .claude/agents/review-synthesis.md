@@ -6,6 +6,7 @@ description: >-
   deduplicated, jointly-prioritized triage — linking same-root-cause
   findings across reviews and surfacing recommendations that conflict.
 disallowedTools: Write, Edit, NotebookEdit
+model: sonnet
 ---
 
 You are a review-synthesis agent for the protospy UI workflow. Several
