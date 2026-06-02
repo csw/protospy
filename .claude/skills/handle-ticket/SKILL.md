@@ -1,6 +1,6 @@
 ---
 name: handle-ticket
-description: Handle a Linear ticket end-to-end — fetch details, implement in a worktree, push a PR, get a subagent code review, write it to Obsidian, evaluate, and discuss
+description: Handle a Linear ticket end-to-end — fetch details, implement in a worktree, push a PR, get code + visual reviews, write them to Obsidian, evaluate, and discuss
 argument-hint: PRO-NNN [check]
 arguments: [ticket, check]
 disable-model-invocation: true
@@ -27,6 +27,15 @@ it defines the scope of work.
 truncate the slug on a word boundary — keep the full `<type>/pro-NNN-` prefix
 intact (Linear needs it for the GitHub integration). See `docs/agents/linear.md`
 for the exact rule.
+
+**UI ticket detection**: check whether this ticket carries the `UI` label:
+
+```bash
+linear issue list --label UI --all-states --limit 0 | grep -q "$ticket"
+```
+
+If grep succeeds (exit 0), this is a **UI ticket**. Note this for step 4 — it
+determines whether a visual review runs.
 
 ---
 
@@ -83,10 +92,91 @@ manually before proceeding (start a dev server, run the binary, etc.).
 
 ---
 
-## 4 — Dev server checkpoint
+## 4 — Visual review / dev server checkpoint
+
+This step runs differently for UI tickets and non-UI tickets.
+
+### UI tickets
+
+#### 4a — Start the dev server
+
+Start the UI dev server on a non-default port:
+
+```bash
+cd ui && pnpm dev --port 5174 &
+```
+
+Wait for it to be ready (check that `http://localhost:5174/` responds). The
+visual-review subagent needs a running app to screenshot the fixture matrix.
+
+#### 4b — Determine review scope
+
+Run `git diff main --name-only` and inspect the changed paths. Check whether
+the diff touches **shared infrastructure** — any of:
+
+- `ui/src/theme/tailwind.css` or `ui/src/theme/applyTheme*`
+- `ui/src/components/ui/*` (shadcn primitives)
+- Global layout components (`ui/src/App.tsx`, `ui/src/components/Layout*`)
+- CSS custom-property definitions or design tokens
+
+If any shared infrastructure changed, or the diff is broad enough that
+file-to-component mapping covers most of the app, or the ticket description
+or labels indicate a systemic change: request a **full sweep**.
+
+Otherwise: let the subagent derive scope from the diff (it does this
+automatically via its scope table in the agent definition).
+
+Also extract **caller hints** from the ticket — component names, area keywords,
+or explicit scope notes in the description. These supplement the diff-derived
+scope.
+
+#### 4c — Spawn the visual-review subagent
+
+Spawn a subagent with `subagent_type: "visual-review"`. Include in the prompt:
+
+- The ticket ID (`$ticket`)
+- The dev server URL (e.g. `http://localhost:5174/`)
+- Whether to run a full sweep (if shared infrastructure was touched)
+- Any caller hints extracted from the ticket description
+- The branch name (so it can diff against main)
+
+Example prompt shape:
+
+> Run a visual review for $ticket. The dev server is at http://localhost:5174/.
+>
+> [If full sweep]: The diff touches shared infrastructure (<list files>).
+> Run a full sweep — all scenes, all widths, full rubric.
+>
+> [If scoped]: Scope the review from the diff. Additional context from the
+> ticket: <caller hints if any>.
+
+Wait for the subagent to finish. **Save its findings report** — you will need
+it in steps 8 and 9.
+
+#### 4d — Stop the dev server
+
+Kill the background dev server process before proceeding.
+
+#### 4e — Handle `$check`
+
+**If `$check` is set**: present the screenshots from the visual review to the
+user. The screenshots are at
+`~/obsidian/protospy/Claude/screenshots/visual-review/`. Read a representative
+subset of the screenshot images (the most relevant scenes for the change) and
+show them to the user. State-store-injected conditions may not be reproducible
+interactively, so screenshots from the fixture matrix are better than a live
+URL for UI tickets. Wait for the user to confirm they are satisfied before
+continuing.
+
+**If `$check` is empty**: continue to step 5.
+
+### Non-UI tickets
 
 If `$check` is non-empty (the user passed a second argument): invoke the `/run`
-skill to start the UI or flix dev server (whichever you're working on) automatically. Do not use the default port; specify a different one and tell the user the actual URL. Wait for the user to confirm they are satisfied before continuing.
+skill to start the UI or flix dev server (whichever you're working on)
+automatically. Do not use the default port; specify a different one and tell the
+user the actual URL. Wait for the user to confirm they are satisfied before
+continuing.
 
 If `$check` is empty: skip this step entirely and continue to step 5.
 
@@ -107,13 +197,15 @@ Push the branch.
 
 ## 6 — Create the PR
 
-Create the PR. Include the ticket ID in parentheses at the end of the commit message and PR title: `fix(ui): bust virtualizer cache on mode change (PRO-126)`. This links the commit to the issue in Linear.
+Create the PR. Include the ticket ID in parentheses at the end of the commit
+message and PR title: `fix(ui): bust virtualizer cache on mode change
+(PRO-126)`. This links the commit to the issue in Linear.
 
 Note the PR number.
 
 ---
 
-## 7 — Spawn a review subagent
+## 7 — Spawn a code review subagent
 
 Spawn a general-purpose subagent. Give it this exact prompt (substitute the
 actual PR number):
@@ -124,9 +216,11 @@ Wait for the subagent to finish. Capture its complete output.
 
 ---
 
-## 8 — Write the review to Obsidian
+## 8 — Write reviews to Obsidian
 
-Write the subagent's review output **verbatim** to:
+### Code review (always)
+
+Write the code review subagent's output **verbatim** to:
 
 ```
 ~/obsidian/protospy/Claude/Reviews/review-$ticket-pr-<PR-number>.md
@@ -139,14 +233,58 @@ Prepend a small YAML front matter block:
 ticket: $ticket
 pr: <PR-number>
 date: <today's date>
+type: code-review
 ---
 ```
+
+### Visual review (UI tickets only)
+
+If this is a UI ticket, also write the visual-review findings (saved from
+step 4c) to:
+
+```
+~/obsidian/protospy/Claude/Reviews/review-design-$ticket-pr-<PR-number>.md
+```
+
+Prepend front matter:
+
+```yaml
+---
+ticket: $ticket
+pr: <PR-number>
+date: <today's date>
+type: visual-review
+---
+```
+
+The visual-review report already includes its own YAML front matter (scope,
+scenes checked, widths, themes). Merge or nest rather than duplicating — use the
+subagent's front matter as the primary block and add `pr` to it if missing.
 
 ---
 
 ## 9 — Evaluate and discuss
 
-Analyze the review:
+### UI tickets — combined triage
+
+Merge the code-review and visual-review findings into a single triage. For each
+finding from either review:
+
+- Is it **blocking** (correctness bugs, spec violations, security issues,
+  high-severity visual defects)?
+- Is it **advisory** (style nits, minor improvements, low-severity visual
+  polish)?
+- Would you address it immediately or defer to a follow-up?
+- Does it appear low-signal, redundant across the two reviews, or likely
+  incorrect?
+
+Present the merged analysis in a clear structure — group by blocking vs.
+advisory, noting which review surfaced each finding. Then invite the user to
+discuss.
+
+### Non-UI tickets
+
+Analyze the code review:
 - Which findings are **blocking** (correctness, spec violations, security)?
 - Which are **advisory** (style, minor improvements, nice-to-haves)?
 - Which would you address immediately vs. defer to a follow-up?
