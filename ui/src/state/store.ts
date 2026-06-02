@@ -18,11 +18,7 @@ interface PersistedPrefs {
   order: "newest" | "oldest";
   listMode: "rows" | "table";
   traceGroupOn: boolean;
-  /**
-   * Three-state theme preference: `'light'`, `'dark'`, or `'system'`
-   * (follow OS). Persisted via Zustand `persist`; migrated from the
-   * old `darkMode: boolean` at version 1.
-   */
+  /** Three-state theme preference: `'light'`, `'dark'`, or `'system'` (follow OS). */
   theme: ThemePreference;
 }
 
@@ -160,26 +156,7 @@ export const useStore = create<StoreState>()(
       }),
       {
         name: "protospy-ui-prefs",
-        // Version 1: migrated darkMode: boolean -> theme: ThemePreference.
         version: 1,
-        migrate: (persisted, version) => {
-          // persisted is `unknown` from Zustand — migration is inherently
-          // untyped since we're transforming an old schema into a new one.
-          const state = persisted as PersistedPrefs & { darkMode?: boolean };
-          if (version === 0) {
-            // Migrate old boolean darkMode -> explicit theme choice.
-            // Existing users keep their explicit light/dark; only fresh
-            // installs get DEFAULT_THEME (usually 'system').
-            if (state.darkMode === false) {
-              state.theme = "light";
-            } else {
-              // darkMode was true (or missing) -> preserve as explicit dark
-              state.theme = "dark";
-            }
-            delete state.darkMode;
-          }
-          return state;
-        },
         partialize: (state): PersistedPrefs => ({
           listWidth: state.listWidth,
           density: state.density,

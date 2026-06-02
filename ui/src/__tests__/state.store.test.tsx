@@ -297,7 +297,7 @@ describe("state/store", () => {
       expect(stored.state).not.toHaveProperty("exchanges");
     });
 
-    it("rehydrates v1 persisted preferences from localStorage", async () => {
+    it("rehydrates persisted preferences from localStorage", async () => {
       useStore.setState(useStore.getInitialState(), true);
 
       localStorage.setItem(
@@ -330,50 +330,6 @@ describe("state/store", () => {
       expect(state.listWidth.table).toBe(999);
       expect(state.traceGroupOn).toBe(true);
       expect(state.theme).toBe("dark");
-    });
-
-    it("migrates v0 darkMode: true to theme: 'dark'", async () => {
-      useStore.setState(useStore.getInitialState(), true);
-
-      localStorage.setItem(
-        "protospy-ui-prefs",
-        JSON.stringify({
-          state: { darkMode: true, density: "regular" },
-          version: 0,
-        }),
-      );
-
-      await new Promise<void>((resolve) => {
-        const unsub = useStore.persist.onFinishHydration(() => {
-          unsub();
-          resolve();
-        });
-        useStore.persist.rehydrate();
-      });
-
-      expect(useStore.getState().theme).toBe("dark");
-    });
-
-    it("migrates v0 darkMode: false to theme: 'light'", async () => {
-      useStore.setState(useStore.getInitialState(), true);
-
-      localStorage.setItem(
-        "protospy-ui-prefs",
-        JSON.stringify({
-          state: { darkMode: false, density: "regular" },
-          version: 0,
-        }),
-      );
-
-      await new Promise<void>((resolve) => {
-        const unsub = useStore.persist.onFinishHydration(() => {
-          unsub();
-          resolve();
-        });
-        useStore.persist.rehydrate();
-      });
-
-      expect(useStore.getState().theme).toBe("light");
     });
   });
 });

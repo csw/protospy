@@ -68,23 +68,12 @@
           var raw = localStorage.getItem("protospy-ui-prefs");
           if (raw) {
             var parsed = JSON.parse(raw);
-            if (parsed.state) {
-              // v1 schema: three-state 'theme' field.
-              if (typeof parsed.state.theme === "string") {
-                document.documentElement.setAttribute(
-                  "data-theme",
-                  resolve(parsed.state.theme),
-                );
-                return;
-              }
-              // v0 schema: boolean 'darkMode' field (pre-migration).
-              if (typeof parsed.state.darkMode === "boolean") {
-                document.documentElement.setAttribute(
-                  "data-theme",
-                  parsed.state.darkMode ? "dark" : "light",
-                );
-                return;
-              }
+            if (parsed.state && typeof parsed.state.theme === "string") {
+              document.documentElement.setAttribute(
+                "data-theme",
+                resolve(parsed.state.theme),
+              );
+              return;
             }
           }
         } catch (e) {}
