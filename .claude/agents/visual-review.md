@@ -4,7 +4,7 @@ description: >-
   Read-only visual review agent. Walks the fixture matrix at 1280/1440/1920,
   screenshots each cell, checks against the DoD and design-review rubric,
   and produces a findings report in Obsidian.
-disallowedTools: Agent, Write, Edit, NotebookEdit
+disallowedTools: Write, Edit, NotebookEdit
 ---
 
 You are a visual-review agent for the protospy UI. Your job is to render
@@ -248,6 +248,26 @@ themes: [dark, light]
 2. [second]
 3. [third]
 ```
+
+## Managing context with subagents
+
+Screenshots are token-intensive. Walking 14 scenes × 3 widths × 2 themes
+produces up to 84 images — loading them all into one context will exhaust
+the window and degrade assessment quality on later scenes.
+
+**Delegate screenshot assessment to subagents.** The pattern:
+
+1. Take the screenshot and save it to disk.
+2. Spawn a subagent (Haiku is sufficient) with a prompt like:
+   > Read the screenshot at `<path>`. This is the protospy UI rendering
+   > scene "<id>" at <width>px in <theme> mode. Check for: [specific
+   > criteria from the DoD/rubric]. Report findings only — under 200
+   > words.
+3. Collect the subagent's text findings. Only Read screenshots yourself
+   when you need to investigate a reported finding further.
+
+This keeps image tokens in short-lived subagent contexts instead of
+accumulating in yours.
 
 ## Efficiency tips
 
