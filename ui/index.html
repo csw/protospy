@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,6 +10,22 @@
       href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@400;500;600;700;900&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Critical anti-flash styles — loaded synchronously before Vite's
+      CSS modules arrive (tailwind.css is imported via main.tsx, so it's
+      injected by JS). Only background-color and color-scheme are needed;
+      the full theme loads later. Values must match tailwind.css tokens.
+    -->
+    <style>
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        background-color: #0c0f14;
+      }
+      html:not([data-theme="dark"]) {
+        color-scheme: light;
+        background-color: #fbfbfc;
+      }
+    </style>
     <!--
       Theme bootstrap IIFE — runs before React to prevent a flash.
 

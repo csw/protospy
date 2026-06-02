@@ -96,6 +96,58 @@ test.describe("Theme preference", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Anti-flash mechanism
+// ---------------------------------------------------------------------------
+
+test.describe("Anti-flash", () => {
+  test("dark background is set before CSS modules load", async ({ page }) => {
+    // Persist dark theme so the bootstrap IIFE reads it on reload.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("dark");
+    });
+
+    // Block the main JS entry point — on reload, only the raw HTML
+    // (inline <style> + bootstrap IIFE) will execute. No CSS modules,
+    // no React, no store. This simulates the pre-CSS-load window where
+    // the flash would appear if the inline styles were missing.
+    await page.route("**/src/main.tsx", (route) => route.abort());
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const result = await page.evaluate(() => {
+      const bg = getComputedStyle(document.documentElement).backgroundColor;
+      const theme = document.documentElement.getAttribute("data-theme");
+      return { bg, theme };
+    });
+
+    expect(result.theme).toBe("dark");
+    // #0c0f14 → rgb(12, 15, 20) — must match --color-bg in tailwind.css
+    expect(result.bg).toBe("rgb(12, 15, 20)");
+  });
+
+  test("light background is set before CSS modules load", async ({ page }) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("light");
+    });
+
+    await page.route("**/src/main.tsx", (route) => route.abort());
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const result = await page.evaluate(() => {
+      const bg = getComputedStyle(document.documentElement).backgroundColor;
+      const theme = document.documentElement.getAttribute("data-theme");
+      return { bg, theme };
+    });
+
+    expect(result.theme).toBe("light");
+    // #fbfbfc → rgb(251, 251, 252) — must match --color-bg in tailwind.css
+    expect(result.bg).toBe("rgb(251, 251, 252)");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2. Status text colors
 // ---------------------------------------------------------------------------
 
