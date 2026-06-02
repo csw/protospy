@@ -78,22 +78,23 @@ test.describe("Layout and resize", () => {
 
     const clamped = await listPanel.boundingBox();
     expect(clamped).not.toBeNull();
-    // AppShell pins minSize=200 on the list Panel. Once the drag pushes
-    // past the minimum the width should sit at the clamp, not collapse.
-    // Use a generous lower bound (>= 100px) to absorb panel-library
-    // rounding without becoming trivially passing.
-    expect(clamped!.width).toBeGreaterThanOrEqual(100);
+    // AppShell pins minSize=LIST_MIN_WIDTH (200px) on the list Panel. Once the
+    // drag pushes past the minimum the width should sit at the clamp, not
+    // collapse. Allow a few px of panel-library rounding around 200.
+    expect(clamped!.width).toBeGreaterThanOrEqual(190);
+    expect(clamped!.width).toBeLessThanOrEqual(215);
     expect(clamped!.width).toBeLessThan(initial!.width);
   });
 
-  test("9.6 drag separator to the rightmost edge clamps the inspector panel", async ({
+  test("9.6 drag separator to the rightmost edge clamps both panes at their bounds", async ({
     page,
   }) => {
     const handle = page.getByRole("separator");
+    const listPanel = page.locator("[data-panel]").first();
     const inspectorPanel = page.locator("[data-panel]").last();
-    const initial = await inspectorPanel.boundingBox();
-    expect(initial).not.toBeNull();
-    expect(initial!.width).toBeGreaterThan(0);
+    const initialInspector = await inspectorPanel.boundingBox();
+    expect(initialInspector).not.toBeNull();
+    expect(initialInspector!.width).toBeGreaterThan(0);
 
     const handleBox = await handle.boundingBox();
     expect(handleBox).not.toBeNull();
@@ -102,18 +103,26 @@ test.describe("Layout and resize", () => {
 
     // Drag far to the right
     const viewport = page.viewportSize();
-    const farRight = (viewport?.width ?? 1280) + 200;
+    const viewportWidth = viewport?.width ?? 1280;
+    const farRight = viewportWidth + 200;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     await page.mouse.move(farRight, startY, { steps: 10 });
     await page.mouse.up();
 
-    const clamped = await inspectorPanel.boundingBox();
-    expect(clamped).not.toBeNull();
-    // The inspector Panel has no explicit minSize, so react-resizable-
-    // panels falls back to its built-in floor — pin the visible behavior:
-    // the panel shrinks but never reports a zero-width box.
-    expect(clamped!.width).toBeLessThan(initial!.width);
+    const clampedInspector = await inspectorPanel.boundingBox();
+    const clampedList = await listPanel.boundingBox();
+    expect(clampedInspector).not.toBeNull();
+    expect(clampedList).not.toBeNull();
+
+    // The list Panel pins maxSize=LIST_MAX_WIDTH ("65%"), so dragging the
+    // separator all the way right caps the list at ~65% of the group rather
+    // than letting it dominate the viewport.
+    expect(clampedList!.width).toBeLessThanOrEqual(viewportWidth * 0.65 + 10);
+    // The inspector Panel pins minSize=INSPECTOR_MIN_WIDTH (400px): even at the
+    // widest list it keeps a content floor and never collapses toward zero.
+    expect(clampedInspector!.width).toBeGreaterThanOrEqual(395);
+    expect(clampedInspector!.width).toBeLessThan(initialInspector!.width);
   });
 
   test("9.7 double-click separator resets list pane to default width", async ({

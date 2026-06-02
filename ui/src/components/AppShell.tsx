@@ -21,6 +21,32 @@ import { CommandPalette } from "./CommandPalette";
 /** Default list-pane widths (px) by mode — must match the store defaults. */
 export const DEFAULT_LIST_WIDTH = { rows: 340, table: 720 } as const;
 
+/**
+ * List/inspector pane size bounds passed to `react-resizable-panels`.
+ *
+ * These are the real guard against the too-narrow / too-wide failure modes —
+ * a visual review can flag clipping, but only the panel `minSize`/`maxSize`
+ * constraints actually prevent it (drag, double-click, and persisted-width
+ * restore all flow through them).
+ *
+ * - `LIST_MIN_WIDTH` (px): floor for the list pane so its rows/table columns
+ *   never clip.
+ * - `LIST_MAX_WIDTH` (% of the group): cap so the list can't be dragged so wide
+ *   it dominates the viewport and starves the inspector. A percentage (not px)
+ *   keeps the cap viewport-relative across the 1280/1440/1920 review widths.
+ * - `INSPECTOR_MIN_WIDTH` (px): floor for the inspector pane so its content
+ *   (headers split, bodies, timing) can't be collapsed to near-zero. This is
+ *   the guard called out in the PRO-234 review; without it the inspector Panel
+ *   fell back to the library's built-in floor.
+ *
+ * The two bounds are mutually consistent at the narrowest supported width
+ * (1280px): `LIST_MAX_WIDTH` (≈832px) leaves ≈447px for the inspector, above
+ * `INSPECTOR_MIN_WIDTH`.
+ */
+export const LIST_MIN_WIDTH = 200;
+export const LIST_MAX_WIDTH = "65%";
+export const INSPECTOR_MIN_WIDTH = 400;
+
 export function AppShell() {
   const applyEvent = useStore((s) => s.applyEvent);
   const setConnection = useStore((s) => s.setConnection);
@@ -109,7 +135,8 @@ export function AppShell() {
       <Group orientation="horizontal" className="flex-1 overflow-hidden">
         <Panel
           defaultSize={listWidth[listMode]}
-          minSize={200}
+          minSize={LIST_MIN_WIDTH}
+          maxSize={LIST_MAX_WIDTH}
           onResize={handleListPanelResize}
           panelRef={listPanelRef}
         >
@@ -141,7 +168,7 @@ export function AppShell() {
             interacting.current = false;
           }}
         />
-        <Panel>
+        <Panel minSize={INSPECTOR_MIN_WIDTH}>
           <Inspector />
         </Panel>
       </Group>
