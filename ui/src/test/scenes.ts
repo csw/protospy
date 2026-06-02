@@ -439,8 +439,13 @@ export function getScene(id: string): Scene | undefined {
  * tests and in the live browser (via `window.__test_scenes`).
  */
 export function applySceneToStore(store: AppStore, scene: Scene): void {
-  // Hard reset to initial state (mirrors browser/helpers/inject.ts resetStore).
+  // Hard reset to initial state, but preserve the theme preference.
+  // Theme is a UI preference, not exchange domain state — clobbering it on
+  // every scene injection would break the visual-review "set theme once,
+  // inject many scenes" pattern (see PRO-253 comment on PRO-256).
+  const currentTheme = store.getState().theme;
   store.setState(store.getInitialState(), true);
+  store.setState({ theme: currentTheme });
 
   const s = store.getState();
   // Only set a service when explicitly requested — doing so opens a live SSE

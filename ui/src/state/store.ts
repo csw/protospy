@@ -1,9 +1,14 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, subscribeWithSelector } from "zustand/middleware";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
 import type { ConnectionStatus } from "@ui/api/sse";
-import { applyThemeToDOM } from "@ui/theme/applyTheme";
+import {
+  applyThemeToDOM,
+  resolveTheme,
+  DEFAULT_THEME,
+} from "@ui/theme/applyTheme";
+import type { ThemePreference } from "@ui/theme/applyTheme";
 import { apply } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
 
@@ -13,7 +18,8 @@ interface PersistedPrefs {
   order: "newest" | "oldest";
   listMode: "rows" | "table";
   traceGroupOn: boolean;
-  darkMode: boolean;
+  /** Three-state theme preference: `'light'`, `'dark'`, or `'system'` (follow OS). */
+  theme: ThemePreference;
 }
 
 export interface StoreState extends PersistedPrefs {
@@ -59,116 +65,157 @@ export interface StoreState extends PersistedPrefs {
   setDensity: (density: "regular" | "compact") => void;
   toggleTraceGroup: () => void;
   setCmdKOpen: (open: boolean) => void;
-  toggleDarkMode: () => void;
+  /** Set the theme preference. The single runtime subscriber handles the DOM. */
+  setTheme: (theme: ThemePreference) => void;
 }
 
 export const useStore = create<StoreState>()(
-  persist(
-    (set) => ({
-      exchanges: new Map(),
-      ids: [],
-      connection: "connecting",
-      service: null,
-      protocol: null,
+  subscribeWithSelector(
+    persist(
+      (set) => ({
+        exchanges: new Map(),
+        ids: [],
+        connection: "connecting",
+        service: null,
+        protocol: null,
 
-      // UI state defaults
-      selectedId: null,
-      filter: "",
-      traceFilter: null,
-      hoverTraceId: null,
-      listMode: "rows",
-      listWidth: { rows: 340, table: 720 },
-      order: "newest",
-      density: "regular",
-      traceGroupOn: false,
-      cmdKOpen: false,
-      darkMode: true,
+        // UI state defaults
+        selectedId: null,
+        filter: "",
+        traceFilter: null,
+        hoverTraceId: null,
+        listMode: "rows",
+        listWidth: { rows: 340, table: 720 },
+        order: "newest",
+        density: "regular",
+        traceGroupOn: false,
+        cmdKOpen: false,
+        theme: DEFAULT_THEME,
 
-      // Core actions
-      applyEvent: (msg) =>
-        set((state) => {
-          const exchanges = new Map(state.exchanges);
-          const ids = [...state.ids];
-          apply(exchanges, ids, msg);
-          return { exchanges, ids };
-        }),
+        // Core actions
+        applyEvent: (msg) =>
+          set((state) => {
+            const exchanges = new Map(state.exchanges);
+            const ids = [...state.ids];
+            apply(exchanges, ids, msg);
+            return { exchanges, ids };
+          }),
 
-      setBodyDecodedBytes: (exchangeId, direction, decodedBytes) =>
-        set((state) => {
-          const ex = state.exchanges.get(exchangeId);
-          if (ex == null) return {};
-          const body =
-            direction === "request" ? ex.requestBody : ex.responseBody;
-          if (body == null || body.decodedBytes === decodedBytes) return {};
-          const updatedBody = { ...body, decodedBytes };
-          const updatedEx = {
-            ...ex,
-            [direction === "request" ? "requestBody" : "responseBody"]:
-              updatedBody,
-          };
-          const exchanges = new Map(state.exchanges);
-          exchanges.set(exchangeId, updatedEx);
-          return { exchanges };
-        }),
+        setBodyDecodedBytes: (exchangeId, direction, decodedBytes) =>
+          set((state) => {
+            const ex = state.exchanges.get(exchangeId);
+            if (ex == null) return {};
+            const body =
+              direction === "request" ? ex.requestBody : ex.responseBody;
+            if (body == null || body.decodedBytes === decodedBytes) return {};
+            const updatedBody = { ...body, decodedBytes };
+            const updatedEx = {
+              ...ex,
+              [direction === "request" ? "requestBody" : "responseBody"]:
+                updatedBody,
+            };
+            const exchanges = new Map(state.exchanges);
+            exchanges.set(exchangeId, updatedEx);
+            return { exchanges };
+          }),
 
-      setConnection: (status) => set({ connection: status }),
+        setConnection: (status) => set({ connection: status }),
 
-      setService: (name) => set({ service: name }),
+        setService: (name) => set({ service: name }),
 
-      setProtocol: (protocol) => set({ protocol }),
+        setProtocol: (protocol) => set({ protocol }),
 
-      // UI actions
-      setSelectedId: (id) => set({ selectedId: id }),
+        // UI actions
+        setSelectedId: (id) => set({ selectedId: id }),
 
-      setFilter: (filter) => set({ filter }),
+        setFilter: (filter) => set({ filter }),
 
-      setTraceFilter: (traceId) => set({ traceFilter: traceId }),
+        setTraceFilter: (traceId) => set({ traceFilter: traceId }),
 
-      setHoverTraceId: (traceId) => set({ hoverTraceId: traceId }),
+        setHoverTraceId: (traceId) => set({ hoverTraceId: traceId }),
 
-      setListMode: (mode) => set({ listMode: mode }),
+        setListMode: (mode) => set({ listMode: mode }),
 
-      setListWidth: (mode, width) =>
-        set((state) => ({
-          listWidth: { ...state.listWidth, [mode]: width },
-        })),
+        setListWidth: (mode, width) =>
+          set((state) => ({
+            listWidth: { ...state.listWidth, [mode]: width },
+          })),
 
-      setOrder: (order) => set({ order }),
+        setOrder: (order) => set({ order }),
 
-      setDensity: (density) => set({ density }),
+        setDensity: (density) => set({ density }),
 
-      toggleTraceGroup: () =>
-        set((state) => ({ traceGroupOn: !state.traceGroupOn })),
+        toggleTraceGroup: () =>
+          set((state) => ({ traceGroupOn: !state.traceGroupOn })),
 
-      setCmdKOpen: (open) => set({ cmdKOpen: open }),
+        setCmdKOpen: (open) => set({ cmdKOpen: open }),
 
-      toggleDarkMode: () =>
-        set((state) => {
-          const next = !state.darkMode;
-          applyThemeToDOM(next);
-          return { darkMode: next };
-        }),
-    }),
-    {
-      name: "protospy-ui-prefs",
-      // Bump version and add a `migrate` function when PersistedPrefs shape changes.
-      version: 0,
-      partialize: (state): PersistedPrefs => ({
-        listWidth: state.listWidth,
-        density: state.density,
-        order: state.order,
-        listMode: state.listMode,
-        traceGroupOn: state.traceGroupOn,
-        darkMode: state.darkMode,
+        // Theme action — only updates store state; the subscribeWithSelector
+        // subscriber below is the sole runtime DOM writer.
+        setTheme: (theme) => set({ theme }),
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          applyThemeToDOM(state.darkMode);
-        }
+      {
+        name: "protospy-ui-prefs",
+        version: 1,
+        partialize: (state): PersistedPrefs => ({
+          listWidth: state.listWidth,
+          density: state.density,
+          order: state.order,
+          listMode: state.listMode,
+          traceGroupOn: state.traceGroupOn,
+          theme: state.theme,
+        }),
+        // onRehydrateStorage intentionally does NOT touch the DOM.
+        // The subscribeWithSelector subscription with fireImmediately
+        // handles the initial reconciliation after hydration.
       },
-    },
+    ),
   ),
 );
+
+// ---------------------------------------------------------------------------
+// Single runtime DOM writer — the theme ownership contract (Part A).
+//
+// This subscription is the ONLY runtime code path that writes
+// `<html data-theme>`. It fires:
+//   - Immediately on store creation (fireImmediately), reconciling the
+//     bootstrap IIFE's first-paint theme with the hydrated store state.
+//   - On every subsequent `theme` change (user toggle, persist rehydration).
+//
+// It also manages the OS-preference listener for `'system'` mode: when the
+// preference is `'system'`, a `matchMedia` change listener re-applies the
+// resolved theme live.
+// ---------------------------------------------------------------------------
+
+let cleanupMediaListener: (() => void) | null = null;
+
+function onThemeChange(theme: ThemePreference) {
+  applyThemeToDOM(resolveTheme(theme));
+
+  // Manage the matchMedia listener for 'system' mode.
+  if (cleanupMediaListener) {
+    cleanupMediaListener();
+    cleanupMediaListener = null;
+  }
+
+  if (
+    theme === "system" &&
+    typeof window !== "undefined" &&
+    window.matchMedia
+  ) {
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => {
+      // Only re-apply if still in system mode (guard against race).
+      if (useStore.getState().theme === "system") {
+        applyThemeToDOM(resolveTheme("system"));
+      }
+    };
+    mql.addEventListener("change", handler);
+    cleanupMediaListener = () => mql.removeEventListener("change", handler);
+  }
+}
+
+useStore.subscribe((s) => s.theme, onThemeChange, { fireImmediately: true });
 
 /**
  * The bound Zustand store API. Exported as a type so the dev-only scene

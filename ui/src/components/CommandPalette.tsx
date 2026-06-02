@@ -1,4 +1,5 @@
 import { useStore } from "@ui/state/store";
+import type { ThemePreference } from "@ui/theme/applyTheme";
 import {
   CommandDialog,
   CommandInput,
@@ -10,6 +11,7 @@ import {
 import {
   Sun,
   Moon,
+  SunMoon,
   LayoutGrid,
   Rows3,
   TableProperties,
@@ -17,11 +19,25 @@ import {
   X,
 } from "lucide-react";
 
+const cmdItemClass =
+  "h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer";
+
+/** Theme options shown in the command palette. */
+const THEME_OPTIONS: Array<{
+  value: ThemePreference;
+  label: string;
+  icon: typeof Sun;
+}> = [
+  { value: "light", label: "Light mode", icon: Sun },
+  { value: "dark", label: "Dark mode", icon: Moon },
+  { value: "system", label: "System theme", icon: SunMoon },
+];
+
 export function CommandPalette() {
   const cmdKOpen = useStore((s) => s.cmdKOpen);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
-  const darkMode = useStore((s) => s.darkMode);
-  const toggleDarkMode = useStore((s) => s.toggleDarkMode);
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
   const density = useStore((s) => s.density);
   const setDensity = useStore((s) => s.setDensity);
   const listMode = useStore((s) => s.listMode);
@@ -34,8 +50,8 @@ export function CommandPalette() {
     setCmdKOpen(false);
   }
 
-  function handleToggleDarkMode() {
-    toggleDarkMode();
+  function handleSetTheme(value: ThemePreference) {
+    setTheme(value);
     close();
   }
 
@@ -75,30 +91,38 @@ export function CommandPalette() {
           No results found.
         </CommandEmpty>
 
+        {/* Theme section */}
+        <CommandGroup
+          heading="Theme"
+          className="[&_[cmdk-group-heading]]:font-family-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+        >
+          {THEME_OPTIONS.map((opt) => (
+            <CommandItem
+              key={opt.value}
+              value={`theme ${opt.value} mode ${opt.label}`}
+              onSelect={() => handleSetTheme(opt.value)}
+              className={cmdItemClass}
+            >
+              <opt.icon className="size-4 text-mid" />
+              <span className="font-family-ui text-sm text-ink">
+                {opt.label}
+              </span>
+              {theme === opt.value && (
+                <span className="ml-auto text-xs text-accent">active</span>
+              )}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+
         {/* Commands section */}
         <CommandGroup
           heading="Commands"
           className="[&_[cmdk-group-heading]]:font-family-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
         >
           <CommandItem
-            value="toggle dark mode light dark theme"
-            onSelect={handleToggleDarkMode}
-            className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer"
-          >
-            {darkMode ? (
-              <Sun className="size-4 text-mid" />
-            ) : (
-              <Moon className="size-4 text-mid" />
-            )}
-            <span className="font-family-ui text-sm text-ink">
-              Toggle dark mode
-            </span>
-          </CommandItem>
-
-          <CommandItem
             value="toggle density compact regular"
             onSelect={handleToggleDensity}
-            className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer"
+            className={cmdItemClass}
           >
             <LayoutGrid className="size-4 text-mid" />
             <span className="font-family-ui text-sm text-ink">
@@ -109,7 +133,7 @@ export function CommandPalette() {
           <CommandItem
             value="switch list view table rows mode"
             onSelect={handleSwitchListMode}
-            className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer"
+            className={cmdItemClass}
           >
             {listMode === "rows" ? (
               <TableProperties className="size-4 text-mid" />
@@ -126,7 +150,7 @@ export function CommandPalette() {
           <CommandItem
             value="toggle trace grouping tracing"
             onSelect={handleToggleTraceGroup}
-            className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer"
+            className={cmdItemClass}
           >
             <Layers className="size-4 text-mid" />
             <span className="font-family-ui text-sm text-ink">
@@ -138,7 +162,7 @@ export function CommandPalette() {
             <CommandItem
               value="clear filter reset search"
               onSelect={handleClearFilter}
-              className="h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer"
+              className={cmdItemClass}
             >
               <X className="size-4 text-mid" />
               <span className="font-family-ui text-sm text-ink">

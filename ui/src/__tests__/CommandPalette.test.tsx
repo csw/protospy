@@ -33,9 +33,9 @@ describe("CommandPalette", () => {
 
   it("does not render palette content when cmdKOpen is false", () => {
     render(<CommandPalette />);
-    // Radix Dialog only mounts content when open; the "Toggle dark mode"
-    // item should not appear in the DOM at all.
-    expect(screen.queryByText("Toggle dark mode")).not.toBeInTheDocument();
+    // Radix Dialog only mounts content when open; theme items should not
+    // appear in the DOM at all.
+    expect(screen.queryByText("Dark mode")).not.toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText("Search commands…"),
     ).not.toBeInTheDocument();
@@ -54,7 +54,10 @@ describe("CommandPalette", () => {
     const textboxes = screen.queryAllByRole("textbox");
     expect(comboboxes.length + textboxes.length).toBe(1);
 
-    expect(screen.getByText("Toggle dark mode")).toBeInTheDocument();
+    // Three theme options should be visible
+    expect(screen.getByText("Light mode")).toBeInTheDocument();
+    expect(screen.getByText("Dark mode")).toBeInTheDocument();
+    expect(screen.getByText("System theme")).toBeInTheDocument();
   });
 
   it("does not show exchange items even when exchanges are in the store", () => {
@@ -68,8 +71,8 @@ describe("CommandPalette", () => {
 
     // The exchange path must not appear in the command palette.
     expect(screen.queryByText("/api/widgets")).not.toBeInTheDocument();
-    // Command items are still present.
-    expect(screen.getByText("Toggle dark mode")).toBeInTheDocument();
+    // Theme items are still present.
+    expect(screen.getByText("Dark mode")).toBeInTheDocument();
   });
 
   it("filters the rendered list when the user types", async () => {
@@ -85,26 +88,72 @@ describe("CommandPalette", () => {
     await waitFor(() => {
       expect(screen.getByText("Toggle density")).toBeInTheDocument();
     });
-    // Non-matching command item is filtered out.
+    // Non-matching items are filtered out.
     await waitFor(() => {
-      expect(screen.queryByText("Toggle dark mode")).not.toBeInTheDocument();
+      expect(screen.queryByText("Dark mode")).not.toBeInTheDocument();
     });
   });
 
-  it("clicking 'Toggle dark mode' flips darkMode and closes the palette", async () => {
+  it("clicking 'Dark mode' sets theme to dark and closes the palette", async () => {
+    useStore.getState().setTheme("light");
     useStore.getState().setCmdKOpen(true);
-    expect(useStore.getState().darkMode).toBe(true);
     render(<CommandPalette />);
 
-    const item = screen.getByText("Toggle dark mode");
+    const item = screen.getByText("Dark mode");
     await act(async () => {
       fireEvent.click(item);
     });
 
     await waitFor(() => {
-      expect(useStore.getState().darkMode).toBe(false);
+      expect(useStore.getState().theme).toBe("dark");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Light mode' sets theme to light and closes the palette", async () => {
+    useStore.getState().setTheme("dark");
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Light mode");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().theme).toBe("light");
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'System theme' sets theme to system and closes the palette", async () => {
+    useStore.getState().setTheme("dark");
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    const item = screen.getByText("System theme");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().theme).toBe("system");
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("marks the active theme with an 'active' indicator", () => {
+    useStore.getState().setTheme("dark");
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    // The active theme's item should have an "active" label.
+    const darkItem = screen.getByText("Dark mode").closest("[cmdk-item]")!;
+    expect(darkItem.textContent).toContain("active");
+
+    // The inactive items should not.
+    const lightItem = screen.getByText("Light mode").closest("[cmdk-item]")!;
+    expect(lightItem.textContent).not.toContain("active");
   });
 
   it("clicking 'Toggle density' toggles density and closes the palette", async () => {

@@ -632,7 +632,13 @@
           params.get("app") ||
           (onProd ? "https://app.demo.protospy.io" : "http://localhost:8000");
 
-        document.getElementById("iframe-spy").src = spyUrl;
+        // Force the protospy UI to default to dark theme for the demo.
+        // The UI reads ?defaultTheme= as a runtime override for fresh installs
+        // (no stored preference). This preserves the dark-first demo aesthetic
+        // without requiring a custom build.
+        var spySep = spyUrl.includes("?") ? "&" : "?";
+        document.getElementById("iframe-spy").src =
+          spyUrl + spySep + "defaultTheme=dark";
         document.getElementById("iframe-app").src = appUrl + "?demo=1";
         document.getElementById("label-spy").textContent = new URL(spyUrl).host;
         document.getElementById("label-app").textContent = new URL(appUrl).host;

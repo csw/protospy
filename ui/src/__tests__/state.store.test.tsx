@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { EventMessage } from "@bindings/EventMessage";
 import { useStore } from "@ui/state/store";
+import { DEFAULT_THEME } from "@ui/theme/applyTheme";
 import { makeGetRequest } from "@ui/test/fixtures";
 
 describe("state/store", () => {
@@ -31,8 +32,8 @@ describe("state/store", () => {
       expect(useStore.getState().protocol).toBeNull();
     });
 
-    it("has darkMode === true at creation", () => {
-      expect(useStore.getState().darkMode).toBe(true);
+    it("has theme matching DEFAULT_THEME at creation", () => {
+      expect(useStore.getState().theme).toBe(DEFAULT_THEME);
     });
   });
 
@@ -120,28 +121,29 @@ describe("state/store", () => {
     });
   });
 
-  describe("toggleDarkMode", () => {
-    it("flips darkMode state", () => {
-      expect(useStore.getState().darkMode).toBe(true);
-      useStore.getState().toggleDarkMode();
-      expect(useStore.getState().darkMode).toBe(false);
-      useStore.getState().toggleDarkMode();
-      expect(useStore.getState().darkMode).toBe(true);
+  describe("setTheme", () => {
+    it("sets theme to each valid value", () => {
+      useStore.getState().setTheme("light");
+      expect(useStore.getState().theme).toBe("light");
+      useStore.getState().setTheme("dark");
+      expect(useStore.getState().theme).toBe("dark");
+      useStore.getState().setTheme("system");
+      expect(useStore.getState().theme).toBe("system");
     });
 
-    it("sets data-theme on documentElement", () => {
-      useStore.getState().toggleDarkMode();
+    it("drives data-theme on documentElement via the subscriber", () => {
+      useStore.getState().setTheme("light");
       expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-      useStore.getState().toggleDarkMode();
+      useStore.getState().setTheme("dark");
       expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     });
 
-    it("persists darkMode to localStorage via persist middleware", () => {
-      useStore.getState().toggleDarkMode();
+    it("persists theme to localStorage via persist middleware", () => {
+      useStore.getState().setTheme("light");
       const stored = JSON.parse(
         localStorage.getItem("protospy-ui-prefs") ?? "{}",
       );
-      expect(stored.state.darkMode).toBe(false);
+      expect(stored.state.theme).toBe("light");
     });
   });
 
@@ -298,8 +300,6 @@ describe("state/store", () => {
     it("rehydrates persisted preferences from localStorage", async () => {
       useStore.setState(useStore.getInitialState(), true);
 
-      // Set localStorage after resetting state so the persist subscriber's
-      // write of defaults doesn't overwrite our test data.
       localStorage.setItem(
         "protospy-ui-prefs",
         JSON.stringify({
@@ -309,9 +309,9 @@ describe("state/store", () => {
             listMode: "table",
             listWidth: { rows: 340, table: 999 },
             traceGroupOn: true,
-            darkMode: true,
+            theme: "dark",
           },
-          version: 0,
+          version: 1,
         }),
       );
 
@@ -329,7 +329,7 @@ describe("state/store", () => {
       expect(state.listMode).toBe("table");
       expect(state.listWidth.table).toBe(999);
       expect(state.traceGroupOn).toBe(true);
-      expect(state.darkMode).toBe(true);
+      expect(state.theme).toBe("dark");
     });
   });
 });

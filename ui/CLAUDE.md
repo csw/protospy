@@ -14,7 +14,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Stack.** React ^19 + TypeScript ^6, Zustand ^5 (with `persist` middleware), `@tanstack/react-virtual` ^3, Radix ^1.4 primitives (shadcn `new-york` wrappers under `components/ui/`), `cmdk` ^1, `react-resizable-panels` ^4, Tailwind v4 (no `tailwind.config.js` — tokens live in `theme/tailwind.css` under `@theme`, dark variant bound to `[data-theme=dark]`). Vite ^8, Vitest ^4 (node + jsdom projects), Playwright. **React Compiler is not run here** — `eslint-plugin-react-hooks@7` surfaces the compiler's static checks at lint time only.
 
-**Data flow.** `main.tsx` boots the theme from the persist key (`protospy-ui-prefs`), then renders `AppShell`. `AppShell` calls `fetchInfo()` (`api/info.ts` → `GET /info`) once and then `subscribeToEvents(service, …)` (`api/sse.ts` → `EventSource` at `/service/<name>/events`). Each `"exchange-report"` named event is `JSON.parse`d into an `EventMessage` and passed to `applyEvent(msg)` on the store. `applyEvent` copy-on-writes `exchanges` (a `Map<number, Exchange>`) and `ids`, then delegates to the **pure reducer** `apply()` in `state/reducer.ts` (testable without React in the node Vitest project). Components subscribe to slices via `useStore(selector)`; both `ExchangeList` and `Inspector` re-derive the filtered/ordered visible list each render.
+**Data flow.** `index.html` bootstraps the theme from the persist key (`protospy-ui-prefs`) before React loads; `main.tsx` renders `AppShell`, and the store's `subscribeWithSelector` subscription on the `theme` slice reconciles store→DOM at runtime (see the ownership contract in `theme/applyTheme.ts`). `AppShell` calls `fetchInfo()` (`api/info.ts` → `GET /info`) once and then `subscribeToEvents(service, …)` (`api/sse.ts` → `EventSource` at `/service/<name>/events`). Each `"exchange-report"` named event is `JSON.parse`d into an `EventMessage` and passed to `applyEvent(msg)` on the store. `applyEvent` copy-on-writes `exchanges` (a `Map<number, Exchange>`) and `ids`, then delegates to the **pure reducer** `apply()` in `state/reducer.ts` (testable without React in the node Vitest project). Components subscribe to slices via `useStore(selector)`; both `ExchangeList` and `Inspector` re-derive the filtered/ordered visible list each render.
 
 **Types.** Wire types come from `@bindings/*` (→ `../bindings/`, generated from Rust by ts-rs — **do not edit**). `@ui/*` → `./src/*`.
 
@@ -30,13 +30,13 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 **Directory map (compressed; full annotations in `ARCHITECTURE.md`):**
 
 - `src/api/` — `info.ts` (`fetchInfo`, `/info`), `sse.ts` (`subscribeToEvents`, `ConnectionStatus`, parent-frame `postMessage`)
-- `src/state/` — `store.ts` (Zustand + `persist` + dev `__test_store`), `reducer.ts` (pure `apply`, `Exchange`/`BodyState` shapes)
+- `src/state/` — `store.ts` (Zustand + `subscribeWithSelector` + `persist` + theme subscriber + dev `__test_store`), `reducer.ts` (pure `apply`, `Exchange`/`BodyState` shapes)
 - `src/body/` — `decode.ts` (chunks→bytes→decompress→classify), `sse.ts` (parse SSE event stream)
 - `src/anthropic/` — `transcript.ts` (fold SSE events into chat transcript)
 - `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)
 - `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton)
 - `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
-- `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant), `applyTheme.ts`
+- `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant), `applyTheme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveTheme`, `applyThemeToDOM`, theme ownership contract)
 - `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
@@ -132,7 +132,7 @@ src/
     fixtures.ts        # shared EventMessage builders (imported by both unit and browser)
   hooks/               # extracted hooks (testable in isolation)
   lib/utils.ts         # pure helpers — formatters, matchers, splitUri, etc.
-  theme/applyTheme.ts  # pure helpers — applyThemeToDOM, resolveInitialDarkMode
+  theme/applyTheme.ts  # pure helpers — ThemePreference, DEFAULT_THEME, resolveTheme, applyThemeToDOM
 
 browser/
   *.spec.ts            # Playwright browser tests (UI rendering, layout, interaction)

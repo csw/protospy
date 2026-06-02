@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import {
+  getStoreState,
+  injectExchanges,
+  resetStore,
+  waitForStore,
+} from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
@@ -19,40 +24,126 @@ test.beforeEach(async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// 1. Theme toggle
+// 1. Theme preference
 // ---------------------------------------------------------------------------
 
-test.describe("Theme toggle", () => {
-  test("1.1 default theme is dark", async ({ page }) => {
+test.describe("Theme preference", () => {
+  test("1.1 default theme resolves to a valid data-theme", async ({ page }) => {
+    // DEFAULT_THEME is 'system' in tests (no ?defaultTheme= param), which
+    // resolves to 'dark' or 'light' depending on the OS. Just verify a
+    // valid value is set.
     const theme = await page.evaluate(() =>
       document.documentElement.getAttribute("data-theme"),
     );
-    expect(theme).toBe("dark");
+    expect(["dark", "light"]).toContain(theme);
   });
 
-  test("1.2 toggle to light mode via command palette", async ({ page }) => {
+  test("1.2 set light mode via command palette", async ({ page }) => {
     await page.keyboard.press("Meta+k");
-    await page.getByText("Toggle dark mode").click();
+    await page.getByText("Light mode").click();
 
-    const theme = await page.evaluate(() =>
-      document.documentElement.getAttribute("data-theme"),
-    );
-    expect(theme).toBe("light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    expect(await getStoreState(page, "theme")).toBe("light");
   });
 
-  test("1.3 toggle back to dark mode by toggling twice", async ({ page }) => {
-    // First toggle: dark → light
-    await page.keyboard.press("Meta+k");
-    await page.getByText("Toggle dark mode").click();
+  test("1.3 set dark mode via command palette", async ({ page }) => {
+    // Start from light to verify the switch
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("light");
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
-    // Second toggle: light → dark (palette closes after each selection)
     await page.keyboard.press("Meta+k");
-    await page.getByText("Toggle dark mode").click();
+    await page.getByText("Dark mode").click();
 
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    expect(await getStoreState(page, "theme")).toBe("dark");
+  });
+
+  test("1.4 set system mode via command palette", async ({ page }) => {
+    await page.keyboard.press("Meta+k");
+    await page.getByText("System theme").click();
+
+    expect(await getStoreState(page, "theme")).toBe("system");
+    // data-theme should resolve to the OS preference (dark or light)
     const theme = await page.evaluate(() =>
       document.documentElement.getAttribute("data-theme"),
     );
-    expect(theme).toBe("dark");
+    expect(["dark", "light"]).toContain(theme);
+  });
+
+  test("1.5 theme cycle via TopBar button: dark → light → system", async ({
+    page,
+  }) => {
+    // Start at dark
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("dark");
+    });
+
+    // Click the theme button (has aria-label containing "Theme:")
+    const themeBtn = page.locator('button[aria-label^="Theme:"]');
+    await themeBtn.click();
+    expect(await getStoreState(page, "theme")).toBe("light");
+
+    await themeBtn.click();
+    expect(await getStoreState(page, "theme")).toBe("system");
+
+    await themeBtn.click();
+    expect(await getStoreState(page, "theme")).toBe("dark");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Anti-flash mechanism
+// ---------------------------------------------------------------------------
+
+test.describe("Anti-flash", () => {
+  test("dark background is set before CSS modules load", async ({ page }) => {
+    // Persist dark theme so the bootstrap IIFE reads it on reload.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("dark");
+    });
+
+    // Block the main JS entry point — on reload, only the raw HTML
+    // (inline <style> + bootstrap IIFE) will execute. No CSS modules,
+    // no React, no store. This simulates the pre-CSS-load window where
+    // the flash would appear if the inline styles were missing.
+    await page.route("**/src/main.tsx", (route) => route.abort());
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const result = await page.evaluate(() => {
+      const bg = getComputedStyle(document.documentElement).backgroundColor;
+      const theme = document.documentElement.getAttribute("data-theme");
+      return { bg, theme };
+    });
+
+    expect(result.theme).toBe("dark");
+    // #0c0f14 → rgb(12, 15, 20) — must match --color-bg in tailwind.css
+    expect(result.bg).toBe("rgb(12, 15, 20)");
+  });
+
+  test("light background is set before CSS modules load", async ({ page }) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("light");
+    });
+
+    await page.route("**/src/main.tsx", (route) => route.abort());
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    const result = await page.evaluate(() => {
+      const bg = getComputedStyle(document.documentElement).backgroundColor;
+      const theme = document.documentElement.getAttribute("data-theme");
+      return { bg, theme };
+    });
+
+    expect(result.theme).toBe("light");
+    // #fbfbfc → rgb(251, 251, 252) — must match --color-bg in tailwind.css
+    expect(result.bg).toBe("rgb(251, 251, 252)");
   });
 });
 
