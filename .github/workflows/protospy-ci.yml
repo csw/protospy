@@ -21,6 +21,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CC_x86_64_unknown_linux_musl: musl-gcc
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -32,14 +34,8 @@ jobs:
           shared-key: x86_64-musl
       # just build, to separate compiler output
       - run: cargo test --all-features --no-run --target x86_64-unknown-linux-musl
-        env:
-          CC_x86_64_unknown_linux_musl: musl-gcc
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --no-deps --target x86_64-unknown-linux-musl -- -D warnings
-        env:
-          CC_x86_64_unknown_linux_musl: musl-gcc
       - run: cargo test --all-features --target x86_64-unknown-linux-musl
-        env:
-          CC_x86_64_unknown_linux_musl: musl-gcc
       - name: Check for outdated bindings
         run: git diff --exit-code bindings && [[ $(git ls-files --others --exclude-standard bindings | wc -l) -eq 0 ]]
