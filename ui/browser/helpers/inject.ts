@@ -29,8 +29,13 @@ export async function resetStore(page: Page) {
   await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const store = (window as any).__test_store;
+    // Preserve the theme preference across resets — theme is a UI preference,
+    // not exchange domain state. Clobbering it would break the visual-review
+    // "set theme once, inject many scenes" pattern (see PRO-253/PRO-256).
+    const theme = store.getState().theme;
     const initial = store.getInitialState();
     store.setState(initial, true);
+    store.setState({ theme });
   });
 }
 

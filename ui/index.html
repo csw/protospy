@@ -10,24 +10,73 @@
       href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@400;500;600;700;900&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Theme bootstrap IIFE — runs before React to prevent a flash.
+
+      Theme ownership contract:
+        1. This IIFE owns the FIRST paint: it reads the persisted preference
+           from localStorage and sets data-theme synchronously.
+        2. The runtime subscriber in state/store.ts (subscribeWithSelector on
+           the theme slice, fireImmediately) owns ALL subsequent DOM writes.
+        3. No other code path touches data-theme.
+
+      The preference is a three-state enum: 'light' | 'dark' | 'system'.
+      'system' resolves via matchMedia. The default for fresh installs (no
+      stored preference) is 'system', overridable at runtime via a
+      ?defaultTheme= query parameter (the demo site uses this to force dark).
+    -->
     <script>
       (function () {
+        // Resolve a theme preference to 'dark' or 'light'.
+        function resolve(pref) {
+          if (pref === "light" || pref === "dark") return pref;
+          // 'system' or unknown: follow OS.
+          try {
+            return window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          } catch (e) {
+            return "dark";
+          }
+        }
+
+        // Default for fresh installs. Overridable via ?defaultTheme= query
+        // param (e.g. the demo site passes ?defaultTheme=dark on the iframe).
+        function isValidPref(v) {
+          return v === "light" || v === "dark" || v === "system";
+        }
+        var qp = new URLSearchParams(location.search).get("defaultTheme");
+        var defaultTheme = isValidPref(qp) ? qp : "system";
+
         try {
           var raw = localStorage.getItem("protospy-ui-prefs");
           if (raw) {
             var parsed = JSON.parse(raw);
-            if (parsed.state && typeof parsed.state.darkMode === "boolean") {
-              // Honour stored user preference (dark or light).
-              document.documentElement.setAttribute(
-                "data-theme",
-                parsed.state.darkMode ? "dark" : "light",
-              );
-              return;
+            if (parsed.state) {
+              // v1 schema: three-state 'theme' field.
+              if (typeof parsed.state.theme === "string") {
+                document.documentElement.setAttribute(
+                  "data-theme",
+                  resolve(parsed.state.theme),
+                );
+                return;
+              }
+              // v0 schema: boolean 'darkMode' field (pre-migration).
+              if (typeof parsed.state.darkMode === "boolean") {
+                document.documentElement.setAttribute(
+                  "data-theme",
+                  parsed.state.darkMode ? "dark" : "light",
+                );
+                return;
+              }
             }
           }
         } catch (e) {}
-        // No stored preference: default to dark (matches store default).
-        document.documentElement.setAttribute("data-theme", "dark");
+        // No stored preference: use the default.
+        document.documentElement.setAttribute(
+          "data-theme",
+          resolve(defaultTheme),
+        );
       })();
     </script>
   </head>

@@ -40,19 +40,16 @@ test.describe("Command palette — open/close", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Command palette — commands", () => {
-  test("2.1 toggle dark mode changes store darkMode state", async ({
+  test("2.1 selecting a theme option sets the store theme", async ({
     page,
   }) => {
-    const before = await getStoreState(page, "darkMode");
-
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle dark mode/i }).click();
+    await page.getByRole("option", { name: /light mode/i }).click();
 
     // Palette closes after selection
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
-    const after = await getStoreState(page, "darkMode");
-    expect(after).toBe(!before);
+    expect(await getStoreState(page, "theme")).toBe("light");
   });
 
   test("2.2 toggle density changes store density state", async ({ page }) => {

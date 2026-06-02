@@ -133,11 +133,13 @@ test.describe("Fixture matrix", () => {
     await page.evaluate(() => {
       (
         window as unknown as {
-          __test_store: { getState: () => { toggleDarkMode: () => void } };
+          __test_store: {
+            getState: () => { setTheme: (t: string) => void };
+          };
         }
       ).__test_store
         .getState()
-        .toggleDarkMode();
+        .setTheme("light");
     });
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");

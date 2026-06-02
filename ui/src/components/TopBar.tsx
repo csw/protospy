@@ -4,9 +4,11 @@ import {
   LayoutGrid,
   Sun,
   Moon,
+  Monitor,
   ChevronDown,
 } from "lucide-react";
 import { useStore } from "@ui/state/store";
+import type { ThemePreference } from "@ui/theme/applyTheme";
 import type { Service } from "@ui/api/info";
 import {
   DropdownMenu,
@@ -29,6 +31,28 @@ interface Props {
 const iconBtnClass =
   "w-[26px] h-[26px] flex items-center justify-center rounded-md border border-border text-mid hover:text-ink hover:bg-bg-hover transition-colors cursor-pointer";
 
+/** The three theme choices, cycled in this order. */
+const THEME_CYCLE: ThemePreference[] = ["dark", "light", "system"];
+
+/** Icon for the current theme preference. */
+function ThemeIcon({ theme }: { theme: ThemePreference }) {
+  switch (theme) {
+    case "dark":
+      return <Moon size={15} />;
+    case "light":
+      return <Sun size={15} />;
+    case "system":
+      return <Monitor size={15} />;
+  }
+}
+
+/** Tooltip label for the current theme, showing what the next click does. */
+function themeTooltip(theme: ThemePreference): string {
+  const idx = THEME_CYCLE.indexOf(theme);
+  const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+  return `Theme: ${theme} (click for ${next})`;
+}
+
 export function TopBar({ services, onSwitchService }: Props) {
   const service = useStore((s) => s.service);
   const connection = useStore((s) => s.connection);
@@ -36,8 +60,8 @@ export function TopBar({ services, onSwitchService }: Props) {
   const toggleTraceGroup = useStore((s) => s.toggleTraceGroup);
   const density = useStore((s) => s.density);
   const setDensity = useStore((s) => s.setDensity);
-  const darkMode = useStore((s) => s.darkMode);
-  const toggleDarkMode = useStore((s) => s.toggleDarkMode);
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
 
   function connectionDotClass(): string {
@@ -46,6 +70,11 @@ export function TopBar({ services, onSwitchService }: Props) {
     if (connection === "connecting")
       return "w-[7px] h-[7px] rounded-full bg-amber shrink-0 animate-pulse";
     return "w-[7px] h-[7px] rounded-full bg-red shrink-0 animate-pulse";
+  }
+
+  function cycleTheme() {
+    const idx = THEME_CYCLE.indexOf(theme);
+    setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
   }
 
   return (
@@ -98,7 +127,7 @@ export function TopBar({ services, onSwitchService }: Props) {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Jump to… button */}
+        {/* Jump to... button */}
         <button
           onClick={() => setCmdKOpen(true)}
           className="flex items-center gap-1.5 h-[26px] px-2 rounded border border-border bg-bg-sub text-dim hover:text-ink hover:bg-bg-hover transition-colors cursor-pointer"
@@ -147,21 +176,19 @@ export function TopBar({ services, onSwitchService }: Props) {
           </TooltipContent>
         </Tooltip>
 
-        {/* Dark mode toggle */}
+        {/* Theme toggle (dark / light / system cycle) */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={toggleDarkMode}
+              onClick={cycleTheme}
               className={iconBtnClass}
-              aria-label={
-                darkMode ? "Switch to light mode" : "Switch to dark mode"
-              }
+              aria-label={themeTooltip(theme)}
             >
-              {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+              <ThemeIcon theme={theme} />
             </button>
           </TooltipTrigger>
           <TooltipContent className="bg-bg-pane border-border text-ink text-xs">
-            {darkMode ? "Light mode" : "Dark mode"}
+            {themeTooltip(theme)}
           </TooltipContent>
         </Tooltip>
       </div>

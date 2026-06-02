@@ -17,36 +17,38 @@ async function readTheme(page: import("@playwright/test").Page) {
 }
 
 test.describe("localStorage persistence", () => {
-  test("light mode survives a reload", async ({ page }) => {
+  test("light theme survives a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("dark");
 
-    await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle dark mode/i }).click();
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("light");
+    });
     expect(await readTheme(page)).toBe("light");
 
     await page.reload();
     await waitForStore(page);
     expect(await readTheme(page)).toBe("light");
-    expect(await getStoreState(page, "darkMode")).toBe(false);
+    expect(await getStoreState(page, "theme")).toBe("light");
   });
 
-  test("toggling back to dark persists across a reload", async ({ page }) => {
+  test("switching to dark persists across a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
 
-    // Toggle dark → light and persist it
+    // Set light first, persist it
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__test_store.getState().toggleDarkMode();
+      (window as any).__test_store.getState().setTheme("light");
     });
     await page.reload();
     await waitForStore(page);
     expect(await readTheme(page)).toBe("light");
 
+    // Now switch to dark via command palette
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle dark mode/i }).click();
+    await page.getByRole("option", { name: /dark mode/i }).click();
     expect(await readTheme(page)).toBe("dark");
 
     await page.reload();
@@ -130,7 +132,7 @@ test.describe("localStorage persistence", () => {
       s.setListWidth("rows", 400);
       s.setListWidth("table", 500);
       s.toggleTraceGroup();
-      s.toggleDarkMode();
+      s.setTheme("light");
     });
 
     await page.reload();
@@ -144,8 +146,7 @@ test.describe("localStorage persistence", () => {
       table: 500,
     });
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
-    // toggleDarkMode() starts from default true → persists false after reload
-    expect(await getStoreState(page, "darkMode")).toBe(false);
+    expect(await getStoreState(page, "theme")).toBe("light");
     expect(await readTheme(page)).toBe("light");
   });
 });
