@@ -6,6 +6,15 @@ import {
   waitForStore,
 } from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
+import {
+  DEFAULT_LIST_WIDTH,
+  INSPECTOR_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+  LIST_MIN_WIDTH,
+} from "../src/components/paneBounds";
+
+/** "65%" → 0.65, derived from the single source of truth. */
+const LIST_MAX_FRACTION = parseFloat(LIST_MAX_WIDTH) / 100;
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -78,11 +87,11 @@ test.describe("Layout and resize", () => {
 
     const clamped = await listPanel.boundingBox();
     expect(clamped).not.toBeNull();
-    // AppShell pins minSize=LIST_MIN_WIDTH (200px) on the list Panel. Once the
-    // drag pushes past the minimum the width should sit at the clamp, not
-    // collapse. Allow a few px of panel-library rounding around 200.
-    expect(clamped!.width).toBeGreaterThanOrEqual(190);
-    expect(clamped!.width).toBeLessThanOrEqual(215);
+    // AppShell pins minSize=LIST_MIN_WIDTH on the list Panel. Once the drag
+    // pushes past the minimum the width should sit at the clamp, not collapse.
+    // Allow a few px of panel-library rounding around the floor.
+    expect(clamped!.width).toBeGreaterThanOrEqual(LIST_MIN_WIDTH - 10);
+    expect(clamped!.width).toBeLessThanOrEqual(LIST_MIN_WIDTH + 15);
     expect(clamped!.width).toBeLessThan(initial!.width);
   });
 
@@ -115,13 +124,19 @@ test.describe("Layout and resize", () => {
     expect(clampedInspector).not.toBeNull();
     expect(clampedList).not.toBeNull();
 
-    // The list Panel pins maxSize=LIST_MAX_WIDTH ("65%"), so dragging the
-    // separator all the way right caps the list at ~65% of the group rather
-    // than letting it dominate the viewport.
-    expect(clampedList!.width).toBeLessThanOrEqual(viewportWidth * 0.65 + 10);
-    // The inspector Panel pins minSize=INSPECTOR_MIN_WIDTH (400px): even at the
-    // widest list it keeps a content floor and never collapses toward zero.
-    expect(clampedInspector!.width).toBeGreaterThanOrEqual(395);
+    // The list Panel pins maxSize=LIST_MAX_WIDTH, so dragging the separator all
+    // the way right caps the list at that fraction of the group rather than
+    // letting it dominate the viewport. The Group spans the full window width,
+    // so group width ≈ viewportWidth (minus the 1px separator); the +10 slack
+    // absorbs that and panel-library rounding.
+    expect(clampedList!.width).toBeLessThanOrEqual(
+      viewportWidth * LIST_MAX_FRACTION + 10,
+    );
+    // The inspector Panel pins minSize=INSPECTOR_MIN_WIDTH: even at the widest
+    // list it keeps a content floor and never collapses toward zero.
+    expect(clampedInspector!.width).toBeGreaterThanOrEqual(
+      INSPECTOR_MIN_WIDTH - 5,
+    );
     expect(clampedInspector!.width).toBeLessThan(initialInspector!.width);
   });
 
@@ -145,7 +160,7 @@ test.describe("Layout and resize", () => {
     // Confirm the panel actually moved before we reset it.
     const movedBox = await listPanel.boundingBox();
     expect(movedBox).not.toBeNull();
-    expect(movedBox!.width).toBeGreaterThan(380);
+    expect(movedBox!.width).toBeGreaterThan(DEFAULT_LIST_WIDTH.rows + 40);
 
     // Double-click the separator to reset.
     // Use raw mouse coordinates (same pattern as drag tests) to avoid the
@@ -157,16 +172,18 @@ test.describe("Layout and resize", () => {
       resetBox!.y + resetBox!.height / 2,
     );
 
-    // The list panel should now be close to the rows-mode default (340px).
+    // The list panel should now be close to the rows-mode default.
     await expect
       .poll(async () => (await listPanel.boundingBox())?.width ?? 0, {
         timeout: 3000,
       })
-      .toBeCloseTo(340, -1); // within ~5px
+      .toBeCloseTo(DEFAULT_LIST_WIDTH.rows, -1); // within ~5px
 
     // The store should also reflect the reset.
     const storedWidth = await getStoreState(page, "listWidth");
-    expect((storedWidth as { rows: number }).rows).toBe(340);
+    expect((storedWidth as { rows: number }).rows).toBe(
+      DEFAULT_LIST_WIDTH.rows,
+    );
   });
 
   test("9.5 virtual scroll limits DOM nodes with many exchanges", async ({
