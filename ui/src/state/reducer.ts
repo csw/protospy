@@ -84,21 +84,40 @@ function initialBodyToState(
   };
 }
 
-function getOrCreate(
-  exchanges: Map<number, Exchange>,
-  ids: number[],
-  id: number,
-  timestamp: string,
-): Exchange {
-  let ex = exchanges.get(id);
-  if (ex == null) {
-    ex = { id, timestamp };
-    exchanges.set(id, ex);
-    ids.push(id);
-  }
-  return ex;
+/**
+ * Append a `BodyData` chunk immutably, returning a NEW `BodyState` with a new
+ * `chunks` array (when a payload is present). The previous body — if any — is
+ * the base; otherwise a fresh empty body is seeded.
+ */
+function appendBodyData(
+  prev: BodyState | undefined,
+  event: Extract<EventMessage["event"], { type: "BodyData" }>,
+): BodyState {
+  const base: BodyState = prev ?? { chunks: [], atEnd: false, wireBytes: 0 };
+  const chunks =
+    event.content?.payload != null
+      ? [...base.chunks, event.content.payload]
+      : base.chunks;
+  return {
+    ...base,
+    chunks,
+    atEnd: event.at_end,
+    wireBytes: event.total_bytes,
+  };
 }
 
+/**
+ * Pure, immutable reducer. Each call produces a NEW `Exchange` (and, where the
+ * event touches a body, a NEW `BodyState`) rather than mutating the existing
+ * objects in place. Object identity therefore tracks change consistently with
+ * the store's `setBodyDecodedBytes` action: any identity-based memoization
+ * (e.g. `React.memo` keyed on a single `Exchange`/`BodyState`) sees streaming
+ * updates instead of silently missing them.
+ *
+ * The `exchanges` Map and `ids` array are still mutated in place — the store's
+ * `applyEvent` action passes in fresh copies it owns, so this is the
+ * copy-on-write target, not shared state.
+ */
 export function apply(
   exchanges: Map<number, Exchange>,
   ids: number[],
@@ -108,8 +127,12 @@ export function apply(
   const id = meta.exchange_id;
   const timestamp = meta.timestamp;
 
+  const prev = exchanges.get(id);
+  // Shallow-copy the prior exchange (or seed a fresh one) so the stored object
+  // is always a new identity after a matched event.
+  const ex: Exchange = prev == null ? { id, timestamp } : { ...prev };
+
   if (event.type === "Request") {
-    const ex = getOrCreate(exchanges, ids, id, timestamp);
     ex.method = event.method;
     ex.uri = event.uri;
     ex.version = event.version;
@@ -123,36 +146,27 @@ export function apply(
       }
     }
   } else if (event.type === "Response") {
-    const ex = getOrCreate(exchanges, ids, id, timestamp);
     ex.status = event.status;
     ex.responseVersion = event.version;
     ex.responseHeaders = event.headers;
     ex.elapsedMs = event.elapsed_ms;
     ex.responseBody = initialBodyToState(event.body, event.headers);
   } else if (event.type === "BodyData") {
-    const ex = getOrCreate(exchanges, ids, id, timestamp);
-    const direction = msg.direction;
-    if (direction === "Request") {
-      if (ex.requestBody == null) {
-        ex.requestBody = { chunks: [], atEnd: false, wireBytes: 0 };
-      }
-      if (event.content?.payload != null) {
-        ex.requestBody.chunks.push(event.content.payload);
-      }
-      ex.requestBody.atEnd = event.at_end;
-      ex.requestBody.wireBytes = event.total_bytes;
+    if (msg.direction === "Request") {
+      ex.requestBody = appendBodyData(ex.requestBody, event);
     } else {
-      if (ex.responseBody == null) {
-        ex.responseBody = { chunks: [], atEnd: false, wireBytes: 0 };
-      }
-      if (event.content?.payload != null) {
-        ex.responseBody.chunks.push(event.content.payload);
-      }
-      ex.responseBody.atEnd = event.at_end;
-      ex.responseBody.wireBytes = event.total_bytes;
+      ex.responseBody = appendBodyData(ex.responseBody, event);
     }
   } else if (event.type === "Error") {
-    const ex = getOrCreate(exchanges, ids, id, timestamp);
     ex.error = { direction: event.direction, message: event.message };
+  } else {
+    // Unknown event type — leave the Map and ids untouched, matching the
+    // prior behavior where unmatched events created no exchange.
+    return;
   }
+
+  if (prev == null) {
+    ids.push(id);
+  }
+  exchanges.set(id, ex);
 }

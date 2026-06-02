@@ -122,12 +122,14 @@ export function ChatStreamView({ exchange }: Props) {
   const body = exchange.responseBody;
   const atEnd = body?.atEnd ?? true;
 
+  // `body` is a fresh object on every streaming update (see state/reducer.ts),
+  // so its identity is a sufficient memo key — no need to reach into
+  // `chunks.length`/`atEnd` to defeat in-place mutation.
   const events = useMemo(() => {
     if (!body) return [];
     const text = chunksToText(body);
     return parseSSEBody(text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body?.chunks.length, body?.atEnd]);
+  }, [body]);
 
   useEffect(() => {
     if (!isFollowing) return;
