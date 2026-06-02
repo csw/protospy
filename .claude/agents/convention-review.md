@@ -143,6 +143,7 @@ to the appropriate Obsidian path.
 ```markdown
 ---
 ticket: <ticket-id if provided, otherwise omit>
+title: "<ticket title if provided, otherwise omit>"
 date: <YYYY-MM-DD>
 type: convention-review
 scope: <short description of the files reviewed>

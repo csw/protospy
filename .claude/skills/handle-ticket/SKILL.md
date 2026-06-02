@@ -20,8 +20,9 @@ starting.
 linear issue view $ticket --json
 ```
 
-Extract `title`, `description`, and `branchName`. Read the description fully —
-it defines the scope of work.
+Extract `title`, `description`, `url`, and `branchName`. Read the description
+fully — it defines the scope of work. Save `title` and `url` (the Linear ticket
+URL) — both are needed when writing review front matter in step 8.
 
 **Branch name**: use `branchName` from Linear. If it exceeds 50 characters,
 truncate the slug on a word boundary — keep the full `<type>/pro-NNN-` prefix
@@ -148,6 +149,8 @@ Spawn a subagent with `subagent_type: "visual-review"` and `name:
 via `SendMessage`). Include in the prompt:
 
 - The ticket ID (`$ticket`)
+- The ticket title and Linear URL (from step 1), so the subagent includes
+  `title` in its front matter
 - The dev server URL (e.g. `http://localhost:5174/`)
 - Whether to run a full sweep (if shared infrastructure was touched)
 - Any caller hints extracted from the ticket description
@@ -159,7 +162,8 @@ via `SendMessage`). Include in the prompt:
 
 Example prompt shape:
 
-> Run a visual review for $ticket. The dev server is at http://localhost:5174/.
+> Run a visual review for $ticket ("<title>"). Linear URL: <url>.
+> The dev server is at http://localhost:5174/.
 >
 > [If full sweep]: The diff touches shared infrastructure (<list files>).
 > Run a full sweep — all scenes, all widths, full rubric.
@@ -257,11 +261,11 @@ If that lists any files, spawn the **`convention-review` subagent**
 (`subagent_type: "convention-review"`) in the **same message** as the 7a
 code review so they run in parallel. Give it this prompt shape:
 
-> Run a React/Tailwind/shadcn convention review for $ticket. Scope from the
-> diff against `main` (branch `<branch-name>`). Apply the
-> frontend:react-patterns, frontend:shadcn-ui, and
-> frontend:tailwind-theme-builder skills to the changed UI source and return
-> your prioritized convention-findings report.
+> Run a React/Tailwind/shadcn convention review for $ticket ("<title>").
+> Linear URL: <url>. Scope from the diff against `main` (branch
+> `<branch-name>`). Apply the frontend:react-patterns, frontend:shadcn-ui,
+> and frontend:tailwind-theme-builder skills to the changed UI source and
+> return your prioritized convention-findings report.
 
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
@@ -303,45 +307,60 @@ helper (`--current`); do not hand-roll these paths anywhere.
 ### Code review (always)
 
 Write the code review subagent's output **verbatim** to the `code_review`
-path. Prepend a small YAML front matter block:
+path. Prepend a front matter block and links table:
 
 ```yaml
 ---
 ticket: $ticket
+title: "<ticket title from step 1>"
 pr: <PR-number>
 round: <N>
 date: <today's date>
 type: code-review
 ---
+
+| | |
+|---|---|
+| Linear | [$ticket](<url from step 1>) |
+| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
 ```
 
 ### Visual review (UI tickets only)
 
 If this is a UI ticket, also write the visual-review findings (saved from
-step 4c) to the `visual_review` path. Prepend front matter:
-
-```yaml
----
-ticket: $ticket
-pr: <PR-number>
-round: <N>
-date: <today's date>
-type: visual-review
----
-```
-
-The visual-review report already includes its own YAML front matter (`scope`,
-`scenes_checked`, `widths`, `themes`). Use the subagent's front matter block as
-the primary block. Ensure `ticket`, `pr`, `round`, and `date` are present; add
+step 4c) to the `visual_review` path. The visual-review report already
+includes its own YAML front matter (`title`, `scope`, `scenes_checked`,
+`widths`, `themes`). Use the subagent's front matter block as the primary
+block. Ensure `ticket`, `title`, `pr`, `round`, and `date` are present; add
 them if missing. Do not duplicate fields the subagent already provides.
+
+After the merged front matter's closing `---`, insert a links table before
+the first heading:
+
+```
+| | |
+|---|---|
+| Linear | [$ticket](<url from step 1>) |
+| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+```
 
 ### Convention review (only if 7b ran)
 
 If a convention review ran in step 7b, write its findings to the
 `convention_review` path. The report already includes its own YAML front
-matter (`type: convention-review`, `scope`, `files_reviewed`,
-`skills_applied`). Use it as the primary block; ensure `ticket`, `pr`,
-`round`, and `date` are present, adding any that are missing.
+matter (`type: convention-review`, `title`, `scope`, `files_reviewed`,
+`skills_applied`). Use it as the primary block; ensure `ticket`, `title`,
+`pr`, `round`, and `date` are present, adding any that are missing.
+
+After the merged front matter's closing `---`, insert a links table before
+the first heading:
+
+```
+| | |
+|---|---|
+| Linear | [$ticket](<url from step 1>) |
+| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
+```
 
 ---
 
@@ -371,16 +390,22 @@ blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
 
 **Persist the synthesis.** The subagent is read-only, so write its returned
 triage **verbatim** to this round's `synthesis` path (from the step-8
-`review-paths` call), with front matter:
+`review-paths` call), with a front matter block and links table:
 
 ```yaml
 ---
 ticket: $ticket
+title: "<ticket title from step 1>"
 pr: <PR-number>
 round: <N>
 date: <today's date>
 type: synthesis
 ---
+
+| | |
+|---|---|
+| Linear | [$ticket](<url from step 1>) |
+| PR | [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>) |
 ```
 
 This keeps the merged triage alongside the reports it reconciles, one
