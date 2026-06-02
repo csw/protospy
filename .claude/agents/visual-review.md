@@ -81,49 +81,45 @@ playwright-cli eval "(() => { const s = window.__test_store.getState(); if (!s.d
 
 This guarantees the first screenshot of each cell is dark mode.
 
-### Step-by-step procedure
+### Capture loop (per width × theme batch)
 
-For each scene, at each width, in both themes:
+The outer loop is: for each width, for each theme, capture all 14 scenes,
+then hand the batch to a subagent (see "Managing context" below). **Do
+not Read screenshots yourself** — that pulls image tokens into your
+context. The subagent reads them.
 
-1. **Set the viewport width:**
-   ```bash
-   playwright-cli resize <width> 900
-   ```
+For each scene within a batch:
 
-2. **Apply the scene:**
+1. **Apply the scene:**
    ```bash
    playwright-cli eval "window.__test_scenes.apply('<scene-id>')"
    ```
 
-3. **Wait for render to settle** (short pause for React + transitions):
+2. **Wait for render to settle** (short pause for React + transitions):
    ```bash
-   # Small delay for Radix transitions, virtualization, etc.
    playwright-cli eval "new Promise(r => setTimeout(r, 300))"
    ```
 
-4. **Check the console for errors:**
+3. **Check the console for errors:**
    ```bash
    playwright-cli console
    ```
 
-5. **Screenshot dark mode:**
+4. **Screenshot to disk:**
    ```bash
-   playwright-cli screenshot --filename=<screenshot-path>
+   playwright-cli screenshot --filename=~/obsidian/protospy/Claude/screenshots/visual-review/<scene-id>-<width>-<theme>.png
    ```
 
-6. **Read the screenshot** (use the Read tool to view the PNG).
+Between batches, change the viewport or toggle the theme:
 
-7. **Toggle to light mode, screenshot, and read:**
-   ```bash
-   playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
-   playwright-cli eval "new Promise(r => setTimeout(r, 200))"
-   playwright-cli screenshot --filename=<screenshot-path>
-   ```
+```bash
+# Change width
+playwright-cli resize <width> 900
 
-8. **Toggle back to dark mode** before the next cell:
-   ```bash
-   playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
-   ```
+# Toggle theme
+playwright-cli eval "window.__test_store.getState().toggleDarkMode()"
+playwright-cli eval "new Promise(r => setTimeout(r, 200))"
+```
 
 ### Screenshot naming convention
 
@@ -249,32 +245,48 @@ themes: [dark, light]
 3. [third]
 ```
 
-## Managing context with subagents
+## Managing context — batch screenshots to subagents
 
-Screenshots are token-intensive. Walking 14 scenes × 3 widths × 2 themes
-produces up to 84 images — loading them all into one context will exhaust
-the window and degrade assessment quality on later scenes.
+Screenshots are token-intensive. 14 scenes × 3 widths × 2 themes = 84
+images at ~1,500 tokens each ≈ 126k tokens of images alone. That will not
+fit in your context alongside the assessment work and report. **Do not
+Read screenshots yourself** except to investigate a specific finding
+reported by a subagent.
 
-**Delegate screenshot assessment to subagents.** The pattern:
+**Batch by width × theme.** Walk all 14 scenes at one width in one theme,
+save them to disk, then send the batch to a single subagent for
+assessment. This produces 6 subagents (3 widths × 2 themes), each
+reviewing 14 screenshots — cheap in overhead, and each subagent gets
+cross-scene context for consistency findings.
 
-1. Take the screenshot and save it to disk.
-2. Spawn a subagent (Haiku is sufficient) with a prompt like:
-   > Read the screenshot at `<path>`. This is the protospy UI rendering
-   > scene "<id>" at <width>px in <theme> mode. Check for: [specific
-   > criteria from the DoD/rubric]. Report findings only — under 200
-   > words.
-3. Collect the subagent's text findings. Only Read screenshots yourself
-   when you need to investigate a reported finding further.
+The workflow for each batch:
 
-This keeps image tokens in short-lived subagent contexts instead of
-accumulating in yours.
+1. Set the viewport width and theme.
+2. Loop through all 14 scenes: apply, wait, screenshot to disk.
+3. Spawn a subagent with a prompt like:
+
+   > Read the 14 screenshots in
+   > `~/obsidian/protospy/Claude/screenshots/visual-review/` matching
+   > `*-<width>-<theme>.png`. These show the protospy UI fixture matrix
+   > at <width>px in <theme> mode.
+   >
+   > For each screenshot, check against these criteria:
+   > [paste the DoD checks and design-review rubric categories]
+   >
+   > Also check cross-scene consistency: do badges, spacing, typography,
+   > and colour treatment stay uniform across scenes?
+   >
+   > Report findings as a Markdown list grouped by severity
+   > (high/medium/low). Reference screenshots by filename. Be specific
+   > about what's wrong and where. Under 500 words.
+
+4. Collect the subagent's text findings into your report.
+
+After all 6 batches, synthesize the findings: deduplicate, prioritize,
+and write the final report.
 
 ## Efficiency tips
 
-- **Batch by width**: resize once, then walk all scenes at that width
-  before resizing again. This is faster than resizing per-scene.
-- **Dark-first**: protospy is dark-first, so start with dark mode (the
-  default). Toggle to light for each cell, screenshot, toggle back.
 - **Skip redundant screenshots**: if a finding is width-independent
   (e.g. a color issue), you don't need all 3 widths to document it.
   Capture the clearest example.
