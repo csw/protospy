@@ -19,8 +19,11 @@
 //
 // Axes covered (see docs/fixture-matrix.md for the full table):
 //   - state: empty, loading, error row (ERR), selected, hover
-//   - data:  long URI + query, long status, long error, many rows, dual size
+//   - data:  long URI + query, long error, many rows, dual size
 //   - view:  rows vs table, compact vs regular density
+//   - cross: view × data combinations (table/compact crossed with a data
+//            extreme) that stress column-width allocation
+//   - trace: traceparent grouping (colour bars, trace rail, trace filter chip)
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
@@ -29,12 +32,10 @@ import type { AppStore } from "@ui/state/store";
 import {
   GZIP_JSON_DECODED_BYTES,
   LONG_ERROR_MESSAGE,
-  LONG_STATUS,
   LONG_URI,
   makeCompleteExchange,
   makeDualSizeResponse,
   makeGetRequest,
-  makeLongStatusResponse,
   makeLongUriRequest,
   makeManyExchanges,
   makeProxyError,
@@ -61,6 +62,12 @@ export interface SceneConfig {
   service?: string | null;
   selectedId?: number | null;
   filter?: string;
+  /**
+   * Active trace filter (a 32-hex traceparent trace-id). Set it to drive the
+   * `FilterBar` trace chip and narrow the list to one trace, mirroring a click
+   * on a row's trace pill.
+   */
+  traceFilter?: string | null;
   listMode?: "rows" | "table";
   density?: "regular" | "compact";
   /** Sets the stored list width for a mode (drives the panel default at mount). */
@@ -115,6 +122,46 @@ function backdrop(): Msg[] {
         elapsed: 503,
       },
     ),
+  ];
+}
+
+// Two distinct W3C `traceparent` trace-ids (the spec's canonical examples).
+// They hash to different `traceColor()` palette entries, so a scene mixing
+// them shows two visibly distinct trace rails / color bars.
+const TRACE_A = "4bf92f3577b34da6a3ce929d0e0e4736";
+const TRACE_B = "0af7651916cd43dd8448eb211c80319c";
+
+// Heterogeneous traffic where some exchanges share a `traceparent` trace-id and
+// others carry none. Trace A spans three hops (ids 1, 3, 5), trace B spans two
+// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows coloured trace
+// bars, the trace rail, and (with a trace member selected) the context bar's
+// "next in trace" jump. Deterministic ids 1..7.
+function tracedTraffic(): Msg[] {
+  return [
+    ...makeCompleteExchange(1, "POST", "/api/checkout/cart", "200 OK", {
+      traceId: TRACE_A,
+      elapsed: 41,
+    }),
+    ...makeCompleteExchange(2, "GET", "/api/users", "200 OK", { elapsed: 28 }),
+    ...makeCompleteExchange(3, "POST", "/api/checkout/payment", "201 Created", {
+      traceId: TRACE_A,
+      elapsed: 173,
+    }),
+    ...makeCompleteExchange(4, "GET", "/api/search?q=boots", "200 OK", {
+      traceId: TRACE_B,
+      elapsed: 64,
+    }),
+    ...makeCompleteExchange(5, "GET", "/api/checkout/confirm", "200 OK", {
+      traceId: TRACE_A,
+      elapsed: 52,
+    }),
+    ...makeCompleteExchange(6, "POST", "/api/search/refine", "200 OK", {
+      traceId: TRACE_B,
+      elapsed: 39,
+    }),
+    ...makeCompleteExchange(7, "GET", "/api/products/42", "404 Not Found", {
+      elapsed: 12,
+    }),
   ];
 }
 
@@ -181,18 +228,6 @@ export const SCENES: Scene[] = [
     config: { selectedId: 1 },
   },
   {
-    id: "long-status",
-    title: "Long status text",
-    axis: "data",
-    description:
-      "A response with an unusually verbose status phrase. Verify the status column and context bar clip/wrap gracefully.",
-    messages: [
-      makeGetRequest(1, "/api/slow"),
-      makeLongStatusResponse(1, LONG_STATUS),
-    ],
-    config: { selectedId: 1 },
-  },
-  {
     id: "long-error",
     title: "Long error text",
     axis: "data",
@@ -256,6 +291,132 @@ export const SCENES: Scene[] = [
     messages: backdrop(),
     config: { listMode: "table", density: "compact", selectedId: 2 },
   },
+
+  // ---- cross-axis (view × data combinations) ------------------------------
+  // The single-axis scenes above exercise table/compact density and the
+  // data-extremes (long URI, dual size, many rows) independently, but never
+  // together — so column-width allocation under realistic pressure went
+  // untested. These cross the view axis with the data axis (PRO-250, gap
+  // surfaced during the PRO-242 sweep). All reuse existing builders; the
+  // `backdrop()` exchanges occupy ids 1..4 and the stress row is id 5.
+  {
+    id: "table-dual-size",
+    title: "Table + dual size",
+    axis: "view",
+    description:
+      "Table mode with a gzip row whose Size column shows the dual `wire/decoded (gz)` label beside plainly-sized rows. Verify the Size column absorbs the wider compound label without crowding Time/When.",
+    messages: [
+      ...backdrop(),
+      makeGetRequest(5, "/api/gzipped"),
+      makeDualSizeResponse(5),
+    ],
+    config: {
+      listMode: "table",
+      selectedId: 5,
+      decoded: [
+        { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
+  },
+  {
+    id: "table-long-uri",
+    title: "Table + long URI",
+    axis: "view",
+    description:
+      "Table mode with one deep-path + long-query row among normal rows. Verify the Path column truncates/ellipsises and holds its width instead of pushing Time/Size/When off-screen.",
+    messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
+    config: { listMode: "table", selectedId: 5 },
+  },
+  {
+    id: "compact-table-long-uri",
+    title: "Compact table + long URI",
+    axis: "view",
+    description:
+      "The table-long-uri pressure at compact density — tightest rows plus an overflowing Path. Verify truncation and vertical rhythm hold at the smallest row height.",
+    messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
+    config: { listMode: "table", density: "compact", selectedId: 5 },
+  },
+  {
+    id: "compact-rows-dual-size",
+    title: "Compact rows + dual size",
+    axis: "view",
+    description:
+      "Rows mode at compact density with a gzip dual `wire/decoded (gz)` size label. Verify the compound size label fits the tighter row without overlapping the path or timing.",
+    messages: [
+      ...backdrop(),
+      makeGetRequest(5, "/api/gzipped"),
+      makeDualSizeResponse(5),
+    ],
+    config: {
+      density: "compact",
+      selectedId: 5,
+      decoded: [
+        { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
+  },
+  {
+    id: "mixed-table",
+    title: "Mixed realistic table",
+    axis: "view",
+    description:
+      "Heterogeneous traffic in table mode: plain rows, a gzip dual-size row, a long-URI row, and an ERR row. Real traffic is mixed, so this stresses column allocation more realistically than any single-axis scene.",
+    messages: [
+      ...makeCompleteExchange(1, "GET", "/api/users", "200 OK", {
+        elapsed: 34,
+      }),
+      ...makeCompleteExchange(2, "POST", "/api/orders", "201 Created", {
+        elapsed: 88,
+      }),
+      makeGetRequest(3, "/api/gzipped"),
+      makeDualSizeResponse(3),
+      makeLongUriRequest(4),
+      makeResponse(4, "200 OK"),
+      makeGetRequest(5, "/api/flaky"),
+      makeProxyError(5, "Request", "connection refused (os error 111)"),
+      ...makeCompleteExchange(
+        6,
+        "DELETE",
+        "/api/sessions/abc",
+        "500 Internal Server Error",
+        { elapsed: 503 },
+      ),
+    ],
+    config: {
+      listMode: "table",
+      selectedId: 3,
+      decoded: [
+        { id: 3, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
+      ],
+    },
+  },
+
+  // ---- trace axis (traceparent grouping) ----------------------------------
+  // Distributed-trace correlation: exchanges sharing a `traceparent` trace-id
+  // render a coloured trace bar + rail, the context bar gains "next in trace"
+  // navigation, and the trace-id surfaces in TimingView and (when filtered) the
+  // FilterBar chip. No single-axis scene set a traceId, so none of this was in
+  // the matrix (PRO-250).
+  {
+    id: "trace-group",
+    title: "Trace grouping",
+    axis: "data",
+    description:
+      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the context bar's 'next in trace' jump and TimingView's Trace ID row.",
+    messages: tracedTraffic(),
+    // Newest-first order displays trace A as [5, 3, 1]; selecting id 5 (the
+    // newest hop) guarantees a forward "next in trace" target (id 3).
+    config: { selectedId: 5 },
+  },
+  {
+    id: "trace-filtered",
+    title: "Trace filter active",
+    axis: "data",
+    description:
+      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (coloured dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
+    messages: tracedTraffic(),
+    config: { traceFilter: TRACE_A, selectedId: 1 },
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */
@@ -301,6 +462,7 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
     s.setListWidth(c.listWidth.mode, c.listWidth.width);
   }
   if (c?.filter !== undefined) s.setFilter(c.filter);
+  if (c?.traceFilter !== undefined) s.setTraceFilter(c.traceFilter);
   for (const d of c?.decoded ?? []) {
     s.setBodyDecodedBytes(d.id, d.direction, d.bytes);
   }

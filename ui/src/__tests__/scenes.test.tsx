@@ -105,6 +105,92 @@ describe("applySceneToStore", () => {
     expect(useStore.getState().density).toBe("compact");
   });
 
+  it("table-dual-size crosses table mode with a cached dual-size row", () => {
+    applySceneToStore(useStore, getScene("table-dual-size")!);
+    const state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    // backdrop ids 1..4 plus the gzip stress row at id 5.
+    expect(state.ids).toEqual([1, 2, 3, 4, 5]);
+    const body = state.exchanges.get(5)?.responseBody;
+    expect(body?.contentEncoding).toBe("gzip");
+    expect(body?.decodedBytes).toBe(GZIP_JSON_DECODED_BYTES);
+    expect(body?.decodedBytes).not.toBe(body?.wireBytes);
+    expect(state.selectedId).toBe(5);
+  });
+
+  it("compact cross-axis scenes set both density and their data extreme", () => {
+    applySceneToStore(useStore, getScene("compact-table-long-uri")!);
+    let state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    expect(state.density).toBe("compact");
+    expect(state.exchanges.get(5)?.uri).toBe(LONG_URI);
+
+    applySceneToStore(useStore, getScene("compact-rows-dual-size")!);
+    state = useStore.getState();
+    // Rows mode is the default, so listMode stays "rows".
+    expect(state.listMode).toBe("rows");
+    expect(state.density).toBe("compact");
+    expect(state.exchanges.get(5)?.responseBody?.decodedBytes).toBe(
+      GZIP_JSON_DECODED_BYTES,
+    );
+  });
+
+  it("mixed-table composes plain, dual-size, long-uri, and error rows", () => {
+    applySceneToStore(useStore, getScene("mixed-table")!);
+    const state = useStore.getState();
+    expect(state.listMode).toBe("table");
+    expect(state.ids).toEqual([1, 2, 3, 4, 5, 6]);
+    // gzip dual-size row.
+    expect(state.exchanges.get(3)?.responseBody?.decodedBytes).toBe(
+      GZIP_JSON_DECODED_BYTES,
+    );
+    // long-uri row.
+    expect(state.exchanges.get(4)?.uri).toBe(LONG_URI);
+    // error row: no status, carries an error.
+    expect(state.exchanges.get(5)?.status).toBeUndefined();
+    expect(state.exchanges.get(5)?.error?.message).toContain(
+      "connection refused",
+    );
+  });
+
+  it("trace-group parses traceparent into shared trace ids", () => {
+    applySceneToStore(useStore, getScene("trace-group")!);
+    const ex = (id: number) => useStore.getState().exchanges.get(id);
+    expect(useStore.getState().ids).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    // Trace A spans ids 1/3/5; trace B spans 4/6; 2 and 7 are untraced.
+    const traceA = ex(1)?.traceId;
+    const traceB = ex(4)?.traceId;
+    expect(traceA).toBeDefined();
+    expect(traceB).toBeDefined();
+    expect(traceA).not.toBe(traceB);
+    expect(ex(3)?.traceId).toBe(traceA);
+    expect(ex(5)?.traceId).toBe(traceA);
+    expect(ex(6)?.traceId).toBe(traceB);
+    expect(ex(2)?.traceId).toBeUndefined();
+    expect(ex(7)?.traceId).toBeUndefined();
+    // Selected id 5 has a forward "next in trace" target under newest-first.
+    expect(useStore.getState().selectedId).toBe(5);
+    // No trace filter is active in the grouping scene.
+    expect(useStore.getState().traceFilter).toBeNull();
+  });
+
+  it("trace-filtered activates the trace filter on trace A", () => {
+    applySceneToStore(useStore, getScene("trace-filtered")!);
+    const state = useStore.getState();
+    // The active filter equals trace A (the trace of ids 1/3/5).
+    expect(state.traceFilter).toBe(state.exchanges.get(1)?.traceId);
+    expect(state.traceFilter).not.toBeNull();
+    // All seven exchanges still injected; the filter is applied at render time.
+    expect(state.ids).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("resets the trace filter back to null on a non-trace scene", () => {
+    applySceneToStore(useStore, getScene("trace-filtered")!);
+    expect(useStore.getState().traceFilter).not.toBeNull();
+    applySceneToStore(useStore, getScene("selected")!);
+    expect(useStore.getState().traceFilter).toBeNull();
+  });
+
   it("resets prior scene state on each apply", () => {
     applySceneToStore(useStore, getScene("many-rows")!);
     expect(useStore.getState().ids).toHaveLength(120);
