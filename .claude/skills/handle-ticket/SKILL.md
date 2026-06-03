@@ -115,10 +115,16 @@ through the Playwright CLI and report back whether the change holds together.
 doesn't collide with anything the user is running, and note the URL. Run it in
 the background (e.g. `pnpm dev --port <port>` from `ui/`).
 
-**Spawn a `general-purpose` subagent** (it has Playwright CLI access via the
-`playwright-cli` skill — deliberately *not* the heavyweight `visual-review`
-agent). Give it a prompt of this shape, naming the components/views your change
-touched and the dev-server URL:
+**Spawn a `frontend-engineer` subagent on Sonnet** (`model: sonnet`) — it has
+Playwright CLI access via the `playwright-cli` skill, is the agent CLAUDE.md
+designates for `playwright-cli` screenshots, and arrives pre-loaded with the
+UI's architecture and conventions. Use Sonnet, not Opus: eyeballing a rendered
+change is not Opus-grade reasoning, and screenshots are token-heavy (~1.5k each),
+so the cheaper model keeps this check inexpensive — the same reason the
+`visual-review` agent is pinned to Sonnet. This is still the *lightweight* path:
+a quick interactive eyeball, deliberately *not* the heavyweight `visual-review`
+agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
+components/views your change touched and the dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the
