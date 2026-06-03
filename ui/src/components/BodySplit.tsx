@@ -19,7 +19,7 @@ export function BodySplit({ exchange, protocol }: Props) {
   // means "no response was ever produced"; a Response-direction error means
   // "response interrupted mid-stream". Either way, the response body pane
   // should surface the error instead of showing blank.
-  const responseError = exchange.error?.message ?? undefined;
+  const responseError = exchange.error?.message;
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">

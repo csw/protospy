@@ -171,15 +171,12 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         </span>
       )}
       {hasError && (
-        <SimpleTooltip content={exchange.error!.message} side="bottom">
+        <SimpleTooltip content={exchange.error?.message} side="bottom">
           <span
             data-testid="error-indicator"
-            className="font-family-mono text-ui-sm font-semibold text-red shrink-0 truncate max-w-[40%]"
+            className="font-family-mono text-ui-sm font-semibold text-red shrink-0"
           >
-            Error{" "}
-            <span className="font-normal text-xs text-red/70">
-              {exchange.error!.message}
-            </span>
+            Error
           </span>
         </SimpleTooltip>
       )}

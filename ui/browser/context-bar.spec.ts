@@ -110,11 +110,10 @@ test.describe("ContextBar — method, status, and path display", () => {
 
     await page.getByText("/api/error").first().click();
 
-    // Error state shows "Error" label with the error message
+    // Error state shows "Error" label (message is in the tooltip, not inline)
     const indicator = contextBar(page).getByTestId("error-indicator");
     await expect(indicator).toBeVisible();
-    await expect(indicator).toContainText("Error");
-    await expect(indicator).toContainText("connection refused");
+    await expect(indicator).toHaveText("Error");
   });
 });
 

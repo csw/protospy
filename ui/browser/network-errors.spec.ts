@@ -54,17 +54,16 @@ test.describe("Network error rendering — proxy-level failures", () => {
 
     await page.getByText("/api/connect-refused").first().click();
 
-    // Context bar shows Error with the error message
+    // Context bar shows "Error" label (message is tooltip-only, not inline)
     await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
-    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
+    await expect(contextBar(page).getByTestId("error-indicator")).toHaveText(
       "Error",
-    );
-    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
-      "Connection refused",
     );
 
     // Body pane shows the error message instead of blank
-    await expect(page.getByText("Error").nth(1)).toBeVisible();
+    await expect(
+      page.getByText("Connection refused", { exact: false }),
+    ).toBeVisible();
 
     // Inspector tabs remain functional — clicking each does not throw
     await page.getByRole("tab", { name: "Headers" }).click();
@@ -127,9 +126,10 @@ test.describe("Network error rendering — proxy-level failures", () => {
     await expect(contextBar(page).getByText("200 OK")).toBeVisible();
 
     // The Error indicator is also visible (mid-stream interruption).
+    // Message is tooltip-only, not inline in the indicator.
     await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
-    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
-      "connection reset by peer",
+    await expect(contextBar(page).getByTestId("error-indicator")).toHaveText(
+      "Error",
     );
 
     // The list row shows both status and error badge

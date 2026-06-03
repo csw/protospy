@@ -7,6 +7,32 @@ import { SimpleTooltip } from "./ui/SimpleTooltip";
 import { EmptyState } from "./ui/EmptyState";
 import { JsonViewer } from "./JsonViewer";
 
+/** Centered error display used for both "no response" and "response interrupted" states. */
+function ErrorPanel({
+  title: panelTitle,
+  message,
+  detail,
+}: {
+  title: string;
+  message: string;
+  detail?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center">
+      <AlertTriangle size={20} className="text-red/60" />
+      <span className="font-family-ui text-sm font-medium text-red">
+        {panelTitle}
+      </span>
+      <span className="font-family-mono text-xs text-mid max-w-md leading-relaxed">
+        {message}
+      </span>
+      {detail != null && (
+        <span className="font-family-mono text-xs text-dim">{detail}</span>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   title: string;
   body: BodyState | undefined;
@@ -77,30 +103,15 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
         )}
 
         {!loading && body != null && !body.atEnd && errorMessage != null && (
-          <div className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center">
-            <AlertTriangle size={20} className="text-red/60" />
-            <span className="font-family-ui text-sm font-medium text-red">
-              Response interrupted
-            </span>
-            <span className="font-family-mono text-xs text-mid max-w-md leading-relaxed">
-              {errorMessage}
-            </span>
-            <span className="font-family-mono text-xs text-dim">
-              {formatSize(body.wireBytes)} received before error
-            </span>
-          </div>
+          <ErrorPanel
+            title="Response interrupted"
+            message={errorMessage}
+            detail={`${formatSize(body.wireBytes)} received before error`}
+          />
         )}
 
         {!loading && body == null && errorMessage != null && (
-          <div className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center">
-            <AlertTriangle size={20} className="text-red/60" />
-            <span className="font-family-ui text-sm font-medium text-red">
-              Error
-            </span>
-            <span className="font-family-mono text-xs text-mid max-w-md leading-relaxed">
-              {errorMessage}
-            </span>
-          </div>
+          <ErrorPanel title="Error" message={errorMessage} />
         )}
 
         {!loading && body == null && errorMessage == null && (
@@ -133,7 +144,7 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
             Only shown when atEnd is true — the !atEnd case is handled above
             with the "Response interrupted" centered display. */}
         {!loading && body != null && body.atEnd && errorMessage != null && (
-          <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-red/5">
+          <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-red-bg">
             <AlertTriangle size={14} className="text-red/60 shrink-0" />
             <span className="font-family-mono text-xs text-red">
               {errorMessage}
