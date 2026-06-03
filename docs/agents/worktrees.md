@@ -79,8 +79,11 @@ above inside a worktree. The symlinks are set up automatically by the hook, and
 manual copies would break the single-source property and may diverge from the
 main-repo versions.
 
-If a symlink is missing in a worktree (e.g. the hook wasn't installed yet),
-re-run the hook manually:
+If you find an expected skill, hook, agent file, or local-settings symlink
+absent while working in a worktree — e.g. a `/`-command or agent that exists in
+the main repo isn't found — the setup hook likely didn't run. **This is the one
+sanctioned exception to the "do not recreate" rule above:** re-run the hook
+manually (do not hand-recreate the files):
 
 ```bash
 bash scripts/worktree-claude-setup.sh "" "" 1

@@ -47,14 +47,18 @@ scope**. When both are empty, fall back to a full sweep.
 
 ### 1. Change-derived scope
 
-Read the diff to identify which files changed:
+Read the diff to identify which files changed. Use a **three-dot** diff against
+the merge-base (so you scope to this branch's changes only, not changes others
+merged to `main` after the branch point), filtered to `ui/`:
 
 ```bash
-git diff main --name-only
+git diff main...HEAD --name-only -- 'ui/'
 ```
 
 Diff output paths are repo-relative (e.g. `ui/src/components/ExchangeList.tsx`).
-Strip the `ui/` prefix when matching against the table below.
+Strip the `ui/` prefix when matching against the table below. If after filtering
+no `ui/` files changed and the caller gave no explicit scope, fall back to a
+full sweep.
 
 Map changed files to components, scenes, widths, and rubric categories:
 
@@ -71,7 +75,14 @@ Map changed files to components, scenes, widths, and rubric categories:
 | `src/body/*`, `src/hooks/useDecodeBody*` | `selected`, `dual-size` | 1440 baseline | layout |
 | `src/state/*` | all scenes (store affects everything) | 1440 baseline | — (focus on render correctness) |
 | `src/api/*` | `empty`, `loading` | 1440 baseline | — (connection states) |
-| any other `src/components/*` | scenes most likely to render the component; when uncertain, use `selected` + `empty` | 1440 baseline | layout, component consistency |
+| `src/components/anthropic/*`, stream/trace logic | `stream-anthropic`, `stream-anthropic-error`, `stream-live`, `stream-error` | 1440 baseline | layout, typography |
+| trace grouping / filtering changes | `trace-group`, `trace-filtered` | all 3 | layout, colour |
+| any other `src/components/*` | scenes most likely to render the component; when uncertain, **scan the full scene list** (`window.__test_scenes.list()`) and include every scene whose description plausibly exercises the change, falling back to `selected` + `empty` only if none clearly apply | 1440 baseline | layout, component consistency |
+
+This table is an emphasis map, not an exhaustive scope filter. If a changed
+file matches no row, or matches only the catch-all, scan the full scene list and
+pick every scene that plausibly renders the changed code — do not skip a change
+just because no row names it.
 
 **Width rules:**
 - Changes to layout, responsive, or split-pane code → all 3 widths
@@ -141,7 +152,9 @@ The fixture matrix requires `window.__test_scenes`, which is available in:
 - **Test-mode preview** (`pnpm build:test && pnpm preview --port <port>`):
   test hooks enabled via `VITE_EXPOSE_TEST_HOOKS=true`
 
-Check whether a dev server is already running (try `http://localhost:5173/`).
+Check whether a dev server is already running (try `http://localhost:5173/`,
+the default; the actual port is configured in `ui/vite.config.ts` — check there
+if 5173 isn't responding before concluding none is up).
 If not, report that one needs to be started — do not start one yourself (you
 are read-only).
 
@@ -500,7 +513,10 @@ On a follow-up message (received via `SendMessage` after the initial run):
 
 1. **Scope comes from the follow-up message, not the diff.** The caller
    is asking about something specific — honour that directly. Do not
-   re-derive scope from `git diff`.
+   re-derive scope from `git diff`. The "both themes are always checked"
+   invariant still holds unless the follow-up explicitly narrows to one theme:
+   a follow-up that names a scene/width but not a theme means *both* themes at
+   that scene/width.
 2. **Do not re-read references.** The DoD, scenes, and architecture are
    already in context from the initial run.
 3. **Re-use the browser session if it is still open.** If the

@@ -71,11 +71,20 @@ Before reporting work as complete or committing, **all of the following must pas
 uv run ruff check .
 uv run ruff format .
 uv run pyright .
-uv run pytest -q
+uv run pytest -q   # NOTE: needs live infra — see below; NOT part of the commit gate
 ```
 
-These checks are enforced automatically at commit time — see
-[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
+The lint/format/type checks are enforced automatically at commit time — see
+[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md). The
+**conformance test run is not** enforced at commit time: unlike `flix`/`ui`, it
+requires a running protospy + a managed proxy (caddy/haproxy) and is run
+manually via `just conformance test`. With no proxy infra up, the bare
+`uv run pytest -q` above will error — that's an environment gap, not your bug.
+If you can't run it, say so explicitly rather than reporting the suite green.
+When your change affects protospy's proxy behavior, run `just conformance test`
+(or `uv run pytest -q --proxy protospy`, which covers both the bypass and
+capture variants, which must behave identically) and review `--findings`; the
+bare default run is not sufficient to validate a protospy behavior change.
 
 ## Committing
 

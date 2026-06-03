@@ -58,26 +58,27 @@ Before writing any code:
 - Read the relevant subproject's `CLAUDE.md` (e.g. `ui/CLAUDE.md` for UI work)
 - Consult `docs/agents/` files relevant to the type of work
 
-**Scope.** Read the ticket description and construe the scope to include
-adjacent problems you encounter in the same code, unless they're of a
-different nature or magnitude. If you're fixing a bug in a script and find
-another bug in the same script, fix it. If you're adjusting type
-configuration and a file is missing type coverage that's consistent with
-the ticket's intent, include it. Don't limit yourself to only the literal
-items enumerated in the description — ticket scope defines the primary
-objective, not the boundary of what you're allowed to touch.
+**Scope.** Read the ticket description, then construe scope broadly — this is a
+requirement, not permission to decline. You **must** fix adjacent defects you
+encounter in code you are already editing when the fix is the same nature and
+similar magnitude as the ticket work: another bug in the same script you're
+fixing, missing type coverage on a file you're touching, a typo in an adjacent
+comment. Don't limit yourself to only the literal items enumerated in the
+description — ticket scope defines the primary objective, not the boundary of
+what you're allowed to touch.
 
 Conversely, if you find something that warrants a fundamentally different
 kind of work (a rewrite, a design change, a new dependency) or is much
 larger than the ticket itself, note it in the PR description and move on.
 Use `/pm:capture` for genuinely separate discoveries.
 
-**Getting unstuck.** If you've spent more than 5 minutes on the same
-problem without making progress — rummaging through files, trying the same
-approach repeatedly, or going in circles — stop and spawn an Opus subagent
-for a fresh perspective. Brief it on what you've tried and what's not
-working. A second set of eyes on a stuck problem is almost always faster
-than continuing to iterate in the same direction.
+**Getting unstuck.** If you have made two unsuccessful attempts at the same
+problem, or repeated the same approach without new information, stop and spawn a
+`general-purpose` subagent (Opus model, high effort) via the Agent tool for a
+fresh perspective. Brief it on what you've tried and what's not working. A
+count-based trigger fires reliably — don't wait to "feel stuck." A second set of
+eyes on a stuck problem is almost always faster than continuing to iterate in
+the same direction.
 
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
@@ -145,12 +146,14 @@ actual PR number):
 This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
 the React/Tailwind/shadcn convention checklists — that's what 7b is for.
 
-### 7b — Convention review (UI source diffs only)
+### 7b — Convention review (UI source or UI config diffs only)
 
-Check whether the diff touches UI source:
+Check whether the diff touches UI source **or** the Tailwind/shadcn config
+files that carry convention surface (use a three-dot diff against the
+merge-base):
 
 ```bash
-git diff main --name-only -- 'ui/src/**'
+git diff main...HEAD --name-only -- 'ui/src/**' 'ui/components.json' 'ui/*.config.*'
 ```
 
 If that lists any files, spawn the **`convention-review` subagent**
@@ -169,8 +172,9 @@ composition drift) — the recurring class of issue that `/review` structurally
 suppresses (it filters out style/quality findings not mandated by CLAUDE.md).
 See `.claude/agents/convention-review.md`.
 
-If the diff touches **no** `ui/src/**` files, skip 7b — there are no
-React/Tailwind/shadcn conventions to review.
+If the diff matches **none** of those paths (no `ui/src/**`, `ui/components.json`,
+or `ui/*.config.*` files), skip 7b — there are no React/Tailwind/shadcn
+conventions to review.
 
 Wait for both subagents to finish. Capture each one's complete output. If a
 subagent fails or returns empty, note it and continue — the other review
@@ -310,11 +314,14 @@ two ways forward:
 
 ### Run another review round (when fixes warrant a re-review)
 
-If the fixes were substantive — or the user asks to re-review — go **back to
-step 7** and run another round against the updated PR:
+After pushing fixes, ask the user whether to run another review round. Run one
+(go **back to step 7**) if the user asks, or if the fixes changed program
+behavior, touched more than a trivial number of lines, or addressed a blocking
+finding. A pure comment/rename/formatting fix does not require a new round.
+When you do run another round against the updated PR:
 
-1. Re-spawn the code review (and the convention review, if `ui/src/**` still
-   has changes) on the new diff.
+1. Re-spawn the code review (and the convention review, if the step-7b diff
+   check still lists files) on the new diff.
 2. In step 8, `scripts/agents/review-paths $ticket <PR-number>` now returns the
    **next** round number, so the new reports land as `code-review-2.md`,
    `synthesis-2.md`, and so on without touching round 1's files.

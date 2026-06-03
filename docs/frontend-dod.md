@@ -10,14 +10,20 @@ know about.
 ## Layer 1 — Pass the design-review rubric
 
 The change must pass the seven categories in the `/design-review` skill. Don't
-duplicate them here; run the skill. If it fails, it isn't done.
+duplicate them here; run the skill. This is an action you must take before
+reporting the change complete, not a standard to self-assess against: actually
+invoke `/design-review` (or the `visual-review` subagent) on your change. Do not
+report done having only reasoned about whether it would pass. If it fails, it
+isn't done.
 
 ## Layer 2 — protospy-specific requirements
 
 These are the requirements the rubric can't check on its own, because they depend
 on protospy's state model, supported widths, and runtime behaviour.
 
-1. **All fixture-matrix states render correctly.** Every cell of the state +
+1. **All fixture-matrix states render correctly.** Inject and visually verify
+   *each* cell listed in `ui/docs/fixture-matrix.md` — not only the states your
+   change obviously touched. Every cell of the state +
    data-size matrix — driven through injection, not live traffic — must render
    without breakage: empty, loading, error row (`ERR`), selected, hover; long URI
    path / long query, very long status or error text, many rows, dual wire/decoded
@@ -45,8 +51,10 @@ on protospy's state model, supported widths, and runtime behaviour.
 
 5. **No new console errors.** This is a technical check, not a visual one: the
    browser console must not gain new errors or warnings as a result of the change.
-   Watch especially for React key warnings, act() warnings, and uncaught
-   exceptions during state transitions.
+   Treat *any* new console output as a defect; the most common offenders are
+   React key warnings, act() warnings, Radix/aria warnings, persist-hydration
+   warnings, and uncaught exceptions during state transitions, but the bar is
+   zero new warnings of any kind.
 
 6. **Dark mode and light mode both checked.** The rubric calls for this too, but
    it's worth restating: protospy is dark-first, so light mode is the one that

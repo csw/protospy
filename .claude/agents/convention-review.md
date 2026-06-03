@@ -55,31 +55,39 @@ don't reload per file.
 
 ## Determining review scope
 
-Read the diff to find changed UI source:
+Read the diff to find changed UI source. Use a **three-dot** diff against the
+merge-base so you review only this branch's changes, not changes others merged
+to `main` after the branch point:
 
 ```bash
-git diff main --name-only -- 'ui/src/**'
+git diff main...HEAD --name-only -- 'ui/src/**' 'ui/components.json' 'ui/*.config.*'
 ```
 
-Scope to files under `ui/src/`. Within that, focus on:
+Review **every** changed file the command lists (UI source plus the
+Tailwind/shadcn config files — `components.json`, `tailwind.config.*`,
+`postcss.config.*`, `vite.config.*` — which carry real convention surface).
+The buckets below are emphasis hints for *which skill applies*, not a filter on
+what to review; a changed file matching none of them still gets reviewed against
+the full skill checklists:
 
 - **Components** (`*.tsx`) — react-patterns + shadcn-ui
-- **Styles / tokens** (`*.css`, theme files) — tailwind-theme-builder
+- **Styles / tokens** (`*.css`, theme files, Tailwind config) — tailwind-theme-builder
 - **Hooks** (`use*.ts`) — react-patterns (effect/dependency footguns)
-- **Pure helpers** (`lib/`, `state/`, `theme/`) — react-patterns
-  (composition, purity) and the ARCHITECTURE.md patterns
+- **Pure helpers** (`lib/`, `state/`, `theme/`, and any other non-test source) —
+  react-patterns (composition, purity) and the ARCHITECTURE.md patterns
 
 You may **de-prioritize** pure test files (`*.test.ts`, `*.test.tsx`,
 `browser/`) and generated bindings — convention review of production source
 is the point. Note in the report if you skipped anything.
 
-When the diff is empty or the branch is `main`, say so and return an empty
-findings report rather than inventing scope.
+When the scoped diff is empty — whether because the branch is `main`, there are
+no commits, or the PR changed none of the files the command above matches — say
+so and return an empty findings report rather than inventing scope.
 
 To read the actual changes (not just file names):
 
 ```bash
-git diff main -- 'ui/src/**'
+git diff main...HEAD -- 'ui/src/**' 'ui/components.json' 'ui/*.config.*'
 ```
 
 Read the surrounding source for any file you flag — a diff hunk alone can

@@ -60,11 +60,16 @@ Before reporting work as complete or committing, **all of the following must pas
 uv run ruff check .
 uv run ruff format .
 uv run pyright .
-uv run pytest -q
+uv run pytest -q -m "not e2e"   # unit/component
+uv run pytest -m e2e -q         # e2e — needs Elasticsearch at localhost:9200
 ```
 
-These checks (plus `pytest -m e2e`) are enforced automatically at commit
-time — see [`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
+The e2e suite is part of the bar, not optional. It requires a running
+Elasticsearch (with the demo index loaded); **you cannot start ES yourself**, so
+if it's down, surface that to the user rather than skipping the run or reporting
+done — see [`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md) and
+the "Failures are your fault" section of [`docs/agents/testing.md`](../docs/agents/testing.md).
+All of these are also enforced automatically at commit time.
 
 ## Browser testing
 

@@ -6,7 +6,7 @@ If `CLAUDE.local.md` exists in this directory, read it for additional local guid
 
 ## Architecture
 
-For the deep reference (exact `EventMessage` shape, reducer per-event-type rules, the full body decode pipeline, design-token policy, test-architecture detail), read [`ARCHITECTURE.md`](./ARCHITECTURE.md). The TL;DR below is enough for localized single-component work — but if your change touches the SSE pipeline, store shape, reducer, body decode, theming/tokens, the test project split, or the directory layout, you need the deep doc.
+For the deep reference (exact `EventMessage` shape, reducer per-event-type rules, the full body decode pipeline, design-token policy, test-architecture detail), read [`ARCHITECTURE.md`](./ARCHITECTURE.md). The TL;DR below is enough for localized single-component work — but if your change touches any load-bearing or architectural concern, read the deep doc first. That includes, but is not limited to, the SSE pipeline, store shape, reducer, body decode, theming/tokens, persistence/`partialize`, the `__test_store`/`__test_scenes` test hooks, the test project split, or the directory layout. When unsure whether a concern is architectural, read it.
 
 **Keep both current:** when you change the UI's architecture, stack, data flow, or directory structure, update `ARCHITECTURE.md`, the `## Architecture` section of `README.md`, and the TL;DR below in the same change. See [`docs/agents/tldr-maintenance.md`](../docs/agents/tldr-maintenance.md) for the regeneration prompt.
 
@@ -77,10 +77,12 @@ Coverage thresholds are configured in `vitest.config.ts` — see the testing sec
 These checks are enforced automatically at commit time — see
 [`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
 
-## Definition of Done (visual changes)
+## Definition of Done (any change affecting rendered output)
 
-Passing lint/typecheck/tests is necessary but not sufficient for a UI change. A change
-is "done" only when it also clears the **frontend Definition of Done**
+Passing lint/typecheck/tests is necessary but not sufficient for any change that affects
+what the UI renders or how it behaves on screen — this includes changes to reducers,
+hooks, selectors, or formatters whose output is visible, not only changes to components or
+CSS. Such a change is "done" only when it also clears the **frontend Definition of Done**
 ([`../docs/frontend-dod.md`](../docs/frontend-dod.md)): the `/design-review` rubric plus
 protospy-specific requirements —
 
@@ -107,7 +109,7 @@ below.
 | Visual layout, cross-component interaction, or behavior that depends on real DOM/CSS | Browser test   | `browser/*.spec.ts`             |
 | Styling properties that must match a design spec (font, spacing, color, position)    | Browser test   | `browser/design-tokens.spec.ts` |
 
-When a change spans categories, write the cheapest test that covers the behavior — prefer unit over component, component over browser. But if the behavior under test requires the real DOM or layout, don't force it into a unit test.
+When a change spans categories, cover _each_ distinct observable behavior with the cheapest test that exercises it — prefer unit over component, component over browser per behavior. A single cheap test that covers only one layer of a multi-layer change is not sufficient. But if a behavior under test requires the real DOM or layout, don't force it into a unit test.
 
 ### What "covered" means
 

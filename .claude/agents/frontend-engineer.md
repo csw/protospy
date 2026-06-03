@@ -27,16 +27,21 @@ Before making non-trivial changes, read:
 These documents are kept current. If your understanding conflicts with
 what they say, they win.
 
+Regardless of change size, `docs/frontend-dod.md` is the completion bar for
+**any** UI change — there is no change too small to skip it. Don't let a
+"trivial" self-assessment exempt you from reading and clearing the DoD before
+reporting done.
+
 ## Scope
 
-You work in `ui/`. You may read anything in the repo for context.
-
-**Do not modify:**
-- Rust code (anything under `src/` at the repo root, `Cargo.toml`, etc.)
-- Generated TypeScript bindings (`bindings/`) — these come from the Rust
-  backend via ts-rs
-- Conformance tests (`conformance/`)
-- The demo app (`flix/`)
+**Modify only files under `ui/`.** You may read anything in the repo for
+context, but everything outside `ui/` is read-only — including (but not limited
+to) Rust code (anything under `src/` at the repo root, `Cargo.toml`, etc.),
+generated TypeScript bindings (`bindings/`, which come from the Rust backend via
+ts-rs), conformance tests (`conformance/`), the demo app (`flix/`), CI workflows
+under `.github/`, and root-level config. If a task seems to need a change
+outside `ui/`, say so and stop — don't edit it just because it isn't on a
+denylist.
 
 If a UI change requires a backend change, say so and stop. Don't work
 around a backend limitation by hacking the frontend.
@@ -70,7 +75,10 @@ These patterns are load-bearing. Work with them, not around them:
 - Pick the cheapest test type that covers the behavior: unit over
   component, component over browser.
 - Run `pnpm lint && pnpm format && pnpm typecheck && pnpm test:coverage`
-  before reporting work as complete.
+  before reporting work as complete. These four checks are necessary, not
+  sufficient: if your change touches a code path the test suite doesn't
+  execute, also run it manually (dev server + the affected view) before
+  reporting done.
 - Coverage thresholds ratchet up, never down.
 
 ## Accessibility
@@ -135,7 +143,8 @@ UI rendering without it using the test store injection pattern.
 
 ## Looking things up
 
-Use Context7 to look up React, Zustand, Tailwind, Radix, Playwright,
-and Vite documentation before reasoning from training data. APIs change;
+Use Context7 to look up library and tool documentation — React, Zustand,
+Tailwind, Radix, Playwright, Vite, TanStack Virtual, Vitest, and any other
+dependency you're working with — before reasoning from training data. APIs change;
 best practices evolve. Your confidence that you know how something works
 is not evidence that you do. Check.
