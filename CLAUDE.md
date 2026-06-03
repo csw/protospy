@@ -77,9 +77,13 @@ periodic sweeps and ad-hoc invocation — it derives scope from the diff, walks 
 **fixture matrix** (`ui/src/test/scenes.ts`, documented in `ui/docs/fixture-matrix.md`)
 at the target widths in both themes, and returns a prioritized findings report. It drives
 the browser through the **`playwright-cli`** skill. Invoke it directly via the Agent tool,
-or use `/design-review` for an ad-hoc check. It is not run automatically by `handle-ticket`
-— convention and code review catch most per-PR regressions; the visual sweep is most
-valuable as a periodic tool (see PRO-242).
+or use `/design-review` for an ad-hoc check. This heavyweight sweep is not run
+automatically by `handle-ticket` — convention and code review catch most per-PR
+regressions; the visual sweep is most valuable as a periodic tool (see PRO-242).
+What `handle-ticket` *does* run per-ticket is a much lighter check (step 4a): for any
+UI-source diff it spawns a `general-purpose` subagent to interactively eyeball the
+change via `playwright-cli` (no fixture matrix, no multi-width sweep, no report) before
+the PR is opened (PRO-282).
 
 - Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
 - Accessibility scope: **keyboard/focus visual quality only** — axe violations are

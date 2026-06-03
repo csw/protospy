@@ -1,6 +1,6 @@
 ---
 name: handle-ticket
-description: Handle a Linear ticket end-to-end — fetch details, implement in a worktree, push a PR, run review rounds (code + convention + synthesis) written to Obsidian, evaluate, and discuss
+description: Handle a Linear ticket end-to-end — fetch details, implement in a worktree, visually verify UI changes, push a PR, run review rounds (code + convention + synthesis) written to Obsidian, evaluate, and discuss
 argument-hint: PRO-NNN [check]
 arguments: [ticket, check]
 disable-model-invocation: true
@@ -88,15 +88,76 @@ manually before proceeding (start a dev server, run the binary, etc.).
 
 ---
 
-## 4 — Dev server checkpoint
+## 4 — Verify the change
+
+This step has two parts. **4a runs automatically for any UI-source change**;
+**4b runs only when the user asked for a dev-server checkpoint** (the `$check`
+argument). When both run, they can share a single dev server.
+
+### 4a — Visually verify UI changes
+
+**Trigger.** Run 4a whenever the branch diff touches UI source. Check with a
+three-dot diff against the merge-base:
+
+```bash
+git diff main...HEAD --name-only -- 'ui/src/**'
+```
+
+If that lists **no** files, skip 4a. If it lists **any**, 4a is **required** —
+do not open the PR on a UI change without a visual confirmation.
+
+This is a **lightweight, interactive** check — *look at what you built* — not
+the full `visual-review` pipeline. No fixture-matrix sweep, no multi-width
+screenshot matrix, no formal report. You spawn one subagent to drive the app
+through the Playwright CLI and report back whether the change holds together.
+
+**Start a dev server** for the subagent to drive, on a non-default port so it
+doesn't collide with anything the user is running, and note the URL. Run it in
+the background (e.g. `pnpm dev --port <port>` from `ui/`).
+
+**Spawn a `general-purpose` subagent** (it has Playwright CLI access via the
+`playwright-cli` skill — deliberately *not* the heavyweight `visual-review`
+agent). Give it a prompt of this shape, naming the components/views your change
+touched and the dev-server URL:
+
+> Visually verify the UI changes for $ticket ("<title>"). The dev server is at
+> `http://localhost:<port>/`. The change touched <components/views>. Use the
+> `playwright-cli` skill to drive the app: navigate to the affected view(s) —
+> inject fixture state via `window.__test_scenes.apply('<scene-id>')` where it
+> helps you reach the right state — and check:
+>
+> - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
+>   misaligns; the change renders what it should.
+> - **Does the layout hold at reasonable widths?** Spot-check 1280 and 1440
+>   (`playwright-cli resize <w> 900`). Desktop only — do not go below 1280.
+> - **Both themes.** Toggle dark and light via
+>   `window.__test_store.getState().setTheme('dark')` / `'light'` and confirm
+>   the change reads correctly in each.
+> - **No new console errors** (`playwright-cli console`).
+>
+> Report a brief confirmation: what you checked, what looks right, and any
+> issues (with a screenshot reference). Keep it short — this is a quick
+> self-check, not a formal review.
+
+If the subagent reports problems, fix them (you are still in the worktree),
+re-run the relevant quality checks, and re-verify before continuing. Capture a
+one-line summary of the verification to fold into the PR description (step 6).
+
+This step is deliberately scoped to *your* change. It does **not** replace
+`docs/frontend-dod.md` (the full Definition of Done) or the heavyweight
+`visual-review` subagent (`.claude/agents/visual-review.md`) — neither is run
+here.
+
+### 4b — Dev server checkpoint (when requested)
 
 If `$check` is non-empty (the user passed a second argument): invoke the `/run`
 skill to start the dev server (whichever subproject you're working on)
 automatically. Do not use the default port; specify a different one and tell the
 user the actual URL. Wait for the user to confirm they are satisfied before
-continuing.
+continuing. (If 4a already started a dev server, reuse it rather than starting a
+second one.)
 
-If `$check` is empty: skip this step entirely and continue to step 5.
+If `$check` is empty: skip 4b and continue to step 5.
 
 ---
 
