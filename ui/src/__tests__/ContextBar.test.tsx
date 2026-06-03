@@ -59,30 +59,45 @@ describe("ContextBar — trace pill keyboard operability", () => {
     expect(btn).toBeDisabled();
   });
 
-  it("trace pill buttons have focus-visible ring classes", () => {
+  // After adopting the shadcn Button primitive (PRO-294), the hand-rolled
+  // `focus-visible:ring-1 …` boilerplate is gone — Button supplies the focus
+  // ring via `focus-visible:ring-[3px] focus-visible:ring-ring/50`. These
+  // tests assert the controls carry Button's focus-ring classes (proving the
+  // primitive is in use), so focus visibility is preserved. (The rendered
+  // `data-slot` is `tooltip-trigger`, not `button`, because the Radix
+  // TooltipTrigger Slot merges its own slot attribute onto the child.)
+  const FOCUS_RING_CLASSES = [
+    "focus-visible:ring-[3px]",
+    "focus-visible:ring-ring/50",
+  ];
+
+  it("trace pill buttons render via Button with focus-ring classes", () => {
     const { exchange, ordered } = setupTracedExchange();
     render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
 
-    const filterBtn = screen.getByLabelText("Filter by trace");
-    expect(filterBtn.className).toContain("focus-visible:ring-1");
-    expect(filterBtn.className).toContain("focus-visible:ring-ring");
-    expect(filterBtn.className).toContain("focus-visible:outline-none");
-
-    const copyBtn = screen.getByLabelText("Copy trace ID");
-    expect(copyBtn.className).toContain("focus-visible:ring-1");
-
-    const jaegerBtn = screen.getByLabelText("Open in Jaeger");
-    expect(jaegerBtn.className).toContain("focus-visible:ring-1");
+    for (const label of [
+      "Filter by trace",
+      "Copy trace ID",
+      "Open in Jaeger",
+    ]) {
+      const btn = screen.getByLabelText(label);
+      expect(btn.tagName).toBe("BUTTON");
+      for (const cls of FOCUS_RING_CLASSES) {
+        expect(btn.className).toContain(cls);
+      }
+    }
   });
 
-  it("nav buttons have focus-visible ring classes", () => {
+  it("nav buttons render via Button with focus-ring classes", () => {
     const { exchange, ordered } = setupTracedExchange();
     render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
 
-    const prevBtn = screen.getByLabelText("Previous exchange");
-    expect(prevBtn.className).toContain("focus-visible:ring-1");
-
-    const nextBtn = screen.getByLabelText("Next exchange");
-    expect(nextBtn.className).toContain("focus-visible:ring-1");
+    for (const label of ["Previous exchange", "Next exchange"]) {
+      const btn = screen.getByLabelText(label);
+      expect(btn.tagName).toBe("BUTTON");
+      for (const cls of FOCUS_RING_CLASSES) {
+        expect(btn.className).toContain(cls);
+      }
+    }
   });
 });
