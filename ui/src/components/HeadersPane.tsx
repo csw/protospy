@@ -7,6 +7,7 @@ import {
   maskHeaderValue,
   sortHeadersByPin,
 } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
 import { EmptyState } from "./ui/EmptyState";
 
 interface HeadersPaneProps {
@@ -73,13 +74,15 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
             className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
           />
           {query.length > 0 && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setQuery("")}
-              className="text-dim hover:text-ink transition-colors shrink-0 cursor-pointer"
+              className="size-4 text-dim hover:bg-transparent hover:text-ink"
               aria-label="Clear filter"
             >
-              <X size={11} />
-            </button>
+              <X />
+            </Button>
           )}
         </div>
       </div>
@@ -122,11 +125,13 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                           </span>
                           {/* Basic auth decode toggle */}
                           {decoded !== null && (
-                            <button
+                            <Button
+                              variant="outline"
+                              size="xs"
                               onClick={() =>
                                 setDecodedRow(isDecoded ? null : origIdx)
                               }
-                              className="ml-2 text-[10px] text-dim hover:text-ink transition-colors cursor-pointer border border-border rounded px-1 py-px"
+                              className="ml-2 inline-flex h-auto rounded bg-transparent px-1 py-px align-baseline text-[10px] font-normal text-dim shadow-none hover:bg-transparent hover:text-ink dark:bg-transparent dark:hover:bg-transparent"
                               aria-label={
                                 isDecoded
                                   ? "Hide decoded value"
@@ -134,7 +139,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                               }
                             >
                               {isDecoded ? "hide" : "decode"}
-                            </button>
+                            </Button>
                           )}
                           {/* Decoded credential */}
                           {isDecoded && decoded !== null && (
@@ -145,17 +150,19 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                         </div>
 
                         {/* Copy button — appears on row hover */}
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => copyValue(origIdx, h.value)}
-                          className="invisible group-hover:visible shrink-0 text-dim hover:text-ink transition-colors cursor-pointer mt-0.5"
+                          className="invisible mt-0.5 size-4 text-dim hover:bg-transparent hover:text-ink group-hover:visible"
                           aria-label={`Copy ${h.name} value`}
                         >
                           {copiedRow === origIdx ? (
-                            <Check size={11} className="text-green" />
+                            <Check className="text-green" />
                           ) : (
-                            <Copy size={11} />
+                            <Copy />
                           )}
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

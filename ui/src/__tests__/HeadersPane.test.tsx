@@ -108,6 +108,16 @@ describe("HeadersPane — search filtering", () => {
     fireEvent.click(screen.getByLabelText("Clear filter"));
     expect(screen.getByText("X-Request-Id")).toBeInTheDocument();
   });
+
+  it("clear button is a Button primitive with a visible focus ring", () => {
+    render(<HeadersPane headers={headers} emptyMessage="none" />);
+    fireEvent.change(screen.getByPlaceholderText("Filter headers…"), {
+      target: { value: "content" },
+    });
+    const clearBtn = screen.getByLabelText("Clear filter");
+    expect(clearBtn).toHaveAttribute("data-slot", "button");
+    expect(clearBtn.className).toContain("focus-visible:ring-ring/50");
+  });
 });
 
 describe("HeadersPane — pinned header ordering", () => {
@@ -173,6 +183,14 @@ describe("HeadersPane — copy button", () => {
     fireEvent.click(screen.getByLabelText("Copy content-type value"));
     expect(mockWriteText).toHaveBeenCalledWith("application/json");
   });
+
+  it("is a Button primitive with a visible focus ring", () => {
+    const headers = [{ name: "content-type", value: "application/json" }];
+    render(<HeadersPane headers={headers} emptyMessage="none" />);
+    const copyBtn = screen.getByLabelText("Copy content-type value");
+    expect(copyBtn).toHaveAttribute("data-slot", "button");
+    expect(copyBtn.className).toContain("focus-visible:ring-ring/50");
+  });
 });
 
 describe("HeadersPane — Basic auth decode toggle", () => {
@@ -184,6 +202,13 @@ describe("HeadersPane — Basic auth decode toggle", () => {
     expect(
       screen.getByLabelText("Show decoded Basic auth value"),
     ).toBeInTheDocument();
+  });
+
+  it("decode toggle is a Button primitive with a visible focus ring", () => {
+    render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
+    const decodeBtn = screen.getByLabelText("Show decoded Basic auth value");
+    expect(decodeBtn).toHaveAttribute("data-slot", "button");
+    expect(decodeBtn.className).toContain("focus-visible:ring-ring/50");
   });
 
   it("reveals decoded credential when decode button is clicked", () => {

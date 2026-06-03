@@ -52,6 +52,14 @@ describe("FilterBar", () => {
       expect(useStore.getState().filter).toBe("");
       expect(screen.queryByLabelText("Clear filter")).not.toBeInTheDocument();
     });
+
+    it("is a Button primitive with a visible focus ring", () => {
+      useStore.getState().setFilter("hello");
+      render(<FilterBar />);
+      const clearBtn = screen.getByLabelText("Clear filter");
+      expect(clearBtn).toHaveAttribute("data-slot", "button");
+      expect(clearBtn.className).toContain("focus-visible:ring-ring/50");
+    });
   });
 
   describe("traceFilter chip", () => {
@@ -83,6 +91,14 @@ describe("FilterBar", () => {
       expect(
         screen.queryByLabelText("Clear trace filter"),
       ).not.toBeInTheDocument();
+    });
+
+    it("clear button is a Button primitive with a visible focus ring", () => {
+      useStore.getState().setTraceFilter(TRACE_ID);
+      render(<FilterBar />);
+      const clearBtn = screen.getByLabelText("Clear trace filter");
+      expect(clearBtn).toHaveAttribute("data-slot", "button");
+      expect(clearBtn.className).toContain("focus-visible:ring-ring/50");
     });
   });
 

@@ -1,5 +1,6 @@
 import { Search, X } from "lucide-react";
 import { useStore } from "@ui/state/store";
+import { Button } from "@ui/components/ui/button";
 import { matchesFilter, shortenTraceId, traceColor } from "@ui/lib/utils";
 
 export function FilterBar() {
@@ -39,13 +40,15 @@ export function FilterBar() {
           className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
         />
         {filter.length > 0 && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setFilter("")}
-            className="text-dim hover:text-ink transition-colors shrink-0 cursor-pointer"
+            className="size-4 text-dim hover:bg-transparent hover:text-ink"
             aria-label="Clear filter"
           >
-            <X size={11} />
-          </button>
+            <X />
+          </Button>
         )}
       </div>
 
@@ -59,13 +62,15 @@ export function FilterBar() {
           <span className="font-family-mono text-xs text-accent-ink">
             trace {shortenTraceId(traceFilter)}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setTraceFilter(null)}
-            className="text-accent-ink hover:text-accent transition-colors cursor-pointer"
+            className="size-4 text-accent-ink hover:bg-transparent hover:text-accent"
             aria-label="Clear trace filter"
           >
-            <X size={11} />
-          </button>
+            <X />
+          </Button>
         </div>
       )}
 
