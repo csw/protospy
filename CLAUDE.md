@@ -41,9 +41,9 @@ Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs
 - How to use a tool, library, or API — before reading source, before trial-and-error
 - The conventional approach to a common problem — before designing a solution
 
-Many problems you encounter are standard: dark mode persistence, form validation, auth flows, state hydration, error boundaries. Millions of applications have solved them with the same tools you're using. When you recognize a problem as standard, your first move is to look up how it's conventionally done — not to reason about it from your training data, which may be wrong or outdated.
+Many problems you encounter are standard — e.g. dark mode persistence, form validation, auth flows, state hydration, error boundaries. Millions of applications have solved them with the same tools you're using. When you recognize a problem as standard, your first move is to look up how it's conventionally done — not to reason about it from your training data, which may be wrong or outdated.
 
-**The test:** if you're about to propose an approach and you haven't consulted any external source, stop. If the problem involves a well-known library doing a well-known thing, look it up first. Your confidence that you know the answer is not evidence that you do.
+You must consult documentation for any problem involving a library, framework, or API — even if you believe you know the answer. If you're about to propose an approach and you haven't consulted any external source, stop and look it up first. Your confidence that you know the answer is not evidence that you do.
 
 ## Specific guidelines
 
@@ -59,6 +59,8 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/ci.md`: when pushing to GitHub or investigating CI failures
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
+
+Multiple guides often apply to a single task — read all that are relevant, not just the closest match.
 
 ## Visual design reviews
 
@@ -142,9 +144,15 @@ Delegate when the work looks like:
 
 Brief the subagent with the specific question and ask it to report only the answer (e.g. "report the PID and command, under 50 words"). Keep inline only the steps whose full output you genuinely need to see.
 
+These are examples. The underlying principle: delegate when the work is repetitive, the output is noisy, and only the conclusion matters to your task.
+
+## Getting unstuck
+
+If you've spent more than 5 minutes on the same problem without making progress — rummaging through files, trying the same approach repeatedly, or going in circles — stop and spawn a subagent for a fresh perspective. Brief it on what you've tried and what's not working. A second set of eyes on a stuck problem is almost always faster than continuing to iterate in the same direction.
+
 ## Code Quality Requirements
 
-Before reporting a unit of work as complete or committing code changes, ensure the code quality checks pass. Each subproject's CLAUDE.md lists the specific commands to run. This applies even to trivial changes like type annotations.
+Before reporting a unit of work as complete or committing code changes, ensure the code quality checks pass. Read the relevant subproject's CLAUDE.md and run every quality check it lists. This applies even to trivial changes like type annotations.
 
 **Any code path not covered by the test suite must be executed manually before committing.** For example, if you change a CLI `main()` function, start the server and confirm it runs. Do not rely on linting or type-checking alone as a substitute for actually running the code.
 

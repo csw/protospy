@@ -10,7 +10,7 @@ Zustand store, and renders them in an interactive inspector.
 
 ## First steps on any task
 
-Before making non-trivial changes, read:
+Before starting any task, read:
 
 1. `ui/CLAUDE.md` — commands, quality gates, test-writing requirements,
    commit conventions. This is authoritative; follow it.
@@ -136,6 +136,7 @@ UI rendering without it using the test store injection pattern.
 ## Looking things up
 
 Use Context7 to look up React, Zustand, Tailwind, Radix, Playwright,
-and Vite documentation before reasoning from training data. APIs change;
-best practices evolve. Your confidence that you know how something works
-is not evidence that you do. Check.
+Vite, and any other library or tool you encounter in the code — before
+reasoning from training data. APIs change; best practices evolve. Your
+confidence that you know how something works is not evidence that you
+do. Check.
