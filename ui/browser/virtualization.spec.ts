@@ -62,6 +62,7 @@ test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({
     page,
   }) => {
+    await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(200));
 
     await expect
@@ -97,6 +98,10 @@ test.describe("Virtualization", () => {
     page,
   }) => {
     const N = 200;
+
+    // Default is table mode; switch to rows first so the test can
+    // verify the rows→table→rows transition.
+    await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(N));
 
     // Wait for initial render and capture rows-mode height
@@ -121,6 +126,10 @@ test.describe("Virtualization", () => {
 
   test("density toggle updates virtualizer measurements", async ({ page }) => {
     const N = 200;
+
+    // Start in rows mode (default is table) so the test exercises
+    // the full rows→compact→table-compact→table-regular chain.
+    await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(N));
 
     // rows + regular
@@ -174,6 +183,7 @@ test.describe("Virtualization", () => {
   test("programmatic selection scrolls off-screen row into view (rows mode)", async ({
     page,
   }) => {
+    await setListMode(page, "rows");
     // Inject 120 exchanges in newest-first order. Exchange 1 is the oldest,
     // so in newest-first it's at the bottom of the list (index ~119).
     await injectExchanges(page, makeLargeDataset(120));

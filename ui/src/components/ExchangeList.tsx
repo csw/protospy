@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
+import {
+  ArrowUpDown,
+  Globe,
+  Layers,
+  Rows3,
+  TableProperties,
+} from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
   cn,
+  formatAbsoluteTime,
   formatSize,
   matchesFilter,
   methodTextClass,
@@ -14,23 +21,47 @@ import {
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
-import { useRelativeTime } from "@ui/hooks/useRelativeTime";
+import type { TimeZone } from "@ui/lib/utils";
 import { ExchangeListItem } from "./ExchangeListItem";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 
-const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
+/**
+ * Grid column template for table mode. Widths are tuned so that the fixed
+ * trailing columns (TIME, SIZE, WHEN) stay within the pane edge at all
+ * supported widths (1280 / 1440 / 1920). PATH is the only flexible column
+ * and absorbs remaining space, truncating with ellipsis.
+ *
+ * - METHOD (54px): fits all standard HTTP method names in mono uppercase
+ * - STATUS (42px): 3-digit status code only (reason phrase via tooltip)
+ * - PATH (minmax 100px, 1fr): flexible; absorbs overflow with ellipsis
+ * - TIME (54px): elapsed ms (e.g. "42ms", "1204ms")
+ * - SIZE (120px): accommodates dual wire/decoded + encoding tag
+ * - WHEN (88px): absolute timestamp HH:MM:SS.mmm
+ */
+const TABLE_COLUMNS = "54px 42px minmax(100px, 1fr) 54px 120px 88px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
+
+/** Extract the numeric status code from a status string like "200 OK". */
+function statusCode(status: string): string {
+  return status.split(" ")[0];
+}
 
 interface TableRowProps {
   exchange: Exchange;
   selected: boolean;
   onSelect: () => void;
   density: "regular" | "compact";
+  timeZone: TimeZone;
 }
 
-function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
-  const relTime = useRelativeTime(exchange.timestamp);
+function TableRow({
+  exchange,
+  selected,
+  onSelect,
+  density,
+  timeZone,
+}: TableRowProps) {
   const method = exchange.method ?? "?";
   const uri = exchange.uri ?? "/";
   const { path } = splitUri(uri);
@@ -45,6 +76,8 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;
+
+  const absTime = formatAbsoluteTime(exchange.timestamp, timeZone);
 
   const traceBarStyle: React.CSSProperties = exchange.traceId
     ? { borderLeftColor: traceColor(exchange.traceId) }
@@ -87,13 +120,18 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
               ? statusTextClass(exchange.status)
               : "text-dim",
         )}
-        title={exchange.error?.message}
+        title={
+          exchange.error?.message ??
+          (exchange.status != null ? exchange.status : undefined)
+        }
       >
         {exchange.error != null
           ? exchange.status != null
-            ? `${exchange.status.split(" ")[0]} ✕`
-            : "Error"
-          : (exchange.status ?? "—")}
+            ? `${statusCode(exchange.status)} ✕`
+            : "ERR"
+          : exchange.status != null
+            ? statusCode(exchange.status)
+            : "—"}
       </span>
       <SimpleTooltip content={uri}>
         <span className="font-family-mono text-xs text-ink px-1 truncate">
@@ -112,8 +150,11 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
           : formatSize(resSize)}
         {resTag && <span> ({resTag})</span>}
       </span>
-      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
-        {relTime}
+      <span
+        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        title={`${absTime}${timeZone === "utc" ? " UTC" : ""}`}
+      >
+        {absTime}
       </span>
     </button>
   );
@@ -153,6 +194,8 @@ export function ExchangeList() {
   const listMode = useStore((s) => s.listMode);
   const setListMode = useStore((s) => s.setListMode);
   const traceGroupOn = useStore((s) => s.traceGroupOn);
+  const timeZone = useStore((s) => s.timeZone);
+  const setTimeZone = useStore((s) => s.setTimeZone);
   const cmdKOpen = useStore((s) => s.cmdKOpen);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
 
@@ -167,6 +210,12 @@ export function ExchangeList() {
 
   // Whether any visible exchange has a traceId (for trace rail placeholder)
   const hasTraces = ordered.some((ex) => ex.traceId != null);
+
+  // Radix fires "" when re-clicking the active item in single mode
+  // (deselection). Guard so we always have a valid mode.
+  function handleListModeChange(v: string) {
+    if (v) setListMode(v as "rows" | "table");
+  }
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -322,6 +371,28 @@ export function ExchangeList() {
 
         {/* Right: controls */}
         <div className="flex items-center gap-1.5 ml-auto">
+          {/* Local/UTC toggle (table mode only) */}
+          {listMode === "table" && (
+            <button
+              onClick={() =>
+                setTimeZone(timeZone === "local" ? "utc" : "local")
+              }
+              className={cn(
+                "h-[22px] px-1.5 flex items-center gap-1 rounded text-dim hover:text-ink transition-colors cursor-pointer font-family-mono text-[10px] uppercase tracking-wider",
+                timeZone === "utc" && "text-accent",
+              )}
+              aria-label={`Time zone: ${timeZone === "utc" ? "UTC" : "Local"}. Click to toggle.`}
+              title={
+                timeZone === "utc"
+                  ? "Showing UTC — click for local time"
+                  : "Showing local time — click for UTC"
+              }
+            >
+              <Globe size={11} />
+              {timeZone === "utc" ? "UTC" : "Local"}
+            </button>
+          )}
+
           {/* Order toggle */}
           <button
             onClick={() => setOrder(order === "newest" ? "oldest" : "newest")}
@@ -336,11 +407,7 @@ export function ExchangeList() {
           <ToggleGroup
             type="single"
             value={listMode}
-            onValueChange={(v) => {
-              // Radix fires "" when re-clicking the active item in single
-              // mode (deselection). Guard so we always have a valid mode.
-              if (v) setListMode(v as "rows" | "table");
-            }}
+            onValueChange={handleListModeChange}
             bordered
             size="sm"
             aria-label="List mode"
@@ -383,7 +450,7 @@ export function ExchangeList() {
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
               Size
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
               When
             </span>
           </div>
@@ -430,6 +497,7 @@ export function ExchangeList() {
                           selected={ex.id === selectedId}
                           onSelect={() => setSelectedId(ex.id)}
                           density={density}
+                          timeZone={timeZone}
                         />
                       </div>
                     );

@@ -29,7 +29,12 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-test.describe("Relative timestamps", () => {
+test.describe("Relative timestamps (rows mode)", () => {
+  test.beforeEach(async ({ page }) => {
+    // Default is now table mode; switch to rows for relative timestamp tests.
+    await page.getByLabel("Rows mode").click();
+  });
+
   test("shows 'now' for a freshly injected exchange", async ({ page }) => {
     const ts = new Date(FIXED_TIME).toISOString();
     await injectExchanges(page, [
@@ -79,25 +84,59 @@ test.describe("Relative timestamps", () => {
       "1m",
     );
   });
+});
 
-  test("table mode shows relative timestamp that ticks", async ({ page }) => {
+test.describe("Absolute timestamps (table mode)", () => {
+  // Table mode is the default — no mode switch needed.
+
+  test("shows absolute HH:MM:SS.mmm timestamp", async ({ page }) => {
     const ts = new Date(FIXED_TIME).toISOString();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test", ts),
       makeResponse(1, "200 OK"),
     ]);
 
-    // Switch to table mode
-    await page.getByLabel("Table mode").click();
+    await page.locator("button[role='option']").first().waitFor();
+    const row = page.locator("button[role='option']").first();
+    // Absolute time format: HH:MM:SS.mmm (local by default)
+    const lastSpan = row.locator("span").last();
+    await expect(lastSpan).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+  });
 
-    await page.locator("button[aria-selected]").first().waitFor();
+  test("UTC toggle switches timestamp display", async ({ page }) => {
+    // Inject at a known UTC time
+    const ts = "2024-06-01T14:30:45.123Z";
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/test", ts),
+      makeResponse(1, "200 OK"),
+    ]);
 
-    // Should initially show "now"
-    const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator("span").last()).toHaveText("now");
+    await page.locator("button[role='option']").first().waitFor();
+    const row = page.locator("button[role='option']").first();
+    const lastSpan = row.locator("span").last();
 
-    // Advance 5 seconds
-    await page.clock.fastForward(5000);
-    await expect(row.locator("span").last()).toHaveText("5s");
+    // Initially shows local time (HH:MM:SS.mmm format)
+    await expect(lastSpan).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+
+    // Click the UTC toggle in the toolbar
+    await page.getByLabel(/Time zone/).click();
+
+    // Should now show UTC time: 14:30:45.123
+    await expect(lastSpan).toHaveText("14:30:45.123");
+  });
+
+  test("UTC toggle persists across reloads", async ({ page }) => {
+    // Switch to UTC
+    await page.getByLabel(/Time zone/).click();
+
+    // Verify UTC label is active
+    await expect(page.getByText("UTC")).toBeVisible();
+
+    // Reload the page
+    await page.goto("/");
+    await waitForStore(page);
+
+    // UTC should still be active after reload
+    await expect(page.getByText("UTC")).toBeVisible();
   });
 });

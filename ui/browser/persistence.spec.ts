@@ -88,15 +88,16 @@ test.describe("localStorage persistence", () => {
     await page.goto("/");
     await waitForStore(page);
 
+    // Default is "table"; switch to "rows" and verify it persists.
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__test_store.getState().setListMode("table");
+      (window as any).__test_store.getState().setListMode("rows");
     });
-    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listMode")).toBe("rows");
 
     await page.reload();
     await waitForStore(page);
-    expect(await getStoreState(page, "listMode")).toBe("table");
+    expect(await getStoreState(page, "listMode")).toBe("rows");
   });
 
   test("listWidth persists across a reload", async ({ page }) => {

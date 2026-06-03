@@ -26,6 +26,10 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await waitForStore(page);
   await resetStore(page);
+
+  // Error badges (data-testid="error-badge") are rows-mode only;
+  // switch from the default table mode so list-level assertions work.
+  await page.getByLabel("Rows mode").click();
 });
 
 // The context bar sits above the inspector; locate it via the Prev button.
@@ -154,5 +158,61 @@ test.describe("Network error rendering — proxy-level failures", () => {
 
     // A row exists for this exchange (no URI yet → falls back to "/")
     await expect(page.getByTestId("error-badge").first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Table-mode equivalents
+// ---------------------------------------------------------------------------
+
+test.describe("Network error rendering — table mode", () => {
+  test.beforeEach(async ({ page }) => {
+    // The file-level beforeEach switches to rows mode; switch back to table.
+    await page.getByLabel("Table mode").click();
+  });
+
+  test("connection refused: status cell shows ERR in red", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/connect-refused"),
+      makeProxyError(
+        1,
+        "Request",
+        "client error (Connect): tcp connect error: Connection refused (os error 61)",
+      ),
+    ]);
+
+    // Table mode: error with no status shows "ERR" in red
+    const statusCell = page
+      .locator("button[role='option'] span.text-red")
+      .first();
+    await expect(statusCell).toBeVisible();
+    await expect(statusCell).toHaveText("ERR");
+  });
+
+  test("mid-stream disconnect: status cell shows code with error marker", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(3, "/api/mid-stream"),
+      makeResponse(3, "200 OK", "partial-body-prefix..."),
+      makeProxyError(
+        3,
+        "Response",
+        "error reading a body from connection: connection reset by peer",
+      ),
+    ]);
+
+    // Table mode: mid-stream error shows "200 ✕" in red
+    const statusCell = page
+      .locator("button[role='option'] span.text-red")
+      .first();
+    await expect(statusCell).toBeVisible();
+    await expect(statusCell).toHaveText("200 ✕");
+
+    // Status tooltip shows the error message
+    await expect(statusCell).toHaveAttribute(
+      "title",
+      /connection reset by peer/,
+    );
   });
 });

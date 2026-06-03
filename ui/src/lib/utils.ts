@@ -4,10 +4,9 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
 /**
  * Configured tailwind-merge instance that knows about the custom font-size
- * tokens defined in `theme/tailwind.css` (`--text-ui-xs`, `--text-ui-sm`,
- * `--text-ui-mono`, `--text-ctx-path`). Without this, `twMerge` treats e.g.
- * `text-ui-xs` (font-size) and `text-m-get` (color) as the same `text-*`
- * group and strips the font-size class.
+ * and font-family tokens defined in `theme/tailwind.css`. Without this,
+ * `twMerge` treats e.g. `text-ui-xs` (font-size) and `text-m-get` (color)
+ * as the same `text-*` group and strips the font-size class.
  */
 const twMerge = extendTailwindMerge({
   extend: {
@@ -18,6 +17,7 @@ const twMerge = extendTailwindMerge({
         "text-ui-mono",
         "text-ctx-path",
       ],
+      "font-family": ["font-family-ui", "font-family-mono"],
     },
   },
 });
@@ -162,6 +162,33 @@ export function formatTime(timestamp: string): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+export type TimeZone = "local" | "utc";
+
+/**
+ * Format a timestamp as an absolute time with millisecond resolution.
+ * Returns `HH:MM:SS.mmm` in either local or UTC time zone.
+ * Suitable for log correlation — milliseconds help match events across
+ * different log sources.
+ */
+export function formatAbsoluteTime(
+  timestamp: string,
+  tz: TimeZone = "local",
+): string {
+  const d = new Date(timestamp);
+  if (tz === "utc") {
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    const s = String(d.getUTCSeconds()).padStart(2, "0");
+    const ms = String(d.getUTCMilliseconds()).padStart(3, "0");
+    return `${h}:${m}:${s}.${ms}`;
+  }
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const s = String(d.getSeconds()).padStart(2, "0");
+  const ms = String(d.getMilliseconds()).padStart(3, "0");
+  return `${h}:${m}:${s}.${ms}`;
 }
 
 export function matchesFilter(

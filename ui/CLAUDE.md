@@ -35,7 +35,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `src/anthropic/` — `transcript.ts` (fold SSE events into chat transcript)
 - `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)
 - `src/hooks/` — `useDecodeBody`, `useRelativeTime` (backed by `lib/tickSource.ts` shared 1 Hz singleton), `useStreamFollow` (shared scroll-follow for SSE views)
-- `src/lib/` — `utils.ts` (`cn`, formatters, matchers, trace colors, header helpers), `tickSource.ts`
+- `src/lib/` — `utils.ts` (`cn`, formatters incl. `formatAbsoluteTime`/`TimeZone`, matchers, trace colors, header helpers), `tickSource.ts`
 - `src/theme/` — `tailwind.css` (`@theme` tokens + dark variant + `@theme inline` shadcn semantic aliases + `@layer base` default border-color), `applyTheme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveTheme`, `applyThemeToDOM`, theme ownership contract)
 - `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `EventsView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)

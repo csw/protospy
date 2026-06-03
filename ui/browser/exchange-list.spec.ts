@@ -29,6 +29,11 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Exchange list — rows mode", () => {
+  test.beforeEach(async ({ page }) => {
+    // Default is now table mode; switch to rows for these tests.
+    await page.getByLabel("Rows mode").click();
+  });
+
   test("1.1 shows empty state when no exchanges", async ({ page }) => {
     await expect(page.getByText("No requests yet")).toBeVisible();
     await expect(
@@ -137,7 +142,10 @@ test.describe("Exchange list — table mode", () => {
     ]);
 
     await expect(page.getByText("GET").first()).toBeVisible();
-    await expect(page.getByText("200 OK").first()).toBeVisible();
+    // Table mode shows numeric status code only; reason phrase is in tooltip
+    await expect(
+      page.locator("button[role='option'] span", { hasText: /^200$/ }).first(),
+    ).toBeVisible();
     await expect(page.getByText("/api/items").first()).toBeVisible();
     await expect(page.getByText("42ms").first()).toBeVisible();
   });
@@ -250,12 +258,9 @@ test.describe("Sort order", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Edge cases", () => {
-  test("11.1 pending exchange shows dashes", async ({ page }) => {
-    // Only inject request, no response
+  test("11.1 pending exchange shows dashes in table mode", async ({ page }) => {
+    // Table mode is the default — dashes are visible in status/elapsed columns.
     await injectExchanges(page, [makeGetRequest(1, "/api/pending")]);
-
-    // Switch to table mode to see explicit status/elapsed columns
-    await page.getByLabel("Table mode").click();
 
     // Status should show "—" and elapsed should show "—"
     const dashes = page.getByText("—");
@@ -268,7 +273,11 @@ test.describe("Edge cases", () => {
       makeResponse(1, "500 Internal Server Error"),
     ]);
 
-    const status = page.getByText("500 Internal Server Error").first();
+    // Table mode (default) shows just the numeric code; look for "500"
+    // within a table row's status cell.
+    const status = page
+      .locator("button[role='option'] span", { hasText: /^500$/ })
+      .first();
     await expect(status).toBeVisible();
     await expect(status).toHaveClass(/text-red/);
   });
@@ -276,6 +285,8 @@ test.describe("Edge cases", () => {
   test("11.3 compact rows mode sizes wrapper to fit content without clipping", async ({
     page,
   }) => {
+    // This is a rows-mode test; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test"),
       makeResponse(1, "200 OK"),
@@ -302,6 +313,8 @@ test.describe("Edge cases", () => {
   });
 
   test("11.4 rows don't overlap at narrow viewport width", async ({ page }) => {
+    // This is a rows-mode test; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     await page.setViewportSize({ width: 420, height: 600 });
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/first", "200 OK", {

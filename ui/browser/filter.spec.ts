@@ -92,9 +92,17 @@ test.describe("Filter bar", () => {
 
     const rows = page.locator("button[aria-selected]");
     await expect(rows).toHaveCount(1);
-    await expect(page.getByText("404 Not Found").first()).toBeVisible();
-    await expect(page.getByText("200 OK")).not.toBeVisible();
-    await expect(page.getByText("201 Created")).not.toBeVisible();
+    // Table mode (default) shows numeric code only; verify the 404 row is
+    // visible and no 200/201 rows remain.
+    await expect(
+      page.locator("button[role='option'] span", { hasText: /^404$/ }).first(),
+    ).toBeVisible();
+    await expect(
+      page.locator("button[role='option'] span", { hasText: /^200$/ }),
+    ).not.toBeVisible();
+    await expect(
+      page.locator("button[role='option'] span", { hasText: /^201$/ }),
+    ).not.toBeVisible();
   });
 
   test("4. case insensitive: 'get' matches GET exchanges", async ({ page }) => {

@@ -153,6 +153,8 @@ test.describe("Anti-flash", () => {
 
 test.describe("Status text colors", () => {
   test("2.1 2xx status renders green", async ({ page }) => {
+    // Status text with full "200 OK" is rows-mode only; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
     ]);
@@ -163,6 +165,8 @@ test.describe("Status text colors", () => {
   });
 
   test("2.2 5xx status renders red", async ({ page }) => {
+    // Status text with full "500 Internal Server Error" is rows-mode only.
+    await page.getByLabel("Rows mode").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(
         1,
@@ -178,6 +182,39 @@ test.describe("Status text colors", () => {
   });
 });
 
+test.describe("Status text colors (table mode)", () => {
+  test("2.3 2xx status code renders green in table mode", async ({ page }) => {
+    // Table mode is the default — no mode switch needed.
+    await injectExchanges(page, [
+      ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
+    ]);
+
+    // Table mode shows just the numeric code; find it within a row's status cell.
+    const status = page
+      .locator("button[role='option'] span", { hasText: /^200$/ })
+      .first();
+    await expect(status).toBeVisible();
+    await expect(status).toHaveClass(/text-green/);
+  });
+
+  test("2.4 5xx status code renders red in table mode", async ({ page }) => {
+    await injectExchanges(page, [
+      ...makeCompleteExchange(
+        1,
+        "GET",
+        "/api/fail",
+        "500 Internal Server Error",
+      ),
+    ]);
+
+    const status = page
+      .locator("button[role='option'] span", { hasText: /^500$/ })
+      .first();
+    await expect(status).toBeVisible();
+    await expect(status).toHaveClass(/text-red/);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 3. Method badge colors
 // ---------------------------------------------------------------------------
@@ -186,6 +223,8 @@ test.describe("Method badge colors", () => {
   test("3.1 GET and POST badges have distinct method-typed classes", async ({
     page,
   }) => {
+    // Method badges are rows-mode only; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
@@ -209,6 +248,37 @@ test.describe("Method badge colors", () => {
     await expect(getBadge).toHaveClass(/text-m-get/);
     await expect(postBadge).toHaveClass(/bg-m-post-bg/);
     await expect(postBadge).toHaveClass(/text-m-post/);
+  });
+});
+
+test.describe("Method text colors (table mode)", () => {
+  test("3.2 GET and POST have distinct method-typed text classes in table mode", async ({
+    page,
+  }) => {
+    // Table mode is the default — no mode switch needed.
+    await injectExchanges(page, [
+      ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
+        ts: "2024-01-01T00:00:01Z",
+      }),
+      ...makeCompleteExchange(2, "POST", "/api/post", "201 Created", {
+        ts: "2024-01-01T00:00:02Z",
+      }),
+    ]);
+
+    // Table mode uses text-only method classes (no background badge).
+    const getMethod = page
+      .locator("button[role='option'] span", { hasText: /^GET$/ })
+      .first();
+    const postMethod = page
+      .locator("button[role='option'] span", { hasText: /^POST$/ })
+      .first();
+
+    await expect(getMethod).toBeVisible();
+    await expect(postMethod).toBeVisible();
+
+    // methodTextClass() applies text-m-<method> (no background).
+    await expect(getMethod).toHaveClass(/text-m-get/);
+    await expect(postMethod).toHaveClass(/text-m-post/);
   });
 });
 
