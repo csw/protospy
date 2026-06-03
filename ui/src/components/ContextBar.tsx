@@ -90,6 +90,10 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       )}
     >
       {/* Prev/Next navigation */}
+      {/* Note: the `rounded` (4px) on these icon Buttons intentionally
+          overrides icon-xs's `rounded-md` (6px) to match the control spec;
+          `disabled:pointer-events-auto` re-enables hover so the tooltip still
+          shows on disabled controls (Button's base sets pointer-events-none). */}
       <div className="flex items-center gap-0.5 shrink-0">
         <SimpleTooltip content="Previous exchange">
           <Button
@@ -203,11 +207,14 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         >
           {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only */}
           <SimpleTooltip content="Filter by trace">
+            {/* size="xs" (not icon-xs): this is a swatch + text pill, not an
+                icon button. Override only what differs from the variant —
+                content height, no padding, pill radius, no ghost hover bg. */}
             <Button
               variant="ghost"
-              size="icon-xs"
+              size="xs"
               onClick={() => setTraceFilter(traceId)}
-              className="h-auto w-auto gap-1 rounded-full p-0 cursor-pointer hover:bg-transparent"
+              className="h-auto rounded-full p-0 cursor-pointer hover:bg-transparent"
               aria-label="Filter by trace"
             >
               <span

@@ -59,6 +59,26 @@ describe("ContextBar — trace pill keyboard operability", () => {
     expect(btn).toBeDisabled();
   });
 
+  // Button's base adds `disabled:pointer-events-none`, which would suppress
+  // the hover tooltip on disabled controls — including the Jaeger placeholder,
+  // whose whole purpose is its "coming soon" tooltip. The disabled-capable
+  // controls override it with `disabled:pointer-events-auto` so the tooltip
+  // still fires. (With a single exchange, prev/next are both disabled too.)
+  it("disabled controls keep pointer events so tooltips still fire", () => {
+    const { exchange, ordered } = setupTracedExchange();
+    render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
+
+    for (const label of [
+      "Previous exchange",
+      "Next exchange",
+      "Open in Jaeger",
+    ]) {
+      const btn = screen.getByLabelText(label);
+      expect(btn).toBeDisabled();
+      expect(btn.className).toContain("disabled:pointer-events-auto");
+    }
+  });
+
   // After adopting the shadcn Button primitive (PRO-294), the hand-rolled
   // `focus-visible:ring-1 …` boilerplate is gone — Button supplies the focus
   // ring via `focus-visible:ring-[3px] focus-visible:ring-ring/50`. These
