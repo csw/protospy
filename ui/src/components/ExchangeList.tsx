@@ -162,6 +162,7 @@ export function ExchangeList() {
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledToRef = useRef<number | null>(null);
 
   // Estimate sizes are initial approximations; measureElement measures actual
   // rendered heights via ResizeObserver, so these don't need to be pixel-exact.
@@ -201,16 +202,53 @@ export function ExchangeList() {
     overscan: 5,
   });
 
-  // Scroll selected item into view when selectedId changes
+  // Scroll selected item into view on programmatic selection.
+  //
+  // Fires when selectedId, order, filter, traceFilter, or listMode
+  // changes. The first triggers a new selection; the rest shift the
+  // selected row's position in the list without changing the selection
+  // itself, so the guard must be reset to allow a re-scroll.
+  //
+  // Uses requestAnimationFrame to defer the scroll by one frame: on
+  // the initial render with data, the virtualizer hasn't established
+  // its scroll observation on the freshly-mounted container element
+  // yet, so a synchronous scrollToIndex silently no-ops. Deferring by
+  // one frame lets the browser complete layout first.
+  //
+  // The index is re-derived inside the rAF callback from the current
+  // `ordered` snapshot to avoid a stale-index race: a new exchange
+  // arriving in the one-frame window could shift indices.
+  //
+  // `align: "auto"` only scrolls when the target is outside the
+  // visible viewport, so user-initiated clicks (which require the row
+  // to already be visible) don't cause jarring scroll jumps.
+  //
+  // `ordered` is intentionally omitted from deps — it rebuilds every
+  // render, so including it would fire the effect on every render.
+  // The `scrolledToRef` guard prevents redundant scrolls when the
+  // same selectedId persists across re-renders.
   useEffect(() => {
-    if (selectedId == null) return;
-    const idx = ordered.findIndex((ex) => ex.id === selectedId);
-    if (idx >= 0) {
-      virtualizer.scrollToIndex(idx, { align: "auto" });
+    if (selectedId == null) {
+      scrolledToRef.current = null;
+      return;
     }
-    // ordered is rebuilt each render — comparing by identity would always re-run
+
+    // Guard: don't re-scroll if we already scrolled to this selection
+    // and the deps that affect position haven't changed (React re-runs
+    // the effect when they do, clearing the guard implicitly).
+    if (scrolledToRef.current === selectedId) return;
+    scrolledToRef.current = selectedId;
+
+    const handle = requestAnimationFrame(() => {
+      // Re-derive index at frame time from the current closure's
+      // `ordered` to avoid stale-index if data arrived mid-frame.
+      const idx = ordered.findIndex((ex) => ex.id === selectedId);
+      if (idx < 0) return;
+      virtualizer.scrollToIndex(idx, { align: "auto" });
+    });
+    return () => cancelAnimationFrame(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [selectedId, order, filter, traceFilter, listMode]);
 
   // j/k/↑/↓ keyboard navigation over the filtered+ordered list
   useEffect(() => {
