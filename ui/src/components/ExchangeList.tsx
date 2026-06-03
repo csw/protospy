@@ -36,9 +36,9 @@ import { SimpleTooltip } from "./ui/SimpleTooltip";
  * - PATH (minmax 100px, 1fr): flexible; absorbs overflow with ellipsis
  * - TIME (54px): elapsed ms (e.g. "42ms", "1204ms")
  * - SIZE (120px): accommodates dual wire/decoded + encoding tag
- * - WHEN (88px): absolute timestamp HH:MM:SS.mmm
+ * - WHEN (94px): absolute timestamp HH:MM:SS.mmm (measured 92px scrollWidth)
  */
-const TABLE_COLUMNS = "54px 42px minmax(100px, 1fr) 54px 120px 88px";
+const TABLE_COLUMNS = "54px 42px minmax(100px, 1fr) 54px 120px 94px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 

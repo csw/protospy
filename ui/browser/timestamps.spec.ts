@@ -125,6 +125,27 @@ test.describe("Absolute timestamps (table mode)", () => {
     await expect(lastSpan).toHaveText("14:30:45.123");
   });
 
+  test("WHEN column does not clip the timestamp", async ({ page }) => {
+    const ts = "2024-06-01T14:30:45.678Z";
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/test", ts),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    await page.locator("button[role='option']").first().waitFor();
+
+    // The last <span> in the row is the WHEN cell; its content must not
+    // overflow its container (scrollWidth <= clientWidth).
+    const overflow = await page
+      .locator("button[role='option']")
+      .first()
+      .locator("span")
+      .last()
+      .evaluate((el) => el.scrollWidth - el.clientWidth);
+
+    expect(overflow).toBe(0);
+  });
+
   test("UTC toggle persists across reloads", async ({ page }) => {
     // Switch to UTC
     await page.getByLabel(/Time zone/).click();
