@@ -32,7 +32,7 @@ For subproject commands, see the subproject's CLAUDE.md.
 
 Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs` container. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — see `docs/agents/host-sandbox.md`.)
 
-**After pushing a branch or PR, watch its CI to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token **cannot** read it (`gh pr checks` and `gh api .../check-runs` both return `403 Resource not accessible by personal access token`). Query CI through the Actions API by commit SHA instead (`gh run list --commit <sha>`), which is exactly what `ci-watch` does.
+**After any push that can trigger CI — a new branch, a new PR, or follow-up commits to an existing PR branch — watch that run to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token **cannot** read it (`gh pr checks` and `gh api .../check-runs` both return `403 Resource not accessible by personal access token`). Query CI through the Actions API by commit SHA instead (`gh run list --commit <sha>`), which is exactly what `ci-watch` does.
 
 ## Documentation
 
@@ -47,16 +47,16 @@ Many problems you encounter are standard: dark mode persistence, form validation
 
 ## Specific guidelines
 
-There are specific agent guidelines in `docs/agents/`; read them when working with the relevant kind of code.
+There are specific agent guidelines in `docs/agents/`. Read the matching file whenever your task plausibly falls under its topic, interpreting each trigger broadly — "writing code" includes modifying, refactoring, or debugging it; "tests" includes fixing a test you didn't write. **More than one guide usually applies to a single task** (a Python change that also adds a dependency and touches CI needs `python.md`, `dependencies.md`, *and* `ci.md`) — read all that apply, not just the closest match. When unsure whether a trigger fires, read the file.
 
-- `docs/agents/implementation.md`: when writing code
+- `docs/agents/implementation.md`: when writing, modifying, refactoring, or debugging code
 - `docs/agents/python.md`: when working with Python, or writing an ad-hoc/one-off Python script (e.g. a verification or analysis helper)
 - `docs/agents/testing.md`: when writing or maintaining tests
 - `docs/agents/host-sandbox.md`: workarounds for running on the host macOS sandbox (gh-ro, worktree/git-prompt avoidance, `dangerouslyDisableSandbox` for git/Playwright/etc.) — **not applicable in the `cs` container; skip it there**
 - `docs/agents/linear.md`: when working with Linear issues (e.g. `PRO-NNN` ticket references)
 - `docs/agents/design.md`: when proposing a technical approach or making design decisions
 - `docs/agents/dependencies.md`: when adding any dependency (packages, Actions, CDN scripts, Docker images, etc.)
-- `docs/agents/ci.md`: when pushing to GitHub or investigating CI failures
+- `docs/agents/ci.md`: when pushing to GitHub, or watching/investigating any CI run (passing, failing, or flaky)
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 - `docs/agents/prompt-authoring.md`: when writing or modifying agent prompts, skills, commands, or CLAUDE.md content

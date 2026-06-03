@@ -11,11 +11,13 @@ drifts.
 
 ## When to regenerate
 
-- After any change that updated the subproject's `ARCHITECTURE.md`, the
+- Immediately after any change to the subproject's `ARCHITECTURE.md`, the
   `## Architecture` section of its `README.md`, or the code's stack / data
-  flow / directory structure.
-- When a recurring agent footgun reveals a load-bearing invariant the TL;DR
-  doesn't mention.
+  flow / directory structure — in the same task, before reporting that change
+  complete.
+- When an agent footgun reveals a load-bearing invariant the TL;DR doesn't
+  mention — even on the *first* occurrence, if violating the invariant is
+  silent or catastrophic. Don't wait for it to recur.
 
 The TL;DR is meant to ride along with the same change that motivated it —
 don't ship an `ARCHITECTURE.md` edit without also re-deriving the TL;DR.
@@ -38,7 +40,7 @@ otherwise.
 > 2. `<SUB>/ARCHITECTURE.md`.
 > 3. The `## Architecture` section of `<SUB>/README.md`.
 >
-> If any of 2 or 3 disagree with the code, **stop**. Surface the disagreement
+> If any of 2 or 3 disagree with the code, or with each other, **stop**. Surface the disagreement
 > as a separate finding and wait for it to be resolved before touching the
 > TL;DR — do not silently paper it over by re-deriving from whichever source
 > happens to be convenient. Fix the deep doc (and `README.md` if relevant)

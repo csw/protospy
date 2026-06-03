@@ -42,24 +42,31 @@ with the shared helper — do not hand-roll them:**
 scripts/agents/review-paths <ticket> <PR> --current
 ```
 
-It prints `round=<N>` (the latest round — the one whose reports you reconcile,
-which should match the round the caller named) and the absolute path of each
-report for that round: `code_review` (always), `convention_review` (UI-source
-diffs only), and `visual_review` (when provided). The `synthesis` path it
-also prints is where the caller will write *your* output — you do not write it
-(you are read-only).
+It prints `round=<N>` (the latest round — the one whose reports you reconcile)
+and the absolute path of each report for that round: `code_review` (always),
+`convention_review` (UI-source diffs only), and `visual_review` (when provided).
+The `synthesis` path it also prints is where the caller will write *your* output
+— you do not write it (you are read-only). If the `round=<N>` it returns does
+**not** match the round the caller named, stop and report the mismatch rather
+than synthesizing — a stale round means you'd reconcile the wrong reports.
 
 `scripts/agents/review-paths` is the single source of truth for these paths,
 shared with `handle-ticket` step 8, so the writer and reader can never drift.
 
 Read whichever reports exist. If the caller passes the report text inline
-instead, use that. If only **one** review ran, there is nothing to
-synthesize — say so and return the single review's findings unchanged.
+instead, use that. **The caller tells you which reviews ran.** If a review the
+caller named has no report (missing file, empty file, or `round=0`), do **not**
+silently proceed: state explicitly in your output which expected report was
+absent and that the synthesis covers only the reports actually found. Never
+present a partial synthesis as complete. If only **one** review ran, there is
+nothing to synthesize — say so and return the single review's findings unchanged.
 
 You may read **cited source** (the specific `file:line` a finding points to)
-to judge whether two findings share a root cause — but you work primarily
-from the reports. Do **not** conduct a fresh review or hunt for new issues;
-your remit is reconciliation of what the reviews already found.
+to judge whether two findings share a root cause, or to adjudicate which review
+is right when two findings about the same `file:line` conflict — that
+reconciliation work is in scope. What's out of scope is conducting a fresh
+review or hunting for issues no review raised; your remit is reconciliation of
+what the reviews already found.
 
 ## What to reconcile
 

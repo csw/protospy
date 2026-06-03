@@ -36,7 +36,7 @@ linear issue view PRO-NNN --json | jq -r .branchName
 
 Linear's branch names include the issue ID (e.g. `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`), which is what triggers the GitHub integration that moves issues through their workflow.
 
-**If the branch name exceeds 50 characters**, truncate the slug portion on a word boundary. Keep the `<type>/pro-NNN-` prefix intact — that's what Linear needs for linking. Example:
+**If the branch name exceeds 50 characters**, truncate the slug portion at a word boundary so the whole branch name is ≤50 characters, dropping whole trailing words (never cutting mid-word). Keep the `<type>/pro-NNN-` prefix intact — that's what Linear needs for linking. Example:
 
 - Full: `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`
 - Truncated: `feature/pro-136-give-agents-instructions`
@@ -109,5 +109,11 @@ doesn't map to individual commits, list them in the PR description:
 
 Use `fixes` when the commit or PR fully resolves the issue — Linear will
 move it to Done on merge. Use `refs` when the work is partial progress
-or related but doesn't complete the issue. Use your judgment; most work
-that directly addresses a ticket will be `fixes`.
+or related but doesn't complete the issue.
+
+Default to `fixes`. Use `refs` only when you know more work remains on the
+ticket after this merge — e.g. this is one of several PRs for the ticket, or
+it addresses only part of the described scope. If you're unsure whether the
+work fully resolves the ticket, ask the user rather than guessing: a wrong
+`fixes` auto-closes the issue on merge and is harder to undo than a wrong
+`refs`.

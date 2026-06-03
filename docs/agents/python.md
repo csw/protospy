@@ -29,14 +29,20 @@ Ruff formats multi-exception `except` clauses without parentheses: `except A, B:
 
 ## Code Quality Requirements
 
-Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python files changed under `flix/` or `conformance/`:
+Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python file you add or change that lives in the repo. `flix/` and `conformance/` are the main homes; a one-off script you do not commit is exempt.
 
 ```bash
 cd <package>       # flix/ or conformance/
 uv run ruff check .
 uv run ruff format .
 uv run pyright .
-uv run pytest -q
+uv run pytest -q -m "not e2e"   # see note below on e2e / infra-dependent tests
 ```
 
-Do not report "done" or commit until these are all clean.
+Notes:
+
+- **Run all four checks in *each* package your change touches.** If a change spans both `flix/` and `conformance/`, passing in one does not cover the other.
+- **`flix/` tests:** the runnable-without-infra check is `pytest -q -m "not e2e"`. Run `pytest -m e2e -q` only with Elasticsearch up at `localhost:9200`; if ES is down you cannot pass e2e locally — surface that per `docs/agents/quality-gates.md`, don't skip silently or report done.
+- **`conformance/` tests:** these require a live protospy + a managed proxy and are run via `just conformance test`, not the bare `pytest` here. They are not part of the commit gate; if you can't run them, say so explicitly rather than reporting the suite green.
+
+Do not report "done" or commit until the applicable checks are all clean.

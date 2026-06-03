@@ -75,6 +75,13 @@ When working in a subproject that runs its commands from its own directory (e.g.
 - **`taskpolicy -b`** (CI-pressure simulation, see `testing.md`) — the sandbox
   blocks `setpriority()`.
 
+This list is illustrative, not exhaustive. If any command fails with a
+sandbox-related error not listed above — SSH-agent or keychain access denied,
+Mach-port registration denied, a blocked privileged syscall — the cause is
+almost certainly the same sandbox restriction; re-run it with
+`dangerouslyDisableSandbox: true`. (Still never disable commit signing to work
+around a failure — see the signing rule in the root `CLAUDE.md`.)
+
 ## ci-watch
 
 `scripts/agents/ci-watch` calls `gh` directly, which needs keychain access. On

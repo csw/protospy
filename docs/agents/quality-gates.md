@@ -50,9 +50,17 @@ Two checks require external prerequisites:
   (`pnpm exec playwright install`). If missing, the gate fails with
   Playwright's own error message; install the browsers and retry.
 - **`just flix test-e2e`** (`pytest -m e2e`) requires a running Elasticsearch
-  reachable at `localhost:9200` with the demo index loaded. If ES is
-  down, the gate fails with a connection error — surface this to the user;
-  agents cannot start ES themselves.
+  reachable at `localhost:9200` with the demo index loaded. **Agents cannot
+  start Elasticsearch themselves.** Any failure attributable to ES being
+  unavailable — a connection error, a timeout, a missing or empty demo index,
+  a 404/index-not-found — whether it surfaces via this e2e gate, a bare
+  `pytest` run, or any other path, must be surfaced to the user, not worked
+  around and not treated as your own bug.
+
+The general rule: when a check fails because a prerequisite you cannot
+provision is absent, surface it to the user rather than provisioning it
+yourself or rewriting your code to dodge it. (One exception: Playwright
+browsers, above, you *can* install — so do.)
 
 ## Mac/Linux working tree compatibility
 
@@ -69,6 +77,14 @@ Read the gate output. Fix the failure (failing test, type error, etc.)
 and re-attempt the commit. Do not try to bypass the gate — the gate's
 purpose is to catch regressions before they enter the tree.
 
-If a gate appears to fail for reasons unrelated to your change (e.g.
-flaky browser test, environment issue), report it to the user rather
-than working around it.
+If a hook auto-fixed files in place (`ruff check --fix`, `ruff format`, and
+`pnpm run format` rewrite files), re-stage them with `git add` before
+re-attempting the commit, or the fixes won't be included and the gate will
+fail again on the same files.
+
+If a gate appears to fail for reasons unrelated to your change, first apply
+the discipline in `docs/agents/testing.md` ("Failures are your fault until
+proven otherwise"): flakiness or an environment issue is a conclusion you
+earn with evidence (reproduced on clean `main`, or a confirmed missing
+prerequisite you cannot provision), not a default. Only once you've met that
+bar, report it to the user rather than working around it.

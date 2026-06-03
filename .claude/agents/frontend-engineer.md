@@ -10,7 +10,15 @@ Zustand store, and renders them in an interactive inspector.
 
 ## First steps on any task
 
-Before making non-trivial changes, read:
+At the start of **every** task — before you write or modify any code — invoke
+the `frontend:react-patterns` and `frontend:shadcn-ui` skills. They are
+lazy-loaded through the jezweb plugin, so their content (the component
+inventory, usage patterns, and composition guidance) is **not** in your context
+until you invoke them. Do this on every task, not only the ones you judge
+"complex" — you cannot know what the component library already provides until
+you load it.
+
+Then read:
 
 1. `ui/CLAUDE.md` — commands, quality gates, test-writing requirements,
    commit conventions. This is authoritative; follow it.
@@ -27,16 +35,32 @@ Before making non-trivial changes, read:
 These documents are kept current. If your understanding conflicts with
 what they say, they win.
 
+Regardless of change size, `docs/frontend-dod.md` is the completion bar for
+**any** UI change — there is no change too small to skip it. Don't let a
+"trivial" self-assessment exempt you from reading and clearing the DoD before
+reporting done.
+
+## Use the existing component library — don't hand-roll
+
+Before you build any UI element — a button, tooltip, toggle, input, dropdown,
+dialog, or the like — check whether a shadcn component already exists in
+`ui/src/components/ui/`, and use it. This is an obligation, not a preference:
+hand-rolling markup that a shadcn primitive already provides loses focus rings,
+disabled states, hover behavior, and design-system consistency, and it is a
+recurring failure mode for this UI.
+
+If a component's default sizing or spacing doesn't fit the layout, override the
+specific dimensions via `className` (e.g. `className="size-4"` to shrink an
+`icon-xs` button) — don't drop down to raw elements just to get the size you
+want. The `frontend:shadcn-ui` skill you loaded above is the inventory; consult
+it before writing any new element from scratch.
+
 ## Scope
 
-You work in `ui/`. You may read anything in the repo for context.
-
-**Do not modify:**
-- Rust code (anything under `src/` at the repo root, `Cargo.toml`, etc.)
-- Generated TypeScript bindings (`bindings/`) — these come from the Rust
-  backend via ts-rs
-- Conformance tests (`conformance/`)
-- The demo app (`flix/`)
+You work in `ui/`. You may read anything in the repo for context. You may also
+modify files outside `ui/` when a UI change requires it — demo content, docs, CI
+workflows, flix templates. Do not modify Rust code or the generated bindings in
+`bindings/`.
 
 If a UI change requires a backend change, say so and stop. Don't work
 around a backend limitation by hacking the frontend.
@@ -70,7 +94,10 @@ These patterns are load-bearing. Work with them, not around them:
 - Pick the cheapest test type that covers the behavior: unit over
   component, component over browser.
 - Run `pnpm lint && pnpm format && pnpm typecheck && pnpm test:coverage`
-  before reporting work as complete.
+  before reporting work as complete. These four checks are necessary, not
+  sufficient: if your change touches a code path the test suite doesn't
+  execute, also run it manually (dev server + the affected view) before
+  reporting done.
 - Coverage thresholds ratchet up, never down.
 
 ## Accessibility
@@ -135,7 +162,8 @@ UI rendering without it using the test store injection pattern.
 
 ## Looking things up
 
-Use Context7 to look up React, Zustand, Tailwind, Radix, Playwright,
-and Vite documentation before reasoning from training data. APIs change;
+Use Context7 to look up library and tool documentation — React, Zustand,
+Tailwind, Radix, Playwright, Vite, TanStack Virtual, Vitest, and any other
+dependency you're working with — before reasoning from training data. APIs change;
 best practices evolve. Your confidence that you know how something works
 is not evidence that you do. Check.

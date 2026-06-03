@@ -52,9 +52,9 @@ Tests should be deterministic. Prefer explicit synchronization to relying on tim
 
 Flaky tests are unacceptable.
 
-### Test failures are your fault until proven otherwise
+### Failures are your fault until proven otherwise
 
-When a test fails during your work, **assume your changes caused it**.
+When anything fails during your work — a test, a build, a lint or type check, a runtime crash, or a fixture or harness that will not load — **assume your changes caused it**. This applies to every kind of failure, not only test failures.
 Do not dismiss a failure as "pre-existing" or "flaky" without concrete
 evidence — specifically:
 
@@ -62,7 +62,12 @@ evidence — specifically:
   changes), OR
 - The failure is in a test completely unrelated to your changes AND you
   can identify the exact external condition causing it (a network
-  timeout, a port conflict, etc.)
+  timeout, a port conflict, etc.), OR
+- The failure is a missing external prerequisite you cannot provision —
+  e.g. Elasticsearch down for the flix e2e suite, the conformance suite's
+  live proxy infra not running, or Playwright browsers not installed.
+  Surface it to the user per quality-gates.md rather than treating it as
+  your bug; do not silently work around it.
 
 "The test was last modified a while ago" is not evidence of flakiness.
 "It passed on the second run" is not evidence of flakiness. "It only
@@ -71,9 +76,9 @@ evidence of flakiness — that's evidence of a real bug (likely a shared
 state or ordering dependency your change introduced). The UI test suite
 in particular has been highly reliable — there are no known flaky tests.
 
-**Do not theorize — investigate.** When a test fails, read the failure
-output, look at what the test asserts, and trace backward to find the
-actual cause. Common agent failure mode: constructing a plausible-
+**Do not theorize — investigate.** When anything fails, read the failure
+output, look at what the failing check or test asserts, and trace backward
+to find the actual cause. Common agent failure mode: constructing a plausible-
 sounding narrative ("load-sensitive," "worker contention," "race
 condition in the test framework") without reading the test code or
 checking whether the failure reproduces deterministically. If you
