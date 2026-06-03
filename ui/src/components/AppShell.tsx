@@ -122,7 +122,7 @@ export function AppShell() {
       <Group orientation="horizontal" className="flex-1 overflow-hidden">
         <Panel
           defaultSize={listWidth[listMode]}
-          minSize={LIST_MIN_WIDTH}
+          minSize={LIST_MIN_WIDTH[listMode]}
           maxSize={LIST_MAX_WIDTH}
           onResize={handleListPanelResize}
           panelRef={listPanelRef}

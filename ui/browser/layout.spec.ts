@@ -87,11 +87,12 @@ test.describe("Layout and resize", () => {
 
     const clamped = await listPanel.boundingBox();
     expect(clamped).not.toBeNull();
-    // AppShell pins minSize=LIST_MIN_WIDTH on the list Panel. Once the drag
+    // AppShell pins minSize=LIST_MIN_WIDTH[listMode] on the list Panel. The
+    // default mode is "table", so the table floor applies. Once the drag
     // pushes past the minimum the width should sit at the clamp, not collapse.
     // Allow a few px of panel-library rounding around the floor.
-    expect(clamped!.width).toBeGreaterThanOrEqual(LIST_MIN_WIDTH - 10);
-    expect(clamped!.width).toBeLessThanOrEqual(LIST_MIN_WIDTH + 15);
+    expect(clamped!.width).toBeGreaterThanOrEqual(LIST_MIN_WIDTH.table - 10);
+    expect(clamped!.width).toBeLessThanOrEqual(LIST_MIN_WIDTH.table + 15);
     expect(clamped!.width).toBeLessThan(initial!.width);
   });
 
