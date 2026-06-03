@@ -213,6 +213,33 @@ describe("StreamView — error/disconnected state", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
   });
+
+  it("renders error message banner when exchange has error", async () => {
+    await renderAndSettle(
+      <StreamView
+        exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    const banner = screen.getByTestId("stream-error-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("connection reset by peer");
+  });
+
+  it("renders error message even with empty stream (no events)", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange("", false, RESPONSE_ERROR)} />,
+    );
+    const banner = screen.getByTestId("stream-error-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("connection reset by peer");
+  });
+
+  it("does not render error banner when no error", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
+    );
+    expect(screen.queryByTestId("stream-error-banner")).not.toBeInTheDocument();
+  });
 });
 
 const ANTHROPIC_SSE = [
@@ -360,5 +387,44 @@ describe("ChatStreamView — error/disconnected state", () => {
     // The pulsing cursor span should not be present
     const cursor = container.querySelector("span.animate-pulse.bg-accent");
     expect(cursor).toBeNull();
+  });
+
+  it("renders error message banner when exchange has error (events mode)", async () => {
+    await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    const banner = screen.getByTestId("stream-error-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("connection reset by peer");
+  });
+
+  it("renders error message banner in transcript mode", async () => {
+    await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    fireEvent.click(screen.getByText("transcript"));
+    const banner = screen.getByTestId("stream-error-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("connection reset by peer");
+  });
+
+  it("renders error message even with empty stream (no events)", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange("", false, RESPONSE_ERROR)} />,
+    );
+    const banner = screen.getByTestId("stream-error-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent("connection reset by peer");
+  });
+
+  it("does not render error banner when no error", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
+    );
+    expect(screen.queryByTestId("stream-error-banner")).not.toBeInTheDocument();
   });
 });

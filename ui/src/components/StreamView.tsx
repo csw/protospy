@@ -1,6 +1,7 @@
 import type { Exchange } from "@ui/state/reducer";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
+import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
 interface Props {
@@ -12,6 +13,7 @@ export function StreamView({ exchange }: Props) {
   const atEnd = body?.atEnd ?? true;
   const events = body?.sseState?.events ?? [];
   const totalEventCount = body?.sseState?.totalEventCount ?? events.length;
+  const errorMessage = exchange.error?.message;
 
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
@@ -36,6 +38,7 @@ export function StreamView({ exchange }: Props) {
         >
           <EventsView events={events} scrollRef={scrollRef} />
         </div>
+        {errorMessage != null && <StreamErrorBanner message={errorMessage} />}
         {state === "paused" && (
           <button
             onClick={jumpToLatest}
