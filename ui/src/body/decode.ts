@@ -20,6 +20,12 @@ export interface DecodeResult {
    * a dual-size display ("wire → decoded") rather than just `wireBytes`.
    */
   decodedBytes?: number;
+  /**
+   * For `json` kind: the already-parsed JSON value, so downstream
+   * consumers (e.g. JsonViewer's tree builder) can skip re-parsing
+   * the pretty-printed text. `undefined` for all other kinds.
+   */
+  parsed?: unknown;
 }
 
 function chunkToBytes(chunk: BodyChunk): Uint8Array {
@@ -193,6 +199,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       return {
         kind: "json",
         text: prettyText,
+        parsed,
         mediaType,
         wireBytes,
         decodedBytes,

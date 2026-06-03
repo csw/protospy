@@ -1,12 +1,51 @@
-import { useMemo, useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  useVirtualizer,
+  observeElementRect as defaultObserveRect,
+} from "@tanstack/react-virtual";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
+import {
+  buildJsonTree,
+  flattenTree,
+  computeAutoExpanded,
+  type FlatLine,
+} from "@ui/lib/json-tree";
 
 interface Props {
   text: string;
+  kind?: "json" | "jsonl";
+  /** Pre-parsed JSON value from the decode pipeline, avoids re-parsing text. */
+  parsed?: unknown;
 }
 
 // `text-xs` (12px) + `leading-5` (20px) — each line renders as a 20px row.
 const ROW_HEIGHT = 20;
+
+/** Pixels of indentation per nesting depth level in the tree view. */
+const INDENT_PX = 16;
+
+/** Shared aria-label for the viewer scroll container — owned by JsonViewer. */
+const VIEWER_LABEL = "JSON viewer";
+
+/**
+ * Wrapper around the default observeElementRect that handles jsdom (or any
+ * environment where getBoundingClientRect returns a 0x0 rect). When the real
+ * rect has zero dimensions, we report a fallback rect so the virtualizer
+ * renders items and component tests can assert on them.
+ */
+const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
+  return defaultObserveRect(instance, (rect) => {
+    if (rect.width === 0 && rect.height === 0) {
+      cb({ width: 800, height: 600 });
+    } else {
+      cb(rect);
+    }
+  });
+};
+
+// ── Line tokenizer (used by the flat view for JSONL) ──
 
 interface Span {
   cls: string;
@@ -84,24 +123,78 @@ export function tokenizeLine(line: string): Token[] {
   return tokens;
 }
 
-export function JsonViewer({ text }: Props) {
-  const lines = useMemo(() => text.split("\n"), [text]);
+// ── Parse result wrapper ──
+
+type ParseResult = { ok: true; value: unknown } | { ok: false };
+
+// ── Main component ──
+
+export function JsonViewer({ text, kind = "json", parsed: preParsed }: Props) {
+  const parsed: ParseResult = useMemo(() => {
+    if (kind !== "json") return { ok: false };
+    // Use pre-parsed value from the decode pipeline when available
+    if (preParsed !== undefined) return { ok: true, value: preParsed };
+    try {
+      return { ok: true, value: JSON.parse(text) as unknown };
+    } catch {
+      return { ok: false };
+    }
+  }, [text, kind, preParsed]);
+
+  if (parsed.ok) {
+    return <JsonTreeView value={parsed.value} />;
+  }
+
+  return <JsonFlatView text={text} />;
+}
+
+// ── Tree view ──
+
+function JsonTreeView({ value }: { value: unknown }) {
+  const tree = useMemo(() => buildJsonTree(value), [value]);
+  const autoExpanded = useMemo(() => computeAutoExpanded(tree), [tree]);
+
+  // "Set state during render" pattern — reset expanded when tree changes
+  // (i.e. a different exchange was selected). We track `value` identity
+  // rather than tree.id because buildJsonTree always starts its counter
+  // at 0 (root id is always 0). `value` comes from a useMemo keyed on
+  // the decode result, so its identity changes exactly when the JSON body
+  // changes.
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(autoExpanded);
+  const [prevValue, setPrevValue] = useState(value);
+
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setExpanded(autoExpanded);
+  }
+
+  const lines = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
+
+  const toggle = useCallback((nodeId: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Virtualize the line list. A 2 MB pretty-printed JSON is ~100K lines, and
-  // mounting every row blocks the main thread for seconds. Rendering only the
-  // visible window keeps the DOM small (~50 rows) regardless of body size.
-  //
-  // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`)
-  // because its methods close over mutable instance state. Safe to ignore here:
-  // we don't enable the compiler in this build, and the returned methods are
-  // consumed inline in this render — they're never handed to a memoized child.
+  // React Compiler bails out on useVirtualizer (react-hooks/incompatible-library)
+  // because its methods close over mutable instance state. Safe to ignore: we
+  // don't enable the compiler in this build, and the returned methods are consumed
+  // inline in this render.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
+    observeElementRect,
   });
 
   return (
@@ -109,7 +202,148 @@ export function JsonViewer({ text }: Props) {
       ref={parentRef}
       className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
       style={{ contain: "strict" }}
-      aria-label="JSON viewer"
+      aria-label={VIEWER_LABEL}
+    >
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: "relative",
+          width: "100%",
+        }}
+      >
+        {virtualizer.getVirtualItems().map((vRow) => {
+          const line = lines[vRow.index];
+          const expandable = line.kind === "open" || line.kind === "collapsed";
+          return (
+            <div
+              key={vRow.key}
+              className={cn(
+                "flex items-center hover:bg-bg-hl",
+                expandable && "cursor-pointer",
+              )}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: vRow.size,
+                transform: `translateY(${vRow.start}px)`,
+              }}
+              onClick={expandable ? () => toggle(line.nodeId) : undefined}
+            >
+              {/* Indent + toggle column */}
+              <span
+                className="shrink-0 inline-flex items-center justify-end"
+                style={{ width: `${line.depth * INDENT_PX + 16}px` }}
+              >
+                {expandable && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-4 text-j-punct hover:bg-bg-hl hover:text-ink"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(line.nodeId);
+                    }}
+                    aria-expanded={line.kind === "open"}
+                    aria-label={line.kind === "open" ? "Collapse" : "Expand"}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        "transition-transform duration-100",
+                        line.kind === "open" && "rotate-90",
+                      )}
+                    />
+                  </Button>
+                )}
+              </span>
+
+              {/* Content */}
+              <span className="whitespace-pre">
+                {line.key != null && (
+                  <>
+                    <span className="text-j-key">
+                      {JSON.stringify(line.key)}
+                    </span>
+                    <span className="text-j-punct">: </span>
+                  </>
+                )}
+                <LineValue line={line} />
+                {line.hasComma && <span className="text-j-punct">,</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Render the value portion of a flat line (bracket, collapsed preview, or leaf value). */
+function LineValue({ line }: { line: FlatLine }) {
+  switch (line.kind) {
+    case "open":
+      return (
+        <span className="text-j-punct">
+          {line.containerType === "object" ? "{" : "["}
+        </span>
+      );
+
+    case "close":
+      return (
+        <span className="text-j-punct">
+          {line.containerType === "object" ? "}" : "]"}
+        </span>
+      );
+
+    case "collapsed": {
+      const isArray = line.containerType === "array";
+      const open = isArray ? "[" : "{";
+      const close = isArray ? "]" : "}";
+      const count = line.childCount ?? 0;
+      // Show item count for arrays (useful for sizing); omit for objects
+      // (property count is less informative and adds visual noise).
+      const label = isArray
+        ? count === 1
+          ? "1 item"
+          : `${count} items`
+        : undefined;
+      return (
+        <>
+          <span className="text-j-punct">{open}</span>
+          <span className="text-dim italic">{"…"}</span>
+          <span className="text-j-punct">{close}</span>
+          {label != null && <span className="text-dim ml-2">{label}</span>}
+        </>
+      );
+    }
+
+    case "leaf":
+      return <span className={line.valueCls}>{line.valueText}</span>;
+  }
+}
+
+// ── Flat view (used for JSONL and as parse-failure fallback) ──
+
+function JsonFlatView({ text }: { text: string }) {
+  const lines = useMemo(() => text.split("\n"), [text]);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: lines.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+    observeElementRect,
+  });
+
+  return (
+    <div
+      ref={parentRef}
+      className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
+      style={{ contain: "strict" }}
+      aria-label={VIEWER_LABEL}
     >
       <div
         style={{
@@ -124,7 +358,7 @@ export function JsonViewer({ text }: Props) {
           const tokens = tokenizeLine(lines[i]);
           return (
             <div
-              key={lineNum}
+              key={vRow.key}
               className="flex hover:bg-bg-hl"
               style={{
                 position: "absolute",
