@@ -4,6 +4,7 @@ import {
   makeCompleteExchange,
   makeRequestWithTrace,
 } from "./fixtures/exchanges";
+import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 import type { Page } from "@playwright/test";
 
 function makeLargeDataset(count: number) {
@@ -255,6 +256,38 @@ test.describe("Virtualization", () => {
     );
     await expect(selected).toBeVisible({ timeout: 5000 });
     await expect(selected).toBeInViewport();
+  });
+
+  test("no React key collision when applying many-rows after a smaller scene", async ({
+    page,
+  }) => {
+    // Regression test for PRO-271: getItemKey captured a stale `ordered` closure
+    // because ordered was not in useCallback deps. In newest-first order, the
+    // previous newest exchange's id (at index 0) could equal the fallback index
+    // N (the old list length), producing duplicate React keys.
+    const consoleErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+
+    await waitForSceneHarness(page);
+
+    // Apply a single-exchange scene first (long-error has 1 exchange, id=1).
+    // This creates a render where ordered = [ex1] (newest-first, default order).
+    await applyScene(page, "long-error");
+    await expect(page.locator("button[role='option']").first()).toBeVisible();
+
+    // Apply many-rows without a page reload. applySceneToStore runs synchronously
+    // (reset + 120 messages), so React batches it into one render where
+    // ordered = [ex120, ..., ex1] without a listMode/density change. The stale
+    // getItemKey (pre-fix) returned id=1 for index 0 (from old ordered[0]) AND
+    // fallback 1 for index 1 (undefined → 1), producing the duplicate key
+    // "1|table|regular" logged as a React error.
+    await applyScene(page, "many-rows");
+    await expect(page.getByText("120 requests").first()).toBeVisible();
+
+    const keyErrors = consoleErrors.filter((e) => e.includes("same key"));
+    expect(keyErrors, "React duplicate-key warnings").toEqual([]);
   });
 
   test("trace rail renders on virtualized rows with traces", async ({
