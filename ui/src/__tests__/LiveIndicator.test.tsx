@@ -37,4 +37,28 @@ describe("LiveIndicator", () => {
     expect(dot).not.toHaveClass("animate-pulse");
     expect(dot).not.toHaveClass("bg-green");
   });
+
+  it("shows 'disconnected' with red dot when hasError is true and stream not ended", () => {
+    render(<LiveIndicator atEnd={false} isFollowing={true} hasError={true} />);
+    expect(screen.getByText("disconnected")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-red");
+    expect(dot).not.toHaveClass("animate-pulse");
+    expect(dot).not.toHaveClass("bg-green");
+    expect(dot).not.toHaveClass("bg-amber");
+  });
+
+  it("disconnected state takes priority over paused", () => {
+    render(<LiveIndicator atEnd={false} isFollowing={false} hasError={true} />);
+    expect(screen.getByText("disconnected")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-red");
+  });
+
+  it("shows 'complete' when atEnd is true even with hasError", () => {
+    render(<LiveIndicator atEnd={true} isFollowing={false} hasError={true} />);
+    expect(screen.getByText("complete")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-mid");
+  });
 });

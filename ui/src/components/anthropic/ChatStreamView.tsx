@@ -78,11 +78,15 @@ export function ChatStreamView({ exchange }: Props) {
 
   const body = exchange.responseBody;
   const atEnd = body?.atEnd ?? true;
+  const hasError = exchange.error?.direction === "Response";
   const events = body?.sseState?.events ?? [];
   const totalEventCount = body?.sseState?.totalEventCount ?? events.length;
 
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
+
+  // Stream is effectively terminal when ended or disconnected by error
+  const isTerminal = atEnd || hasError;
 
   const segmentBase =
     "text-xs px-2 py-0.5 rounded cursor-pointer transition-colors";
@@ -92,7 +96,11 @@ export function ChatStreamView({ exchange }: Props) {
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <LiveIndicator atEnd={atEnd} isFollowing={isFollowing} />
+        <LiveIndicator
+          atEnd={atEnd}
+          isFollowing={isFollowing}
+          hasError={hasError}
+        />
         <div className="flex items-center gap-0.5 bg-bg-pane rounded px-0.5 py-0.5">
           <button
             className={cn(
@@ -128,10 +136,10 @@ export function ChatStreamView({ exchange }: Props) {
           {mode === "events" ? (
             <EventsView events={events} scrollRef={scrollRef} />
           ) : (
-            <TranscriptView events={events} atEnd={atEnd} />
+            <TranscriptView events={events} atEnd={isTerminal} />
           )}
         </div>
-        {!isFollowing && !atEnd && (
+        {!isFollowing && !isTerminal && (
           <button
             onClick={jumpToLatest}
             className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
