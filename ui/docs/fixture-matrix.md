@@ -69,11 +69,11 @@ invented long phrase. See the note near the data-extreme fixtures in
 
 ### View axis
 
-| Scene id        | Cell                    | Notes                                  |
-| --------------- | ----------------------- | -------------------------------------- |
-| `table-mode`    | Table mode              | Columnar list (vs. default rows mode). |
-| `compact-rows`  | Compact density (rows)  | Tighter row height.                    |
-| `compact-table` | Compact density (table) | Tightest row height.                   |
+| Scene id        | Cell                    | Notes                                                                                          |
+| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `table-mode`    | Table mode              | Columnar list (table is the default mode since PRO-222; explicit config still exercised here). |
+| `compact-rows`  | Compact density (rows)  | Tighter row height.                                                                            |
+| `compact-table` | Compact density (table) | Tightest row height.                                                                           |
 
 ### Cross-axis (view × data combinations)
 
