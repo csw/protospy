@@ -74,6 +74,9 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
             className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
           />
           {query.length > 0 && (
+            // Color-only hover (hover:bg-transparent suppresses ghost's
+            // hover:bg-accent): a 16px button inside the 24px search field
+            // looks cramped with a background fill, preserving the prior look.
             <Button
               variant="ghost"
               size="icon-xs"
@@ -149,7 +152,10 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                           )}
                         </div>
 
-                        {/* Copy button — appears on row hover */}
+                        {/* Copy button — appears on row hover. Color-only
+                            hover (hover:bg-transparent suppresses ghost's
+                            hover:bg-accent) keeps the tight inline control from
+                            picking up a background fill over the row highlight. */}
                         <Button
                           variant="ghost"
                           size="icon-xs"

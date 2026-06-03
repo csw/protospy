@@ -40,6 +40,9 @@ export function FilterBar() {
           className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
         />
         {filter.length > 0 && (
+          // Color-only hover (hover:bg-transparent suppresses ghost's
+          // hover:bg-accent): a 16px button inside the 24px search field looks
+          // cramped with a background fill, and this preserves the prior look.
           <Button
             variant="ghost"
             size="icon-xs"
@@ -62,6 +65,7 @@ export function FilterBar() {
           <span className="font-family-mono text-xs text-accent-ink">
             trace {shortenTraceId(traceFilter)}
           </span>
+          {/* Color-only hover — see the clear-filter button above. */}
           <Button
             variant="ghost"
             size="icon-xs"
