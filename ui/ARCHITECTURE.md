@@ -14,17 +14,17 @@ Verified against `ui/package.json`.
 
 ### Runtime dependencies
 
-| Library                                                    | Version (caret) | Role                                                                                                                           |
-| ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `react` / `react-dom`                                      | 19              | UI framework. Rendered via `createRoot` in `StrictMode`.                                                                       |
-| `zustand`                                                  | 5               | Single global store (`state/store.ts`) holding exchanges + UI state.                                                           |
-| `@tanstack/react-virtual`                                  | 3               | Virtualized rendering for the exchange list, the SSE event list, and the JSON viewer (only visible rows are in the DOM).       |
-| `radix-ui`                                                 | 1.4             | Unstyled accessible primitives (dialog, popover, tabs, tooltip, dropdown, separator, scroll-area) wrapped by `components/ui/`. |
-| `cmdk`                                                     | 1               | Command-palette primitive (⌘K), wrapped by `components/ui/command.tsx` and used by `CommandPalette`.                           |
-| `react-resizable-panels`                                   | 4               | The resizable left-list / right-inspector split in `AppShell`.                                                                 |
-| `lucide-react`                                             | 1               | Icon set.                                                                                                                      |
-| `class-variance-authority`, `clsx`, `tailwind-merge`       | —               | Class composition. `cn()` in `lib/utils.ts` = `twMerge(clsx(...))`.                                                            |
-| `@fontsource-variable/inter`, `@fontsource/jetbrains-mono` | 5               | Self-hosted UI and mono fonts, imported in `main.tsx`.                                                                         |
+| Library                                                    | Version (caret) | Role                                                                                                                     |
+| ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `react` / `react-dom`                                      | 19              | UI framework. Rendered via `createRoot` in `StrictMode`.                                                                 |
+| `zustand`                                                  | 5               | Single global store (`state/store.ts`) holding exchanges + UI state.                                                     |
+| `@tanstack/react-virtual`                                  | 3               | Virtualized rendering for the exchange list, the SSE event list, and the JSON viewer (only visible rows are in the DOM). |
+| `radix-ui`                                                 | 1.4             | Unstyled accessible primitives (dialog, tabs, tooltip, dropdown) wrapped by `components/ui/`.                            |
+| `cmdk`                                                     | 1               | Command-palette primitive (⌘K), wrapped by `components/ui/command.tsx` and used by `CommandPalette`.                     |
+| `react-resizable-panels`                                   | 4               | The resizable left-list / right-inspector split in `AppShell`.                                                           |
+| `lucide-react`                                             | 1               | Icon set.                                                                                                                |
+| `class-variance-authority`, `clsx`, `tailwind-merge`       | —               | Class composition. `cn()` in `lib/utils.ts` = `twMerge(clsx(...))`.                                                      |
+| `@fontsource-variable/inter`, `@fontsource/jetbrains-mono` | 5               | Self-hosted UI and mono fonts, imported in `main.tsx`.                                                                   |
 
 ### Tooling / dev dependencies
 
@@ -158,7 +158,7 @@ ui/
                     # tickSource.ts — shared 1 Hz singleton interval (subscribe/unsubscribe); starts/stops automatically with subscriber count
     theme/          # tailwind.css (@theme tokens + dark variant + @theme inline shadcn aliases + @layer base border-color); applyTheme.ts (applyThemeToDOM)
     components/     # App components (AppShell, TopBar, FilterBar, ExchangeList, ExchangeListItem, Inspector, ContextBar, BodySplit, BodyPane, StreamView, EventsView, LiveIndicator, HeadersSplit, HeadersPane, JsonViewer, TimingView, StatusBar, CommandPalette, CopyButton)
-      ui/           # shadcn/ui primitives (Radix/cmdk wrappers): button, dialog, popover, tabs, tooltip, dropdown-menu, command, scroll-area, separator + EmptyState, MethodBadge
+      ui/           # shadcn/ui primitives (Radix/cmdk wrappers): button, dialog, tabs, tooltip, dropdown-menu, command + EmptyState, MethodBadge
       anthropic/    # ChatStreamView.tsx — Anthropic SSE/chat-transcript renderer
     test/           # setup.ts (jest-dom for jsdom project); fixtures.ts (shared EventMessage builders); scenes.ts (fixture matrix + window.__test_scenes harness)
     __tests__/      # Vitest tests — *.test.ts (node) and *.test.tsx (jsdom)

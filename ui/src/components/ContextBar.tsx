@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Copy, ExternalLink } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
+  cn,
   parseQueryParams,
   shortenTraceId,
   splitUri,
@@ -82,7 +83,10 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 ${height} bg-bg-pane border-b border-border shrink-0 overflow-hidden`}
+      className={cn(
+        "flex items-center gap-2 px-3 bg-bg-pane border-b border-border shrink-0 overflow-hidden",
+        height,
+      )}
     >
       {/* Prev/Next navigation */}
       <div className="flex items-center gap-0.5 shrink-0">
@@ -152,7 +156,10 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       {/* Status display */}
       {hasStatus && exchange.status != null && (
         <span
-          className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
+          className={cn(
+            "font-family-mono text-ui-sm font-semibold shrink-0",
+            statusTextClass(exchange.status),
+          )}
         >
           {exchange.status}
         </span>

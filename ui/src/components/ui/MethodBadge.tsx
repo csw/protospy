@@ -1,4 +1,4 @@
-import { methodBadgeClass } from "@ui/lib/utils";
+import { cn, methodBadgeClass } from "@ui/lib/utils";
 
 interface Props {
   method: string;
@@ -13,7 +13,13 @@ export function MethodBadge({ method, size = "sm" }: Props) {
   return (
     <span
       data-testid="method-badge"
-      className={`font-family-mono ${textSize} font-semibold tracking-[0.04em] rounded-[3px] ${padding} ${minWidth} inline-flex items-center justify-center shrink-0 ${methodBadgeClass(method)}`}
+      className={cn(
+        "font-family-mono font-semibold tracking-[0.04em] rounded-[3px] inline-flex items-center justify-center shrink-0",
+        textSize,
+        padding,
+        minWidth,
+        methodBadgeClass(method),
+      )}
     >
       {method}
     </span>

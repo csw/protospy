@@ -4,6 +4,7 @@ import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
+  cn,
   formatSize,
   matchesFilter,
   methodTextClass,
@@ -52,14 +53,14 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
   return (
     <button
       onClick={onSelect}
-      className={[
+      className={cn(
         "w-full text-left grid items-center border-b border-border",
         "border-l-[3px] cursor-pointer transition-colors overflow-hidden",
         heightClass,
         selected
           ? "bg-bg-active border-l-accent"
           : "bg-bg-pane hover:bg-bg-hover",
-      ].join(" ")}
+      )}
       style={{
         gridTemplateColumns: TABLE_COLUMNS,
         ...(selected ? undefined : traceBarStyle),
@@ -68,12 +69,20 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       aria-selected={selected}
     >
       <span
-        className={`font-family-mono text-xs uppercase px-2 truncate ${methodTextClass(method)}`}
+        className={cn(
+          "font-family-mono text-xs uppercase px-2 truncate",
+          methodTextClass(method),
+        )}
       >
         {method}
       </span>
       <span
-        className={`font-family-mono text-xs px-1 truncate ${exchange.status != null ? statusTextClass(exchange.status) : "text-dim"}`}
+        className={cn(
+          "font-family-mono text-xs px-1 truncate",
+          exchange.status != null
+            ? statusTextClass(exchange.status)
+            : "text-dim",
+        )}
       >
         {exchange.status ?? "—"}
       </span>
@@ -278,12 +287,12 @@ export function ExchangeList() {
           <div className="flex border border-border rounded overflow-hidden">
             <button
               onClick={() => setListMode("rows")}
-              className={[
+              className={cn(
                 "w-[22px] h-[22px] flex items-center justify-center cursor-pointer transition-colors",
                 listMode === "rows"
                   ? "bg-bg-pane text-ink"
                   : "text-dim hover:text-ink",
-              ].join(" ")}
+              )}
               aria-label="Rows mode"
               aria-pressed={listMode === "rows"}
               title="Rows"
@@ -292,12 +301,12 @@ export function ExchangeList() {
             </button>
             <button
               onClick={() => setListMode("table")}
-              className={[
+              className={cn(
                 "w-[22px] h-[22px] flex items-center justify-center cursor-pointer transition-colors",
                 listMode === "table"
                   ? "bg-bg-pane text-ink"
                   : "text-dim hover:text-ink",
-              ].join(" ")}
+              )}
               aria-label="Table mode"
               aria-pressed={listMode === "table"}
               title="Table"

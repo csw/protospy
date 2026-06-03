@@ -1,3 +1,5 @@
+import { cn } from "@ui/lib/utils";
+
 interface Props {
   /** Whether the stream has ended. Takes priority over isFollowing. */
   atEnd: boolean;
@@ -16,14 +18,14 @@ export function LiveIndicator({ atEnd, isFollowing }: Props) {
   const dotClass = atEnd
     ? "bg-mid"
     : isFollowing
-      ? "bg-green-500 animate-pulse"
-      : "bg-amber-500";
+      ? "bg-green animate-pulse"
+      : "bg-amber";
 
   const textClass = atEnd
     ? "text-mid"
     : isFollowing
-      ? "text-green-500"
-      : "text-amber-500";
+      ? "text-green"
+      : "text-amber";
 
   const label = atEnd ? "complete" : isFollowing ? "live" : "paused";
 
@@ -31,9 +33,9 @@ export function LiveIndicator({ atEnd, isFollowing }: Props) {
     <div className="flex items-center gap-1.5 shrink-0">
       <span
         data-testid="indicator-dot"
-        className={`inline-block w-[7px] h-[7px] rounded-full ${dotClass}`}
+        className={cn("inline-block w-[7px] h-[7px] rounded-full", dotClass)}
       />
-      <span className={`text-xs ${textClass}`}>{label}</span>
+      <span className={cn("text-xs", textClass)}>{label}</span>
     </div>
   );
 }
