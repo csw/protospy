@@ -38,17 +38,19 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 
 ### State axis
 
-| Scene id           | Cell                  | Notes                                                                                                                                 |
-| ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `empty`            | Empty list            | "No requests yet" empty state; status bar shows `connected`.                                                                          |
-| `loading`          | Loading               | No exchanges, connection `connecting` (amber pulse).                                                                                  |
-| `error-row`        | Error row             | Upstream failure → red `Error` badge; selected so inspector shows the error message in context bar and body pane.                     |
-| `error-midstream`  | Mid-stream error      | Response received (200 OK) but interrupted mid-stream; shows both status and `Error` badge. Context bar shows status + error message. |
-| `selected`         | Selected              | Populated list, one row selected; inspector populated.                                                                                |
-| `hover`            | Row hover             | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                                                 |
-| `stream-complete`  | SSE stream (complete) | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                               |
-| `stream-live`      | SSE stream (live)     | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                           |
-| `stream-anthropic` | Anthropic SSE stream  | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`.                                 |
+| Scene id                 | Cell                         | Notes                                                                                                                                    |
+| ------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `empty`                  | Empty list                   | "No requests yet" empty state; status bar shows `connected`.                                                                             |
+| `loading`                | Loading                      | No exchanges, connection `connecting` (amber pulse).                                                                                     |
+| `error-row`              | Error row                    | Upstream failure → red `Error` badge; selected so inspector shows the error message in context bar and body pane.                        |
+| `error-midstream`        | Mid-stream error             | Response received (200 OK) but interrupted mid-stream; shows both status and `Error` badge. Context bar shows status + error message.    |
+| `selected`               | Selected                     | Populated list, one row selected; inspector populated.                                                                                   |
+| `hover`                  | Row hover                    | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                                                    |
+| `stream-complete`        | SSE stream (complete)        | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                                  |
+| `stream-live`            | SSE stream (live)            | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                              |
+| `stream-anthropic`       | Anthropic SSE stream         | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`.                                    |
+| `stream-error`           | SSE stream (error)           | Generic SSE interrupted by Response error. Red "disconnected" indicator + StreamErrorBanner with error message.                          |
+| `stream-anthropic-error` | Anthropic SSE stream (error) | Anthropic SSE interrupted by Response error. ChatStreamView with "disconnected" indicator + StreamErrorBanner. Protocol = `"Anthropic"`. |
 
 ### Data-size axis
 

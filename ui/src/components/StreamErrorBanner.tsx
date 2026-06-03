@@ -5,10 +5,10 @@ interface Props {
 }
 
 /**
- * Error banner displayed at the bottom of SSE stream views when the
- * exchange has an error. Pinned below the scroll area so it's always
- * visible regardless of scroll position. Styled consistently with
- * BodyPane's mid-stream error banner.
+ * Error banner for stream views and body panes. Rendered as a flex
+ * child with `shrink-0` so it holds its height while the sibling
+ * scroll area absorbs available space. Used by StreamView,
+ * ChatStreamView, and BodyPane for mid-stream / post-stream errors.
  */
 export function StreamErrorBanner({ message }: Props) {
   return (

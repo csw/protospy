@@ -501,6 +501,45 @@ export const SCENES: Scene[] = [
     ],
     config: { selectedId: 1, protocol: "Anthropic" },
   },
+  {
+    id: "stream-error",
+    title: "SSE stream (error)",
+    axis: "state",
+    description:
+      "A generic SSE stream interrupted by a Response-direction error. StreamView shows a red 'disconnected' indicator and the StreamErrorBanner with the error message below the event list.",
+    messages: [
+      makePostRequest(1, "/api/stream"),
+      makeSSEResponse(
+        1,
+        "event: ping\ndata: keepalive\n\nevent: message\ndata: hello world\n\n",
+        undefined,
+        false,
+      ),
+      makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "stream-anthropic-error",
+    title: "Anthropic SSE stream (error)",
+    axis: "state",
+    description:
+      "An Anthropic-protocol SSE stream interrupted by a Response-direction error. ChatStreamView shows a red 'disconnected' indicator and the StreamErrorBanner. Protocol set to 'Anthropic'.",
+    messages: [
+      makePostRequest(1, "/v1/messages"),
+      makeSSEResponse(
+        1,
+        [
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","model":"claude-3-5-sonnet-20241022","role":"assistant","content":[],"stop_reason":null,"usage":{"input_tokens":25,"output_tokens":1}}}\n\n',
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello! How can I"}}\n\n',
+        ].join(""),
+        undefined,
+        false,
+      ),
+      makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
+    ],
+    config: { selectedId: 1, protocol: "Anthropic" },
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */

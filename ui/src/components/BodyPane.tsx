@@ -3,6 +3,7 @@ import type { BodyState } from "@ui/state/reducer";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import { formatSize } from "@ui/lib/utils";
 import { CopyButton } from "./CopyButton";
+import { StreamErrorBanner } from "./StreamErrorBanner";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 import { EmptyState } from "./ui/EmptyState";
 import { JsonViewer } from "./JsonViewer";
@@ -144,12 +145,7 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
             Only shown when atEnd is true — the !atEnd case is handled above
             with the "Response interrupted" centered display. */}
         {!loading && body != null && body.atEnd && errorMessage != null && (
-          <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-red-bg">
-            <AlertTriangle size={14} className="text-red/60 shrink-0" />
-            <span className="font-family-mono text-xs text-red">
-              {errorMessage}
-            </span>
-          </div>
+          <StreamErrorBanner message={errorMessage} />
         )}
       </div>
     </div>
