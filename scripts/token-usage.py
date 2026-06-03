@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Analyze Claude Code token usage from session transcripts."""
+"""Analyze Claude Code token usage from session transcripts.
+
+Usage:
+    python scripts/token-usage.py --since 8h
+    python scripts/token-usage.py --since 2026-06-02 --project protospy
+    python scripts/token-usage.py --session abc123 -v
+"""
 
 import argparse
 import json
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -14,9 +20,9 @@ CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
 def parse_since(since_str: str) -> datetime:
     """Parse a --since value: relative (e.g. '8h', '2d') or absolute date."""
-    match = re.fullmatch(r"(\d+)([hHdDmM])", since_str)
+    match = re.fullmatch(r"(\d+)([hdm])", since_str)
     if match:
-        value, unit = int(match.group(1)), match.group(2).lower()
+        value, unit = int(match.group(1)), match.group(2)
         delta = {
             "h": timedelta(hours=value),
             "d": timedelta(days=value),
@@ -193,9 +199,7 @@ def print_session_table(sessions: list[SessionStats]) -> None:
         agent_types = [sp["type"] for sp in s.subagent_spawns]
         agent_summary = ""
         if agent_types:
-            counts = defaultdict(int)
-            for t in agent_types:
-                counts[t] += 1
+            counts = Counter(agent_types)
             agent_summary = ", ".join(
                 f"{t}({c})" if c > 1 else t for t, c in counts.items()
             )
@@ -275,10 +279,8 @@ def print_summary(sessions: list[SessionStats]) -> None:
 
     if all_spawns:
         print("\nSubagent spawns:")
-        counts: dict[str, int] = defaultdict(int)
-        for sp in all_spawns:
-            counts[sp["type"]] += 1
-        for agent_type, count in sorted(counts.items(), key=lambda x: -x[1]):
+        counts = Counter(sp["type"] for sp in all_spawns)
+        for agent_type, count in counts.most_common():
             print(f"  {agent_type}: {count}")
 
 
