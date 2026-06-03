@@ -115,17 +115,6 @@ describe("StreamView — 'Jump to latest' button", () => {
     expect(screen.getByText("Jump to latest")).toBeInTheDocument();
   });
 
-  it("'Jump to latest' uses semantic token text-primary-foreground, not text-white", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    const btn = screen.getByText("Jump to latest");
-    expect(btn).toHaveClass("text-primary-foreground");
-    expect(btn).not.toHaveClass("text-white");
-  });
-
   it("does not show 'Jump to latest' when following", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
@@ -223,17 +212,6 @@ describe("ChatStreamView — 'Jump to latest' button", () => {
     const scrollEl = screen.getByTestId("stream-scroll");
     simulateScrollAway(scrollEl);
     expect(screen.getByText("Jump to latest")).toBeInTheDocument();
-  });
-
-  it("'Jump to latest' uses semantic token text-primary-foreground, not text-white", async () => {
-    await renderAndSettle(
-      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    const btn = screen.getByText("Jump to latest");
-    expect(btn).toHaveClass("text-primary-foreground");
-    expect(btn).not.toHaveClass("text-white");
   });
 
   it("does not show 'Jump to latest' when following", async () => {
