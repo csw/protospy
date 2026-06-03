@@ -88,7 +88,7 @@ test.describe("Relative timestamps", () => {
     ]);
 
     // Switch to table mode
-    await page.getByRole("button", { name: "Table mode" }).click();
+    await page.getByLabel("Table mode").click();
 
     await page.locator("button[aria-selected]").first().waitFor();
 

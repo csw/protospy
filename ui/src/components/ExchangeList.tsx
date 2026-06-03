@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUpDown, Layers, Rows3, TableProperties } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import {
@@ -283,37 +284,28 @@ export function ExchangeList() {
             <ArrowUpDown size={13} />
           </button>
 
-          {/* Rows/Table segmented control */}
-          <div className="flex border border-border rounded overflow-hidden">
-            <button
-              onClick={() => setListMode("rows")}
-              className={cn(
-                "w-[22px] h-[22px] flex items-center justify-center cursor-pointer transition-colors",
-                listMode === "rows"
-                  ? "bg-bg-pane text-ink"
-                  : "text-dim hover:text-ink",
-              )}
-              aria-label="Rows mode"
-              aria-pressed={listMode === "rows"}
-              title="Rows"
-            >
+          {/* Rows/Table toggle group */}
+          <ToggleGroup
+            type="single"
+            value={listMode}
+            onValueChange={(v) => {
+              if (v) setListMode(v as "rows" | "table");
+            }}
+            variant="outline"
+            size="sm"
+            aria-label="List mode"
+          >
+            <ToggleGroupItem value="rows" aria-label="Rows mode" title="Rows">
               <Rows3 size={13} />
-            </button>
-            <button
-              onClick={() => setListMode("table")}
-              className={cn(
-                "w-[22px] h-[22px] flex items-center justify-center cursor-pointer transition-colors",
-                listMode === "table"
-                  ? "bg-bg-pane text-ink"
-                  : "text-dim hover:text-ink",
-              )}
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="table"
               aria-label="Table mode"
-              aria-pressed={listMode === "table"}
               title="Table"
             >
               <TableProperties size={13} />
-            </button>
-          </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
 
