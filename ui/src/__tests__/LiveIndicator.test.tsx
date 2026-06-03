@@ -8,8 +8,8 @@ describe("LiveIndicator", () => {
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green-500");
-    expect(dot).not.toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("bg-green");
+    expect(dot).not.toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 
@@ -24,17 +24,17 @@ describe("LiveIndicator", () => {
     render(<LiveIndicator atEnd={false} isFollowing={true} />);
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green-500");
+    expect(dot).toHaveClass("bg-green");
     expect(dot).toHaveClass("animate-pulse");
-    expect(dot).not.toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("bg-amber");
   });
 
   it("shows 'paused' with amber static dot when streaming and not following", () => {
     render(<LiveIndicator atEnd={false} isFollowing={false} />);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber-500");
+    expect(dot).toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
-    expect(dot).not.toHaveClass("bg-green-500");
+    expect(dot).not.toHaveClass("bg-green");
   });
 });

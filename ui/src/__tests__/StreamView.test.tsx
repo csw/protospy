@@ -113,8 +113,8 @@ describe("StreamView — live indicator states", () => {
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green-500");
-    expect(dot).not.toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("bg-green");
+    expect(dot).not.toHaveClass("bg-amber");
   });
 
   it("shows 'live' with green pulsing dot when streaming and following", async () => {
@@ -123,7 +123,7 @@ describe("StreamView — live indicator states", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green-500");
+    expect(dot).toHaveClass("bg-green");
     expect(dot).toHaveClass("animate-pulse");
   });
 
@@ -135,7 +135,7 @@ describe("StreamView — live indicator states", () => {
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber-500");
+    expect(dot).toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 });
@@ -185,8 +185,8 @@ describe("ChatStreamView — live indicator states", () => {
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green-500");
-    expect(dot).not.toHaveClass("bg-amber-500");
+    expect(dot).not.toHaveClass("bg-green");
+    expect(dot).not.toHaveClass("bg-amber");
   });
 
   it("shows 'live' with green pulsing dot when streaming and following", async () => {
@@ -195,7 +195,7 @@ describe("ChatStreamView — live indicator states", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green-500");
+    expect(dot).toHaveClass("bg-green");
     expect(dot).toHaveClass("animate-pulse");
   });
 
@@ -207,7 +207,7 @@ describe("ChatStreamView — live indicator states", () => {
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber-500");
+    expect(dot).toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 });

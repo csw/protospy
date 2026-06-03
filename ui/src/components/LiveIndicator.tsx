@@ -18,14 +18,14 @@ export function LiveIndicator({ atEnd, isFollowing }: Props) {
   const dotClass = atEnd
     ? "bg-mid"
     : isFollowing
-      ? "bg-green-500 animate-pulse"
-      : "bg-amber-500";
+      ? "bg-green animate-pulse"
+      : "bg-amber";
 
   const textClass = atEnd
     ? "text-mid"
     : isFollowing
-      ? "text-green-500"
-      : "text-amber-500";
+      ? "text-green"
+      : "text-amber";
 
   const label = atEnd ? "complete" : isFollowing ? "live" : "paused";
 

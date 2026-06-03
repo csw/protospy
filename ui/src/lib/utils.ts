@@ -11,8 +11,13 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
  */
 const twMerge = extendTailwindMerge({
   extend: {
-    theme: {
-      text: ["ui-xs", "ui-sm", "ui-mono", "ctx-path"],
+    classGroups: {
+      "font-size": [
+        "text-ui-xs",
+        "text-ui-sm",
+        "text-ui-mono",
+        "text-ctx-path",
+      ],
     },
   },
 });
