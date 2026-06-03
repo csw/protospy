@@ -170,10 +170,15 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           pending
         </span>
       )}
-      {!hasStatus && hasError && (
-        <span className="font-family-mono text-ui-sm font-semibold text-red shrink-0">
-          NET ERR
-        </span>
+      {hasError && (
+        <SimpleTooltip content={exchange.error?.message} side="bottom">
+          <span
+            data-testid="error-indicator"
+            className="font-family-mono text-ui-sm font-semibold text-red shrink-0"
+          >
+            Error
+          </span>
+        </SimpleTooltip>
       )}
 
       {/* Elapsed pill */}

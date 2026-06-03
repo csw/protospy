@@ -88,8 +88,8 @@ test.describe("Fixture matrix", () => {
         if (scene.id === "many-rows") {
           await expect(page.getByText("120 requests").first()).toBeVisible();
         }
-        if (scene.id === "error-row") {
-          await expect(page.getByText("ERR").first()).toBeVisible();
+        if (scene.id === "error-row" || scene.id === "error-midstream") {
+          await expect(page.getByTestId("error-badge").first()).toBeVisible();
         }
 
         expectNoErrors(label);
