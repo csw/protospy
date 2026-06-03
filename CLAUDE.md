@@ -80,7 +80,7 @@ the browser through the **`playwright-cli`** skill. Invoke it directly via the A
 or use `/design-review` for an ad-hoc check. This heavyweight sweep is not run
 automatically by `handle-ticket` — convention and code review catch most per-PR
 regressions; the visual sweep is most valuable as a periodic tool (see PRO-242).
-What `handle-ticket` *does* run per-ticket is a much lighter check (step 4a): for any
+What `handle-ticket` *does* run per-ticket is a much lighter check (step 4): for any
 UI-source diff it spawns a `frontend-engineer` subagent (on Sonnet) to interactively
 eyeball the change via `playwright-cli` (no fixture matrix, no multi-width sweep, no
 report) before the PR is opened (PRO-282).

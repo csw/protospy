@@ -22,7 +22,7 @@ linear issue view $ticket --json
 
 Extract `title`, `description`, `url`, and `branchName`. Read the description
 fully — it defines the scope of work. Save `title` and `url` (the Linear ticket URL) — both are needed when writing
-review front matter in step 8. Derive the app URL by replacing the `https://`
+review front matter in step 9. Derive the app URL by replacing the `https://`
 scheme with `linear://` (e.g. `https://linear.app/...` → `linear://linear.app/...`).
 
 **Branch name**: use `branchName` from Linear. If it exceeds 50 characters,
@@ -88,23 +88,18 @@ manually before proceeding (start a dev server, run the binary, etc.).
 
 ---
 
-## 4 — Verify the change
+## 4 — Visually verify UI changes
 
-This step has two parts. **4a runs automatically for any UI-source change**;
-**4b runs only when the user asked for a dev-server checkpoint** (the `$check`
-argument). When both run, they can share a single dev server.
-
-### 4a — Visually verify UI changes
-
-**Trigger.** Run 4a whenever the branch diff touches UI source. Check with a
-three-dot diff against the merge-base:
+**Trigger.** Run this step whenever the branch diff touches UI source. Check
+with a three-dot diff against the merge-base:
 
 ```bash
 git diff main...HEAD --name-only -- 'ui/src/**'
 ```
 
-If that lists **no** files, skip 4a. If it lists **any**, 4a is **required** —
-do not open the PR on a UI change without a visual confirmation.
+If that lists **no** files, skip this step and continue to step 5. If it lists
+**any**, this step is **required** — do not open the PR on a UI change without a
+visual confirmation.
 
 This is a **lightweight, interactive** check — *look at what you built* — not
 the full `visual-review` pipeline. No fixture-matrix sweep, no multi-width
@@ -147,27 +142,29 @@ components/views your change touched and the dev-server URL:
 
 If the subagent reports problems, fix them (you are still in the worktree),
 re-run the relevant quality checks, and re-verify before continuing. Capture a
-one-line summary of the verification to fold into the PR description (step 6).
+one-line summary of the verification to fold into the PR description (step 7).
 
 This step is deliberately scoped to *your* change. It does **not** replace
 `docs/frontend-dod.md` (the full Definition of Done) or the heavyweight
 `visual-review` subagent (`.claude/agents/visual-review.md`) — neither is run
 here.
 
-### 4b — Dev server checkpoint (when requested)
+---
+
+## 5 — Dev server checkpoint
 
 If `$check` is non-empty (the user passed a second argument): invoke the `/run`
 skill to start the dev server (whichever subproject you're working on)
 automatically. Do not use the default port; specify a different one and tell the
 user the actual URL. Wait for the user to confirm they are satisfied before
-continuing. (If 4a already started a dev server, reuse it rather than starting a
-second one.)
+continuing. (If step 4 already started a dev server, reuse it rather than
+starting a second one.)
 
-If `$check` is empty: skip 4b and continue to step 5.
+If `$check` is empty: skip this step and continue to step 6.
 
 ---
 
-## 5 — Commit and push
+## 6 — Commit and push
 
 Commit with a Conventional Commits message:
 - Subject: use the ticket title verbatim as the description, append `($ticket)`
@@ -180,7 +177,7 @@ Push the branch.
 
 ---
 
-## 6 — Create the PR
+## 7 — Create the PR
 
 Create the PR. Include the ticket ID in parentheses at the end of the commit
 message and PR title: `fix(ui): bust virtualizer cache on mode change
@@ -190,20 +187,20 @@ Note the PR number.
 
 ---
 
-## 7 — Run a review round
+## 8 — Run a review round
 
-Steps 7–9 are **one review round**. A round spawns the reviews (7), writes
-each report to that round's numbered files (8), and synthesizes them (9). The
+Steps 8–10 are **one review round**. A round spawns the reviews (8), writes
+each report to that round's numbered files (9), and synthesizes them (10). The
 first time through is round 1. After you address findings and push fixes in
-step 10, you come **back here** for round 2, round 3, and so on — each push of
+step 11, you come **back here** for round 2, round 3, and so on — each push of
 fixes earns a fresh round so the new reports never clobber the old ones. The
-round number `N` is assigned in step 8; everything written in a round shares
+round number `N` is assigned in step 9; everything written in a round shares
 that `N`.
 
 Two reviews can run here. The code review always runs; the convention review
 runs only when the diff touches UI source.
 
-### 7a — Code review (always)
+### 8a — Code review (always)
 
 Spawn a general-purpose subagent. Give it this exact prompt (substitute the
 actual PR number):
@@ -211,9 +208,9 @@ actual PR number):
 > /review PR #<PR-number> for $ticket
 
 This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
-the React/Tailwind/shadcn convention checklists — that's what 7b is for.
+the React/Tailwind/shadcn convention checklists — that's what 8b is for.
 
-### 7b — Convention review (UI source or UI config diffs only)
+### 8b — Convention review (UI source or UI config diffs only)
 
 Check whether the diff touches UI source **or** the Tailwind/shadcn config
 files that carry convention surface (use a three-dot diff against the
@@ -224,7 +221,7 @@ git diff main...HEAD --name-only -- 'ui/src/**' 'ui/components.json' 'ui/*.confi
 ```
 
 If that lists any files, spawn the **`convention-review` subagent**
-(`subagent_type: "convention-review"`) in the **same message** as the 7a
+(`subagent_type: "convention-review"`) in the **same message** as the 8a
 code review so they run in parallel. Give it this prompt shape:
 
 > Run a React/Tailwind/shadcn convention review for $ticket ("<title>").
@@ -240,7 +237,7 @@ suppresses (it filters out style/quality findings not mandated by CLAUDE.md).
 See `.claude/agents/convention-review.md`.
 
 If the diff matches **none** of those paths (no `ui/src/**`, `ui/components.json`,
-or `ui/*.config.*` files), skip 7b — there are no React/Tailwind/shadcn
+or `ui/*.config.*` files), skip 8b — there are no React/Tailwind/shadcn
 conventions to review.
 
 Wait for both subagents to finish. Capture each one's complete output. If a
@@ -249,7 +246,7 @@ still stands.
 
 ---
 
-## 8 — Write reviews to Obsidian
+## 9 — Write reviews to Obsidian
 
 ### Establish the round and its paths
 
@@ -263,7 +260,7 @@ scripts/agents/review-paths $ticket <PR-number>
 It prints `round=<N>` and the absolute path for each report
 (`code_review`, `convention_review`, `synthesis`) under
 `~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`. The first round
-is `N=1`; a re-review after pushing fixes (step 10) is the next integer. Reuse
+is `N=1`; a re-review after pushing fixes (step 11) is the next integer. Reuse
 these exact paths for every write in this round — do **not** call the helper
 again per file, or you will advance the round counter mid-round.
 
@@ -290,9 +287,9 @@ type: code-review
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
-### Convention review (only if 7b ran)
+### Convention review (only if 8b ran)
 
-If a convention review ran in step 7b, write its findings to the
+If a convention review ran in step 8b, write its findings to the
 `convention_review` path. The report already includes its own YAML front
 matter (`type: convention-review`, `title`, `scope`, `files_reviewed`,
 `skills_applied`). Use it as the primary block; ensure `ticket`, `title`,
@@ -308,12 +305,12 @@ the first heading:
 
 ---
 
-## 9 — Evaluate and discuss
+## 10 — Evaluate and discuss
 
 Triage **every** review that ran: the code review (always) and the convention
-review (UI source diffs, step 7b).
+review (UI source diffs, step 8b).
 
-### 9a — Synthesize (when two or more reviews ran)
+### 10a — Synthesize (when two or more reviews ran)
 
 The reviews run **independently and blind to each other**, so the same issue
 can surface twice with different framings, recommendations can conflict, and
@@ -325,13 +322,13 @@ spawn the **`review-synthesis` subagent** (`subagent_type:
 - The round number `N` (so it reads this round's reports, not an older one)
 - Which reviews ran (code / convention)
 
-It reads this round's review reports written to Obsidian in step 8 and returns
+It reads this round's review reports written to Obsidian in step 9 and returns
 a single merged triage: deduplicated, with same-root-cause findings linked
 ("one fix resolves both"), conflicts surfaced, and everything re-ranked
 blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
 
 **Persist the synthesis.** The subagent is read-only, so write its returned
-triage **verbatim** to this round's `synthesis` path (from the step-8
+triage **verbatim** to this round's `synthesis` path (from the step-9
 `review-paths` call), with a front matter block and links table:
 
 ```yaml
@@ -356,9 +353,9 @@ fires), skip synthesis — there is nothing to reconcile, and no `synthesis-<N>`
 file is written. Present that review's findings directly using the triage
 shape below.
 
-### 9b — Present and discuss
+### 10b — Present and discuss
 
-Present the merged triage (from 9a, or the single review's findings if
+Present the merged triage (from 10a, or the single review's findings if
 synthesis was skipped). Group by **blocking** vs. **advisory**, note which
 review surfaced each finding (code / convention), and call out the
 cross-review links and any conflicts the synthesis raised. For each finding,
@@ -370,7 +367,7 @@ on, what to do next. Continue the conversation as long as the user wants.
 
 ---
 
-## 10 — Address findings, then loop or close out
+## 11 — Address findings, then loop or close out
 
 Make any changes the user wants to address from the review. You are still in
 the worktree, so changes go directly on the branch. Commit and push each batch
@@ -382,17 +379,17 @@ two ways forward:
 ### Run another review round (when fixes warrant a re-review)
 
 After pushing fixes, ask the user whether to run another review round. Run one
-(go **back to step 7**) if the user asks, or if the fixes changed program
+(go **back to step 8**) if the user asks, or if the fixes changed program
 behavior, touched more than a trivial number of lines, or addressed a blocking
 finding. A pure comment/rename/formatting fix does not require a new round.
 When you do run another round against the updated PR:
 
-1. Re-spawn the code review (and the convention review, if the step-7b diff
+1. Re-spawn the code review (and the convention review, if the step-8b diff
    check still lists files) on the new diff.
-2. In step 8, `scripts/agents/review-paths $ticket <PR-number>` now returns the
+2. In step 9, `scripts/agents/review-paths $ticket <PR-number>` now returns the
    **next** round number, so the new reports land as `code-review-2.md`,
    `synthesis-2.md`, and so on without touching round 1's files.
-3. Synthesize and present again (step 9), then return here.
+3. Synthesize and present again (step 10), then return here.
 
 Repeat the round as many times as the review surfaces things worth fixing.
 
