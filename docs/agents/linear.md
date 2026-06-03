@@ -14,7 +14,8 @@ The CLI has **read-write access**. You can look up and update issues.
 - Move an issue to In Progress when you start working on it:
   `linear issue update PRO-NNN --state "In Progress"`
 - Add comments to issues when you have useful context to record — prefixed
-  with your agent identity header (see "Identify yourself" below)
+  with your agent identity header (see "Identify yourself in comments and
+  tickets" below)
 - Look up issue details, branch names, status
 
 **Don't:**
@@ -53,9 +54,10 @@ use:
 
 - **Comments** — `linear issue comment add --body-file …` (the `--body-file`
   form is preferred for markdown), or the Linear MCP's comment tool (available
-  to the senior-pm agent). Most agents don't post comments as part of a fixed
-  workflow, but may do so when it's useful or when asked; the header is required
-  whenever you do.
+  to the senior-pm agent). Any agent may add a comment whenever it has useful
+  context to record — this is a normal, welcome thing to do, not a restricted
+  action. It's usually an ad-hoc judgment call rather than a fixed workflow
+  step; the header is required whenever you comment.
 - **Ticket descriptions** you create or substantially rewrite — `linear issue
   create`/`update --description-file …`, or the corresponding MCP tools.
 
