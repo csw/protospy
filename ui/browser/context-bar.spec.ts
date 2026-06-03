@@ -257,6 +257,60 @@ test.describe("ContextBar — trace pill", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3b. Focus ring fidelity (PRO-259)
+// ---------------------------------------------------------------------------
+
+test.describe("ContextBar — focus ring fidelity", () => {
+  test("3b.1 Filter by trace button shows ring on keyboard focus", async ({
+    page,
+  }) => {
+    const traceId = "abcdef1234567890abcdef1234567890";
+    await injectExchanges(page, [
+      makeRequestWithTrace(1, traceId, "/api/traced"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    await page.getByText("/api/traced").first().click();
+
+    const filterBtn = page.getByLabel("Filter by trace");
+    await expect(filterBtn).toBeVisible();
+
+    // focus() via JS applies :focus but NOT :focus-visible — only
+    // keyboard-initiated focus does.  Tab until the button is focused.
+    await page.keyboard.press("Tab");
+    // The tab order starts at the first focusable element in the
+    // context bar (Prev button); keep tabbing until we reach the
+    // Filter by trace button.
+    while (!(await filterBtn.evaluate((el) => el === document.activeElement))) {
+      await page.keyboard.press("Tab");
+    }
+
+    // Tailwind ring-1 ring-ring renders as a box-shadow
+    const shadow = await filterBtn.evaluate(
+      (el) => getComputedStyle(el).boxShadow,
+    );
+    // Should have a non-"none" box-shadow when :focus-visible is active
+    expect(shadow).not.toBe("none");
+  });
+
+  test("3b.2 Jaeger placeholder button is disabled and not focusable", async ({
+    page,
+  }) => {
+    const traceId = "abcdef1234567890abcdef1234567890";
+    await injectExchanges(page, [
+      makeRequestWithTrace(1, traceId, "/api/traced"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    await page.getByText("/api/traced").first().click();
+
+    const jaegerBtn = page.getByLabel("Open in Jaeger");
+    await expect(jaegerBtn).toBeVisible();
+    await expect(jaegerBtn).toBeDisabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 4. Query params
 // ---------------------------------------------------------------------------
 

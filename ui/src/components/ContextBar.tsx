@@ -94,7 +94,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <button
             onClick={() => prevId != null && setSelectedId(prevId)}
             disabled={prevId == null}
-            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
+            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             aria-label="Previous exchange"
           >
             <ChevronLeft size={16} />
@@ -104,7 +104,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <button
             onClick={() => nextId != null && setSelectedId(nextId)}
             disabled={nextId == null}
-            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
+            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             aria-label="Next exchange"
           >
             <ChevronRight size={16} />
@@ -144,7 +144,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <SimpleTooltip content="Next exchange with same method + path">
             <button
               onClick={() => setSelectedId(nextMatchingId)}
-              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer shrink-0 ml-1"
+              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer shrink-0 ml-1 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Next matching exchange"
             >
               <ChevronRight size={14} />
@@ -198,7 +198,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <SimpleTooltip content="Filter by trace">
             <button
               onClick={() => setTraceFilter(traceId)}
-              className="flex items-center gap-1 cursor-pointer"
+              className="flex items-center gap-1 rounded-full cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Filter by trace"
             >
               <span
@@ -214,7 +214,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <SimpleTooltip content="Copy trace ID">
             <button
               onClick={copyTraceId}
-              className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
+              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Copy trace ID"
             >
               <Copy size={12} />
@@ -223,7 +223,8 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           {/* Open in Jaeger (placeholder) */}
           <SimpleTooltip content="Jaeger integration coming soon">
             <button
-              className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
+              disabled
+              className="w-4 h-4 flex items-center justify-center rounded text-dim transition-colors disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Open in Jaeger"
             >
               <ExternalLink size={12} />
@@ -234,7 +235,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
             <SimpleTooltip content="Next in trace">
               <button
                 onClick={() => setSelectedId(nextInTraceId)}
-                className="w-4 h-4 flex items-center justify-center text-dim hover:text-ink transition-colors cursor-pointer"
+                className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                 aria-label="Next exchange in trace"
               >
                 <ChevronRight size={12} />

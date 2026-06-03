@@ -29,6 +29,16 @@ describe("HeadersPane — empty state", () => {
   });
 });
 
+describe("HeadersPane — focus indicator", () => {
+  const headers = [{ name: "Content-Type", value: "application/json" }];
+
+  it("search input wrapper has focus-within:border-border-focus class", () => {
+    render(<HeadersPane headers={headers} emptyMessage="none" />);
+    const wrapper = screen.getByTestId("headers-search-wrapper");
+    expect(wrapper.className).toContain("focus-within:border-border-focus");
+  });
+});
+
 describe("HeadersPane — basic rendering", () => {
   const headers = [
     { name: "Content-Type", value: "application/json" },
