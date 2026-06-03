@@ -30,11 +30,12 @@ The CLI has **read-write access**. You can look up and update issues.
 
 ## Identify yourself in comments and tickets
 
-Agents write to Linear through Clayton's API credentials, so every comment and
-ticket an agent creates is attributed to "Clayton Wheeler" — indistinguishable
-from his own writing or from another agent's. To keep a ticket's history
-legible, **you must prefix every comment body and every ticket description you
-author with a bold header naming the specific agent doing the writing**:
+Agents write to Linear through a human's API credentials — the account that owns
+the Linear workspace — so every comment and ticket an agent creates is
+attributed to that person, indistinguishable from their own writing or from
+another agent's. To keep a ticket's history legible, **you must prefix every
+comment body and every ticket description you author with a bold header naming
+the specific agent doing the writing**:
 
 ```
 **Claude agent (senior-pm)**
