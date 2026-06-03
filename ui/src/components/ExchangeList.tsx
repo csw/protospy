@@ -159,6 +159,7 @@ export function ExchangeList() {
 
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledToRef = useRef<number | null>(null);
 
   // Estimate sizes are initial approximations; measureElement measures actual
   // rendered heights via ResizeObserver, so these don't need to be pixel-exact.
@@ -210,7 +211,6 @@ export function ExchangeList() {
   // `align: "auto"` only scrolls when the target is outside the visible
   // viewport, so user-initiated clicks (which require the row to already
   // be visible) don't cause jarring scroll jumps.
-  const scrolledToRef = useRef<number | null>(null);
   useEffect(() => {
     if (selectedId == null) {
       scrolledToRef.current = null;
@@ -235,6 +235,12 @@ export function ExchangeList() {
     // The scrolledToRef guard prevents redundant scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
+
+  // Reset scroll-to guard when list order/filter changes, so the selected
+  // row scrolls back into view at its new position.
+  useEffect(() => {
+    scrolledToRef.current = null;
+  }, [order, filter, traceFilter]);
 
   // j/k/↑/↓ keyboard navigation over the filtered+ordered list
   useEffect(() => {
