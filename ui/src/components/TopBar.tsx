@@ -8,6 +8,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useStore } from "@ui/state/store";
+import { cn } from "@ui/lib/utils";
 import type { ThemePreference } from "@ui/theme/applyTheme";
 import type { Service } from "@ui/api/info";
 import {
@@ -75,10 +76,7 @@ export function TopBar({ services, onSwitchService }: Props) {
   return (
     <div className="flex items-center h-[40px] bg-bg-pane border-b border-border px-3 gap-2 shrink-0">
       {/* Logo */}
-      <span
-        className="font-family-ui font-semibold text-[14.5px] tracking-tight select-none"
-        style={{ fontFamily: "Inter Variable, Inter, sans-serif" }}
-      >
+      <span className="font-family-ui font-semibold text-[14.5px] tracking-tight select-none">
         <span className="text-ink">proto</span>
         <span className="text-accent">spy</span>
       </span>
@@ -135,7 +133,10 @@ export function TopBar({ services, onSwitchService }: Props) {
         <TooltipTrigger asChild>
           <button
             onClick={toggleTraceGroup}
-            className={`${iconBtnClass} ${traceGroupOn ? "bg-accent-soft text-accent border-accent/30" : ""}`}
+            className={cn(
+              iconBtnClass,
+              traceGroupOn && "bg-accent-soft text-accent border-accent/30",
+            )}
             aria-label="Group by trace"
             aria-pressed={traceGroupOn}
           >

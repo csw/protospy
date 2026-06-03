@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cn,
   decodeBasicAuth,
   eventTypeBadgeClass,
   filterHeaders,
@@ -710,5 +711,38 @@ describe("sortHeadersByPin", () => {
     const copy = [...input];
     sortHeadersByPin(input);
     expect(input).toEqual(copy);
+  });
+});
+
+describe("cn", () => {
+  it("merges basic classes", () => {
+    expect(cn("px-2", "py-1")).toBe("px-2 py-1");
+  });
+
+  it("deduplicates conflicting Tailwind classes", () => {
+    expect(cn("px-2", "px-4")).toBe("px-4");
+  });
+
+  it("handles conditional classes via clsx", () => {
+    const isHidden = false;
+    expect(cn("base", isHidden && "hidden", "extra")).toBe("base extra");
+  });
+
+  it("preserves custom font-size text-ui-xs alongside text-color", () => {
+    // text-ui-xs is a custom font-size token; text-m-get is a color.
+    // Without extendTailwindMerge config, twMerge strips the font-size.
+    expect(cn("text-ui-xs", "text-m-get")).toBe("text-ui-xs text-m-get");
+  });
+
+  it("preserves custom font-size text-ui-sm alongside text-color", () => {
+    expect(cn("text-ui-sm", "text-green")).toBe("text-ui-sm text-green");
+  });
+
+  it("preserves text-ctx-path alongside text-color", () => {
+    expect(cn("text-ctx-path", "text-ink")).toBe("text-ctx-path text-ink");
+  });
+
+  it("still deduplicates conflicting custom font sizes", () => {
+    expect(cn("text-ui-xs", "text-ui-sm")).toBe("text-ui-sm");
   });
 });

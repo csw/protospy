@@ -1,5 +1,6 @@
 import type { BodyState, Exchange } from "@ui/state/reducer";
 import {
+  cn,
   formatSize,
   shortEncoding,
   splitUri,
@@ -79,7 +80,7 @@ export function ExchangeListItem({
   return (
     <button
       onClick={onSelect}
-      className={[
+      className={cn(
         "w-full text-left border-b border-border",
         "flex flex-col cursor-pointer transition-colors",
         "border-l-4",
@@ -90,9 +91,7 @@ export function ExchangeListItem({
         selected
           ? "bg-bg-active border-l-accent"
           : "bg-bg-pane hover:bg-bg-hover",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
       style={selected ? undefined : traceBarStyle}
       role="option"
       aria-selected={selected}
@@ -107,7 +106,10 @@ export function ExchangeListItem({
         {exchange.status != null ? (
           <span
             data-testid="status-code"
-            className={`font-family-mono text-ui-sm font-semibold shrink-0 ${statusTextClass(exchange.status)}`}
+            className={cn(
+              "font-family-mono text-ui-sm font-semibold shrink-0",
+              statusTextClass(exchange.status),
+            )}
           >
             {exchange.status}
           </span>
