@@ -240,7 +240,7 @@ function JsonTreeView({ value }: { value: unknown }) {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="size-4 text-j-punct hover:text-ink"
+                    className="size-4 text-j-punct hover:bg-bg-hl hover:text-ink"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggle(line.nodeId);
@@ -262,7 +262,9 @@ function JsonTreeView({ value }: { value: unknown }) {
               <span className="whitespace-pre">
                 {line.key != null && (
                   <>
-                    <span className="text-j-key">{`"${line.key}"`}</span>
+                    <span className="text-j-key">
+                      {JSON.stringify(line.key)}
+                    </span>
                     <span className="text-j-punct">: </span>
                   </>
                 )}
