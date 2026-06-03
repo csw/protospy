@@ -12,7 +12,7 @@ const toggleVariants = cva(
         default:
           "bg-transparent text-dim hover:bg-bg-hover data-[state=on]:bg-bg-pane data-[state=on]:text-ink",
         outline:
-          "border border-border bg-transparent text-dim hover:bg-bg-hover data-[state=on]:bg-bg-pane data-[state=on]:text-ink",
+          "bg-transparent text-dim hover:bg-bg-hover data-[state=on]:bg-bg-pane data-[state=on]:text-ink",
       },
       size: {
         default: "h-9 min-w-9 px-2",
