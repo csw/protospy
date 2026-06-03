@@ -5,6 +5,7 @@ import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
+import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
 interface Props {
@@ -84,6 +85,8 @@ export function ChatStreamView({ exchange }: Props) {
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
 
+  const errorMessage = exchange.error?.message;
+
   const state = deriveStreamState(atEnd, isFollowing, exchange.error);
   const isTerminal = state === "complete" || state === "disconnected";
 
@@ -134,6 +137,7 @@ export function ChatStreamView({ exchange }: Props) {
             <TranscriptView events={events} isTerminal={isTerminal} />
           )}
         </div>
+        {errorMessage != null && <StreamErrorBanner message={errorMessage} />}
         {state === "paused" && (
           <button
             onClick={jumpToLatest}
