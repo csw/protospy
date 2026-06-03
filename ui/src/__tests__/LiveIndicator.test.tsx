@@ -1,64 +1,71 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { LiveIndicator } from "@ui/components/LiveIndicator";
+import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
+
+describe("deriveStreamState", () => {
+  it("returns 'complete' when atEnd is true", () => {
+    expect(deriveStreamState(true, true)).toBe("complete");
+    expect(deriveStreamState(true, false)).toBe("complete");
+  });
+
+  it("returns 'live' when streaming and following", () => {
+    expect(deriveStreamState(false, true)).toBe("live");
+  });
+
+  it("returns 'paused' when streaming and not following", () => {
+    expect(deriveStreamState(false, false)).toBe("paused");
+  });
+
+  it("returns 'disconnected' for Response-direction error on open stream", () => {
+    const error = { direction: "Response" as const, message: "reset" };
+    expect(deriveStreamState(false, true, error)).toBe("disconnected");
+    expect(deriveStreamState(false, false, error)).toBe("disconnected");
+  });
+
+  it("returns 'complete' when atEnd is true even with Response error", () => {
+    const error = { direction: "Response" as const, message: "reset" };
+    expect(deriveStreamState(true, false, error)).toBe("complete");
+  });
+
+  it("ignores Request-direction errors", () => {
+    const error = { direction: "Request" as const, message: "refused" };
+    expect(deriveStreamState(false, true, error)).toBe("live");
+    expect(deriveStreamState(false, false, error)).toBe("paused");
+  });
+});
 
 describe("LiveIndicator", () => {
-  it("shows 'complete' with gray dot when atEnd is true", () => {
-    render(<LiveIndicator atEnd={true} isFollowing={true} />);
+  it("shows 'complete' with gray dot", () => {
+    render(<LiveIndicator state="complete" />);
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 
-  it("complete state ignores isFollowing", () => {
-    render(<LiveIndicator atEnd={true} isFollowing={false} />);
-    expect(screen.getByText("complete")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
-  });
-
-  it("shows 'live' with green pulsing dot when streaming and following", () => {
-    render(<LiveIndicator atEnd={false} isFollowing={true} />);
+  it("shows 'live' with green pulsing dot", () => {
+    render(<LiveIndicator state="live" />);
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-green");
     expect(dot).toHaveClass("animate-pulse");
-    expect(dot).not.toHaveClass("bg-amber");
   });
 
-  it("shows 'paused' with amber static dot when streaming and not following", () => {
-    render(<LiveIndicator atEnd={false} isFollowing={false} />);
+  it("shows 'paused' with amber static dot", () => {
+    render(<LiveIndicator state="paused" />);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
-    expect(dot).not.toHaveClass("bg-green");
   });
 
-  it("shows 'disconnected' with red dot when hasError is true and stream not ended", () => {
-    render(<LiveIndicator atEnd={false} isFollowing={true} hasError={true} />);
+  it("shows 'disconnected' with red static dot", () => {
+    render(<LiveIndicator state="disconnected" />);
     expect(screen.getByText("disconnected")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-red");
     expect(dot).not.toHaveClass("animate-pulse");
     expect(dot).not.toHaveClass("bg-green");
     expect(dot).not.toHaveClass("bg-amber");
-  });
-
-  it("disconnected state takes priority over paused", () => {
-    render(<LiveIndicator atEnd={false} isFollowing={false} hasError={true} />);
-    expect(screen.getByText("disconnected")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
-  });
-
-  it("shows 'complete' when atEnd is true even with hasError", () => {
-    render(<LiveIndicator atEnd={true} isFollowing={false} hasError={true} />);
-    expect(screen.getByText("complete")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
   });
 });

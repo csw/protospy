@@ -3,7 +3,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
-import { LiveIndicator } from "@ui/components/LiveIndicator";
+import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
@@ -13,10 +13,10 @@ interface Props {
 
 function TranscriptView({
   events,
-  atEnd,
+  isTerminal,
 }: {
   events: SSEEvent[];
-  atEnd: boolean;
+  isTerminal: boolean;
 }) {
   const transcript = useMemo(
     () => extractAnthropicTranscript(events),
@@ -41,7 +41,7 @@ function TranscriptView({
       )}
       <pre className="font-family-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
         {transcript.text}
-        {!atEnd && !transcript.isComplete && (
+        {!isTerminal && !transcript.isComplete && (
           <span className="inline-block w-[2px] h-[14px] bg-accent animate-pulse align-middle ml-px" />
         )}
       </pre>
@@ -78,15 +78,14 @@ export function ChatStreamView({ exchange }: Props) {
 
   const body = exchange.responseBody;
   const atEnd = body?.atEnd ?? true;
-  const hasError = exchange.error?.direction === "Response";
   const events = body?.sseState?.events ?? [];
   const totalEventCount = body?.sseState?.totalEventCount ?? events.length;
 
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
 
-  // Stream is effectively terminal when ended or disconnected by error
-  const isTerminal = atEnd || hasError;
+  const state = deriveStreamState(atEnd, isFollowing, exchange.error);
+  const isTerminal = state === "complete" || state === "disconnected";
 
   const segmentBase =
     "text-xs px-2 py-0.5 rounded cursor-pointer transition-colors";
@@ -96,11 +95,7 @@ export function ChatStreamView({ exchange }: Props) {
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <LiveIndicator
-          atEnd={atEnd}
-          isFollowing={isFollowing}
-          hasError={hasError}
-        />
+        <LiveIndicator state={state} />
         <div className="flex items-center gap-0.5 bg-bg-pane rounded px-0.5 py-0.5">
           <button
             className={cn(
@@ -136,10 +131,10 @@ export function ChatStreamView({ exchange }: Props) {
           {mode === "events" ? (
             <EventsView events={events} scrollRef={scrollRef} />
           ) : (
-            <TranscriptView events={events} atEnd={isTerminal} />
+            <TranscriptView events={events} isTerminal={isTerminal} />
           )}
         </div>
-        {!isFollowing && !isTerminal && (
+        {state === "paused" && (
           <button
             onClick={jumpToLatest}
             className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"

@@ -288,4 +288,23 @@ describe("ChatStreamView — error/disconnected state", () => {
     simulateScrollAway(scrollEl);
     expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
   });
+
+  it("stops transcript pulsing cursor when disconnected", async () => {
+    // Incomplete Anthropic stream (no message_stop) — transcript.isComplete
+    // is false, so the cursor would normally pulse. Error should suppress it.
+    const INCOMPLETE_SSE = [
+      'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
+      'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
+    ].join("");
+    const { container } = await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(INCOMPLETE_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    // Switch to transcript mode
+    fireEvent.click(screen.getByText("transcript"));
+    // The pulsing cursor span should not be present
+    const cursor = container.querySelector("span.animate-pulse.bg-accent");
+    expect(cursor).toBeNull();
+  });
 });
