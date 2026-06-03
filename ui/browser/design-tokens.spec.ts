@@ -99,6 +99,23 @@ test.describe("design token fidelity", () => {
     expect(height).toBe("32px");
   });
 
+  test("filter input wrapper shows focus border color when input is focused", async ({
+    page,
+  }) => {
+    const wrapper = page.locator('[data-testid="filter-input-wrapper"]');
+    const input = wrapper.locator("input");
+    await expect(input).toBeVisible();
+
+    // Focus the input
+    await input.focus();
+
+    // border-border-focus is #2563eb in light = rgb(37, 99, 235)
+    const borderColor = await wrapper.evaluate(
+      (el) => getComputedStyle(el).borderColor,
+    );
+    expect(borderColor).toBe("rgb(37, 99, 235)");
+  });
+
   test("filter input wrapper has 4px border-radius", async ({ page }) => {
     const wrapper = page.locator('[data-testid="filter-input-wrapper"]');
     await expect(wrapper).toBeVisible();

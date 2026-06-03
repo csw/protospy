@@ -52,14 +52,11 @@ describe("ContextBar — trace pill keyboard operability", () => {
     expect(useStore.getState().traceFilter).toBe(exchange.traceId);
   });
 
-  it("sets trace filter when Filter by trace button receives Enter keypress", () => {
+  it("Jaeger placeholder button is disabled", () => {
     const { exchange, ordered } = setupTracedExchange();
     render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
-    const btn = screen.getByLabelText("Filter by trace");
-    // Simulate keyboard activation: native buttons fire click on Enter/Space
-    fireEvent.keyDown(btn, { key: "Enter" });
-    fireEvent.click(btn);
-    expect(useStore.getState().traceFilter).toBe(exchange.traceId);
+    const btn = screen.getByLabelText("Open in Jaeger");
+    expect(btn).toBeDisabled();
   });
 
   it("trace pill buttons have focus-visible ring classes", () => {

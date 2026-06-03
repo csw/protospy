@@ -223,7 +223,8 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           {/* Open in Jaeger (placeholder) */}
           <SimpleTooltip content="Jaeger integration coming soon">
             <button
-              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              disabled
+              className="w-4 h-4 flex items-center justify-center rounded text-dim transition-colors disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Open in Jaeger"
             >
               <ExternalLink size={12} />
