@@ -11,6 +11,7 @@ import { useStore } from "@ui/state/store";
 import { cn } from "@ui/lib/utils";
 import type { ThemePreference } from "@ui/theme/applyTheme";
 import type { Service } from "@ui/api/info";
+import type { ConnectionStatus } from "@ui/api/sse";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -26,16 +27,34 @@ interface Props {
 }
 
 /**
- * Shared overrides for the three TopBar icon toggles, layered onto
- * `<Button variant="outline" size="icon-xs">`. Preserves the compact 26px
- * footprint of the 40px toolbar, and overrides the hover surface: shadcn's
- * `outline` variant hovers to `bg-accent`, which resolves to protospy's
- * bright blue accent (only `--color-accent-foreground` is aliased, not
- * `--color-accent`), so we restore the subtle `bg-bg-hover` — the same
- * className-override pattern JsonViewer uses.
+ * Shared hover-surface override for every TopBar control. The shadcn
+ * `outline` and `ghost` variants hover to `bg-accent`, which here resolves
+ * to protospy's bright blue accent — only `--color-accent-foreground` is
+ * aliased in `@theme inline`, not `--color-accent` — so we restore the
+ * subtle `bg-bg-hover` in both themes (the JsonViewer className-override
+ * pattern).
  */
-const iconToggleClass =
-  "size-[26px] text-mid hover:bg-bg-hover hover:text-ink dark:hover:bg-bg-hover";
+const hoverSurface = "hover:bg-bg-hover dark:hover:bg-bg-hover";
+
+/**
+ * Overrides for the three TopBar icon toggles, layered onto
+ * `<Button variant="outline" size="icon-xs">`. Preserves the compact 26px
+ * footprint of the 40px toolbar and neutralizes the `outline` variant's
+ * resting shadow and dark fill (`shadow-xs`, `dark:bg-input/30`) so the
+ * toggles read as flat/transparent like the original hand-rolled buttons.
+ */
+const iconToggleClass = cn(
+  "size-[26px] text-mid shadow-none dark:bg-transparent hover:text-ink",
+  hoverSurface,
+);
+
+/** Connection-status dot color for the service-picker trigger. */
+function connectionDotClass(connection: ConnectionStatus): string {
+  const base = "w-[7px] h-[7px] rounded-full shrink-0";
+  if (connection === "open") return `${base} bg-green`;
+  if (connection === "connecting") return `${base} bg-amber animate-pulse`;
+  return `${base} bg-red animate-pulse`;
+}
 
 /** The three theme choices, cycled in this order. */
 const THEME_CYCLE: ThemePreference[] = ["dark", "light", "system"];
@@ -70,14 +89,6 @@ export function TopBar({ services, onSwitchService }: Props) {
   const setTheme = useStore((s) => s.setTheme);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
 
-  function connectionDotClass(): string {
-    if (connection === "open")
-      return "w-[7px] h-[7px] rounded-full bg-green shrink-0";
-    if (connection === "connecting")
-      return "w-[7px] h-[7px] rounded-full bg-amber shrink-0 animate-pulse";
-    return "w-[7px] h-[7px] rounded-full bg-red shrink-0 animate-pulse";
-  }
-
   function cycleTheme() {
     const idx = THEME_CYCLE.indexOf(theme);
     setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
@@ -97,9 +108,12 @@ export function TopBar({ services, onSwitchService }: Props) {
           <Button
             variant="outline"
             size="sm"
-            className="h-[26px] gap-1.5 rounded px-2.5 font-family-mono text-[11.5px] text-ink-2 hover:bg-bg-hover dark:hover:bg-bg-hover"
+            className={cn(
+              "h-[26px] gap-1.5 rounded px-2.5 font-family-mono text-[11.5px] text-ink-2 shadow-none dark:bg-transparent",
+              hoverSurface,
+            )}
           >
-            <span className={connectionDotClass()} />
+            <span className={connectionDotClass(connection)} />
             <span>{service ?? "—"}</span>
             <ChevronDown className="size-[11px] text-dim ml-0.5" />
           </Button>
@@ -132,10 +146,13 @@ export function TopBar({ services, onSwitchService }: Props) {
 
       {/* Jump to... button */}
       <Button
-        variant="secondary"
+        variant="ghost"
         size="sm"
         onClick={() => setCmdKOpen(true)}
-        className="h-[26px] gap-1.5 rounded border border-border px-2 text-dim hover:bg-bg-hover hover:text-ink dark:hover:bg-bg-hover"
+        className={cn(
+          "h-[26px] gap-1.5 rounded border border-border bg-bg-sub px-2 text-dim hover:text-ink",
+          hoverSurface,
+        )}
       >
         <Search className="size-[13px]" />
         <span className="font-family-mono text-xs">Jump to…</span>
@@ -153,7 +170,8 @@ export function TopBar({ services, onSwitchService }: Props) {
             onClick={toggleTraceGroup}
             className={cn(
               iconToggleClass,
-              traceGroupOn && "bg-accent-soft text-accent border-accent/30",
+              traceGroupOn &&
+                "bg-accent-soft dark:bg-accent-soft text-accent border-accent/30",
             )}
             aria-label="Group by trace"
             aria-pressed={traceGroupOn}

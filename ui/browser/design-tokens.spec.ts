@@ -228,4 +228,39 @@ test.describe("shadcn semantic tokens", () => {
     // In dark mode, --color-border is #1c222b = rgb(28, 34, 43)
     expect(borderColor).toBe("rgb(28, 34, 43)");
   });
+
+  test("TopBar icon toggle is flat at rest and hovers to bg-hover, not accent (dark)", async ({
+    page,
+  }) => {
+    // Guards the PRO-292 token-collision fix: the shadcn `outline` variant
+    // ships `dark:bg-input/30` at rest and `hover:bg-accent` on hover, the
+    // latter resolving to protospy's bright blue accent. iconToggleClass
+    // neutralizes both, so the toggle must be transparent at rest and use
+    // the subtle bg-bg-hover on hover — never the blue accent.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("dark");
+    });
+    // Wait for the store→DOM theme subscriber to apply the attribute before
+    // reading computed styles (the dark tokens key off [data-theme=dark]).
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    const toggle = page.getByLabel("Toggle density");
+    await expect(toggle).toBeVisible();
+
+    // Poll the computed value: the Button's base `transition-all` animates
+    // background-color, so the value settles a frame after the theme flips.
+    const bg = (el: SVGElement | HTMLElement) =>
+      getComputedStyle(el).backgroundColor;
+
+    // Resting state: transparent, not the dark:bg-input/30 fill.
+    await expect.poll(() => toggle.evaluate(bg)).toBe("rgba(0, 0, 0, 0)");
+
+    // Hover: --color-bg-hover in dark is rgba(255,255,255,0.04), NOT the
+    // accent #60a5fa = rgb(96, 165, 250) that the unoverridden variant uses.
+    await toggle.hover();
+    await expect
+      .poll(() => toggle.evaluate(bg))
+      .toBe("rgba(255, 255, 255, 0.04)");
+  });
 });
