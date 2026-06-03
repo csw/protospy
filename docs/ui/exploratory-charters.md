@@ -20,9 +20,10 @@ and the agent definition below are built around those mitigations.
 
 ## Decision: a bespoke `qa-explorer` agent, not the `ux-audit` skill
 
-Scope item 4 of PRO-289 asks whether the installed jezweb `ux-audit` skill
-(`dev-tools/skills/ux-audit/SKILL.md`) plus per-charter instructions is
-sufficient, or whether protospy needs its own agent definition.
+Scope item 4 of PRO-289 asks whether the jezweb `dev-tools` plugin's
+`ux-audit` skill (installed under the plugin marketplace cache, not the repo)
+plus per-charter instructions is sufficient, or whether protospy needs its own
+agent definition.
 
 **Decision: write a bespoke `qa-explorer` agent definition
 (`.claude/agents/qa-explorer.md`) and drive it with the charters below. Do not
@@ -96,7 +97,8 @@ mission, oracles, fixture states, and step budget for each.
   `window.__test_scenes.apply('<scene-id>')` (full scene list and semantics in
   [`ui/docs/fixture-matrix.md`](../../ui/docs/fixture-matrix.md)). For states the
   matrix doesn't have a named cell for (e.g. a malformed JSON body), inject an
-  ad-hoc exchange with `window.__test_store.applyEvent(...)` using the builders in
+  ad-hoc exchange with `window.__test_store.getState().applyEvent(...)` using the
+  builders in
   `ui/src/test/fixtures.ts` (`makeGetRequest`, `makeResponse`, `makeCompleteExchange`,
   …). Both hooks exist only in dev / test-hook builds.
 - **The one charter that can't use injection: live SSE timing.** Injection
@@ -213,8 +215,8 @@ payloads — looking for rendering, truncation, and decode-feedback problems.
 - `selected` — a small well-formed JSON body (tree collapse/expand baseline).
 - `dual-size` — a gzip-compressed JSON response; opening the body decodes and
   shows the `wire/decoded (gz)` size label.
-- **Ad-hoc injections via `window.__test_store.applyEvent`** for cases the matrix
-  has no named cell for:
+- **Ad-hoc injections via `window.__test_store.getState().applyEvent`** for cases
+  the matrix has no named cell for:
   - a **large** JSON array/object (hundreds of nodes) to stress tree
     virtualization and collapse/expand at depth;
   - a **malformed** JSON body (truncated/invalid) to see how classification and
@@ -355,7 +357,7 @@ refresh**.
 3. After setting a non-default theme (and any other persisted pref — density,
    list mode, list width) and **refreshing**, the preference is restored from
    `protospy-ui-prefs` with no flash of the wrong theme on load (the pre-React
-   bootstrap in `index.html` should prevent FOUC).
+   bootstrap in `ui/index.html` should prevent FOUC).
 4. No new console errors during theme switching or on the post-refresh load.
 
 **Step budget.** ~15 actions.
