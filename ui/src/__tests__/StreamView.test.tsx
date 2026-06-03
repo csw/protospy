@@ -105,6 +105,33 @@ describe("StreamView — generic SSE rendering", () => {
   });
 });
 
+describe("StreamView — 'Jump to latest' button", () => {
+  it("shows 'Jump to latest' when streaming and scrolled away", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
+  });
+
+  it("does not show 'Jump to latest' when following", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+
+  it("does not show 'Jump to latest' when stream has ended", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+});
+
 describe("StreamView — live indicator states", () => {
   it("shows 'complete' with gray dot when stream has ended", async () => {
     await renderAndSettle(
@@ -174,6 +201,33 @@ describe("ChatStreamView — Anthropic protocol", () => {
   it("shows 'No events yet' when body is empty", async () => {
     await renderAndSettle(<ChatStreamView exchange={makeSSEExchange("")} />);
     expect(screen.getByText("No events yet")).toBeInTheDocument();
+  });
+});
+
+describe("ChatStreamView — 'Jump to latest' button", () => {
+  it("shows 'Jump to latest' when streaming and scrolled away", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
+  });
+
+  it("does not show 'Jump to latest' when following", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
+    );
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+
+  it("does not show 'Jump to latest' when stream has ended", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, true)} />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
   });
 });
 
