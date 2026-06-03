@@ -232,10 +232,12 @@ export function ExchangeList() {
         ? 66
         : 74;
 
-  // Always-current reference to ordered, used inside getItemKey to avoid a
-  // stale closure without adding ordered to the useCallback dep array.
+  // Always-current reference to ordered. Updated synchronously each render so
+  // that two consumers can read the live list without capturing a stale closure:
+  //   • getItemKey (below) — stable callback identity for the virtualizer cache
+  //   • scroll effect rAF (below) — reads truly-current index at frame time
   const orderedRef = useRef(ordered);
-  orderedRef.current = ordered;
+  orderedRef.current = ordered; // kept current each render
 
   // Include listMode and density in item keys so the virtualizer invalidates
   // its measurement cache when mode or density changes. Without this, stale
@@ -282,9 +284,10 @@ export function ExchangeList() {
   // yet, so a synchronous scrollToIndex silently no-ops. Deferring by
   // one frame lets the browser complete layout first.
   //
-  // The index is re-derived inside the rAF callback from the current
-  // `ordered` snapshot to avoid a stale-index race: a new exchange
-  // arriving in the one-frame window could shift indices.
+  // The index is re-derived inside the rAF callback via orderedRef so it
+  // reads the truly-current list at frame time rather than the closure's
+  // snapshot — a new exchange arriving in the one-frame window would
+  // shift indices, and orderedRef.current is always up to date.
   //
   // `align: "auto"` only scrolls when the target is outside the
   // visible viewport, so user-initiated clicks (which require the row
@@ -307,14 +310,13 @@ export function ExchangeList() {
     scrolledToRef.current = selectedId;
 
     const handle = requestAnimationFrame(() => {
-      // Re-derive index at frame time from the current closure's
-      // `ordered` to avoid stale-index if data arrived mid-frame.
-      const idx = ordered.findIndex((ex) => ex.id === selectedId);
+      // Read orderedRef.current (not the closure's ordered) so the index
+      // reflects any exchange that arrived during the one-frame delay.
+      const idx = orderedRef.current.findIndex((ex) => ex.id === selectedId);
       if (idx < 0) return;
       virtualizer.scrollToIndex(idx, { align: "auto" });
     });
     return () => cancelAnimationFrame(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, order, filter, traceFilter, listMode]);
 
   // j/k/↑/↓ keyboard navigation over the filtered+ordered list
