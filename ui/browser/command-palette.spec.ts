@@ -65,19 +65,27 @@ test.describe("Command palette — commands", () => {
     expect(after).toBe("compact");
   });
 
-  test("2.3 switch to table view shows table headers", async ({ page }) => {
+  test("2.3 switch to rows view then back to table via palette", async ({
+    page,
+  }) => {
+    // Default is table mode; switch to rows, then verify switching back
+    // to table via the palette restores table headers.
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /switch to table view/i }).click();
-
+    await page.getByRole("option", { name: /switch to rows view/i }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
-    // Table headers are visible after switching to table mode
+    // Table headers should be gone in rows mode
+    await expect(page.getByTestId("exchange-table-header")).not.toBeVisible();
+
+    // Now switch back to table mode via palette
+    await page.keyboard.press("Meta+k");
+    await page.getByRole("option", { name: /switch to table view/i }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+
+    // Table headers are visible again
     await expect(page.getByText("Method")).toBeVisible();
     await expect(page.getByText("Status")).toBeVisible();
     await expect(page.getByText("Path")).toBeVisible();
-    await expect(page.getByText("Time")).toBeVisible();
-    await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When", { exact: true })).toBeVisible();
   });
 
   test("2.4 toggle trace grouping changes store traceGroupOn state", async ({

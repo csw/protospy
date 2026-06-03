@@ -160,7 +160,7 @@ test.describe("Layout and resize", () => {
     // Confirm the panel actually moved before we reset it.
     const movedBox = await listPanel.boundingBox();
     expect(movedBox).not.toBeNull();
-    expect(movedBox!.width).toBeGreaterThan(DEFAULT_LIST_WIDTH.rows + 40);
+    expect(movedBox!.width).toBeGreaterThan(DEFAULT_LIST_WIDTH.table + 40);
 
     // Double-click the separator to reset.
     // Use raw mouse coordinates (same pattern as drag tests) to avoid the
@@ -172,17 +172,17 @@ test.describe("Layout and resize", () => {
       resetBox!.y + resetBox!.height / 2,
     );
 
-    // The list panel should now be close to the rows-mode default.
+    // Default is table mode — the list panel should reset to the table default.
     await expect
       .poll(async () => (await listPanel.boundingBox())?.width ?? 0, {
         timeout: 3000,
       })
-      .toBeCloseTo(DEFAULT_LIST_WIDTH.rows, -1); // within ~5px
+      .toBeCloseTo(DEFAULT_LIST_WIDTH.table, -1); // within ~5px
 
     // The store should also reflect the reset.
     const storedWidth = await getStoreState(page, "listWidth");
-    expect((storedWidth as { rows: number }).rows).toBe(
-      DEFAULT_LIST_WIDTH.rows,
+    expect((storedWidth as { table: number }).table).toBe(
+      DEFAULT_LIST_WIDTH.table,
     );
   });
 

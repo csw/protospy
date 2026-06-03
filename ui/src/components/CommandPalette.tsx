@@ -16,6 +16,7 @@ import {
   Rows3,
   TableProperties,
   Layers,
+  Globe,
   X,
 } from "lucide-react";
 
@@ -43,6 +44,8 @@ export function CommandPalette() {
   const listMode = useStore((s) => s.listMode);
   const setListMode = useStore((s) => s.setListMode);
   const toggleTraceGroup = useStore((s) => s.toggleTraceGroup);
+  const timeZone = useStore((s) => s.timeZone);
+  const setTimeZone = useStore((s) => s.setTimeZone);
   const filter = useStore((s) => s.filter);
   const setFilter = useStore((s) => s.setFilter);
 
@@ -67,6 +70,11 @@ export function CommandPalette() {
 
   function handleToggleTraceGroup() {
     toggleTraceGroup();
+    close();
+  }
+
+  function handleToggleTimeZone() {
+    setTimeZone(timeZone === "local" ? "utc" : "local");
     close();
   }
 
@@ -155,6 +163,19 @@ export function CommandPalette() {
             <Layers className="size-4 text-mid" />
             <span className="font-family-ui text-sm text-ink">
               Toggle trace grouping
+            </span>
+          </CommandItem>
+
+          <CommandItem
+            value="toggle time zone utc local timestamps"
+            onSelect={handleToggleTimeZone}
+            className={cmdItemClass}
+          >
+            <Globe className="size-4 text-mid" />
+            <span className="font-family-ui text-sm text-ink">
+              {timeZone === "local"
+                ? "Switch to UTC timestamps"
+                : "Switch to local timestamps"}
             </span>
           </CommandItem>
 

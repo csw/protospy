@@ -172,18 +172,18 @@ describe("CommandPalette", () => {
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
 
-  it("clicking 'Switch to table view' changes listMode and closes the palette", async () => {
+  it("clicking 'Switch to rows view' changes listMode and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
-    expect(useStore.getState().listMode).toBe("rows");
+    expect(useStore.getState().listMode).toBe("table");
     render(<CommandPalette />);
 
-    const item = screen.getByText("Switch to table view");
+    const item = screen.getByText("Switch to rows view");
     await act(async () => {
       fireEvent.click(item);
     });
 
     await waitFor(() => {
-      expect(useStore.getState().listMode).toBe("table");
+      expect(useStore.getState().listMode).toBe("rows");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
@@ -199,6 +199,22 @@ describe("CommandPalette", () => {
 
     await waitFor(() => {
       expect(useStore.getState().traceGroupOn).toBe(true);
+    });
+    expect(useStore.getState().cmdKOpen).toBe(false);
+  });
+
+  it("clicking 'Switch to UTC timestamps' toggles timeZone and closes the palette", async () => {
+    useStore.getState().setCmdKOpen(true);
+    expect(useStore.getState().timeZone).toBe("local");
+    render(<CommandPalette />);
+
+    const item = screen.getByText("Switch to UTC timestamps");
+    await act(async () => {
+      fireEvent.click(item);
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().timeZone).toBe("utc");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });

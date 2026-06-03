@@ -9,6 +9,7 @@ import {
   DEFAULT_THEME,
 } from "@ui/theme/applyTheme";
 import type { ThemePreference } from "@ui/theme/applyTheme";
+import type { TimeZone } from "@ui/lib/utils";
 import { apply } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
 
@@ -20,6 +21,8 @@ interface PersistedPrefs {
   traceGroupOn: boolean;
   /** Three-state theme preference: `'light'`, `'dark'`, or `'system'` (follow OS). */
   theme: ThemePreference;
+  /** Time zone for absolute timestamp display in table mode. */
+  timeZone: TimeZone;
 }
 
 export interface StoreState extends PersistedPrefs {
@@ -67,6 +70,7 @@ export interface StoreState extends PersistedPrefs {
   setCmdKOpen: (open: boolean) => void;
   /** Set the theme preference. The single runtime subscriber handles the DOM. */
   setTheme: (theme: ThemePreference) => void;
+  setTimeZone: (tz: TimeZone) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -84,13 +88,14 @@ export const useStore = create<StoreState>()(
         filter: "",
         traceFilter: null,
         hoverTraceId: null,
-        listMode: "rows",
+        listMode: "table",
         listWidth: { rows: 340, table: 720 },
         order: "newest",
         density: "regular",
         traceGroupOn: false,
         cmdKOpen: false,
         theme: DEFAULT_THEME,
+        timeZone: "local",
 
         // Core actions
         applyEvent: (msg) =>
@@ -153,6 +158,8 @@ export const useStore = create<StoreState>()(
         // Theme action — only updates store state; the subscribeWithSelector
         // subscriber below is the sole runtime DOM writer.
         setTheme: (theme) => set({ theme }),
+
+        setTimeZone: (tz) => set({ timeZone: tz }),
       }),
       {
         name: "protospy-ui-prefs",
@@ -164,6 +171,7 @@ export const useStore = create<StoreState>()(
           listMode: state.listMode,
           traceGroupOn: state.traceGroupOn,
           theme: state.theme,
+          timeZone: state.timeZone,
         }),
         // onRehydrateStorage intentionally does NOT touch the DOM.
         // The subscribeWithSelector subscription with fireImmediately

@@ -299,7 +299,7 @@ export const SCENES: Scene[] = [
     description:
       "Rows mode at compact density — tighter row height. Compare against the default regular density.",
     messages: backdrop(),
-    config: { density: "compact", selectedId: 2 },
+    config: { listMode: "rows", density: "compact", selectedId: 2 },
   },
   {
     id: "compact-table",
@@ -367,6 +367,7 @@ export const SCENES: Scene[] = [
       makeDualSizeResponse(5),
     ],
     config: {
+      listMode: "rows",
       density: "compact",
       selectedId: 5,
       decoded: [

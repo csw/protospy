@@ -127,7 +127,7 @@ describe("applySceneToStore", () => {
 
     applySceneToStore(useStore, getScene("compact-rows-dual-size")!);
     state = useStore.getState();
-    // Rows mode is the default, so listMode stays "rows".
+    // compact-rows-dual-size explicitly sets rows mode.
     expect(state.listMode).toBe("rows");
     expect(state.density).toBe("compact");
     expect(state.exchanges.get(5)?.responseBody?.decodedBytes).toBe(

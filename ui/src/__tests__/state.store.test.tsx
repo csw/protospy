@@ -23,12 +23,13 @@ describe("state/store", () => {
       expect(state.filter).toBe("");
       expect(state.traceFilter).toBeNull();
       expect(state.hoverTraceId).toBeNull();
-      expect(state.listMode).toBe("rows");
+      expect(state.listMode).toBe("table");
       expect(state.listWidth).toEqual({ rows: 340, table: 720 });
       expect(state.order).toBe("newest");
       expect(state.density).toBe("regular");
       expect(state.traceGroupOn).toBe(false);
       expect(state.cmdKOpen).toBe(false);
+      expect(state.timeZone).toBe("local");
       expect(useStore.getState().protocol).toBeNull();
     });
 
@@ -118,6 +119,19 @@ describe("state/store", () => {
       expect(useStore.getState().traceGroupOn).toBe(true);
       useStore.getState().toggleTraceGroup();
       expect(useStore.getState().traceGroupOn).toBe(false);
+    });
+  });
+
+  describe("setTimeZone", () => {
+    it("defaults to local", () => {
+      expect(useStore.getState().timeZone).toBe("local");
+    });
+
+    it("switches to utc and back", () => {
+      useStore.getState().setTimeZone("utc");
+      expect(useStore.getState().timeZone).toBe("utc");
+      useStore.getState().setTimeZone("local");
+      expect(useStore.getState().timeZone).toBe("local");
     });
   });
 

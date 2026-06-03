@@ -40,6 +40,8 @@ test.describe("design token fidelity", () => {
   test("method badge uses mono font at correct weight and border-radius", async ({
     page,
   }) => {
+    // Method badge is a rows-mode element; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     const badge = page.locator('[data-testid="method-badge"]').first();
     await expect(badge).toBeVisible();
 
@@ -63,6 +65,8 @@ test.describe("design token fidelity", () => {
   test("status code uses design font size (text-ui-sm = 11.5px)", async ({
     page,
   }) => {
+    // status-code testid is a rows-mode element; switch from default table mode.
+    await page.getByLabel("Rows mode").click();
     const status = page.locator('[data-testid="status-code"]').first();
     await expect(status).toBeVisible();
 
@@ -86,7 +90,7 @@ test.describe("design token fidelity", () => {
 
   test("inspector tab bar is 32px tall", async ({ page }) => {
     // Select the exchange so the inspector renders with tabs
-    await page.locator('[data-testid="method-badge"]').first().click();
+    await page.locator("button[role='option']").first().click();
 
     const tabList = page.locator('[data-testid="inspector-tab-list"]');
     await expect(tabList).toBeVisible();

@@ -4,6 +4,7 @@ import {
   decodeBasicAuth,
   eventTypeBadgeClass,
   filterHeaders,
+  formatAbsoluteTime,
   formatRelative,
   formatSize,
   formatTime,
@@ -281,6 +282,40 @@ describe("formatTime", () => {
 
   it("does not throw on an invalid ISO string", () => {
     expect(() => formatTime("not-a-date")).not.toThrow();
+  });
+});
+
+describe("formatAbsoluteTime", () => {
+  // Use a UTC timestamp so the UTC branch is deterministic.
+  const ts = "2024-06-15T14:30:45.123Z";
+
+  it("formats with millisecond resolution in UTC", () => {
+    expect(formatAbsoluteTime(ts, "utc")).toBe("14:30:45.123");
+  });
+
+  it("formats with millisecond resolution in local time", () => {
+    // We can't assert the exact value (depends on runner TZ), but verify
+    // the HH:MM:SS.mmm shape and that milliseconds are preserved.
+    const result = formatAbsoluteTime(ts, "local");
+    expect(result).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+    expect(result.slice(-3)).toBe("123");
+  });
+
+  it("defaults to local time zone", () => {
+    expect(formatAbsoluteTime(ts)).toBe(formatAbsoluteTime(ts, "local"));
+  });
+
+  it("pads hours, minutes, seconds, and milliseconds", () => {
+    // 2024-01-01T01:02:03.004Z → "01:02:03.004" in UTC
+    expect(formatAbsoluteTime("2024-01-01T01:02:03.004Z", "utc")).toBe(
+      "01:02:03.004",
+    );
+  });
+
+  it("handles midnight correctly", () => {
+    expect(formatAbsoluteTime("2024-01-01T00:00:00.000Z", "utc")).toBe(
+      "00:00:00.000",
+    );
   });
 });
 

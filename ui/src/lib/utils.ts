@@ -164,6 +164,33 @@ export function formatTime(timestamp: string): string {
   });
 }
 
+export type TimeZone = "local" | "utc";
+
+/**
+ * Format a timestamp as an absolute time with millisecond resolution.
+ * Returns `HH:MM:SS.mmm` in either local or UTC time zone.
+ * Suitable for log correlation — milliseconds help match events across
+ * different log sources.
+ */
+export function formatAbsoluteTime(
+  timestamp: string,
+  tz: TimeZone = "local",
+): string {
+  const d = new Date(timestamp);
+  if (tz === "utc") {
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    const s = String(d.getUTCSeconds()).padStart(2, "0");
+    const ms = String(d.getUTCMilliseconds()).padStart(3, "0");
+    return `${h}:${m}:${s}.${ms}`;
+  }
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const s = String(d.getSeconds()).padStart(2, "0");
+  const ms = String(d.getMilliseconds()).padStart(3, "0");
+  return `${h}:${m}:${s}.${ms}`;
+}
+
 export function matchesFilter(
   ex: { method?: string; uri?: string; status?: string },
   filter: string,
