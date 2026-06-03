@@ -289,9 +289,11 @@ export function ExchangeList() {
             type="single"
             value={listMode}
             onValueChange={(v) => {
+              // Radix fires "" when re-clicking the active item in single
+              // mode (deselection). Guard so we always have a valid mode.
               if (v) setListMode(v as "rows" | "table");
             }}
-            variant="outline"
+            bordered
             size="sm"
             aria-label="List mode"
           >

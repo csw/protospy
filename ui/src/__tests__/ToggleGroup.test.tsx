@@ -71,19 +71,14 @@ describe("ToggleGroup", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
-  it("applies the outline variant classes to the container", () => {
+  it("applies border classes when bordered is set", () => {
     const { container } = render(
-      <ToggleGroup
-        type="single"
-        value="a"
-        onValueChange={() => {}}
-        variant="outline"
-      >
+      <ToggleGroup type="single" value="a" onValueChange={() => {}} bordered>
         <ToggleGroupItem value="a">A</ToggleGroupItem>
       </ToggleGroup>,
     );
     const root = container.querySelector('[data-slot="toggle-group"]');
-    expect(root).toHaveAttribute("data-variant", "outline");
+    expect(root).toHaveClass("border", "border-border", "overflow-hidden");
   });
 
   it("applies the sm size to items via context", () => {

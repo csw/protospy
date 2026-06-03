@@ -6,35 +6,36 @@ import { cn } from "@ui/lib/utils";
 import { toggleVariants } from "@ui/components/ui/toggle";
 
 const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants>
+  Pick<VariantProps<typeof toggleVariants>, "size">
 >({
   size: "default",
-  variant: "default",
 });
 
 function ToggleGroup({
   className,
-  variant,
+  bordered = false,
   size,
   children,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants>) {
+  VariantProps<typeof toggleVariants> & {
+    /** Show an outer border around the group */
+    bordered?: boolean;
+  }) {
+  const ctxValue = React.useMemo(() => ({ size }), [size]);
+
   return (
     <ToggleGroupPrimitive.Root
       data-slot="toggle-group"
-      data-variant={variant}
       data-size={size}
       className={cn(
         "group/toggle-group flex w-fit items-center rounded-md",
-        "data-[variant=outline]:border data-[variant=outline]:border-border data-[variant=outline]:overflow-hidden",
+        bordered && "border border-border overflow-hidden",
         className,
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider
-        value={React.useMemo(() => ({ variant, size }), [variant, size])}
-      >
+      <ToggleGroupContext.Provider value={ctxValue}>
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive.Root>
@@ -44,21 +45,18 @@ function ToggleGroup({
 function ToggleGroupItem({
   className,
   children,
-  variant,
   size,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
-  VariantProps<typeof toggleVariants>) {
+  Pick<VariantProps<typeof toggleVariants>, "size">) {
   const context = React.useContext(ToggleGroupContext);
 
   return (
     <ToggleGroupPrimitive.Item
       data-slot="toggle-group-item"
-      data-variant={context.variant || variant}
       data-size={context.size || size}
       className={cn(
         toggleVariants({
-          variant: context.variant || variant,
           size: context.size || size,
         }),
         "rounded-none border-0 shadow-none focus:z-10 focus-visible:z-10",
