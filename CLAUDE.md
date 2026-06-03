@@ -59,6 +59,7 @@ There are specific agent guidelines in `docs/agents/`; read them when working wi
 - `docs/agents/ci.md`: when pushing to GitHub or investigating CI failures
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
+- `docs/agents/prompt-authoring.md`: when writing or modifying agent prompts, skills, commands, or CLAUDE.md content
 
 ## Visual design reviews
 
