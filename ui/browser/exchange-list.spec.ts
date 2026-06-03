@@ -167,7 +167,28 @@ test.describe("Exchange list — table mode", () => {
     expect(heightAfter).toBeLessThan(heightBefore);
   });
 
-  test("2.4 mode switching preserves data", async ({ page }) => {
+  test("2.4 path cell shows tooltip with full URI on hover", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/very/long/path?q=search"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // Path cell displays path portion only
+    const pathCell = page.locator("button[role='option'] span", {
+      hasText: "/api/very/long/path",
+    });
+    await expect(pathCell).toBeVisible();
+
+    // Hover to trigger Radix Tooltip — should show the full URI
+    await pathCell.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(
+      "/api/very/long/path?q=search",
+    );
+  });
+
+  test("2.5 mode switching preserves data", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/preserved"),
       makeResponse(1, "200 OK"),
