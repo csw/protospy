@@ -83,10 +83,14 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
             ? statusTextClass(exchange.status)
             : "text-dim",
         )}
+        title={exchange.status ?? undefined}
       >
         {exchange.status ?? "—"}
       </span>
-      <span className="font-family-mono text-xs text-ink px-1 truncate">
+      <span
+        className="font-family-mono text-xs text-ink px-1 truncate"
+        title={uri}
+      >
         {path}
       </span>
       <span className="font-family-mono text-xs text-dim px-1 text-right truncate">

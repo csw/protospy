@@ -167,7 +167,29 @@ test.describe("Exchange list — table mode", () => {
     expect(heightAfter).toBeLessThan(heightBefore);
   });
 
-  test("2.4 mode switching preserves data", async ({ page }) => {
+  test("2.4 truncated cells have title attributes", async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/very/long/path/that/might/truncate"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // Path cell should have title with full URI
+    const pathCell = page.locator("button[role='option'] span", {
+      hasText: "/api/very/long/path/that/might/truncate",
+    });
+    await expect(pathCell).toHaveAttribute(
+      "title",
+      "/api/very/long/path/that/might/truncate",
+    );
+
+    // Status cell should have title with status code
+    const statusCell = page.locator("button[role='option'] span", {
+      hasText: "200 OK",
+    });
+    await expect(statusCell.first()).toHaveAttribute("title", "200 OK");
+  });
+
+  test("2.5 mode switching preserves data", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/preserved"),
       makeResponse(1, "200 OK"),
