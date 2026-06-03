@@ -297,23 +297,23 @@ function LineValue({ line }: { line: FlatLine }) {
       );
 
     case "collapsed": {
-      const open = line.containerType === "object" ? "{" : "[";
-      const close = line.containerType === "object" ? "}" : "]";
+      const isArray = line.containerType === "array";
+      const open = isArray ? "[" : "{";
+      const close = isArray ? "]" : "}";
       const count = line.childCount ?? 0;
-      const label =
-        line.containerType === "object"
-          ? count === 1
-            ? "1 property"
-            : `${count} properties`
-          : count === 1
-            ? "1 item"
-            : `${count} items`;
+      // Show item count for arrays (useful for sizing); omit for objects
+      // (property count is less informative and adds visual noise).
+      const label = isArray
+        ? count === 1
+          ? "1 item"
+          : `${count} items`
+        : undefined;
       return (
         <>
           <span className="text-j-punct">{open}</span>
           <span className="text-dim italic">{"…"}</span>
           <span className="text-j-punct">{close}</span>
-          <span className="text-dim ml-2">{label}</span>
+          {label != null && <span className="text-dim ml-2">{label}</span>}
         </>
       );
     }

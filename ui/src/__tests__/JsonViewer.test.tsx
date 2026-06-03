@@ -53,8 +53,10 @@ describe("JsonViewer tree view", () => {
       fireEvent.click(rootToggle);
     });
 
-    // After collapse, should show collapsed summary
-    expect(viewer.textContent).toContain("properties");
+    // After collapse, should show collapsed summary ({…} without keys)
+    expect(viewer.textContent).not.toContain('"name"');
+    expect(viewer.textContent).toContain("{");
+    expect(viewer.textContent).toContain("}");
   });
 
   it("re-expands a collapsed node when toggle is clicked", async () => {
@@ -67,7 +69,7 @@ describe("JsonViewer tree view", () => {
     await act(async () => {
       fireEvent.click(rootToggle);
     });
-    expect(viewer.textContent).toContain("properties");
+    expect(viewer.textContent).not.toContain('"a"');
 
     // Re-expand root
     await act(async () => {
@@ -134,7 +136,7 @@ describe("JsonViewer tree view", () => {
     expect(viewer.textContent).toContain("3 items");
   });
 
-  it("shows collapsed property count for objects", async () => {
+  it("collapsed objects show {…} without property count", async () => {
     const json = JSON.stringify({ nested: { a: 1, b: 2, c: 3 } }, null, 2);
     const { container } = await renderAndSettle(<JsonViewer text={json} />);
     const viewer = container.querySelector('[aria-label="JSON viewer"]')!;
@@ -145,7 +147,9 @@ describe("JsonViewer tree view", () => {
     await act(async () => {
       fireEvent.click(toggles[1]);
     });
-    expect(viewer.textContent).toContain("3 properties");
+    // Objects show {…} but no count label
+    expect(viewer.textContent).not.toContain("properties");
+    expect(viewer.textContent).not.toContain("property");
   });
 
   it("uses singular 'item' for single-element arrays", async () => {
@@ -160,20 +164,6 @@ describe("JsonViewer tree view", () => {
       fireEvent.click(toggles[1]);
     });
     expect(viewer.textContent).toContain("1 item");
-  });
-
-  it("uses singular 'property' for single-property objects", async () => {
-    const json = JSON.stringify({ nested: { only: true } }, null, 2);
-    const { container } = await renderAndSettle(<JsonViewer text={json} />);
-    const viewer = container.querySelector('[aria-label="JSON viewer"]')!;
-
-    // Collapse the nested object
-    const toggles = screen.getAllByRole("button");
-    expect(toggles.length).toBeGreaterThan(1);
-    await act(async () => {
-      fireEvent.click(toggles[1]);
-    });
-    expect(viewer.textContent).toContain("1 property");
   });
 
   it("clicking the row also toggles expand/collapse", async () => {
@@ -191,8 +181,8 @@ describe("JsonViewer tree view", () => {
       fireEvent.click(expandableRows[0]);
     });
 
-    // Should collapse
-    expect(viewer.textContent).toContain("property");
+    // Should collapse — content hidden, collapsed summary shown
+    expect(viewer.textContent).not.toContain('"a"');
   });
 });
 
