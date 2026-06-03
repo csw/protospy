@@ -71,13 +71,14 @@ Definition of Done** that layers protospy-specific requirements on top (fixture-
 states, desktop-only widths, clipping affordances, pane bounds, no new console errors,
 both themes). A UI change is done only when it passes both.
 
-For UI tickets, the `handle-ticket` skill runs this review automatically via the
-**`visual-review` subagent** (`.claude/agents/visual-review.md`): a read-only agent
-that derives scope from the diff, walks the **fixture matrix**
-(`ui/src/test/scenes.ts`, documented in `ui/docs/fixture-matrix.md`) at the target
-widths in both themes, and returns a prioritized findings report. It drives the browser
-through the **`playwright-cli`** skill. You can also invoke `/design-review` directly
-for an ad-hoc check.
+The **`visual-review` subagent** (`.claude/agents/visual-review.md`) is available for
+periodic sweeps and ad-hoc invocation — it derives scope from the diff, walks the
+**fixture matrix** (`ui/src/test/scenes.ts`, documented in `ui/docs/fixture-matrix.md`)
+at the target widths in both themes, and returns a prioritized findings report. It drives
+the browser through the **`playwright-cli`** skill. Invoke it directly via the Agent tool,
+or use `/design-review` for an ad-hoc check. It is not run automatically by `handle-ticket`
+— convention and code review catch most per-PR regressions; the visual sweep is most
+valuable as a periodic tool (see PRO-242).
 
 - Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
 - Accessibility scope: **keyboard/focus visual quality only** — axe violations are
@@ -101,18 +102,18 @@ For any PR whose diff touches `ui/src/**`, the `handle-ticket` skill runs a conv
 review automatically (step 7b) via the **`convention-review` subagent**
 (`.claude/agents/convention-review.md`): a read-only agent that scopes from the diff,
 applies the three `frontend:*` skills above as review checklists, and returns a
-prioritized findings report alongside the code and visual reviews. It runs on UI-source
-diffs regardless of the ticket's `UI` label. You can also spawn it ad-hoc via the Agent
-tool for a convention pass outside `handle-ticket`.
+prioritized findings report alongside the code review. It runs on UI-source diffs
+regardless of the ticket's `UI` label. You can also spawn it ad-hoc via the Agent tool
+for a convention pass outside `handle-ticket`.
 
-The code, visual, and convention reviews run **independently and blind to each other**.
-When two or more of them run, `handle-ticket` step 9 reconciles their findings via the
-**`review-synthesis` subagent** (`.claude/agents/review-synthesis.md`): a read-only agent
-that reads the review reports (not the raw code), deduplicates overlapping findings, links
-same-root-cause findings across reviews ("one fix resolves both"), surfaces conflicting
-recommendations, and re-ranks everything blocking vs. advisory on one scale. This keeps
-the reviews separately tuned (and `/review` upstream-maintained) while making their
-*combined output* coherent.
+The code and convention reviews run **independently and blind to each other**. When both
+run, `handle-ticket` step 9 reconciles their findings via the **`review-synthesis`
+subagent** (`.claude/agents/review-synthesis.md`): a read-only agent that reads the
+review reports (not the raw code), deduplicates overlapping findings, links same-root-cause
+findings across reviews ("one fix resolves both"), surfaces conflicting recommendations,
+and re-ranks everything blocking vs. advisory on one scale. This keeps the reviews
+separately tuned (and `/review` upstream-maintained) while making their *combined output*
+coherent.
 
 ## Worktrees
 
