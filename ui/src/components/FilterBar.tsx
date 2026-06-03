@@ -28,7 +28,7 @@ export function FilterBar() {
       {/* Search input */}
       <div
         data-testid="filter-input-wrapper"
-        className="flex items-center flex-1 gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0"
+        className="flex items-center flex-1 gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0 focus-within:border-border-focus"
       >
         <Search size={11} className="text-dim shrink-0" />
         <input

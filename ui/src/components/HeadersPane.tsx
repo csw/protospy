@@ -60,7 +60,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Search bar */}
       <div className="shrink-0 px-3 pt-3 pb-2">
-        <div className="flex items-center gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0">
+        <div className="flex items-center gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0 focus-within:border-border-focus">
           <Search size={11} className="text-dim shrink-0" />
           <input
             type="text"

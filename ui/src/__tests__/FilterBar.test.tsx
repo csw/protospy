@@ -86,6 +86,14 @@ describe("FilterBar", () => {
     });
   });
 
+  describe("focus indicator", () => {
+    it("filter input wrapper has focus-within:border-border-focus class", () => {
+      render(<FilterBar />);
+      const wrapper = screen.getByTestId("filter-input-wrapper");
+      expect(wrapper.className).toContain("focus-within:border-border-focus");
+    });
+  });
+
   describe("count display", () => {
     it("shows 'N requests' (pluralised) when no filter and N > 1", () => {
       useStore
