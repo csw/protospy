@@ -15,6 +15,7 @@ import {
 } from "@ui/lib/utils";
 import { useRelativeTime } from "@ui/hooks/useRelativeTime";
 import { ExchangeListItem } from "./ExchangeListItem";
+import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 const TABLE_COLUMNS = "60px 48px minmax(120px, 1fr) 56px 76px 64px";
 
@@ -83,16 +84,14 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
             ? statusTextClass(exchange.status)
             : "text-dim",
         )}
-        title={exchange.status ?? undefined}
       >
         {exchange.status ?? "—"}
       </span>
-      <span
-        className="font-family-mono text-xs text-ink px-1 truncate"
-        title={uri}
-      >
-        {path}
-      </span>
+      <SimpleTooltip content={uri}>
+        <span className="font-family-mono text-xs text-ink px-1 truncate">
+          {path}
+        </span>
+      </SimpleTooltip>
       <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
