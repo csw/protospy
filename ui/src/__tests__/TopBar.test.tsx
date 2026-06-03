@@ -36,6 +36,7 @@ describe("TopBar control buttons", () => {
   // focus ring. Adopting Button gives every control the primitive's
   // focus-visible ring. Guard that it is present on each converted control.
   it("renders every control with the Button focus-visible ring", () => {
+    useStore.setState({ service: "api" });
     renderTopBar();
 
     const controls = [
@@ -43,6 +44,7 @@ describe("TopBar control buttons", () => {
       screen.getByLabelText("Toggle density"),
       screen.getByLabelText(/^Theme:/),
       screen.getByRole("button", { name: /Jump to/ }),
+      screen.getByRole("button", { name: /api/ }), // service-picker trigger
     ];
 
     for (const control of controls) {
@@ -125,8 +127,9 @@ describe("TopBar control buttons", () => {
       renderTopBar();
       const trigger = screen.getByRole("button", { name: /api/ });
 
+      // Focus ring is covered by the all-controls test above; here we assert
+      // the dropdown-trigger semantics survive the asChild Button.
       expect(trigger).toHaveAttribute("aria-haspopup", "menu");
-      expect(trigger).toHaveClass("focus-visible:ring-ring/50");
     });
   });
 });

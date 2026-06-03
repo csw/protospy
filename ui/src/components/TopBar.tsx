@@ -33,6 +33,13 @@ interface Props {
  * aliased in `@theme inline`, not `--color-accent` — so we restore the
  * subtle `bg-bg-hover` in both themes (the JsonViewer className-override
  * pattern).
+ *
+ * The `dark:` variant is NOT redundant: `bg-bg-hover` already tracks the
+ * dark token via the CSS-variable cascade, but the `outline`/`ghost`
+ * variants also ship their own `dark:hover:bg-*` (e.g. `dark:hover:bg-accent/50`)
+ * which wins by specificity in dark mode. The matching `dark:` prefix lets
+ * tailwind-merge dedupe it away — drop it and the dark hover reverts to the
+ * blue accent (guarded by design-tokens.spec.ts).
  */
 const hoverSurface = "hover:bg-bg-hover dark:hover:bg-bg-hover";
 
@@ -170,6 +177,9 @@ export function TopBar({ services, onSwitchService }: Props) {
             onClick={toggleTraceGroup}
             className={cn(
               iconToggleClass,
+              // `dark:bg-accent-soft` overrides iconToggleClass's
+              // `dark:bg-transparent` (same tw-merge group) so the pressed
+              // fill survives in dark mode.
               traceGroupOn &&
                 "bg-accent-soft dark:bg-accent-soft text-accent border-accent/30",
             )}

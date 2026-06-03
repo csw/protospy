@@ -263,4 +263,27 @@ test.describe("shadcn semantic tokens", () => {
       .poll(() => toggle.evaluate(bg))
       .toBe("rgba(255, 255, 255, 0.04)");
   });
+
+  test("TopBar trace toggle keeps its accent-soft pressed fill in dark", async ({
+    page,
+  }) => {
+    // The pressed conditional adds `dark:bg-accent-soft` specifically to beat
+    // iconToggleClass's `dark:bg-transparent` (same tw-merge group); without
+    // it the pressed fill would vanish in dark mode. Guard that branch.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store.getState();
+      store.setTheme("dark");
+      if (!store.traceGroupOn) store.toggleTraceGroup();
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    const trace = page.getByLabel("Group by trace");
+    await expect(trace).toHaveAttribute("aria-pressed", "true");
+
+    // --color-accent-soft in dark is rgba(96, 165, 250, 0.16).
+    await expect
+      .poll(() => trace.evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe("rgba(96, 165, 250, 0.16)");
+  });
 });
