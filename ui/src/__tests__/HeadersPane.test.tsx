@@ -34,13 +34,8 @@ describe("HeadersPane — focus indicator", () => {
 
   it("search input wrapper has focus-within:border-border-focus class", () => {
     render(<HeadersPane headers={headers} emptyMessage="none" />);
-    const input = screen.getByPlaceholderText("Filter headers…");
-    // The wrapper is the parent div of the input
-    const wrapper = input.closest(
-      "div.flex.items-center",
-    ) as HTMLElement | null;
-    expect(wrapper).not.toBeNull();
-    expect(wrapper!.className).toContain("focus-within:border-border-focus");
+    const wrapper = screen.getByTestId("headers-search-wrapper");
+    expect(wrapper.className).toContain("focus-within:border-border-focus");
   });
 });
 
