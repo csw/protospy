@@ -10,7 +10,15 @@ Zustand store, and renders them in an interactive inspector.
 
 ## First steps on any task
 
-Before making non-trivial changes, read:
+At the start of **every** task — before you write or modify any code — invoke
+the `frontend:react-patterns` and `frontend:shadcn-ui` skills. They are
+lazy-loaded through the jezweb plugin, so their content (the component
+inventory, usage patterns, and composition guidance) is **not** in your context
+until you invoke them. Do this on every task, not only the ones you judge
+"complex" — you cannot know what the component library already provides until
+you load it.
+
+Then read:
 
 1. `ui/CLAUDE.md` — commands, quality gates, test-writing requirements,
    commit conventions. This is authoritative; follow it.
@@ -31,6 +39,21 @@ Regardless of change size, `docs/frontend-dod.md` is the completion bar for
 **any** UI change — there is no change too small to skip it. Don't let a
 "trivial" self-assessment exempt you from reading and clearing the DoD before
 reporting done.
+
+## Use the existing component library — don't hand-roll
+
+Before you build any UI element — a button, tooltip, toggle, input, dropdown,
+dialog, or the like — check whether a shadcn component already exists in
+`ui/src/components/ui/`, and use it. This is an obligation, not a preference:
+hand-rolling markup that a shadcn primitive already provides loses focus rings,
+disabled states, hover behavior, and design-system consistency, and it is a
+recurring failure mode for this UI.
+
+If a component's default sizing or spacing doesn't fit the layout, override the
+specific dimensions via `className` (e.g. `className="size-4"` to shrink an
+`icon-xs` button) — don't drop down to raw elements just to get the size you
+want. The `frontend:shadcn-ui` skill you loaded above is the inventory; consult
+it before writing any new element from scratch.
 
 ## Scope
 
