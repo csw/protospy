@@ -1,5 +1,5 @@
 import type { Exchange } from "@ui/state/reducer";
-import { LiveIndicator } from "@ui/components/LiveIndicator";
+import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
@@ -16,10 +16,12 @@ export function StreamView({ exchange }: Props) {
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
 
+  const state = deriveStreamState(atEnd, isFollowing, exchange.error);
+
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <LiveIndicator atEnd={atEnd} isFollowing={isFollowing} />
+        <LiveIndicator state={state} />
         <span className="ml-auto text-xs text-dim font-family-mono">
           {totalEventCount} events
         </span>
@@ -34,7 +36,7 @@ export function StreamView({ exchange }: Props) {
         >
           <EventsView events={events} scrollRef={scrollRef} />
         </div>
-        {!isFollowing && !atEnd && (
+        {state === "paused" && (
           <button
             onClick={jumpToLatest}
             className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"

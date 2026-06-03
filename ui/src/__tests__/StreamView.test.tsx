@@ -6,7 +6,11 @@ import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
 import type { Exchange } from "@ui/state/reducer";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
-function makeSSEExchange(sseText: string, atEnd = true): Exchange {
+function makeSSEExchange(
+  sseText: string,
+  atEnd = true,
+  error?: Exchange["error"],
+): Exchange {
   let sseState = createSSEStreamState();
   if (sseText) {
     sseState = feedChunk(sseState, sseText);
@@ -23,6 +27,7 @@ function makeSSEExchange(sseText: string, atEnd = true): Exchange {
       contentType: "text/event-stream",
       sseState,
     },
+    error,
   };
 }
 
@@ -167,6 +172,49 @@ describe("StreamView — live indicator states", () => {
   });
 });
 
+describe("StreamView — error/disconnected state", () => {
+  const RESPONSE_ERROR: Exchange["error"] = {
+    direction: "Response",
+    message: "connection reset by peer",
+  };
+
+  it("shows 'disconnected' with red dot when exchange has Response error", async () => {
+    await renderAndSettle(
+      <StreamView
+        exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    expect(screen.getByText("disconnected")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-red");
+    expect(dot).not.toHaveClass("animate-pulse");
+  });
+
+  it("hides 'Jump to latest' button when disconnected", async () => {
+    await renderAndSettle(
+      <StreamView
+        exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+
+  it("ignores Request-direction errors (not an SSE disconnect)", async () => {
+    const requestError: Exchange["error"] = {
+      direction: "Request",
+      message: "connection refused",
+    };
+    await renderAndSettle(
+      <StreamView
+        exchange={makeSSEExchange(GENERIC_SSE, false, requestError)}
+      />,
+    );
+    expect(screen.getByText("live")).toBeInTheDocument();
+  });
+});
+
 const ANTHROPIC_SSE = [
   'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
   'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
@@ -263,5 +311,54 @@ describe("ChatStreamView — live indicator states", () => {
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-amber");
     expect(dot).not.toHaveClass("animate-pulse");
+  });
+});
+
+describe("ChatStreamView — error/disconnected state", () => {
+  const RESPONSE_ERROR: Exchange["error"] = {
+    direction: "Response",
+    message: "connection reset by peer",
+  };
+
+  it("shows 'disconnected' with red dot when exchange has Response error", async () => {
+    await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    expect(screen.getByText("disconnected")).toBeInTheDocument();
+    const dot = screen.getByTestId("indicator-dot");
+    expect(dot).toHaveClass("bg-red");
+    expect(dot).not.toHaveClass("animate-pulse");
+  });
+
+  it("hides 'Jump to latest' button when disconnected", async () => {
+    await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    const scrollEl = screen.getByTestId("stream-scroll");
+    simulateScrollAway(scrollEl);
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+
+  it("stops transcript pulsing cursor when disconnected", async () => {
+    // Incomplete Anthropic stream (no message_stop) — transcript.isComplete
+    // is false, so the cursor would normally pulse. Error should suppress it.
+    const INCOMPLETE_SSE = [
+      'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
+      'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
+    ].join("");
+    const { container } = await renderAndSettle(
+      <ChatStreamView
+        exchange={makeSSEExchange(INCOMPLETE_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    // Switch to transcript mode
+    fireEvent.click(screen.getByText("transcript"));
+    // The pulsing cursor span should not be present
+    const cursor = container.querySelector("span.animate-pulse.bg-accent");
+    expect(cursor).toBeNull();
   });
 });
