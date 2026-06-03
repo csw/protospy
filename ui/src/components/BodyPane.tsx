@@ -127,7 +127,11 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
           result != null &&
           (result.kind === "json" || result.kind === "jsonl") &&
           result.text != null && (
-            <JsonViewer text={result.text} kind={result.kind} />
+            <JsonViewer
+              text={result.text}
+              kind={result.kind}
+              parsed={result.parsed}
+            />
           )}
 
         {!loading &&

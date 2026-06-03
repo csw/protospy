@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-virtual";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
 import {
   buildJsonTree,
   flattenTree,
@@ -15,6 +16,8 @@ import {
 interface Props {
   text: string;
   kind?: "json" | "jsonl";
+  /** Pre-parsed JSON value from the decode pipeline, avoids re-parsing text. */
+  parsed?: unknown;
 }
 
 // `text-xs` (12px) + `leading-5` (20px) — each line renders as a 20px row.
@@ -22,6 +25,9 @@ const ROW_HEIGHT = 20;
 
 /** Pixels of indentation per nesting depth level in the tree view. */
 const INDENT_PX = 16;
+
+/** Shared aria-label for the viewer scroll container — owned by JsonViewer. */
+const VIEWER_LABEL = "JSON viewer";
 
 /**
  * Wrapper around the default observeElementRect that handles jsdom (or any
@@ -123,15 +129,17 @@ type ParseResult = { ok: true; value: unknown } | { ok: false };
 
 // ── Main component ──
 
-export function JsonViewer({ text, kind = "json" }: Props) {
+export function JsonViewer({ text, kind = "json", parsed: preParsed }: Props) {
   const parsed: ParseResult = useMemo(() => {
     if (kind !== "json") return { ok: false };
+    // Use pre-parsed value from the decode pipeline when available
+    if (preParsed !== undefined) return { ok: true, value: preParsed };
     try {
       return { ok: true, value: JSON.parse(text) as unknown };
     } catch {
       return { ok: false };
     }
-  }, [text, kind]);
+  }, [text, kind, preParsed]);
 
   if (parsed.ok) {
     return <JsonTreeView value={parsed.value} />;
@@ -147,13 +155,16 @@ function JsonTreeView({ value }: { value: unknown }) {
   const autoExpanded = useMemo(() => computeAutoExpanded(tree), [tree]);
 
   // "Set state during render" pattern — reset expanded when tree changes
-  // (i.e. a different exchange was selected). See React docs on adjusting
-  // state when a prop changes.
+  // (i.e. a different exchange was selected). We track `value` identity
+  // rather than tree.id because buildJsonTree always starts its counter
+  // at 0 (root id is always 0). `value` comes from a useMemo keyed on
+  // the decode result, so its identity changes exactly when the JSON body
+  // changes.
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(autoExpanded);
-  const [prevTreeId, setPrevTreeId] = useState(tree.id);
+  const [prevValue, setPrevValue] = useState(value);
 
-  if (tree.id !== prevTreeId) {
-    setPrevTreeId(tree.id);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setExpanded(autoExpanded);
   }
 
@@ -191,7 +202,7 @@ function JsonTreeView({ value }: { value: unknown }) {
       ref={parentRef}
       className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
       style={{ contain: "strict" }}
-      aria-label="JSON viewer"
+      aria-label={VIEWER_LABEL}
     >
       <div
         style={{
@@ -205,7 +216,7 @@ function JsonTreeView({ value }: { value: unknown }) {
           const expandable = line.kind === "open" || line.kind === "collapsed";
           return (
             <div
-              key={vRow.index}
+              key={vRow.key}
               className={cn(
                 "flex items-center hover:bg-bg-hl",
                 expandable && "cursor-pointer",
@@ -226,20 +237,24 @@ function JsonTreeView({ value }: { value: unknown }) {
                 style={{ width: `${line.depth * INDENT_PX + 16}px` }}
               >
                 {expandable && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center w-4 h-4 text-j-punct hover:text-ink transition-colors cursor-pointer p-0 bg-transparent border-0 focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-blue rounded-sm"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-4 text-j-punct hover:text-ink"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(line.nodeId);
+                    }}
                     aria-expanded={line.kind === "open"}
                     aria-label={line.kind === "open" ? "Collapse" : "Expand"}
                   >
                     <ChevronRight
-                      size={12}
                       className={cn(
                         "transition-transform duration-100",
                         line.kind === "open" && "rotate-90",
                       )}
                     />
-                  </button>
+                  </Button>
                 )}
               </span>
 
@@ -326,7 +341,7 @@ function JsonFlatView({ text }: { text: string }) {
       ref={parentRef}
       className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
       style={{ contain: "strict" }}
-      aria-label="JSON viewer"
+      aria-label={VIEWER_LABEL}
     >
       <div
         style={{
@@ -341,7 +356,7 @@ function JsonFlatView({ text }: { text: string }) {
           const tokens = tokenizeLine(lines[i]);
           return (
             <div
-              key={lineNum}
+              key={vRow.key}
               className="flex hover:bg-bg-hl"
               style={{
                 position: "absolute",
