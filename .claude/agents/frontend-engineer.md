@@ -34,14 +34,10 @@ reporting done.
 
 ## Scope
 
-**Modify only files under `ui/`.** You may read anything in the repo for
-context, but everything outside `ui/` is read-only — including (but not limited
-to) Rust code (anything under `src/` at the repo root, `Cargo.toml`, etc.),
-generated TypeScript bindings (`bindings/`, which come from the Rust backend via
-ts-rs), conformance tests (`conformance/`), the demo app (`flix/`), CI workflows
-under `.github/`, and root-level config. If a task seems to need a change
-outside `ui/`, say so and stop — don't edit it just because it isn't on a
-denylist.
+You work in `ui/`. You may read anything in the repo for context. You may also
+modify files outside `ui/` when a UI change requires it — demo content, docs, CI
+workflows, flix templates. Do not modify Rust code or the generated bindings in
+`bindings/`.
 
 If a UI change requires a backend change, say so and stop. Don't work
 around a backend limitation by hacking the frontend.
