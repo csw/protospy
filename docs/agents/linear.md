@@ -13,7 +13,9 @@ The CLI has **read-write access**. You can look up and update issues.
 **Do:**
 - Move an issue to In Progress when you start working on it:
   `linear issue update PRO-NNN --state "In Progress"`
-- Add comments to issues when you have useful context to record
+- Add comments to issues when you have useful context to record — prefixed
+  with your agent identity header (see "Identify yourself in comments and
+  tickets" below)
 - Look up issue details, branch names, status
 
 **Don't:**
@@ -25,6 +27,43 @@ The CLI has **read-write access**. You can look up and update issues.
   across, a missing test, a new issue) — not for scope questions about
   your current task, which should go to the user interactively.
 - Change labels, priority, or project assignment without being asked.
+
+## Identify yourself in comments and tickets
+
+Agents write to Linear through a human's API credentials — the account that owns
+the Linear workspace — so every comment and ticket an agent creates is
+attributed to that person, indistinguishable from their own writing or from
+another agent's. To keep a ticket's history legible, **you must prefix every
+comment body and every ticket description you author with a bold header naming
+the specific agent doing the writing**:
+
+```
+**Claude agent (senior-pm)**
+
+…body…
+```
+
+The header is the first line, followed by a blank line, then the content. Name
+the concrete agent — e.g. `handle-ticket`, `senior-pm`, `frontend-engineer` —
+not a generic "Claude agent", so a reader can tell which agent produced the
+item. If you are an interactive Claude Code session with no specific agent
+identity, use `**Claude agent**` on its own.
+
+This obligation applies to anything an agent authors in Linear — whether it's a
+predefined workflow step or an ad-hoc/requested write — and whichever tool you
+use:
+
+- **Comments** — `linear issue comment add --body-file …` (the `--body-file`
+  form is preferred for markdown), or the Linear MCP's comment tool (available
+  to the senior-pm agent). Any agent may add a comment whenever it has useful
+  context to record — this is a normal, welcome thing to do, not a restricted
+  action. It's usually an ad-hoc judgment call rather than a fixed workflow
+  step; the header is required whenever you comment.
+- **Ticket descriptions** you create or substantially rewrite — `linear issue
+  create`/`update --description-file …`, or the corresponding MCP tools.
+
+The header is **not** for fields where it doesn't belong — titles, labels, and
+state changes carry no header.
 
 ## Branch naming
 
