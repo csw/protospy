@@ -198,14 +198,41 @@ export function ExchangeList() {
     overscan: 5,
   });
 
-  // Scroll selected item into view when selectedId changes
+  // Scroll selected item into view on programmatic selection.
+  //
+  // Fires when selectedId changes (keyboard nav, inspector navigation,
+  // store updates). Uses requestAnimationFrame to defer the scroll by one
+  // frame: on the initial render with data, the virtualizer hasn't
+  // established its scroll observation on the freshly-mounted container
+  // element yet, so a synchronous scrollToIndex silently no-ops.
+  // Deferring by one frame lets the browser complete layout first.
+  //
+  // `align: "auto"` only scrolls when the target is outside the visible
+  // viewport, so user-initiated clicks (which require the row to already
+  // be visible) don't cause jarring scroll jumps.
+  const scrolledToRef = useRef<number | null>(null);
   useEffect(() => {
-    if (selectedId == null) return;
-    const idx = ordered.findIndex((ex) => ex.id === selectedId);
-    if (idx >= 0) {
-      virtualizer.scrollToIndex(idx, { align: "auto" });
+    if (selectedId == null) {
+      scrolledToRef.current = null;
+      return;
     }
-    // ordered is rebuilt each render — comparing by identity would always re-run
+
+    const idx = ordered.findIndex((ex) => ex.id === selectedId);
+    if (idx < 0) return;
+
+    // Guard: don't re-scroll if we already scrolled to this selection.
+    // Without this, every render that keeps the same selectedId would
+    // re-trigger (since we intentionally omit `ordered` from deps but
+    // run the effect body against the current closure's `ordered`).
+    if (scrolledToRef.current === selectedId) return;
+    scrolledToRef.current = selectedId;
+
+    const handle = requestAnimationFrame(() => {
+      virtualizer.scrollToIndex(idx, { align: "auto" });
+    });
+    return () => cancelAnimationFrame(handle);
+    // ordered is rebuilt each render — comparing by identity would always re-run.
+    // The scrolledToRef guard prevents redundant scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 

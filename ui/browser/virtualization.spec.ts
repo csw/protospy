@@ -171,6 +171,82 @@ test.describe("Virtualization", () => {
     await expect(selected).toBeInViewport();
   });
 
+  test("programmatic selection scrolls off-screen row into view (rows mode)", async ({
+    page,
+  }) => {
+    // Inject 120 exchanges in newest-first order. Exchange 1 is the oldest,
+    // so in newest-first it's at the bottom of the list (index ~119).
+    await injectExchanges(page, makeLargeDataset(120));
+
+    // Wait for the list to render
+    await expect(page.locator("button[role='option']").first()).toBeVisible();
+
+    // Programmatically select exchange 1 (off-screen at the bottom)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setSelectedId(1);
+    });
+
+    // The selected row should be scrolled into view
+    const selected = page.locator(
+      "button[role='option'][aria-selected='true']",
+    );
+    await expect(selected).toBeVisible({ timeout: 5000 });
+    await expect(selected).toBeInViewport();
+  });
+
+  test("programmatic selection scrolls off-screen row into view (table mode)", async ({
+    page,
+  }) => {
+    await setListMode(page, "table");
+    await injectExchanges(page, makeLargeDataset(120));
+
+    await expect(page.locator("button[role='option']").first()).toBeVisible();
+
+    // Select exchange 1 (off-screen at the bottom in newest-first order)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setSelectedId(1);
+    });
+
+    const selected = page.locator(
+      "button[role='option'][aria-selected='true']",
+    );
+    await expect(selected).toBeVisible({ timeout: 5000 });
+    await expect(selected).toBeInViewport();
+  });
+
+  test("programmatic selection change from inspector scrolls into view", async ({
+    page,
+  }) => {
+    // Simulate the scenario where a user navigates in the inspector and
+    // the selection changes to an exchange far away in the list.
+    await injectExchanges(page, makeLargeDataset(120));
+
+    await expect(page.locator("button[role='option']").first()).toBeVisible();
+
+    // First select a visible row (exchange 120 is near the top in newest-first)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setSelectedId(120);
+    });
+    await expect(
+      page.locator("button[role='option'][aria-selected='true']"),
+    ).toBeVisible();
+
+    // Now jump to exchange 1 (far off-screen at the bottom)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setSelectedId(1);
+    });
+
+    const selected = page.locator(
+      "button[role='option'][aria-selected='true']",
+    );
+    await expect(selected).toBeVisible({ timeout: 5000 });
+    await expect(selected).toBeInViewport();
+  });
+
   test("trace rail renders on virtualized rows with traces", async ({
     page,
   }) => {
