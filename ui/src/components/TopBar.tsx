@@ -11,6 +11,7 @@ import { useStore } from "@ui/state/store";
 import { cn } from "@ui/lib/utils";
 import type { ThemePreference } from "@ui/theme/applyTheme";
 import type { Service } from "@ui/api/info";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -24,8 +25,17 @@ interface Props {
   onSwitchService: (name: string) => void;
 }
 
-const iconBtnClass =
-  "w-[26px] h-[26px] flex items-center justify-center rounded-md border border-border text-mid hover:text-ink hover:bg-bg-hover transition-colors cursor-pointer";
+/**
+ * Shared overrides for the three TopBar icon toggles, layered onto
+ * `<Button variant="outline" size="icon-xs">`. Preserves the compact 26px
+ * footprint of the 40px toolbar, and overrides the hover surface: shadcn's
+ * `outline` variant hovers to `bg-accent`, which resolves to protospy's
+ * bright blue accent (only `--color-accent-foreground` is aliased, not
+ * `--color-accent`), so we restore the subtle `bg-bg-hover` — the same
+ * className-override pattern JsonViewer uses.
+ */
+const iconToggleClass =
+  "size-[26px] text-mid hover:bg-bg-hover hover:text-ink dark:hover:bg-bg-hover";
 
 /** The three theme choices, cycled in this order. */
 const THEME_CYCLE: ThemePreference[] = ["dark", "light", "system"];
@@ -34,11 +44,11 @@ const THEME_CYCLE: ThemePreference[] = ["dark", "light", "system"];
 function ThemeIcon({ theme }: { theme: ThemePreference }) {
   switch (theme) {
     case "dark":
-      return <Moon size={15} />;
+      return <Moon className="size-[15px]" />;
     case "light":
-      return <Sun size={15} />;
+      return <Sun className="size-[15px]" />;
     case "system":
-      return <SunMoon size={15} />;
+      return <SunMoon className="size-[15px]" />;
   }
 }
 
@@ -84,11 +94,15 @@ export function TopBar({ services, onSwitchService }: Props) {
       {/* Service picker */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-1.5 px-2.5 h-[26px] rounded border border-border font-family-mono text-[11.5px] text-ink-2 hover:bg-bg-hover cursor-pointer transition-colors">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-[26px] gap-1.5 rounded px-2.5 font-family-mono text-[11.5px] text-ink-2 hover:bg-bg-hover dark:hover:bg-bg-hover"
+          >
             <span className={connectionDotClass()} />
             <span>{service ?? "—"}</span>
-            <ChevronDown size={11} className="text-dim ml-0.5" />
-          </button>
+            <ChevronDown className="size-[11px] text-dim ml-0.5" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="min-w-[200px]" align="start">
           {services.length === 0 ? (
@@ -117,31 +131,35 @@ export function TopBar({ services, onSwitchService }: Props) {
       <div className="flex-1" />
 
       {/* Jump to... button */}
-      <button
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setCmdKOpen(true)}
-        className="flex items-center gap-1.5 h-[26px] px-2 rounded border border-border bg-bg-sub text-dim hover:text-ink hover:bg-bg-hover transition-colors cursor-pointer"
+        className="h-[26px] gap-1.5 rounded border border-border px-2 text-dim hover:bg-bg-hover hover:text-ink dark:hover:bg-bg-hover"
       >
-        <Search size={13} />
+        <Search className="size-[13px]" />
         <span className="font-family-mono text-xs">Jump to…</span>
         <span className="inline-flex items-center px-1 h-4 rounded border border-border-strong font-family-mono text-[10px] text-dim bg-bg-sub">
           ⌘K
         </span>
-      </button>
+      </Button>
 
       {/* Trace group toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
+          <Button
+            variant="outline"
+            size="icon-xs"
             onClick={toggleTraceGroup}
             className={cn(
-              iconBtnClass,
+              iconToggleClass,
               traceGroupOn && "bg-accent-soft text-accent border-accent/30",
             )}
             aria-label="Group by trace"
             aria-pressed={traceGroupOn}
           >
-            <Layers size={15} />
-          </button>
+            <Layers className="size-[15px]" />
+          </Button>
         </TooltipTrigger>
         <TooltipContent>Group by trace</TooltipContent>
       </Tooltip>
@@ -149,15 +167,17 @@ export function TopBar({ services, onSwitchService }: Props) {
       {/* Density toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
+          <Button
+            variant="outline"
+            size="icon-xs"
             onClick={() =>
               setDensity(density === "regular" ? "compact" : "regular")
             }
-            className={iconBtnClass}
+            className={iconToggleClass}
             aria-label="Toggle density"
           >
-            <LayoutGrid size={15} />
-          </button>
+            <LayoutGrid className="size-[15px]" />
+          </Button>
         </TooltipTrigger>
         <TooltipContent>
           {density === "regular"
@@ -169,13 +189,15 @@ export function TopBar({ services, onSwitchService }: Props) {
       {/* Theme toggle (dark / light / system cycle) */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
+          <Button
+            variant="outline"
+            size="icon-xs"
             onClick={cycleTheme}
-            className={iconBtnClass}
+            className={iconToggleClass}
             aria-label={themeTooltip(theme)}
           >
             <ThemeIcon theme={theme} />
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent>{themeTooltip(theme)}</TooltipContent>
       </Tooltip>
