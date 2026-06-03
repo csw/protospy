@@ -6,17 +6,15 @@ import {
   makeResponse,
 } from "./fixtures/exchanges";
 
-// PRO-217: verify the UI renders proxy-level network-error exchanges
-// without breaking. The Rust proxy emits an `Error` event with a generic
-// hyper-derived message string when it cannot reach the upstream or
-// fails mid-stream. These tests exercise three representative scenarios:
-//   1. Connect refused (Request-direction error, no response ever)
-//   2. Idle/read timeout (Request-direction error after the request was sent)
-//   3. Mid-stream disconnect (Response-direction error after partial response)
-//
-// The goal is to verify the UI does not crash and renders an error
-// indicator for each — not to assert the exact error text, which is a
-// passthrough of hyper's string and outside this ticket's scope.
+// PRO-217 + PRO-220: verify the UI renders proxy-level network-error
+// exchanges with proper error display. The Rust proxy emits an `Error`
+// event with a generic hyper-derived message string when it cannot reach
+// the upstream or fails mid-stream. These tests exercise representative
+// scenarios including the refined error display (PRO-220):
+//   - "Error" badge in the list (not "ERR")
+//   - "Error" label + error message in the context bar (not "NET ERR")
+//   - Error message displayed in the body pane
+//   - Mid-stream errors show both status and error indicator
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -38,7 +36,7 @@ function contextBar(page: import("@playwright/test").Page) {
 }
 
 test.describe("Network error rendering — proxy-level failures", () => {
-  test("connection refused: list shows ERR, context bar shows NET ERR, inspector does not crash", async ({
+  test("connection refused: list shows Error badge, context bar shows error message, body pane shows error", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -50,13 +48,23 @@ test.describe("Network error rendering — proxy-level failures", () => {
       ),
     ]);
 
-    // Exchange-list row shows ERR badge
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    // Exchange-list row shows Error badge
+    await expect(page.getByTestId("error-badge").first()).toBeVisible();
+    await expect(page.getByTestId("error-badge").first()).toHaveText("Error");
 
     await page.getByText("/api/connect-refused").first().click();
 
-    // Context bar shows NET ERR
-    await expect(contextBar(page).getByText("NET ERR")).toBeVisible();
+    // Context bar shows Error with the error message
+    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
+    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
+      "Error",
+    );
+    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
+      "Connection refused",
+    );
+
+    // Body pane shows the error message instead of blank
+    await expect(page.getByText("Error").nth(1)).toBeVisible();
 
     // Inspector tabs remain functional — clicking each does not throw
     await page.getByRole("tab", { name: "Headers" }).click();
@@ -88,22 +96,21 @@ test.describe("Network error rendering — proxy-level failures", () => {
       ),
     ]);
 
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    await expect(page.getByTestId("error-badge").first()).toBeVisible();
     await page.getByText("/api/timeout").first().click();
-    await expect(contextBar(page).getByText("NET ERR")).toBeVisible();
+    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
 
     // No status code badge in context bar (status is undefined for a
     // failed-to-connect exchange)
     await expect(contextBar(page).getByText("200 OK")).toHaveCount(0);
   });
 
-  test("mid-stream disconnect: partial response + Response-direction error", async ({
+  test("mid-stream disconnect: shows both status and Error badge", async ({
     page,
   }) => {
     // The proxy got headers + part of the body, then upstream disconnected.
-    // ExchangeListItem treats this as "has a status, no ERR badge" — the
-    // status code is what reaches the user, and the error is recorded on
-    // the exchange but does not promote to ERR (status is set).
+    // With PRO-220, both the status and the Error badge are shown — the
+    // error is no longer invisible when a status code is present.
     await injectExchanges(page, [
       makeGetRequest(3, "/api/mid-stream"),
       makeResponse(3, "200 OK", "partial-body-prefix..."),
@@ -119,8 +126,15 @@ test.describe("Network error rendering — proxy-level failures", () => {
     // Status is rendered (200 OK) — the response started successfully.
     await expect(contextBar(page).getByText("200 OK")).toBeVisible();
 
-    // The list ERR badge is suppressed in this case (hasError = error &&
-    // status == null) — but the exchange.error is still on the store.
+    // The Error indicator is also visible (mid-stream interruption).
+    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
+    await expect(contextBar(page).getByTestId("error-indicator")).toContainText(
+      "connection reset by peer",
+    );
+
+    // The list row shows both status and error badge
+    await expect(page.getByTestId("error-badge").first()).toBeVisible();
+
     // Verify the inspector remains operable.
     await page.getByRole("tab", { name: "Headers" }).click();
     await expect(page.getByRole("tab", { name: "Headers" })).toHaveAttribute(
@@ -139,6 +153,6 @@ test.describe("Network error rendering — proxy-level failures", () => {
     ]);
 
     // A row exists for this exchange (no URI yet → falls back to "/")
-    await expect(page.getByText("ERR").first()).toBeVisible();
+    await expect(page.getByTestId("error-badge").first()).toBeVisible();
   });
 });

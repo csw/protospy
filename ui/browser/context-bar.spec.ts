@@ -83,7 +83,7 @@ test.describe("ContextBar — method, status, and path display", () => {
     ).toBeVisible();
   });
 
-  test("1.3 error exchange shows NET ERR", async ({ page }) => {
+  test("1.3 error exchange shows Error with message", async ({ page }) => {
     // Inject a request, then inject an error event
     await injectExchanges(page, [
       {
@@ -110,8 +110,11 @@ test.describe("ContextBar — method, status, and path display", () => {
 
     await page.getByText("/api/error").first().click();
 
-    // Error state shows "NET ERR"
-    await expect(contextBar(page).getByText("NET ERR")).toBeVisible();
+    // Error state shows "Error" label with the error message
+    const indicator = contextBar(page).getByTestId("error-indicator");
+    await expect(indicator).toBeVisible();
+    await expect(indicator).toContainText("Error");
+    await expect(indicator).toContainText("connection refused");
   });
 });
 

@@ -68,3 +68,64 @@ describe("BodyPane size display", () => {
     expect(sizeEl).toHaveAttribute("data-state");
   });
 });
+
+describe("BodyPane error display (PRO-220)", () => {
+  beforeEach(() => {
+    decodeBodyMock.mockReset();
+  });
+
+  it("renders error message when body is absent and errorMessage is set", () => {
+    render(
+      <BodyPane
+        title="Response"
+        body={undefined}
+        errorMessage="connection refused (os error 111)"
+      />,
+    );
+    expect(
+      screen.getByText("connection refused (os error 111)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Error")).toBeInTheDocument();
+  });
+
+  it("renders 'No body' when body is absent and no error", () => {
+    render(<BodyPane title="Response" body={undefined} />);
+    expect(screen.getByText("No body")).toBeInTheDocument();
+  });
+
+  it("renders mid-stream error banner when body exists and errorMessage is set", async () => {
+    const result: DecodeResult = {
+      kind: "text",
+      text: "partial data",
+      mediaType: "text/plain",
+      wireBytes: 12,
+    };
+    decodeBodyMock.mockResolvedValueOnce(result);
+
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ wireBytes: 12 })}
+        errorMessage="connection reset by peer"
+      />,
+    );
+
+    // The error banner appears below body content
+    await waitFor(() =>
+      expect(screen.getByText("connection reset by peer")).toBeInTheDocument(),
+    );
+  });
+
+  it("renders 'Response interrupted' when body has not ended and errorMessage is set", () => {
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ atEnd: false, wireBytes: 500 })}
+        errorMessage="connection reset by peer"
+      />,
+    );
+    expect(screen.getByText("Response interrupted")).toBeInTheDocument();
+    expect(screen.getByText("connection reset by peer")).toBeInTheDocument();
+    expect(screen.getByText("500B received before error")).toBeInTheDocument();
+  });
+});

@@ -38,16 +38,17 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 
 ### State axis
 
-| Scene id           | Cell                  | Notes                                                                                                 |
-| ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------- |
-| `empty`            | Empty list            | "No requests yet" empty state; status bar shows `connected`.                                          |
-| `loading`          | Loading               | No exchanges, connection `connecting` (amber pulse).                                                  |
-| `error-row`        | Error row (ERR)       | Upstream failure → red `ERR` badge; selected so the inspector shows it.                               |
-| `selected`         | Selected              | Populated list, one row selected; inspector populated.                                                |
-| `hover`            | Row hover             | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                 |
-| `stream-complete`  | SSE stream (complete) | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.               |
-| `stream-live`      | SSE stream (live)     | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.           |
-| `stream-anthropic` | Anthropic SSE stream  | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`. |
+| Scene id           | Cell                  | Notes                                                                                                                                 |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `empty`            | Empty list            | "No requests yet" empty state; status bar shows `connected`.                                                                          |
+| `loading`          | Loading               | No exchanges, connection `connecting` (amber pulse).                                                                                  |
+| `error-row`        | Error row             | Upstream failure → red `Error` badge; selected so inspector shows the error message in context bar and body pane.                     |
+| `error-midstream`  | Mid-stream error      | Response received (200 OK) but interrupted mid-stream; shows both status and `Error` badge. Context bar shows status + error message. |
+| `selected`         | Selected              | Populated list, one row selected; inspector populated.                                                                                |
+| `hover`            | Row hover             | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                                                 |
+| `stream-complete`  | SSE stream (complete) | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                               |
+| `stream-live`      | SSE stream (live)     | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                           |
+| `stream-anthropic` | Anthropic SSE stream  | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`.                                 |
 
 ### Data-size axis
 
@@ -88,7 +89,7 @@ occupies ids 1..4; the stress row is id 5.
 | `table-long-uri`         | Table + long URI         | Table mode; Path column must truncate without pushing Time/Size/When off-edge. |
 | `compact-table-long-uri` | Compact table + long URI | `table-long-uri` pressure at the tightest row height.                          |
 | `compact-rows-dual-size` | Compact rows + dual size | Rows mode, compact density; compound size label in a tighter row.              |
-| `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + ERR rows together; realistic column pressure.   |
+| `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + Error rows together; realistic column pressure. |
 
 ### Trace axis (traceparent grouping)
 

@@ -81,12 +81,19 @@ function TableRow({ exchange, selected, onSelect, density }: TableRowProps) {
       <span
         className={cn(
           "font-family-mono text-xs px-1 truncate",
-          exchange.status != null
-            ? statusTextClass(exchange.status)
-            : "text-dim",
+          exchange.error != null
+            ? "text-red"
+            : exchange.status != null
+              ? statusTextClass(exchange.status)
+              : "text-dim",
         )}
+        title={exchange.error?.message}
       >
-        {exchange.status ?? "—"}
+        {exchange.error != null
+          ? exchange.status != null
+            ? `${exchange.status.split(" ")[0]} ✕`
+            : "Error"
+          : (exchange.status ?? "—")}
       </span>
       <SimpleTooltip content={uri}>
         <span className="font-family-mono text-xs text-ink px-1 truncate">

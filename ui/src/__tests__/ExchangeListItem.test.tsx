@@ -144,7 +144,7 @@ describe("ExchangeListItem", () => {
     expect(btn).not.toHaveClass("bg-bg-active");
   });
 
-  it("renders 'ERR' when error is set and status is absent", () => {
+  it("renders 'Error' badge when error is set and status is absent", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -156,12 +156,12 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    const err = screen.getByText("ERR");
-    expect(err).toBeInTheDocument();
+    const err = screen.getByTestId("error-badge");
+    expect(err).toHaveTextContent("Error");
     expect(err).toHaveClass("text-red");
   });
 
-  it("does not render 'ERR' when status is also present", () => {
+  it("renders both status and 'Error' badge when both are present (mid-stream error)", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -173,7 +173,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    expect(screen.queryByText("ERR")).not.toBeInTheDocument();
+    expect(screen.getByTestId("error-badge")).toHaveTextContent("Error");
     expect(screen.getByText("500")).toBeInTheDocument();
   });
 
@@ -247,7 +247,7 @@ describe("ExchangeListItem", () => {
     expect(screen.getByTestId("status-code")).toHaveClass("shrink-0");
   });
 
-  it("ERR badge has shrink-0 to hold its width at narrow pane widths", () => {
+  it("Error badge has shrink-0 to hold its width at narrow pane widths", () => {
     render(
       <ExchangeListItem
         exchange={makeExchange({
@@ -259,7 +259,7 @@ describe("ExchangeListItem", () => {
         density="regular"
       />,
     );
-    expect(screen.getByText("ERR")).toHaveClass("shrink-0");
+    expect(screen.getByTestId("error-badge")).toHaveClass("shrink-0");
   });
 
   it("renders a (gzip) tag when responseBody has gzip contentEncoding", () => {

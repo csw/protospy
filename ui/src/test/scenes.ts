@@ -18,7 +18,7 @@
 // inside its body, and `AppStore` is a type-only import (erased at runtime).
 //
 // Axes covered (see docs/fixture-matrix.md for the full table):
-//   - state: empty, loading, error row (ERR), selected, hover
+//   - state: empty, loading, error row, mid-stream error, selected, hover
 //   - data:  long URI + query, long error, many rows, dual size
 //   - view:  rows vs table, compact vs regular density
 //   - cross: view × data combinations (table/compact crossed with a data
@@ -193,13 +193,26 @@ export const SCENES: Scene[] = [
   },
   {
     id: "error-row",
-    title: "Error row (ERR)",
+    title: "Error row",
     axis: "state",
     description:
-      "An exchange whose upstream connection failed: the list row shows a red ERR badge (no status). Selected so the inspector renders the error too.",
+      "An exchange whose upstream connection failed: the list row shows a red Error badge (no status). Selected so the inspector renders the error message in the context bar and body pane.",
     messages: [
       makeGetRequest(1, "/api/flaky"),
       makeProxyError(1, "Request", "connection refused (os error 111)"),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "error-midstream",
+    title: "Mid-stream error",
+    axis: "state",
+    description:
+      "An exchange that received a response (200 OK) but was interrupted mid-stream: the list row shows both the status and an Error badge. The context bar shows both the status code and the error message. The body pane shows the error instead of blank content.",
+    messages: [
+      makeGetRequest(1, "/api/stream"),
+      makeResponse(1, "200 OK", undefined),
+      makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
     ],
     config: { selectedId: 1 },
   },
@@ -366,7 +379,7 @@ export const SCENES: Scene[] = [
     title: "Mixed realistic table",
     axis: "view",
     description:
-      "Heterogeneous traffic in table mode: plain rows, a gzip dual-size row, a long-URI row, and an ERR row. Real traffic is mixed, so this stresses column allocation more realistically than any single-axis scene.",
+      "Heterogeneous traffic in table mode: plain rows, a gzip dual-size row, a long-URI row, and an Error row. Real traffic is mixed, so this stresses column allocation more realistically than any single-axis scene.",
     messages: [
       ...makeCompleteExchange(1, "GET", "/api/users", "200 OK", {
         elapsed: 34,

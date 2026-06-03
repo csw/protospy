@@ -66,7 +66,7 @@ export function ExchangeListItem({
   const req = inlineSize(exchange.requestBody);
   const res = inlineSize(exchange.responseBody);
 
-  const hasError = exchange.error != null && exchange.status == null;
+  const hasError = exchange.error != null;
 
   // Trace color bar: always reserve 4px border-l, color it when traceId is present
   const traceBarStyle: React.CSSProperties = exchange.traceId
@@ -103,7 +103,7 @@ export function ExchangeListItem({
       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
         <MethodBadge method={method} size="sm" />
 
-        {exchange.status != null ? (
+        {exchange.status != null && (
           <span
             data-testid="status-code"
             className={cn(
@@ -113,11 +113,15 @@ export function ExchangeListItem({
           >
             {exchange.status}
           </span>
-        ) : hasError ? (
-          <span className="font-family-mono text-ui-sm font-semibold shrink-0 text-red">
-            ERR
+        )}
+        {hasError && (
+          <span
+            data-testid="error-badge"
+            className="font-family-mono text-ui-sm font-semibold shrink-0 text-red"
+          >
+            Error
           </span>
-        ) : null}
+        )}
 
         <span className="font-family-mono text-xs ml-auto shrink-0 text-dim">
           {relTime}

@@ -15,6 +15,12 @@ function isSSE(exchange: Exchange): boolean {
 }
 
 export function BodySplit({ exchange, protocol }: Props) {
+  // Determine error message for the response pane. A Request-direction error
+  // means "no response was ever produced"; a Response-direction error means
+  // "response interrupted mid-stream". Either way, the response body pane
+  // should surface the error instead of showing blank.
+  const responseError = exchange.error?.message ?? undefined;
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -36,6 +42,7 @@ export function BodySplit({ exchange, protocol }: Props) {
           <BodyPane
             title="Response"
             body={exchange.responseBody}
+            errorMessage={responseError}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
           />
         )}
