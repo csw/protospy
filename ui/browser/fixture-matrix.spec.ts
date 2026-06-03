@@ -125,12 +125,13 @@ test.describe("Fixture matrix", () => {
     const minWidth = await dragListPaneTo(page, "min");
     const wideWidth = await dragListPaneTo(page, "wide");
 
-    // The list Panel pins minSize=LIST_MIN_WIDTH and maxSize=LIST_MAX_WIDTH
-    // (a % of the group). Dragging narrow clamps at the floor; dragging wide
-    // grows toward the cap (≈65% of the 1440px group here).
+    // The list Panel pins minSize=LIST_MIN_WIDTH[listMode] and
+    // maxSize=LIST_MAX_WIDTH (a % of the group). The default mode is "table",
+    // so the table floor applies. Dragging narrow clamps at the floor; dragging
+    // wide grows toward the cap (≈65% of the 1440px group here).
     const maxWidth = (parseFloat(LIST_MAX_WIDTH) / 100) * 1440;
-    expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_WIDTH - 5);
-    expect(minWidth).toBeLessThan(280);
+    expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_WIDTH.table - 5);
+    expect(minWidth).toBeLessThan(LIST_MIN_WIDTH.table + 20);
     expect(wideWidth).toBeGreaterThan(minWidth + 200);
     expect(wideWidth).toBeLessThanOrEqual(maxWidth + 10);
 
