@@ -4,10 +4,9 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
 /**
  * Configured tailwind-merge instance that knows about the custom font-size
- * tokens defined in `theme/tailwind.css` (`--text-ui-xs`, `--text-ui-sm`,
- * `--text-ui-mono`, `--text-ctx-path`). Without this, `twMerge` treats e.g.
- * `text-ui-xs` (font-size) and `text-m-get` (color) as the same `text-*`
- * group and strips the font-size class.
+ * and font-family tokens defined in `theme/tailwind.css`. Without this,
+ * `twMerge` treats e.g. `text-ui-xs` (font-size) and `text-m-get` (color)
+ * as the same `text-*` group and strips the font-size class.
  */
 const twMerge = extendTailwindMerge({
   extend: {
@@ -18,6 +17,7 @@ const twMerge = extendTailwindMerge({
         "text-ui-mono",
         "text-ctx-path",
       ],
+      "font-family": ["font-family-ui", "font-family-mono"],
     },
   },
 });

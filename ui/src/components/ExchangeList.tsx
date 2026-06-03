@@ -211,6 +211,12 @@ export function ExchangeList() {
   // Whether any visible exchange has a traceId (for trace rail placeholder)
   const hasTraces = ordered.some((ex) => ex.traceId != null);
 
+  // Radix fires "" when re-clicking the active item in single mode
+  // (deselection). Guard so we always have a valid mode.
+  function handleListModeChange(v: string) {
+    if (v) setListMode(v as "rows" | "table");
+  }
+
   // Virtualizer setup
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledToRef = useRef<number | null>(null);
@@ -401,11 +407,7 @@ export function ExchangeList() {
           <ToggleGroup
             type="single"
             value={listMode}
-            onValueChange={(v) => {
-              // Radix fires "" when re-clicking the active item in single
-              // mode (deselection). Guard so we always have a valid mode.
-              if (v) setListMode(v as "rows" | "table");
-            }}
+            onValueChange={handleListModeChange}
             bordered
             size="sm"
             aria-label="List mode"
