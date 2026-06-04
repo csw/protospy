@@ -91,10 +91,12 @@ function TableRow({
   const resEncoding = exchange.responseBody?.contentEncoding;
   const resDecoded = exchange.responseBody?.decodedBytes;
   const resTag = shortEncoding(resEncoding);
-  const hasDual =
+  // A distinct decoded size is known (compressed body whose decoded bytes were
+  // cached). Only used to pick the tooltip text — the cell shows the wire size.
+  const hasDecodedSize =
     resTag != null && resDecoded != null && resDecoded !== resSize;
   const sizeTitle = resTag
-    ? hasDual
+    ? hasDecodedSize
       ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;

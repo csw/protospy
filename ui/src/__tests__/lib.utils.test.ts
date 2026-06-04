@@ -69,6 +69,13 @@ describe("formatSizeShort", () => {
     expect(formatSizeShort(5.5 * 1024 * 1024)).toBe("5.5 MB");
   });
 
+  it("rolls up to the next unit when rounding tips to 1024", () => {
+    // Just under 1 MB: 1023.999… KB must print "1.0 MB", not "1024.0 KB".
+    expect(formatSizeShort(1024 * 1024 - 1)).toBe("1.0 MB");
+    // Same boundary one unit up: just under 1 GB.
+    expect(formatSizeShort(1024 ** 3 - 1)).toBe("1.0 GB");
+  });
+
   it("scales through GB and TB so the width stays bounded", () => {
     // Unlike formatSize (which caps at MB → unbounded width like "5120.0MB"),
     // this keeps the integer part to at most ~4 digits by scaling units.

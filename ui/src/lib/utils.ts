@@ -49,6 +49,13 @@ export function formatSizeShort(bytes: number): string {
     value /= 1024;
     i++;
   }
+  // The unit was chosen from the un-rounded value, but we display rounded to 1
+  // decimal — so a value like 1023.99 KB would print "1024.0 KB". If rounding
+  // tips it to ≥1024 and a larger unit exists, roll up one unit (→ "1.0 MB").
+  if (Number(value.toFixed(1)) >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
