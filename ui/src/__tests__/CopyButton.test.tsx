@@ -21,6 +21,15 @@ describe("CopyButton", () => {
     expect(btn.disabled).toBe(true);
   });
 
+  it("renders as the shadcn Button primitive (disabled styling from the primitive)", () => {
+    render(<CopyButton />);
+    const btn = screen.getByRole("button");
+    expect(btn).toHaveAttribute("data-slot", "button");
+    // The primitive supplies the disabled affordance, not hand-rolled classes.
+    expect(btn).toHaveClass("disabled:opacity-50");
+    expect(btn).toHaveClass("focus-visible:ring-ring/50");
+  });
+
   it("is enabled when text is provided", () => {
     render(<CopyButton text="hello" />);
     const btn = screen.getByRole("button") as HTMLButtonElement;

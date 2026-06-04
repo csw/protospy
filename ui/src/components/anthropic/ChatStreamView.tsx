@@ -3,6 +3,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
 import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
@@ -139,12 +140,13 @@ export function ChatStreamView({ exchange }: Props) {
         </div>
         {errorMessage != null && <StreamErrorBanner message={errorMessage} />}
         {state === "paused" && (
-          <button
+          <Button
+            size="sm"
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full text-xs shadow-md"
           >
             Jump to latest
-          </button>
+          </Button>
         )}
       </div>
     </div>

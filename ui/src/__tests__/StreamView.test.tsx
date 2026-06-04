@@ -120,6 +120,16 @@ describe("StreamView — 'Jump to latest' button", () => {
     expect(screen.getByText("Jump to latest")).toBeInTheDocument();
   });
 
+  it("renders 'Jump to latest' as the shadcn Button primitive with a focus ring", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    const btn = screen.getByRole("button", { name: "Jump to latest" });
+    expect(btn).toHaveAttribute("data-slot", "button");
+    expect(btn).toHaveClass("focus-visible:ring-ring/50");
+  });
+
   it("does not show 'Jump to latest' when following", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
@@ -287,6 +297,16 @@ describe("ChatStreamView — 'Jump to latest' button", () => {
     const scrollEl = screen.getByTestId("stream-scroll");
     simulateScrollAway(scrollEl);
     expect(screen.getByText("Jump to latest")).toBeInTheDocument();
+  });
+
+  it("renders 'Jump to latest' as the shadcn Button primitive with a focus ring", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
+    );
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    const btn = screen.getByRole("button", { name: "Jump to latest" });
+    expect(btn).toHaveAttribute("data-slot", "button");
+    expect(btn).toHaveClass("focus-visible:ring-ring/50");
   });
 
   it("does not show 'Jump to latest' when following", async () => {

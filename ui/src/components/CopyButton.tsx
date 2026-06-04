@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@ui/components/ui/button";
 
 interface Props {
   text?: string;
@@ -29,12 +30,14 @@ export function CopyButton({ text }: Props) {
   }
 
   return (
-    <button
+    <Button
+      variant="link"
+      size="xs"
       onClick={handleClick}
       disabled={!text}
-      className="font-family-mono text-xs text-accent hover:text-ink transition-colors cursor-pointer disabled:text-dim disabled:cursor-not-allowed disabled:opacity-50"
+      className="px-0 font-family-mono text-accent hover:text-ink hover:no-underline"
     >
       {copied ? "Copied!" : "Copy"}
-    </button>
+    </Button>
   );
 }
