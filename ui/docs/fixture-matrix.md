@@ -54,12 +54,12 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 
 ### Data-size axis
 
-| Scene id     | Cell                   | Notes                                                              |
-| ------------ | ---------------------- | ------------------------------------------------------------------ |
-| `long-uri`   | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip. |
-| `long-error` | Long error text        | Verbose hyper-style error chain.                                   |
-| `many-rows`  | Many rows (120)        | Virtualization, scroll, status-bar count.                          |
-| `dual-size`  | Dual wire/decoded size | gzip response; list shows `66B/58B (gzip)`; hover for the tooltip. |
+| Scene id     | Cell                   | Notes                                                                                                    |
+| ------------ | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `long-uri`   | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip.                                       |
+| `long-error` | Long error text        | Verbose hyper-style error chain.                                                                         |
+| `many-rows`  | Many rows (120)        | Virtualization, scroll, status-bar count.                                                                |
+| `dual-size`  | Dual wire/decoded size | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip. |
 
 There is intentionally **no long-status cell**. HTTP status phrases are short by
 design (200/302/404/500/502 dominate real traffic; even exotic codes carry short
@@ -85,13 +85,13 @@ two ([PRO-250](https://linear.app/protospy/issue/PRO-250), gap surfaced during
 the [PRO-242](https://linear.app/protospy/issue/PRO-242) sweep). `backdrop()`
 occupies ids 1..4; the stress row is id 5.
 
-| Scene id                 | Cell                     | Notes                                                                          |
-| ------------------------ | ------------------------ | ------------------------------------------------------------------------------ |
-| `table-dual-size`        | Table + dual size        | Table mode; Size column carries a `wire/decoded (gz)` label beside plain rows. |
-| `table-long-uri`         | Table + long URI         | Table mode; Path column must truncate without pushing Time/Size/When off-edge. |
-| `compact-table-long-uri` | Compact table + long URI | `table-long-uri` pressure at the tightest row height.                          |
-| `compact-rows-dual-size` | Compact rows + dual size | Rows mode, compact density; compound size label in a tighter row.              |
-| `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + Error rows together; realistic column pressure. |
+| Scene id                 | Cell                     | Notes                                                                                  |
+| ------------------------ | ------------------------ | -------------------------------------------------------------------------------------- |
+| `table-dual-size`        | Table + dual size        | Table mode; Size column shows a bounded size + compression marker (detail in tooltip). |
+| `table-long-uri`         | Table + long URI         | Table mode; Path column must truncate without pushing Elapsed/Size/Time off-edge.      |
+| `compact-table-long-uri` | Compact table + long URI | `table-long-uri` pressure at the tightest row height.                                  |
+| `compact-rows-dual-size` | Compact rows + dual size | Rows mode, compact density; compound size label in a tighter row.                      |
+| `mixed-table`            | Mixed realistic table    | Plain + dual-size + long-URI + Error rows together; realistic column pressure.         |
 
 ### Trace axis (traceparent grouping)
 

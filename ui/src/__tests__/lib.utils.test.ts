@@ -7,6 +7,7 @@ import {
   formatAbsoluteTime,
   formatRelative,
   formatSize,
+  formatSizeShort,
   formatTime,
   isBulkOperation,
   maskHeaderValue,
@@ -51,6 +52,37 @@ describe("formatSize", () => {
 
   it("formats larger MB values", () => {
     expect(formatSize(5.5 * 1024 * 1024)).toBe("5.5MB");
+  });
+});
+
+describe("formatSizeShort", () => {
+  it("shows bytes with a spaced unit and no decimal", () => {
+    expect(formatSizeShort(0)).toBe("0 B");
+    expect(formatSizeShort(58)).toBe("58 B");
+    expect(formatSizeShort(1023)).toBe("1023 B");
+  });
+
+  it("scales to KB / MB with one decimal and a space", () => {
+    expect(formatSizeShort(1024)).toBe("1.0 KB");
+    expect(formatSizeShort(1536)).toBe("1.5 KB");
+    expect(formatSizeShort(1024 * 1024)).toBe("1.0 MB");
+    expect(formatSizeShort(5.5 * 1024 * 1024)).toBe("5.5 MB");
+  });
+
+  it("rolls up to the next unit when rounding tips to 1024", () => {
+    // Just under 1 MB: 1023.999… KB must print "1.0 MB", not "1024.0 KB".
+    expect(formatSizeShort(1024 * 1024 - 1)).toBe("1.0 MB");
+    // Same boundary one unit up: just under 1 GB.
+    expect(formatSizeShort(1024 ** 3 - 1)).toBe("1.0 GB");
+  });
+
+  it("scales through GB and TB so the width stays bounded", () => {
+    // Unlike formatSize (which caps at MB → unbounded width like "5120.0MB"),
+    // this keeps the integer part to at most ~4 digits by scaling units.
+    expect(formatSizeShort(5 * 1024 ** 3)).toBe("5.0 GB");
+    expect(formatSizeShort(3 * 1024 ** 4)).toBe("3.0 TB");
+    // Largest realistic single value before TB stays short.
+    expect(formatSizeShort(1023 * 1024 ** 3).length).toBeLessThanOrEqual(9);
   });
 });
 

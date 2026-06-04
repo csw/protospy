@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
+  FileArchive,
   Globe,
   Layers,
   Rows3,
@@ -14,6 +15,7 @@ import {
   cn,
   formatAbsoluteTime,
   formatSize,
+  formatSizeShort,
   matchesFilter,
   methodTextClass,
   shortEncoding,
@@ -26,19 +28,39 @@ import { ExchangeListItem } from "./ExchangeListItem";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 /**
- * Grid column template for table mode. Widths are tuned so that the fixed
- * trailing columns (TIME, SIZE, WHEN) stay within the pane edge at all
- * supported widths (1280 / 1440 / 1920). PATH is the only flexible column
- * and absorbs remaining space, truncating with ellipsis.
+ * Grid column template for table mode. Each fixed track is sized to fit the
+ * wider of its uppercase header label and its worst-case data value, plus the
+ * shared `px-2` cell padding (16px), with a few px of margin — sizing for the
+ * *data* alone (the old 54/42px METHOD/STATUS tracks) left the spelled-out
+ * header labels overflowing their cells and butting together as
+ * "METHODSTATUSPATH" (PRO-286). PATH is the only flexible column and absorbs
+ * remaining space, truncating with ellipsis.
  *
- * - METHOD (54px): fits all standard HTTP method names in mono uppercase
- * - STATUS (42px): 3-digit status code only (reason phrase via tooltip)
- * - PATH (minmax 100px, 1fr): flexible; absorbs overflow with ellipsis
- * - TIME (54px): elapsed ms (e.g. "42ms", "1204ms")
- * - SIZE (120px): accommodates dual wire/decoded + encoding tag
- * - WHEN (94px): absolute timestamp HH:MM:SS.mmm (measured 92px scrollWidth)
+ * Column order is METHOD · STATUS · PATH · ELAPSED · SIZE · TIME. ELAPSED is
+ * the request→response duration (`elapsedMs`); TIME is the absolute wall-clock
+ * timestamp. Every fixed column is sized so its content never truncates — SIZE
+ * shows a single bounded value (`formatSizeShort`) plus a compression marker,
+ * with the wire/decoded/encoding detail moved to a tooltip (it used to render
+ * the dual `wire/decoded (encoding)` inline, which is what overflowed).
+ *
+ * Measured at the rendered fonts (Inter header / JetBrains Mono data):
+ * - METHOD (68px): header "Method" ≈51px (wider than "OPTIONS"/"DELETE" data)
+ * - STATUS (62px): header "Status" ≈46px (wider than "500 ✕" data)
+ * - PATH (minmax 56px, 1fr): flexible; absorbs slack, ellipsis + URI tooltip
+ * - ELAPSED (72px): header "Elapsed" ≈52px; content area 56px fits up to a
+ *   6-digit ms value ("120000ms" ≈56px) — no truncation for realistic latency
+ * - SIZE (100px): worst single size "1023.9 GB" ≈63px + the ~16px compression
+ *   icon/gap fits the 84px content area with margin; `formatSizeShort` scales
+ *   through GB so the value width is bounded
+ * - TIME (106px): timestamp HH:MM:SS.mmm ≈84px in a 90px content area (~6px
+ *   slack) — the old 94/100px tracks left ~0–2px slack, which tipped into
+ *   clipping under other font hinting (the PRO-286 / PRO-222 bug)
+ *
+ * The fixed tracks total 408px; at the 480px table-mode pane minimum (less the
+ * trace rail and borders) PATH still keeps ≥56px, so no column is clipped out.
+ * Header and data cells share `px-2`, so labels align over their values.
  */
-const TABLE_COLUMNS = "54px 42px minmax(100px, 1fr) 54px 120px 94px";
+const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 72px 100px 106px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -69,10 +91,12 @@ function TableRow({
   const resEncoding = exchange.responseBody?.contentEncoding;
   const resDecoded = exchange.responseBody?.decodedBytes;
   const resTag = shortEncoding(resEncoding);
-  const hasDual =
+  // A distinct decoded size is known (compressed body whose decoded bytes were
+  // cached). Only used to pick the tooltip text — the cell shows the wire size.
+  const hasDecodedSize =
     resTag != null && resDecoded != null && resDecoded !== resSize;
   const sizeTitle = resTag
-    ? hasDual
+    ? hasDecodedSize
       ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
       : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
     : undefined;
@@ -113,7 +137,7 @@ function TableRow({
       </span>
       <span
         className={cn(
-          "font-family-mono text-xs px-1 truncate",
+          "font-family-mono text-xs px-2 truncate",
           exchange.error != null
             ? "text-red"
             : exchange.status != null
@@ -134,24 +158,28 @@ function TableRow({
             : "—"}
       </span>
       <SimpleTooltip content={uri}>
-        <span className="font-family-mono text-xs text-ink px-1 truncate">
+        <span className="font-family-mono text-xs text-ink px-2 truncate">
           {path}
         </span>
       </SimpleTooltip>
-      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
+      {/* ELAPSED: request→response duration. Track is sized to fit the value
+          (up to 6-digit ms); `truncate` is only an overflow guard, so no tooltip
+          is needed — it would merely repeat the visible text. */}
+      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
+      {/* SIZE: a single bounded value (wire size) so the fixed track never
+          truncates. A compression marker replaces the inline "(encoding)" tag;
+          the full wire/decoded/encoding breakdown stays in the tooltip. */}
       <span
-        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        className="font-family-mono text-xs text-dim px-2 flex items-center justify-end gap-1 overflow-hidden"
         title={sizeTitle}
       >
-        {hasDual
-          ? `${formatSize(resSize)}/${formatSize(resDecoded)}`
-          : formatSize(resSize)}
-        {resTag && <span> ({resTag})</span>}
+        {resTag && <FileArchive className="size-3 shrink-0" aria-hidden />}
+        <span className="truncate">{formatSizeShort(resSize)}</span>
       </span>
       <span
-        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        className="font-family-mono text-xs text-dim px-2 text-right truncate"
         title={`${absTime}${timeZone === "utc" ? " UTC" : ""}`}
       >
         {absTime}
@@ -297,6 +325,11 @@ export function ExchangeList() {
   // render, so including it would fire the effect on every render.
   // The `scrolledToRef` guard prevents redundant scrolls when the
   // same selectedId persists across re-renders.
+  //
+  // `virtualizer` is listed: useVirtualizer holds the instance in
+  // useState (created once, `setOptions` on later renders), so its
+  // identity is stable — including it satisfies exhaustive-deps without
+  // re-running the effect on every render.
   useEffect(() => {
     if (selectedId == null) {
       scrolledToRef.current = null;
@@ -317,7 +350,7 @@ export function ExchangeList() {
       virtualizer.scrollToIndex(idx, { align: "auto" });
     });
     return () => cancelAnimationFrame(handle);
-  }, [selectedId, order, filter, traceFilter, listMode]);
+  }, [selectedId, order, filter, traceFilter, listMode, virtualizer]);
 
   // j/k/↑/↓ keyboard navigation over the filtered+ordered list
   useEffect(() => {
@@ -444,26 +477,35 @@ export function ExchangeList() {
           {/* Sticky table header */}
           <div
             data-testid="exchange-table-header"
-            className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]"
+            className={cn(
+              "grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]",
+              // Match the 12px trace rail that offsets the rows below, so the
+              // sticky header's columns line up with the row columns.
+              hasTraces && "pl-3",
+            )}
             style={{ gridTemplateColumns: TABLE_COLUMNS }}
           >
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2">
+            {/* Labels are sized to fit their tracks (see TABLE_COLUMNS) and
+                test 2.6 asserts zero overflow, so no `title` fallback is
+                needed — `truncate` only guards against a future regression,
+                which CI would catch rather than silently clip on screen. */}
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Method
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Status
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Path
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
-              Time
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
+              Elapsed
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Size
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
-              When
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
+              Time
             </span>
           </div>
 

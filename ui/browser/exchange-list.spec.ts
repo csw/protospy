@@ -5,7 +5,13 @@ import {
   makeResponse,
   makeCompleteExchange,
   makeRequestWithTrace,
+  makeEncodedJsonResponse,
 } from "./fixtures/exchanges";
+
+// Minimal valid gzip base64 (content is irrelevant — the displayed wire size
+// comes from the byte count argument, not the payload).
+const GZIP_BASE64 =
+  "H4sIAAAAAAAAE6tWyixJzS1WsoquVspMUbIy1FHKS8xNVbJSSswpyEhUqtWBiBvBxZNSSxKVamNrAXGp+bs6AAAA";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -130,9 +136,10 @@ test.describe("Exchange list — table mode", () => {
     await expect(page.getByText("Method")).toBeVisible();
     await expect(page.getByText("Status")).toBeVisible();
     await expect(page.getByText("Path")).toBeVisible();
-    await expect(page.getByText("Time")).toBeVisible();
+    // ELAPSED = request→response duration; TIME = absolute timestamp.
+    await expect(page.getByText("Elapsed", { exact: true })).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When", { exact: true })).toBeVisible();
+    await expect(page.getByText("Time", { exact: true })).toBeVisible();
   });
 
   test("2.2 row data renders in table columns", async ({ page }) => {
@@ -207,6 +214,181 @@ test.describe("Exchange list — table mode", () => {
     // Switch back to rows
     await page.getByLabel("Rows mode").click();
     await expect(page.getByText("/api/preserved").first()).toBeVisible();
+  });
+
+  // Regression (PRO-286): the header tracks were sized for the *data* values
+  // (GET / 200), so the spelled-out uppercase labels overflowed their cells and
+  // butted together as "METHODSTATUSPATH". Each header label must now fit within
+  // its grid track at every supported width.
+  test("2.6 header labels fit their tracks without overflow", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/items"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    const header = page.getByTestId("exchange-table-header");
+    await expect(header).toBeVisible();
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const overflows = await header.locator("span").evaluateAll((spans) =>
+        spans.map((el) => ({
+          label: el.textContent,
+          overflow: el.scrollWidth - el.clientWidth,
+        })),
+      );
+      for (const { label, overflow } of overflows) {
+        expect(overflow, `"${label}" overflows its track at ${width}px`).toBe(
+          0,
+        );
+      }
+    }
+  });
+
+  // Regression (PRO-286): the sticky header is a sibling of the rail-offset row
+  // container, so when the trace rail is present the header columns must shift by
+  // the same 12px to stay aligned with the row cells beneath them.
+  test("2.7 header columns align with row columns when trace rail present", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeRequestWithTrace(1, "a".repeat(32), "/api/traced"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // Scope to direct children: the SIZE data cell nests a <span> for the
+    // encoding tag, so an unscoped "span" locator would miscount on encoded
+    // responses. ":scope > span" pins to the six grid-track cells.
+    const headerCells = page
+      .getByTestId("exchange-table-header")
+      .locator(":scope > span");
+    const rowCells = page
+      .locator("button[role='option']")
+      .first()
+      .locator(":scope > span");
+    await expect(rowCells.first()).toBeVisible();
+    await expect(headerCells).toHaveCount(6);
+    await expect(rowCells).toHaveCount(6);
+
+    const headerLefts = await headerCells.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().left)),
+    );
+    const rowLefts = await rowCells.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().left)),
+    );
+
+    expect(headerLefts).toHaveLength(rowLefts.length);
+    headerLefts.forEach((left, i) => {
+      // Within 1px to tolerate sub-pixel rounding.
+      expect(Math.abs(left - rowLefts[i])).toBeLessThanOrEqual(1);
+    });
+  });
+
+  // Regression (PRO-286): the ELAPSED (duration) and TIME (absolute timestamp)
+  // columns must never truncate their values, even for a large multi-digit
+  // elapsed time, at every supported width. The timestamp previously clipped
+  // because its track left ~0px slack at the data width.
+  test("2.8 ELAPSED and TIME columns never truncate their values", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/slow", "2024-06-01T14:30:45.678Z"),
+      // 5-digit elapsed (~99s) — a realistically large request duration.
+      makeResponse(1, "200 OK", undefined, undefined, undefined, 98765),
+    ]);
+
+    const row = page.locator("button[role='option']").first();
+    await expect(row).toBeVisible();
+    const cells = row.locator(":scope > span");
+    await expect(cells).toHaveCount(6);
+    // Column order: METHOD · STATUS · PATH · ELAPSED · SIZE · TIME.
+    const elapsed = cells.nth(3);
+    const time = cells.nth(5);
+    await expect(elapsed).toHaveText("98765ms");
+    await expect(time).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const [label, cell] of [
+        ["ELAPSED", elapsed],
+        ["TIME", time],
+      ] as const) {
+        // `scrollWidth` is always >= `clientWidth`, so it can only detect
+        // overflow, never spare room. Measure the actual rendered text width
+        // (via a Range) against the cell's content box to get real slack.
+        const slack = await cell.evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const textWidth = range.getBoundingClientRect().width;
+          const cs = getComputedStyle(el);
+          const contentWidth =
+            el.clientWidth -
+            parseFloat(cs.paddingLeft) -
+            parseFloat(cs.paddingRight);
+          return contentWidth - textWidth;
+        });
+        // Require real breathing room (not merely "fits"), so a future
+        // tightening of the track regresses this test rather than silently
+        // returning to the ~0px-slack clipping that caused the bug.
+        expect(
+          slack,
+          `${label} cell has insufficient slack at ${width}px`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  // Regression (PRO-286): the SIZE column previously rendered the dual
+  // wire/decoded size + inline "(encoding)" tag, which overflowed the fixed
+  // track. It now shows a single bounded value + a compression marker icon,
+  // with the breakdown in the tooltip — and must never truncate, even for a
+  // large size.
+  test("2.9 SIZE column shows a bounded value + marker and never truncates", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/big"),
+      // ~4.8 MB on the wire, gzip-encoded.
+      makeEncodedJsonResponse(1, GZIP_BASE64, 5_000_000, "gzip"),
+    ]);
+
+    const row = page.locator("button[role='option']").first();
+    await expect(row).toBeVisible();
+    const sizeCell = row.locator(":scope > span").nth(4);
+
+    // Compression marker icon + tooltip with the encoding detail.
+    await expect(sizeCell.locator("svg")).toBeVisible();
+    await expect(sizeCell).toHaveAttribute("title", /gzip/);
+
+    // The bounded value text (e.g. "4.8 MB") renders in full.
+    const sizeText = sizeCell.locator(":scope > span");
+    await expect(sizeText).toHaveText(/^\d+(\.\d+)? [KMGT]?B$/);
+
+    // The whole cell content (marker icon + gap + value) must fit the track's
+    // content box with real slack. Measure the union of the cell's contents via
+    // a Range (intrinsic width, unaffected by the inner `truncate`) against the
+    // cell's content box — the inner value span shrink-wraps its text, so
+    // measuring slack on it alone would always read ~0.
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const slack = await sizeCell.evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const contentWidth = range.getBoundingClientRect().width;
+        const cs = getComputedStyle(el);
+        const box =
+          el.clientWidth -
+          parseFloat(cs.paddingLeft) -
+          parseFloat(cs.paddingRight);
+        return box - contentWidth;
+      });
+      expect(
+        slack,
+        `SIZE cell content clipped at ${width}px`,
+      ).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

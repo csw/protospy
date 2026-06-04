@@ -272,7 +272,7 @@ export const SCENES: Scene[] = [
     title: "Dual wire/decoded size",
     axis: "data",
     description:
-      "A gzip-compressed JSON response whose decoded size is cached, so the list shows the `wire/decoded (gz)` size label. Hover the size for the explanatory tooltip; opening the body decodes cleanly.",
+      "A gzip-compressed JSON response whose decoded size is cached. In table mode the Size column shows the wire size with a compression marker; hover for the wire/decoded tooltip. Opening the body decodes cleanly.",
     messages: [makeGetRequest(1, "/api/gzipped"), makeDualSizeResponse(1)],
     config: {
       selectedId: 1,
@@ -288,7 +288,7 @@ export const SCENES: Scene[] = [
     title: "Table mode",
     axis: "view",
     description:
-      "The same backdrop rendered in table mode (columnar Method/Status/Path/Time/Size/When).",
+      "The same backdrop rendered in table mode (columnar Method/Status/Path/Elapsed/Size/Time).",
     messages: backdrop(),
     config: { listMode: "table", selectedId: 2 },
   },
@@ -323,7 +323,7 @@ export const SCENES: Scene[] = [
     title: "Table + dual size",
     axis: "view",
     description:
-      "Table mode with a gzip row whose Size column shows the dual `wire/decoded (gz)` label beside plainly-sized rows. Verify the Size column absorbs the wider compound label without crowding Time/When.",
+      "Table mode with a gzip row. The Size column shows a single bounded size with a compression marker icon (the wire/decoded/encoding breakdown is in the tooltip), so it never crowds the Elapsed/Time columns.",
     messages: [
       ...backdrop(),
       makeGetRequest(5, "/api/gzipped"),
@@ -342,7 +342,7 @@ export const SCENES: Scene[] = [
     title: "Table + long URI",
     axis: "view",
     description:
-      "Table mode with one deep-path + long-query row among normal rows. Verify the Path column truncates/ellipsises and holds its width instead of pushing Time/Size/When off-screen.",
+      "Table mode with one deep-path + long-query row among normal rows. Verify the Path column truncates/ellipsises and holds its width instead of pushing Elapsed/Size/Time off-screen.",
     messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
     config: { listMode: "table", selectedId: 5 },
   },
