@@ -232,11 +232,12 @@ test.describe("shadcn semantic tokens", () => {
   test("TopBar icon toggle is flat at rest and hovers to bg-hover, not accent (dark)", async ({
     page,
   }) => {
-    // Guards the PRO-292 token-collision fix: the shadcn `outline` variant
-    // ships `dark:bg-input/30` at rest and `hover:bg-accent` on hover, the
-    // latter resolving to protospy's bright blue accent. iconToggleClass
-    // neutralizes both, so the toggle must be transparent at rest and use
-    // the subtle bg-bg-hover on hover — never the blue accent.
+    // The density control is a shadcn `Toggle` (PRO-292): its variant is
+    // flat/transparent at rest and hovers to `bg-bg-hover`, with no
+    // `bg-accent` collision (the Button `outline`/`ghost` variants hover to
+    // protospy's bright blue accent; `Toggle` never does). Guard that the
+    // toggle is transparent at rest and uses the subtle bg-bg-hover on hover —
+    // never the blue accent.
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__test_store.getState().setTheme("dark");
@@ -264,12 +265,14 @@ test.describe("shadcn semantic tokens", () => {
       .toBe("rgba(255, 255, 255, 0.04)");
   });
 
-  test("TopBar trace toggle keeps its accent-soft pressed fill in dark", async ({
+  test("TopBar trace toggle shows its accent-soft pressed fill in dark", async ({
     page,
   }) => {
-    // The pressed conditional adds `dark:bg-accent-soft` specifically to beat
-    // iconToggleClass's `dark:bg-transparent` (same tw-merge group); without
-    // it the pressed fill would vanish in dark mode. Guard that branch.
+    // PRO-292: the trace-group control is a shadcn `Toggle`. Its pressed fill
+    // is driven off `aria-pressed` (not `data-[state=on]`, which the wrapping
+    // TooltipTrigger overwrites), and uses the visible `accent-soft` tint
+    // rather than the variant's neutral `bg-bg-pane` — invisible against the
+    // `bg-bg-pane` toolbar. Guard that the pressed fill is the accent, not flat.
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const store = (window as any).__test_store.getState();
@@ -284,6 +287,31 @@ test.describe("shadcn semantic tokens", () => {
     // --color-accent-soft in dark is rgba(96, 165, 250, 0.16).
     await expect
       .poll(() => trace.evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe("rgba(96, 165, 250, 0.16)");
+  });
+
+  test("TopBar density toggle shows its accent-soft pressed fill when compact (dark)", async ({
+    page,
+  }) => {
+    // PRO-292 closes density's a11y gap: as a Toggle it now exposes a pressed
+    // state. "compact" is pressed and shows the same visible accent-soft fill
+    // as the trace toggle, driven off `aria-pressed`.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store.getState();
+      store.setTheme("dark");
+      store.setDensity("compact");
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    const density = page.getByLabel("Toggle density");
+    await expect(density).toHaveAttribute("aria-pressed", "true");
+
+    // --color-accent-soft in dark is rgba(96, 165, 250, 0.16).
+    await expect
+      .poll(() =>
+        density.evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
       .toBe("rgba(96, 165, 250, 0.16)");
   });
 });
