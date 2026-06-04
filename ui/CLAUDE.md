@@ -201,7 +201,7 @@ Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`,
 
 ### Coverage thresholds
 
-Coverage thresholds live in `coverage-thresholds.json` and are read by `vitest.config.ts` at startup. They are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a weekly schedule by `scripts/ratchet-coverage.ts` (via `.github/workflows/coverage-ratchet.yml`). To run the ratchet manually: `pnpm run coverage:ratchet`.
+Coverage thresholds live in `coverage-thresholds.json` and are read by `vitest.config.ts` at startup. They are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a weekly schedule by `scripts/ratchet-coverage.ts` (via the repo-root workflow `.github/workflows/coverage-ratchet.yml` — at the repo root, not under `ui/`). To run the ratchet manually: `pnpm run coverage:ratchet`.
 
 If your PR causes `pnpm test:coverage` to fail the threshold check, that means coverage dropped significantly. Investigate — you likely need to add unit or component tests. But small threshold movements (1-2 points) caused by adding code that's covered by browser tests (which Vitest can't measure) are expected and not a problem. Browser tests in `browser/` provide real coverage; the Vitest report just can't see it.
 
@@ -211,12 +211,7 @@ shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.ts
 
 ## Versioning dependencies
 
-Pin npm packages and CDN scripts to explicit versions:
-
-- **npm packages**: pin to current major version.
-- **CDN scripts** (`<script src="...">`): pin to an explicit version, e.g. `htmx.org@2.0.4`. Never use `@latest` or a bare major like `@3`.
-
-When uncertain about the current version, look it up rather than guessing.
+Pin dependencies in `package.json` (added with `pnpm add`) to their current major version, and look up the current version rather than guessing. See `docs/agents/dependencies.md` for the full cross-type pinning policy.
 
 ## Committing
 
