@@ -51,6 +51,19 @@ let the hook run them. Use `pnpm test:coverage` as an iterative feedback loop
 *while developing* (after a change, to confirm it works — before you think you're
 done), not as a final step you run just before `git commit`.
 
+## Lint warnings are gate failures (ui/)
+
+The `ui/` lint gate fails on **warnings**, not just errors: the `lint` script is
+`eslint . --max-warnings 0`. Both the `eslint-ui` pre-commit hook and the
+`ui-ci.yml` lint step invoke `pnpm run lint`, so the two layers can't disagree —
+change that one script, never `--max-warnings` in only one place.
+
+To silence a genuine false positive, disable the single offending occurrence with
+an `// eslint-disable-next-line <rule>` plus a comment saying why it's safe. Do
+not relax the gate globally or drop `--max-warnings 0` to push a commit through.
+
+`tsc --noEmit` has no warning tier, so typecheck already gates on its errors.
+
 ## External dependencies
 
 Two checks require external prerequisites:
