@@ -62,6 +62,7 @@ export function makeResponse(
   body?: string,
   ts?: string,
   headers?: Array<{ name: string; value: string }>,
+  elapsedMs = 42,
 ): Msg {
   const hdrs = headers ?? JSON_CT;
   return {
@@ -72,7 +73,7 @@ export function makeResponse(
       status,
       version: "HTTP/1.1",
       headers: hdrs,
-      elapsed_ms: 42,
+      elapsed_ms: elapsedMs,
       body: body
         ? {
             type: "Data",

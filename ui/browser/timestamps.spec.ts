@@ -125,7 +125,7 @@ test.describe("Absolute timestamps (table mode)", () => {
     await expect(lastSpan).toHaveText("14:30:45.123");
   });
 
-  test("WHEN column does not clip the timestamp", async ({ page }) => {
+  test("TIME column does not clip the timestamp", async ({ page }) => {
     const ts = "2024-06-01T14:30:45.678Z";
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test", ts),
@@ -134,16 +134,30 @@ test.describe("Absolute timestamps (table mode)", () => {
 
     await page.locator("button[role='option']").first().waitFor();
 
-    // The last <span> in the row is the WHEN cell; its content must not
-    // overflow its container (scrollWidth <= clientWidth).
-    const overflow = await page
+    // The last <span> in the row is the TIME (timestamp) cell. It must not just
+    // barely fit — require real slack between the rendered text and the cell's
+    // content box. The original bug shipped because the track left ~0px slack,
+    // which passed a bare `scrollWidth <= clientWidth` check yet clipped under
+    // different font hinting. `scrollWidth` can't see spare room (it is always
+    // >= clientWidth), so measure the actual text width via a Range instead.
+    const slack = await page
       .locator("button[role='option']")
       .first()
       .locator("span")
       .last()
-      .evaluate((el) => el.scrollWidth - el.clientWidth);
+      .evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const textWidth = range.getBoundingClientRect().width;
+        const cs = getComputedStyle(el);
+        const contentWidth =
+          el.clientWidth -
+          parseFloat(cs.paddingLeft) -
+          parseFloat(cs.paddingRight);
+        return contentWidth - textWidth;
+      });
 
-    expect(overflow).toBe(0);
+    expect(slack).toBeGreaterThanOrEqual(3);
   });
 
   test("UTC toggle persists across reloads", async ({ page }) => {

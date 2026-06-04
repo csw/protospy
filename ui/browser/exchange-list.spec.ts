@@ -130,9 +130,10 @@ test.describe("Exchange list — table mode", () => {
     await expect(page.getByText("Method")).toBeVisible();
     await expect(page.getByText("Status")).toBeVisible();
     await expect(page.getByText("Path")).toBeVisible();
-    await expect(page.getByText("Time")).toBeVisible();
+    // ELAPSED = request→response duration; TIME = absolute timestamp.
+    await expect(page.getByText("Elapsed", { exact: true })).toBeVisible();
     await expect(page.getByText("Size")).toBeVisible();
-    await expect(page.getByText("When", { exact: true })).toBeVisible();
+    await expect(page.getByText("Time", { exact: true })).toBeVisible();
   });
 
   test("2.2 row data renders in table columns", async ({ page }) => {
@@ -277,6 +278,60 @@ test.describe("Exchange list — table mode", () => {
       // Within 1px to tolerate sub-pixel rounding.
       expect(Math.abs(left - rowLefts[i])).toBeLessThanOrEqual(1);
     });
+  });
+
+  // Regression (PRO-286): the ELAPSED (duration) and TIME (absolute timestamp)
+  // columns must never truncate their values, even for a large multi-digit
+  // elapsed time, at every supported width. The timestamp previously clipped
+  // because its track left ~0px slack at the data width.
+  test("2.8 ELAPSED and TIME columns never truncate their values", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/slow", "2024-06-01T14:30:45.678Z"),
+      // 5-digit elapsed (~99s) — a realistically large request duration.
+      makeResponse(1, "200 OK", undefined, undefined, undefined, 98765),
+    ]);
+
+    const row = page.locator("button[role='option']").first();
+    await expect(row).toBeVisible();
+    const cells = row.locator(":scope > span");
+    await expect(cells).toHaveCount(6);
+    // Column order: METHOD · STATUS · PATH · ELAPSED · SIZE · TIME.
+    const elapsed = cells.nth(3);
+    const time = cells.nth(5);
+    await expect(elapsed).toHaveText("98765ms");
+    await expect(time).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const [label, cell] of [
+        ["ELAPSED", elapsed],
+        ["TIME", time],
+      ] as const) {
+        // `scrollWidth` is always >= `clientWidth`, so it can only detect
+        // overflow, never spare room. Measure the actual rendered text width
+        // (via a Range) against the cell's content box to get real slack.
+        const slack = await cell.evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const textWidth = range.getBoundingClientRect().width;
+          const cs = getComputedStyle(el);
+          const contentWidth =
+            el.clientWidth -
+            parseFloat(cs.paddingLeft) -
+            parseFloat(cs.paddingRight);
+          return contentWidth - textWidth;
+        });
+        // Require real breathing room (not merely "fits"), so a future
+        // tightening of the track regresses this test rather than silently
+        // returning to the ~0px-slack clipping that caused the bug.
+        expect(
+          slack,
+          `${label} cell has insufficient slack at ${width}px`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 });
 

@@ -28,26 +28,35 @@ import { SimpleTooltip } from "./ui/SimpleTooltip";
 /**
  * Grid column template for table mode. Each fixed track is sized to fit the
  * wider of its uppercase header label and its worst-case data value, plus the
- * shared `px-2` cell padding (16px) — sizing for the *data* alone (the old
- * 54/42px METHOD/STATUS tracks) left the spelled-out header labels overflowing
- * their cells and butting together as "METHODSTATUSPATH" (PRO-286). PATH is the
- * only flexible column and absorbs remaining space, truncating with ellipsis.
+ * shared `px-2` cell padding (16px), with a few px of margin — sizing for the
+ * *data* alone (the old 54/42px METHOD/STATUS tracks) left the spelled-out
+ * header labels overflowing their cells and butting together as
+ * "METHODSTATUSPATH" (PRO-286). PATH is the only flexible column and absorbs
+ * remaining space, truncating with ellipsis.
+ *
+ * Column order is METHOD · STATUS · PATH · ELAPSED · SIZE · TIME. ELAPSED is
+ * the request→response duration (`elapsedMs`); TIME is the absolute wall-clock
+ * timestamp. Both are sized so their content never truncates (per the column's
+ * own requirement) — only SIZE may truncate, and it carries an additive tooltip
+ * (wire/decoded/encoding) that ELAPSED and TIME don't need.
  *
  * Measured at the rendered fonts (Inter header / JetBrains Mono data):
  * - METHOD (68px): header "Method" ≈51px (wider than "OPTIONS"/"DELETE" data)
  * - STATUS (62px): header "Status" ≈46px (wider than "500 ✕" data)
  * - PATH (minmax 56px, 1fr): flexible; absorbs slack, ellipsis + URI tooltip
- * - TIME (58px): elapsed ms "1204ms" ≈42px (5-digit ms overflow via title)
- * - SIZE (120px): dual wire/decoded + encoding tag; overflow via title tooltip
- * - WHEN (100px): timestamp HH:MM:SS.mmm ≈84px (was 94px — only ~2px slack at
- *   the data width, which tipped into clipping under other font hinting; the
- *   16px margin here is robust)
+ * - ELAPSED (72px): header "Elapsed" ≈52px; content area 56px fits up to a
+ *   6-digit ms value ("120000ms" ≈56px) — no truncation for realistic latency
+ * - SIZE (96px): single "1.2 KB (gz)" ≈77px fits; dual wire/decoded may
+ *   truncate, surfaced by the existing size tooltip
+ * - TIME (106px): timestamp HH:MM:SS.mmm ≈84px in a 90px content area (~6px
+ *   slack) — the old 94/100px tracks left ~0–2px slack, which tipped into
+ *   clipping under other font hinting (the PRO-286 / PRO-222 bug)
  *
- * The fixed tracks total 408px; at the 480px table-mode pane minimum (less the
+ * The fixed tracks total 404px; at the 480px table-mode pane minimum (less the
  * trace rail and borders) PATH still keeps ≥56px, so no column is clipped out.
  * Header and data cells share `px-2`, so labels align over their values.
  */
-const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 58px 120px 100px";
+const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 72px 96px 106px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -147,12 +156,10 @@ function TableRow({
           {path}
         </span>
       </SimpleTooltip>
-      <span
-        className="font-family-mono text-xs text-dim px-2 text-right truncate"
-        title={
-          exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : undefined
-        }
-      >
+      {/* ELAPSED: request→response duration. Track is sized to fit the value
+          (up to 6-digit ms); `truncate` is only an overflow guard, so no tooltip
+          is needed — it would merely repeat the visible text. */}
+      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
       <span
@@ -485,13 +492,13 @@ export function ExchangeList() {
               Path
             </span>
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
-              Time
+              Elapsed
             </span>
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Size
             </span>
             <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
-              When
+              Time
             </span>
           </div>
 
