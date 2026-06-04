@@ -314,4 +314,83 @@ test.describe("shadcn semantic tokens", () => {
       )
       .toBe("rgba(96, 165, 250, 0.16)");
   });
+
+  test("TopBar icon toggle is flat at rest and hovers to bg-hover, not accent (light)", async ({
+    page,
+  }) => {
+    // Light-mode companion to the dark hover test above: the token-collision
+    // bug this PR series fixed manifested in both themes, and the hover/accent
+    // token values differ by theme, so light needs its own guard.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setTheme("light");
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+    const toggle = page.getByLabel("Toggle density");
+    await expect(toggle).toBeVisible();
+
+    const bg = (el: SVGElement | HTMLElement) =>
+      getComputedStyle(el).backgroundColor;
+
+    // Resting state: transparent.
+    await expect.poll(() => toggle.evaluate(bg)).toBe("rgba(0, 0, 0, 0)");
+
+    // Hover: --color-bg-hover in light is rgba(15, 23, 42, 0.035), NOT the
+    // accent rgb(59, 130, 246) the unoverridden Button variant would use.
+    await toggle.hover();
+    await expect
+      .poll(() => toggle.evaluate(bg))
+      .toBe("rgba(15, 23, 42, 0.035)");
+  });
+
+  test("TopBar trace toggle shows its accent-soft pressed fill in light", async ({
+    page,
+  }) => {
+    // Light-mode companion to the dark pressed-fill test: --color-accent-soft
+    // is a different value in light, so guard the visible pressed tint here too.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const store = (window as any).__test_store.getState();
+      store.setTheme("light");
+      if (!store.traceGroupOn) store.toggleTraceGroup();
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+    const trace = page.getByLabel("Group by trace");
+    await expect(trace).toHaveAttribute("aria-pressed", "true");
+
+    // --color-accent-soft in light is #dbeafe = rgb(219, 234, 254).
+    await expect
+      .poll(() => trace.evaluate((el) => getComputedStyle(el).backgroundColor))
+      .toBe("rgb(219, 234, 254)");
+  });
+
+  test("TopBar controls render a focus-visible ring on keyboard focus (Toggle + Button)", async ({
+    page,
+  }) => {
+    // The ticket's core regression was hand-rolled controls with no focus ring.
+    // Assert the ring actually *renders* (a box-shadow) under real keyboard
+    // focus — the computed-style guard, more durable than asserting the
+    // primitive's CVA class strings. Seed focus programmatically, then Tab via
+    // the keyboard so each control receives keyboard-modality focus and
+    // :focus-visible matches (programmatic .focus() alone would not).
+    await page.getByLabel("Group by trace").focus();
+
+    // Toggle (density): Radix Toggle's focus-visible:ring-2 ring-ring.
+    await page.keyboard.press("Tab");
+    const density = page.getByLabel("Toggle density");
+    await expect(density).toBeFocused();
+    await expect
+      .poll(() => density.evaluate((el) => getComputedStyle(el).boxShadow))
+      .not.toBe("none");
+
+    // Button (theme cycle): focus-visible:ring-[3px] ring-ring/50.
+    await page.keyboard.press("Tab");
+    const theme = page.getByLabel(/^Theme:/);
+    await expect(theme).toBeFocused();
+    await expect
+      .poll(() => theme.evaluate((el) => getComputedStyle(el).boxShadow))
+      .not.toBe("none");
+  });
 });

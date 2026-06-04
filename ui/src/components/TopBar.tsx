@@ -85,9 +85,9 @@ const iconToggleClass =
 /** Connection-status dot color for the service-picker trigger. */
 function connectionDotClass(connection: ConnectionStatus): string {
   const base = "w-[7px] h-[7px] rounded-full shrink-0";
-  if (connection === "open") return `${base} bg-green`;
-  if (connection === "connecting") return `${base} bg-amber animate-pulse`;
-  return `${base} bg-red animate-pulse`;
+  if (connection === "open") return cn(base, "bg-green");
+  if (connection === "connecting") return cn(base, "bg-amber animate-pulse");
+  return cn(base, "bg-red animate-pulse");
 }
 
 /** The three theme choices, cycled in this order. */
@@ -195,14 +195,14 @@ export function TopBar({ services, onSwitchService }: Props) {
         </span>
       </Button>
 
-      {/* Trace group toggle — binary on/off → Toggle (built-in aria-pressed +
-          data-state; neutral data-[state=on] pressed fill from the variant). */}
+      {/* Trace group toggle — binary on/off → Toggle (Radix-managed
+          aria-pressed; visible accent-soft pressed fill via iconToggleClass). */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Toggle
             size="sm"
             pressed={traceGroupOn}
-            onPressedChange={() => toggleTraceGroup()}
+            onPressedChange={toggleTraceGroup}
             className={iconToggleClass}
             aria-label="Group by trace"
           >
