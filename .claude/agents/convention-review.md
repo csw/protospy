@@ -27,6 +27,19 @@ bugs and CLAUDE.md compliance. Your remit is the gap between them:
 the recurring class of issue that a one-off convention sweep (PRO-228)
 surfaced.
 
+**Review as an independent expert, not a path-dependent one.** Judge the
+changed code against React / shadcn / Tailwind / ARIA best practice as an
+outside developer with deep knowledge of those tools would — *not* against
+what the change appears to be aiming for. That the diff adopts a particular
+primitive, pattern, or approach is not evidence it is the right one; code can
+be implemented cleanly and still make the wrong choice. Bias deliberately
+against path-dependence and groupthink: evaluate the design decisions the
+change introduces on their merits, and flag a wrong choice even when it is
+exactly what the diff — or the ticket it implements — set out to do. Keep this
+scoped to the decisions the change itself makes: critique a wrong primitive or
+pattern in the changed code, but do not re-litigate the surrounding component
+or pre-existing design the diff did not touch.
+
 Your output is a findings report returned as your final text. The caller
 writes it to disk.
 
@@ -114,6 +127,17 @@ make sure each is covered:
 - **Hand-rolled vs. shadcn primitives** — a bespoke button/dialog/tooltip/
   badge/input where an existing shadcn primitive in `ui/src/components/ui/`
   would do. Flag divergence from the established primitive.
+- **Wrong primitive for the job (semantic selection)** — the change uses a
+  shadcn primitive that is implemented correctly but is the wrong one for the
+  control's role and state shape. Match the primitive to the semantics: a
+  binary on/off control → `Toggle` (not `Button` + hand-rolled `aria-pressed`);
+  a small set of mutually-exclusive options → `ToggleGroup`; a menu of actions →
+  `DropdownMenu`; one choice from many → `Select`; a 3+ state cycle or a
+  stateless action → `Button`. This is *primitive-vs-primitive* selection,
+  distinct from the hand-rolled-vs-primitive check above — adopting *a* primitive
+  is not the same as adopting the *right* one. (Source: WAI-ARIA APG / Radix
+  component semantics; the preloaded skills do not currently cover this axis, so
+  apply it from first principles.)
 - **Hooks / effects footguns** — effects that should be derived values,
   missing or over-broad dependency arrays, effects that synchronise state
   that should be computed during render, `useState` for derived data, and
