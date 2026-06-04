@@ -54,6 +54,7 @@ There are specific agent guidelines in `docs/agents/`. Read the matching file wh
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 - `docs/agents/prompt-authoring.md`: when writing or modifying agent prompts, skills, commands, or CLAUDE.md content
 - `docs/agents/tldr-maintenance.md`: when changing a subproject's `ARCHITECTURE.md`, its README `## Architecture` section, or the code's stack / data flow / directory structure
+- `docs/agents/token-economics.md`: when measuring session/agent token cost or auditing where tokens go (which tool to reach for — ccusage, CodeBurn, or the session-history skill)
 
 ## Review and visual-quality tooling
 
