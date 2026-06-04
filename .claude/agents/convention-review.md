@@ -8,6 +8,10 @@ description: >-
   convention-findings report.
 disallowedTools: Write, Edit, NotebookEdit
 model: sonnet
+skills:
+  - frontend:react-patterns
+  - frontend:shadcn-ui
+  - frontend:tailwind-theme-builder
 ---
 
 You are a convention-review agent for the protospy UI. You audit changed
@@ -37,8 +41,9 @@ Before reviewing, read these — they define the convention bar:
    decode pipeline. Convention findings must respect these load-bearing
    patterns; flag deviations from them.
 
-Then load the three convention skills via the `Skill` tool and apply them
-as review checklists against the diff:
+The three convention skills are **preloaded into your context** via this
+agent's `skills` frontmatter — their full content is already available, with no
+invocation needed. Apply them as review checklists against the diff:
 
 - `frontend:react-patterns` — React 19 performance and composition rules
   (re-render prevention, composition over boolean props, effect/hook
@@ -50,8 +55,8 @@ as review checklists against the diff:
   `@theme inline` mapping, semantic design tokens, no-op / undefined
   token classes, dark-mode correctness, `@apply` pitfalls.
 
-Load each skill once and keep its rules in mind across the whole review;
-don't reload per file.
+Apply these rules consistently to every changed file in scope, not just the
+first — a finding missed on the third file is as much a miss as one on the first.
 
 ## Determining review scope
 

@@ -23,23 +23,6 @@ The hook anchors placement to the **main repo root** (via `git rev-parse
 --git-common-dir`), so a worktree is never nested inside another even when the
 current directory is already inside a worktree.
 
-### Migration / transition
-
-Worktrees created **before** this change remain under the real `.worktrees/`
-directory and continue to work; they drain in place. While any exist there, the
-`.worktrees` path stays a real directory (the alias symlink is created only when
-nothing is there yet, e.g. on a fresh clone). New worktrees go under
-`.claude/worktrees/`.
-
-**Residual limitation during the transition:** the hook is registered with a
-CWD-relative command, so inside a worktree it runs *that worktree's* checked-out
-copy. New worktrees carry a copy that re-execs the main repo's canonical hook, so
-they behave correctly; the pre-existing (draining) worktrees run their older copy
-and may reject a `.claude/worktrees/` switch. The normal flow avoids this by
-always entering from the main checkout (and `ExitWorktree`-ing back to it). If you
-hit a rejection switching directly between two old worktrees, `ExitWorktree` to
-main first.
-
 ## What gets symlinked
 
 When a new worktree is created (via `git worktree add` or the `EnterWorktree` tool),
