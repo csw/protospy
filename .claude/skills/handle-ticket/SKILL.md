@@ -414,8 +414,10 @@ When the user is satisfied and there is nothing left to act on:
    > **Claude agent (handle-ticket)**
    >
    > _What changed_ — a short description of the work, linking the PR.
+   >
    > _Key decisions and findings_ — what you decided and why; anything you
    > discovered that bears on the work.
+   >
    > _Spillover_ — anything that affects or belongs to another ticket (name the
    > `PRO-NNN`), so a human sees it here rather than only in the transcript.
 
