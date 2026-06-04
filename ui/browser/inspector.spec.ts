@@ -472,15 +472,20 @@ test.describe("Inspector — Headers filter and pinning", () => {
 
     const panel = reqPanel(page);
 
-    // Decoded string not visible initially
-    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    const decodeToggle = panel.getByLabel("Toggle decoded Basic auth value");
 
-    // Click decode
-    await panel.getByLabel("Show decoded Basic auth value").click();
+    // Decoded string not visible initially; toggle reads as off
+    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    await expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
+
+    // Press to decode
+    await decodeToggle.click();
     await expect(panel.getByText("user:pass")).toBeVisible();
+    await expect(decodeToggle).toHaveAttribute("aria-pressed", "true");
 
-    // Click hide
-    await panel.getByLabel("Hide decoded value").click();
+    // Press again to hide
+    await decodeToggle.click();
     await expect(panel.getByText("user:pass")).not.toBeVisible();
+    await expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
   });
 });

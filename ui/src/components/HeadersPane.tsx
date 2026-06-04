@@ -8,6 +8,7 @@ import {
   sortHeadersByPin,
 } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
+import { Toggle } from "@ui/components/ui/toggle";
 import { EmptyState } from "./ui/EmptyState";
 
 interface HeadersPaneProps {
@@ -126,23 +127,26 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                           <span className="[font-variant-ligatures:none]">
                             {displayValue}
                           </span>
-                          {/* Basic auth decode toggle */}
+                          {/* Basic auth decode toggle — binary on/off, so a
+                              Toggle: it supplies aria-pressed + data-[state=on]
+                              from the primitive. The Toggle variant has no
+                              bg-accent, so unlike the ghost Button controls it
+                              needs no hover override; its data-[state=on]:bg-bg-pane
+                              gives a subtle (non-blue) pressed fill in both themes.
+                              The label stays constant per the APG toggle-button
+                              rule; the visible "decode"/"hide" text and the
+                              revealed credential convey the state to sighted users. */}
                           {decoded !== null && (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() =>
-                                setDecodedRow(isDecoded ? null : origIdx)
+                            <Toggle
+                              pressed={isDecoded}
+                              onPressedChange={(pressed) =>
+                                setDecodedRow(pressed ? origIdx : null)
                               }
-                              className="ml-2 inline-flex h-auto rounded bg-transparent px-1 py-px align-baseline text-[10px] font-normal text-dim shadow-none hover:bg-transparent hover:text-ink dark:bg-transparent dark:hover:bg-transparent"
-                              aria-label={
-                                isDecoded
-                                  ? "Hide decoded value"
-                                  : "Show decoded Basic auth value"
-                              }
+                              className="ml-2 inline-flex h-auto min-w-0 rounded px-1 py-px align-baseline text-[10px] font-normal"
+                              aria-label="Toggle decoded Basic auth value"
                             >
                               {isDecoded ? "hide" : "decode"}
-                            </Button>
+                            </Toggle>
                           )}
                           {/* Decoded credential */}
                           {isDecoded && decoded !== null && (

@@ -162,7 +162,7 @@ describe("HeadersPane — authorization masking", () => {
     const headers = [{ name: "authorization", value: "Bearer mytoken" }];
     render(<HeadersPane headers={headers} emptyMessage="none" />);
     expect(
-      screen.queryByLabelText("Show decoded Basic auth value"),
+      screen.queryByLabelText("Toggle decoded Basic auth value"),
     ).not.toBeInTheDocument();
   });
 });
@@ -197,40 +197,77 @@ describe("HeadersPane — Basic auth decode toggle", () => {
   // "user:pass" → base64 = "dXNlcjpwYXNz"
   const basicHeaders = [{ name: "authorization", value: "Basic dXNlcjpwYXNz" }];
 
-  it("shows a decode button for Basic auth headers", () => {
+  it("shows a decode toggle for Basic auth headers", () => {
     render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
     expect(
-      screen.getByLabelText("Show decoded Basic auth value"),
+      screen.getByLabelText("Toggle decoded Basic auth value"),
     ).toBeInTheDocument();
   });
 
-  it("decode toggle is a Button primitive with a visible focus ring", () => {
+  it("decode control is a Toggle primitive with a visible focus ring", () => {
     render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
-    const decodeBtn = screen.getByLabelText("Show decoded Basic auth value");
-    expect(decodeBtn).toHaveAttribute("data-slot", "button");
-    expect(decodeBtn.className).toContain("focus-visible:ring-ring/50");
+    const decodeToggle = screen.getByLabelText(
+      "Toggle decoded Basic auth value",
+    );
+    expect(decodeToggle).toHaveAttribute("data-slot", "toggle");
+    expect(decodeToggle.className).toContain("focus-visible:ring-ring");
   });
 
-  it("reveals decoded credential when decode button is clicked", () => {
+  it("exposes pressed state via aria-pressed / data-state and toggles it", () => {
+    render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
+    const decodeToggle = screen.getByLabelText(
+      "Toggle decoded Basic auth value",
+    );
+    // Off at rest
+    expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
+    expect(decodeToggle).toHaveAttribute("data-state", "off");
+    expect(decodeToggle).toHaveTextContent("decode");
+
+    // On after pressing
+    fireEvent.click(decodeToggle);
+    expect(decodeToggle).toHaveAttribute("aria-pressed", "true");
+    expect(decodeToggle).toHaveAttribute("data-state", "on");
+    expect(decodeToggle).toHaveTextContent("hide");
+
+    // Off again
+    fireEvent.click(decodeToggle);
+    expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
+    expect(decodeToggle).toHaveAttribute("data-state", "off");
+  });
+
+  it("keeps a constant accessible name across pressed states (APG toggle rule)", () => {
+    render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
+    const decodeToggle = screen.getByLabelText(
+      "Toggle decoded Basic auth value",
+    );
+    fireEvent.click(decodeToggle);
+    // Same accessible name still resolves the same element while pressed.
+    expect(screen.getByLabelText("Toggle decoded Basic auth value")).toBe(
+      decodeToggle,
+    );
+  });
+
+  it("reveals decoded credential when decode toggle is pressed", () => {
     render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
     expect(screen.queryByText("user:pass")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    fireEvent.click(screen.getByLabelText("Toggle decoded Basic auth value"));
     expect(screen.getByText("user:pass")).toBeInTheDocument();
   });
 
-  it("hides decoded credential when clicked again", () => {
+  it("hides decoded credential when toggled off", () => {
     render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
-    const decodeBtn = screen.getByLabelText("Show decoded Basic auth value");
-    fireEvent.click(decodeBtn);
+    const decodeToggle = screen.getByLabelText(
+      "Toggle decoded Basic auth value",
+    );
+    fireEvent.click(decodeToggle);
     expect(screen.getByText("user:pass")).toBeInTheDocument();
-    // Now the button label changes to "Hide decoded value"
-    fireEvent.click(screen.getByLabelText("Hide decoded value"));
+    fireEvent.click(decodeToggle);
     expect(screen.queryByText("user:pass")).not.toBeInTheDocument();
   });
 
   it("copy button still copies the real (unmasked) value while decoded is shown", () => {
     render(<HeadersPane headers={basicHeaders} emptyMessage="none" />);
-    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    fireEvent.click(screen.getByLabelText("Toggle decoded Basic auth value"));
     fireEvent.click(screen.getByLabelText("Copy authorization value"));
     expect(mockWriteText).toHaveBeenCalledWith("Basic dXNlcjpwYXNz");
   });
@@ -245,7 +282,7 @@ describe("HeadersPane — Basic auth decode toggle", () => {
     render(<HeadersPane headers={headers} emptyMessage="none" />);
 
     // Decode authorization
-    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    fireEvent.click(screen.getByLabelText("Toggle decoded Basic auth value"));
     expect(screen.getByText("user:pass")).toBeInTheDocument();
 
     // Change filter so only authorization is visible — decoded should persist
