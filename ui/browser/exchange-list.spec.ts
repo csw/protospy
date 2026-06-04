@@ -251,14 +251,19 @@ test.describe("Exchange list — table mode", () => {
       makeResponse(1, "200 OK"),
     ]);
 
+    // Scope to direct children: the SIZE data cell nests a <span> for the
+    // encoding tag, so an unscoped "span" locator would miscount on encoded
+    // responses. ":scope > span" pins to the six grid-track cells.
     const headerCells = page
       .getByTestId("exchange-table-header")
-      .locator("span");
+      .locator(":scope > span");
     const rowCells = page
       .locator("button[role='option']")
       .first()
-      .locator("span");
+      .locator(":scope > span");
     await expect(rowCells.first()).toBeVisible();
+    await expect(headerCells).toHaveCount(6);
+    await expect(rowCells).toHaveCount(6);
 
     const headerLefts = await headerCells.evaluateAll((els) =>
       els.map((el) => Math.round(el.getBoundingClientRect().left)),

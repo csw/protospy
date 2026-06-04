@@ -311,6 +311,11 @@ export function ExchangeList() {
   // render, so including it would fire the effect on every render.
   // The `scrolledToRef` guard prevents redundant scrolls when the
   // same selectedId persists across re-renders.
+  //
+  // `virtualizer` is listed: useVirtualizer holds the instance in
+  // useState (created once, `setOptions` on later renders), so its
+  // identity is stable — including it satisfies exhaustive-deps without
+  // re-running the effect on every render.
   useEffect(() => {
     if (selectedId == null) {
       scrolledToRef.current = null;
@@ -331,7 +336,7 @@ export function ExchangeList() {
       virtualizer.scrollToIndex(idx, { align: "auto" });
     });
     return () => cancelAnimationFrame(handle);
-  }, [selectedId, order, filter, traceFilter, listMode]);
+  }, [selectedId, order, filter, traceFilter, listMode, virtualizer]);
 
   // j/k/↑/↓ keyboard navigation over the filtered+ordered list
   useEffect(() => {
@@ -466,40 +471,26 @@ export function ExchangeList() {
             )}
             style={{ gridTemplateColumns: TABLE_COLUMNS }}
           >
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
-              title="Method"
-            >
+            {/* Labels are sized to fit their tracks (see TABLE_COLUMNS) and
+                test 2.6 asserts zero overflow, so no `title` fallback is
+                needed — `truncate` only guards against a future regression,
+                which CI would catch rather than silently clip on screen. */}
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Method
             </span>
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
-              title="Status"
-            >
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Status
             </span>
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
-              title="Path"
-            >
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Path
             </span>
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
-              title="Time"
-            >
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Time
             </span>
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
-              title="Size"
-            >
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Size
             </span>
-            <span
-              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
-              title="When"
-            >
+            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               When
             </span>
           </div>
