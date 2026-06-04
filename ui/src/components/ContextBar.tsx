@@ -205,7 +205,12 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           className="flex items-center gap-1 border border-border rounded-full px-2 h-5 shrink-0"
           style={{ borderColor: traceColor(traceId) }}
         >
-          {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only */}
+          {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only.
+              Classified as a fire-once action, not a binary Toggle (PRO-294): it
+              only *sets* the trace filter (never toggles it off) and carries no
+              persistent pressed state — the filter is cleared from a separate
+              control (FilterBar's "Clear trace filter" chip). So `Button`, not
+              `Toggle`, is the correct primitive. */}
           <SimpleTooltip content="Filter by trace">
             {/* size="xs" (not icon-xs): this is a swatch + text pill, not an
                 icon button. Override only what differs from the variant —
