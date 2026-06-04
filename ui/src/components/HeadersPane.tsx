@@ -142,8 +142,8 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                               onPressedChange={(pressed) =>
                                 setDecodedRow(pressed ? origIdx : null)
                               }
-                              className="ml-2 inline-flex h-auto min-w-0 rounded px-1 py-px align-baseline text-[10px] font-normal"
-                              aria-label="Toggle decoded Basic auth value"
+                              className="ml-2 h-auto min-w-0 rounded px-1 py-px align-baseline text-[10px] font-normal"
+                              aria-label="Decode Basic auth value"
                             >
                               {isDecoded ? "hide" : "decode"}
                             </Toggle>

@@ -472,7 +472,7 @@ test.describe("Inspector — Headers filter and pinning", () => {
 
     const panel = reqPanel(page);
 
-    const decodeToggle = panel.getByLabel("Toggle decoded Basic auth value");
+    const decodeToggle = panel.getByLabel("Decode Basic auth value");
 
     // Decoded string not visible initially; toggle reads as off
     await expect(panel.getByText("user:pass")).not.toBeVisible();
