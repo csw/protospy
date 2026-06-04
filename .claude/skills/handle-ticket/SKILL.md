@@ -404,5 +404,25 @@ Repeat the round as many times as the review surfaces things worth fixing.
 
 ### Close out (when nothing is left to act on)
 
-When the user is satisfied and there is nothing left to act on, call
-`ExitWorktree` to return to the main checkout.
+When the user is satisfied and there is nothing left to act on:
+
+1. **Post a summary comment to the ticket.** This is the durable record of the
+   run, required on completion (`docs/agents/linear.md`, "Post a summary comment
+   when you finish"). Write a concise summary of $ticket's work and fold it into
+   a Linear comment:
+
+   > **Claude agent (handle-ticket)**
+   >
+   > _What changed_ — a short description of the work, linking the PR.
+   > _Key decisions and findings_ — what you decided and why; anything you
+   > discovered that bears on the work.
+   > _Spillover_ — anything that affects or belongs to another ticket (name the
+   > `PRO-NNN`), so a human sees it here rather than only in the transcript.
+
+   Mirror the end-of-work summary you'd report in-session — include what a
+   reader needs to understand the run without replaying the transcript, and no
+   more. Post it with the agent-header above via
+   `linear issue comment add $ticket --body-file <path>` (write the body with
+   the Write tool first; `--body-file` is preferred for markdown). Skip only for
+   trivial mechanical changes (use judgment); when in doubt, post one.
+2. Call `ExitWorktree` to return to the main checkout.

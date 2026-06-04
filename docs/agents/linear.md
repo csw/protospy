@@ -65,6 +65,45 @@ use:
 The header is **not** for fields where it doesn't belong — titles, labels, and
 state changes carry no header.
 
+## Post a summary comment when you finish
+
+The section above governs *how* you write in Linear; this one makes one such
+write an *obligation*. **On finishing a ticket, you must post a concise summary
+of your work and findings as a comment on that ticket** — agent-header prefixed,
+mirroring the end-of-work summary you report in-session. Without it, a ticket's
+narrative lives only in the session transcript and (for code) the PR; for
+fire-and-forget runs that means the ticket itself records nothing about what was
+investigated or decided. The comment makes the ticket self-documenting and
+durable, and is where a cross-ticket finding will actually be seen by a human.
+
+**When this obligation fires:**
+
+- **Ticket completion** — you finished the work the ticket called for (e.g. the
+  PR is up and reviewed). This is the primary trigger.
+- **A meaningful research or spike deliverable** — you reached a result worth
+  recording, even if no code shipped.
+
+**What the summary should contain** — e.g.:
+
+- *What changed* — a short description of the work, linked to the PR where one
+  exists.
+- *Key decisions and findings* — what you decided and why, and anything you
+  discovered that bears on the work.
+- *Spillover* — anything that affects or belongs to another ticket (name the
+  `PRO-NNN`), so it surfaces where a human will see it rather than only in the
+  transcript. The `--color-accent` token collision surfaced during PRO-292 is
+  the kind of cross-ticket finding this is meant to capture.
+
+These are illustrative, not a fixed template — include what a reader would need
+to understand the run without replaying the transcript, and no more.
+
+**When to skip:** trivial mechanical changes (a typo fix, a one-line config
+bump) don't warrant a summary comment — use judgment. When genuinely in doubt,
+post one; a short summary is cheap and the ticket history is the durable record.
+
+Post it with the same mechanism and agent-header as above — preferably
+`linear issue comment add PRO-NNN --body-file …` for markdown bodies.
+
 ## Branch naming
 
 When creating a branch or worktree for a Linear issue, **start from the branch name Linear suggests**, then truncate if needed:
