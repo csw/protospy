@@ -36,14 +36,7 @@ Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs
 
 ## Documentation
 
-**Consult documentation before reasoning from first principles.** Use Context7 or a web search to look up:
-
-- How to use a tool, library, or API — before reading source, before trial-and-error
-- The conventional approach to a common problem — before designing a solution
-
-Many problems you encounter are standard: dark mode persistence, form validation, auth flows, state hydration, error boundaries. Millions of applications have solved them with the same tools you're using. When you recognize a problem as standard, your first move is to look up how it's conventionally done — not to reason about it from your training data, which may be wrong or outdated.
-
-**The test:** if you're about to propose an approach and you haven't consulted any external source, stop. If the problem involves a well-known library doing a well-known thing, look it up first. Your confidence that you know the answer is not evidence that you do.
+**You must consult documentation before reasoning from first principles** — via Context7 or web search — both for how to use any tool, library, or API (before reading source or trial-and-error) and for the conventional approach to a common problem (before designing your own). Many problems are standard — e.g. dark mode persistence, form validation, auth flows, state hydration, error boundaries — and solved the same way across millions of apps; look up the conventional solution rather than reconstructing it from training data, which may be outdated. Before proposing any approach that involves a well-known library doing a well-known thing, look it up first: your confidence that you know the answer is not evidence that you do.
 
 ## Specific guidelines
 
@@ -60,6 +53,7 @@ There are specific agent guidelines in `docs/agents/`. Read the matching file wh
 - `docs/agents/quality-gates.md`: how the two-layer commit-time gates work (pre-commit framework + Claude hook)
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 - `docs/agents/prompt-authoring.md`: when writing or modifying agent prompts, skills, commands, or CLAUDE.md content
+- `docs/agents/tldr-maintenance.md`: when changing a subproject's `ARCHITECTURE.md`, its README `## Architecture` section, or the code's stack / data flow / directory structure
 
 ## Review and visual-quality tooling
 
@@ -92,24 +86,17 @@ Worktrees go in `.claude/worktrees/` at the project root — the location the `E
 
 When a worktree is created, a `post-checkout` hook automatically symlinks non-version-controlled Claude config (skills, hooks, agents, `settings.local.json`, `CLAUDE.local.md`) from the main repo into the worktree. **Do not manually copy or recreate these files in a worktree.** See `docs/agents/worktrees.md` for details.
 
-## File creation
+## Reading and writing files
 
-Use the Write tool to create files and the Edit tool to modify them. Do not use shell constructs like `cat >
-path << 'EOF'`, `echo "..." > path`, or other Bash-based file writing. These create complex compound commands
-that trigger permission prompts because the shell syntax can't be statically verified. The Write and Edit
-tools exist for this purpose and don't have that problem.
+Create files with the Write tool and modify them with the Edit tool. Do not write files via shell (`cat > path << 'EOF'`, `echo "..." > path`, etc.) — the unverifiable compound shell syntax triggers permission prompts that Write/Edit avoid.
+
+Read files with the Read tool, not `cat`/`head`/`sed`: Read registers the file with the harness (Edit requires a prior Read of that file — a `cat`-then-Edit fails), numbers lines for clickable `file:line` references and exact Edit matches, and truncates large files safely. Reach for shell text tools only when you are *transforming* rather than viewing — piping a file into `grep`/`jq`, or scanning across many files in one command.
 
 ## Delegating noisy investigation to subagents
 
-Repetitive, high-output investigation steps with low long-term value should be delegated to a subagent on a smaller model (e.g. Haiku) rather than run inline. Pulling raw `ps`/`lsof`/`netstat`/`grep`/log-tail output into the primary context burns the window fast and rarely retains anything worth keeping a turn later.
+Delegate repetitive, high-output investigation to a subagent on a smaller model (e.g. Haiku) rather than running it inline — the underlying principle is that raw `ps`/`lsof`/`netstat`/`grep`/log-tail output burns the primary context window and rarely retains value a turn later, so only the conclusion needs to come back. This covers, for example: port/process/PID lookups; sweeping logs or large outputs for a needle; repeated probing where only the result matters; any loop running the same family of commands more than twice.
 
-Delegate when the work looks like:
-- "Which process is listening on port X?" — port/process/PID lookups
-- Sweeping logs, journals, or large command outputs for a needle
-- Repeated probing (try a command, inspect output, try another) where only the conclusion matters
-- Any loop where you find yourself running the same family of commands more than twice
-
-Brief the subagent with the specific question and ask it to report only the answer (e.g. "report the PID and command, under 50 words"). Keep inline only the steps whose full output you genuinely need to see.
+Brief the subagent with the specific question and have it report only the answer (e.g. "report the PID and command, under 50 words"). Keep inline only the steps whose full output you genuinely need to see.
 
 ## Code Quality Requirements
 

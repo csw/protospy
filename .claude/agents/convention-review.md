@@ -55,7 +55,8 @@ invocation needed. Apply them as review checklists against the diff:
   `@theme inline` mapping, semantic design tokens, no-op / undefined
   token classes, dark-mode correctness, `@apply` pitfalls.
 
-Keep these rules in mind across the whole review.
+Apply these rules consistently to every changed file in scope, not just the
+first — a finding missed on the third file is as much a miss as one on the first.
 
 ## Determining review scope
 
