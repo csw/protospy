@@ -285,7 +285,7 @@ test.describe("ContextBar — focus ring fidelity", () => {
       await page.keyboard.press("Tab");
     }
 
-    // Tailwind ring-1 ring-ring renders as a box-shadow
+    // Button's focus ring (focus-visible:ring-[3px] ring-ring/50) renders as a box-shadow
     const shadow = await filterBtn.evaluate(
       (el) => getComputedStyle(el).boxShadow,
     );
@@ -308,6 +308,96 @@ test.describe("ContextBar — focus ring fidelity", () => {
     await expect(jaegerBtn).toBeVisible();
     await expect(jaegerBtn).toBeDisabled();
   });
+});
+
+// ---------------------------------------------------------------------------
+// 3c. Hover background fidelity (PRO-294)
+// ---------------------------------------------------------------------------
+//
+// The shadcn `ghost` Button variant hovers to `bg-accent`, which in this
+// project resolves to the brand blue (`--color-accent` = #2563eb / #60a5fa).
+// The original hand-rolled controls had no hover background, so the active
+// icon buttons override it with `hover:bg-bg-hover` (a near-transparent
+// neutral) and the disabled Jaeger placeholder suppresses it with
+// `hover:bg-transparent`. These tests lock in that the blue accent hover does
+// not return.
+
+test.describe("ContextBar — hover background fidelity", () => {
+  // Resolve a CSS color string through getComputedStyle so it is normalized to
+  // the same form the browser reports for a rendered element's backgroundColor.
+  async function normalizeColor(
+    page: import("@playwright/test").Page,
+    value: string,
+  ): Promise<string> {
+    return page.evaluate((raw) => {
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = raw;
+      document.body.appendChild(probe);
+      const normalized = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return normalized;
+    }, value);
+  }
+
+  // Run in both themes: the ghost variant sets a separate `dark:hover:bg-accent/50`,
+  // so a light-only check would miss a dark-mode blue-flash regression.
+  for (const theme of ["light", "dark"] as const) {
+    test(`3c.1 active icon button hovers to the neutral token, not accent blue (${theme})`, async ({
+      page,
+    }) => {
+      await page.evaluate((t) => {
+        document.documentElement.setAttribute("data-theme", t);
+      }, theme);
+
+      const traceId = "abcdef1234567890abcdef1234567890";
+      await injectExchanges(page, [
+        makeRequestWithTrace(1, traceId, "/api/traced"),
+        makeResponse(1, "200 OK"),
+      ]);
+
+      await page.getByText("/api/traced").first().click();
+
+      // Copy-trace is an always-enabled ghost icon button carrying
+      // `hover:bg-bg-hover` — order-independent, unlike prev/next.
+      const copyBtn = page.getByLabel("Copy trace ID");
+      await expect(copyBtn).toBeEnabled();
+      await copyBtn.hover();
+
+      // Both tokens are theme-aware, so resolve them after setting the theme.
+      const expectedNeutral = await normalizeColor(
+        page,
+        await page.evaluate(() =>
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--color-bg-hover")
+            .trim(),
+        ),
+      );
+      const accent = await normalizeColor(
+        page,
+        await page.evaluate(() =>
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--color-accent")
+            .trim(),
+        ),
+      );
+
+      // The control carries `transition-all`, so background-color animates over
+      // ~150ms — poll until it settles rather than reading mid-transition.
+      // Positive: the settled hover background is the `--color-bg-hover` neutral
+      // token — and therefore not the brand-blue accent the ghost variant applies.
+      await expect
+        .poll(() =>
+          copyBtn.evaluate((el) => getComputedStyle(el).backgroundColor),
+        )
+        .toBe(expectedNeutral);
+      expect(expectedNeutral).not.toBe(accent);
+    });
+  }
+
+  // The disabled Jaeger placeholder's hover suppression (`hover:bg-transparent`)
+  // is covered by a component-level class assertion in ContextBar.test.tsx:
+  // a live :hover check can't reliably distinguish "stayed transparent" from
+  // "transition not yet started", and this suite avoids fixed timeouts.
 });
 
 // ---------------------------------------------------------------------------

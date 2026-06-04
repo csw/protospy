@@ -9,6 +9,7 @@ import {
   statusTextClass,
   traceColor,
 } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
 import { MethodBadge } from "./ui/MethodBadge";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 
@@ -89,26 +90,40 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       )}
     >
       {/* Prev/Next navigation */}
+      {/* Note: the `rounded` (4px) on these icon Buttons intentionally
+          overrides icon-xs's `rounded-md` (6px) to match the control spec;
+          `disabled:pointer-events-auto` re-enables hover so the tooltip still
+          shows on disabled controls (Button's base sets pointer-events-none).
+          `hover:bg-bg-hover dark:hover:bg-bg-hover` overrides the ghost
+          variant's `hover:bg-accent` / `dark:hover:bg-accent/50` (which resolve
+          to the brand blue here) with a neutral toolbar hover — the original
+          hand-rolled controls had no accent hover. Both light and dark must be
+          overridden; the dark hover is a separate class. The same override is
+          applied to every active icon control below. */}
       <div className="flex items-center gap-0.5 shrink-0">
         <SimpleTooltip content="Previous exchange">
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => prevId != null && setSelectedId(prevId)}
             disabled={prevId == null}
-            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            className="size-[26px] rounded text-mid hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
             aria-label="Previous exchange"
           >
-            <ChevronLeft size={16} />
-          </button>
+            <ChevronLeft className="size-4" />
+          </Button>
         </SimpleTooltip>
         <SimpleTooltip content="Next exchange">
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => nextId != null && setSelectedId(nextId)}
             disabled={nextId == null}
-            className="w-[26px] h-[26px] flex items-center justify-center rounded text-mid hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            className="size-[26px] rounded text-mid hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
             aria-label="Next exchange"
           >
-            <ChevronRight size={16} />
-          </button>
+            <ChevronRight className="size-4" />
+          </Button>
         </SimpleTooltip>
       </div>
 
@@ -142,13 +157,15 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         {/* Next matching button */}
         {nextMatchingId != null && (
           <SimpleTooltip content="Next exchange with same method + path">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setSelectedId(nextMatchingId)}
-              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer shrink-0 ml-1 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer ml-1"
               aria-label="Next matching exchange"
             >
-              <ChevronRight size={14} />
-            </button>
+              <ChevronRight className="size-3.5" />
+            </Button>
           </SimpleTooltip>
         )}
       </div>
@@ -194,11 +211,23 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           className="flex items-center gap-1 border border-border rounded-full px-2 h-5 shrink-0"
           style={{ borderColor: traceColor(traceId) }}
         >
-          {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only */}
+          {/* Clickable swatch + trace ID — "Filter by trace" tooltip here only.
+              Classified as a fire-once action, not a binary Toggle (PRO-294): it
+              only *sets* the trace filter (never toggles it off) and carries no
+              persistent pressed state — the filter is cleared from a separate
+              control (FilterBar's "Clear trace filter" chip). So `Button`, not
+              `Toggle`, is the correct primitive. */}
           <SimpleTooltip content="Filter by trace">
-            <button
+            {/* size="xs" (not icon-xs): this is a swatch + text pill, not an
+                icon button. Override only what differs from the variant —
+                content height, no padding, pill radius, no ghost hover bg
+                (suppressed in both light and dark: the ghost variant sets
+                `hover:bg-accent` and a separate `dark:hover:bg-accent/50`). */}
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={() => setTraceFilter(traceId)}
-              className="flex items-center gap-1 rounded-full cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              className="h-auto rounded-full p-0 cursor-pointer hover:bg-transparent dark:hover:bg-transparent"
               aria-label="Filter by trace"
             >
               <span
@@ -208,38 +237,51 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
               <span className="font-family-mono text-xs text-ink-2">
                 {shortTrace}
               </span>
-            </button>
+            </Button>
           </SimpleTooltip>
           {/* Copy trace ID */}
           <SimpleTooltip content="Copy trace ID">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={copyTraceId}
-              className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer"
               aria-label="Copy trace ID"
             >
-              <Copy size={12} />
-            </button>
+              <Copy className="size-3" />
+            </Button>
           </SimpleTooltip>
           {/* Open in Jaeger (placeholder) */}
           <SimpleTooltip content="Jaeger integration coming soon">
-            <button
+            {/* Disabled, but keeps pointer-events-auto so the "coming soon"
+                tooltip still shows on hover. Suppress the ghost hover bg with
+                `hover:bg-transparent` (not the neutral `hover:bg-bg-hover` the
+                active controls use) — a disabled control shouldn't present an
+                interactive hover background. (Both light and dark hover are
+                overridden — the ghost variant sets `hover:bg-accent` and a
+                separate `dark:hover:bg-accent/50`.) */}
+            <Button
+              variant="ghost"
+              size="icon-xs"
               disabled
-              className="w-4 h-4 flex items-center justify-center rounded text-dim transition-colors disabled:opacity-30 disabled:cursor-default focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              className="size-4 rounded text-dim hover:bg-transparent dark:hover:bg-transparent disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
               aria-label="Open in Jaeger"
             >
-              <ExternalLink size={12} />
-            </button>
+              <ExternalLink className="size-3" />
+            </Button>
           </SimpleTooltip>
           {/* Next in trace */}
           {nextInTraceId != null && (
             <SimpleTooltip content="Next in trace">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => setSelectedId(nextInTraceId)}
-                className="w-4 h-4 flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer"
                 aria-label="Next exchange in trace"
               >
-                <ChevronRight size={12} />
-              </button>
+                <ChevronRight className="size-3" />
+              </Button>
             </SimpleTooltip>
           )}
         </div>
