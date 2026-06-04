@@ -93,7 +93,13 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       {/* Note: the `rounded` (4px) on these icon Buttons intentionally
           overrides icon-xs's `rounded-md` (6px) to match the control spec;
           `disabled:pointer-events-auto` re-enables hover so the tooltip still
-          shows on disabled controls (Button's base sets pointer-events-none). */}
+          shows on disabled controls (Button's base sets pointer-events-none).
+          `hover:bg-bg-hover dark:hover:bg-bg-hover` overrides the ghost
+          variant's `hover:bg-accent` / `dark:hover:bg-accent/50` (which resolve
+          to the brand blue here) with a neutral toolbar hover — the original
+          hand-rolled controls had no accent hover. Both light and dark must be
+          overridden; the dark hover is a separate class. The same override is
+          applied to every active icon control below. */}
       <div className="flex items-center gap-0.5 shrink-0">
         <SimpleTooltip content="Previous exchange">
           <Button
@@ -101,7 +107,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
             size="icon-xs"
             onClick={() => prevId != null && setSelectedId(prevId)}
             disabled={prevId == null}
-            className="size-[26px] rounded text-mid hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
+            className="size-[26px] rounded text-mid hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
             aria-label="Previous exchange"
           >
             <ChevronLeft className="size-4" />
@@ -113,7 +119,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
             size="icon-xs"
             onClick={() => nextId != null && setSelectedId(nextId)}
             disabled={nextId == null}
-            className="size-[26px] rounded text-mid hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
+            className="size-[26px] rounded text-mid hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
             aria-label="Next exchange"
           >
             <ChevronRight className="size-4" />
@@ -155,7 +161,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
               variant="ghost"
               size="icon-xs"
               onClick={() => setSelectedId(nextMatchingId)}
-              className="size-4 rounded text-dim hover:text-ink cursor-pointer ml-1"
+              className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer ml-1"
               aria-label="Next matching exchange"
             >
               <ChevronRight className="size-3.5" />
@@ -214,12 +220,14 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           <SimpleTooltip content="Filter by trace">
             {/* size="xs" (not icon-xs): this is a swatch + text pill, not an
                 icon button. Override only what differs from the variant —
-                content height, no padding, pill radius, no ghost hover bg. */}
+                content height, no padding, pill radius, no ghost hover bg
+                (suppressed in both light and dark: the ghost variant sets
+                `hover:bg-accent` and a separate `dark:hover:bg-accent/50`). */}
             <Button
               variant="ghost"
               size="xs"
               onClick={() => setTraceFilter(traceId)}
-              className="h-auto rounded-full p-0 cursor-pointer hover:bg-transparent"
+              className="h-auto rounded-full p-0 cursor-pointer hover:bg-transparent dark:hover:bg-transparent"
               aria-label="Filter by trace"
             >
               <span
@@ -237,7 +245,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
               variant="ghost"
               size="icon-xs"
               onClick={copyTraceId}
-              className="size-4 rounded text-dim hover:text-ink cursor-pointer"
+              className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer"
               aria-label="Copy trace ID"
             >
               <Copy className="size-3" />
@@ -245,11 +253,18 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           </SimpleTooltip>
           {/* Open in Jaeger (placeholder) */}
           <SimpleTooltip content="Jaeger integration coming soon">
+            {/* Disabled, but keeps pointer-events-auto so the "coming soon"
+                tooltip still shows on hover. Suppress the ghost hover bg with
+                `hover:bg-transparent` (not the neutral `hover:bg-bg-hover` the
+                active controls use) — a disabled control shouldn't present an
+                interactive hover background. (Both light and dark hover are
+                overridden — the ghost variant sets `hover:bg-accent` and a
+                separate `dark:hover:bg-accent/50`.) */}
             <Button
               variant="ghost"
               size="icon-xs"
               disabled
-              className="size-4 rounded text-dim disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
+              className="size-4 rounded text-dim hover:bg-transparent dark:hover:bg-transparent disabled:opacity-30 disabled:pointer-events-auto disabled:cursor-default"
               aria-label="Open in Jaeger"
             >
               <ExternalLink className="size-3" />
@@ -262,7 +277,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => setSelectedId(nextInTraceId)}
-                className="size-4 rounded text-dim hover:text-ink cursor-pointer"
+                className="size-4 rounded text-dim hover:bg-bg-hover dark:hover:bg-bg-hover hover:text-ink cursor-pointer"
                 aria-label="Next exchange in trace"
               >
                 <ChevronRight className="size-3" />

@@ -83,9 +83,7 @@ describe("ContextBar — trace pill keyboard operability", () => {
   // `focus-visible:ring-1 …` boilerplate is gone — Button supplies the focus
   // ring via `focus-visible:ring-[3px] focus-visible:ring-ring/50`. These
   // tests assert the controls carry Button's focus-ring classes (proving the
-  // primitive is in use), so focus visibility is preserved. (The rendered
-  // `data-slot` is `tooltip-trigger`, not `button`, because the Radix
-  // TooltipTrigger Slot merges its own slot attribute onto the child.)
+  // primitive is in use), so focus visibility is preserved.
   const FOCUS_RING_CLASSES = [
     "focus-visible:ring-[3px]",
     "focus-visible:ring-ring/50",
@@ -118,6 +116,47 @@ describe("ContextBar — trace pill keyboard operability", () => {
       for (const cls of FOCUS_RING_CLASSES) {
         expect(btn.className).toContain(cls);
       }
+    }
+  });
+
+  // PRO-294 regression guard. The shadcn `ghost` variant hovers to `bg-accent`
+  // (light) and `dark:hover:bg-accent/50` (dark), which both resolve to the
+  // brand blue in this project. The original hand-rolled controls had no accent
+  // hover, so the active icon buttons override both with the neutral
+  // `hover:bg-bg-hover` token, and the disabled Jaeger placeholder suppresses
+  // the hover entirely. tailwind-merge drops the ghost variant's accent-hover
+  // classes once overridden, so the rendered className must carry no
+  // `bg-accent` hover at all. (The live computed-background check is in
+  // browser/context-bar.spec.ts §3c, in both themes.)
+  it("active icon buttons override the ghost accent hover with the neutral token", () => {
+    const { exchange, ordered } = setupTracedExchange();
+    render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
+
+    for (const label of [
+      "Previous exchange",
+      "Next exchange",
+      "Copy trace ID",
+    ]) {
+      const btn = screen.getByLabelText(label);
+      expect(btn.className).toContain("hover:bg-bg-hover");
+      expect(btn.className).toContain("dark:hover:bg-bg-hover");
+      expect(btn.className).not.toContain("bg-accent");
+    }
+  });
+
+  // The filter-by-trace pill and the disabled Jaeger placeholder both suppress
+  // the ghost hover entirely (`hover:bg-transparent`) rather than swapping in
+  // the neutral token — the pill is a swatch+text pill, and Jaeger is disabled.
+  // Both light and dark accent hovers must be cleared.
+  it("filter pill and Jaeger placeholder fully suppress the ghost hover background", () => {
+    const { exchange, ordered } = setupTracedExchange();
+    render(<ContextBar exchange={exchange} ordered={ordered} currentIdx={0} />);
+
+    for (const label of ["Filter by trace", "Open in Jaeger"]) {
+      const btn = screen.getByLabelText(label);
+      expect(btn.className).toContain("hover:bg-transparent");
+      expect(btn.className).toContain("dark:hover:bg-transparent");
+      expect(btn.className).not.toContain("bg-accent");
     }
   });
 });
