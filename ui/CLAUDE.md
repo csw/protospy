@@ -63,7 +63,7 @@ To generate traffic for testing UI features, use the example scripts documented 
 
 ## Code Quality Requirements
 
-Before reporting work as complete or committing, **all of the following must pass**:
+Before reporting work as complete, **all of the following must pass**:
 
 ```bash
 pnpm lint
@@ -72,10 +72,17 @@ pnpm typecheck
 pnpm test:coverage
 ```
 
-Coverage thresholds are configured in `vitest.config.ts` — see the testing section below.
+`pnpm test:coverage` (unit + component tests plus a coverage report) is your
+iterative-development feedback loop: run it after making changes to confirm they
+work and stay covered, well before you think the work is done. Coverage thresholds
+are configured in `vitest.config.ts` — see the testing section below.
 
-These checks are enforced automatically at commit time — see
-[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md).
+**Do not run `pnpm test:coverage` or `pnpm test:browser` immediately before
+`git commit`.** The pre-commit hook runs the identical suites automatically (see
+[`docs/agents/quality-gates.md`](../docs/agents/quality-gates.md)), so a manual run
+right beforehand only repeats ~30–60s of work and its token output for no extra
+signal. The commit is the gate — let the hook run the suites, then fix any failures
+it reports and re-commit.
 
 ## Definition of Done (any change affecting rendered output)
 

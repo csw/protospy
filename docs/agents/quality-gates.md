@@ -42,6 +42,15 @@ Test commands are defined in each subproject's `justfile` and invoked via
 `just <module> <recipe>` (e.g. `just ui test-browser`). This means the
 same commands used in the pre-commit hooks can be run interactively.
 
+**Don't re-run the test suites manually right before committing.** Because the
+pre-commit hook runs the full suite — `pnpm test:coverage` and `pnpm test:browser`
+for `ui/`, the pytest suites for `flix/` — on every `git commit`, running those
+same suites by hand immediately beforehand is pure duplication: it adds ~30–60s of
+wall clock and redundant test output for no extra signal. The commit is the gate;
+let the hook run them. Use `pnpm test:coverage` as an iterative feedback loop
+*while developing* (after a change, to confirm it works — before you think you're
+done), not as a final step you run just before `git commit`.
+
 ## External dependencies
 
 Two checks require external prerequisites:
