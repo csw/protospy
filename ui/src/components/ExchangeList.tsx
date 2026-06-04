@@ -8,6 +8,7 @@ import {
   Rows3,
   TableProperties,
 } from "lucide-react";
+import { Toggle } from "@ui/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
@@ -418,35 +419,40 @@ export function ExchangeList() {
         <div className="flex items-center gap-1.5 ml-auto">
           {/* Local/UTC toggle (table mode only) */}
           {listMode === "table" && (
-            <button
-              onClick={() =>
-                setTimeZone(timeZone === "local" ? "utc" : "local")
+            <Toggle
+              size="sm"
+              pressed={timeZone === "utc"}
+              onPressedChange={(pressed) =>
+                setTimeZone(pressed ? "utc" : "local")
               }
-              className={cn(
-                "h-[22px] px-1.5 flex items-center gap-1 rounded text-dim hover:text-ink transition-colors cursor-pointer font-family-mono text-[10px] uppercase tracking-wider",
-                timeZone === "utc" && "text-accent",
-              )}
-              aria-label={`Time zone: ${timeZone === "utc" ? "UTC" : "Local"}. Click to toggle.`}
+              // Constant accessible name (APG: a toggle button's label must not
+              // change with its state); the visible text and tooltip still
+              // describe the current zone.
+              aria-label="Time zone (local/UTC)"
               title={
                 timeZone === "utc"
                   ? "Showing UTC — click for local time"
                   : "Showing local time — click for UTC"
               }
+              className="gap-1 px-1.5 font-family-mono text-[10px] tracking-wider uppercase"
             >
               <Globe size={11} />
               {timeZone === "utc" ? "UTC" : "Local"}
-            </button>
+            </Toggle>
           )}
 
           {/* Order toggle */}
-          <button
-            onClick={() => setOrder(order === "newest" ? "oldest" : "newest")}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded text-dim hover:text-ink transition-colors cursor-pointer"
-            aria-label={`Sort order: ${order}. Click to toggle.`}
+          <Toggle
+            size="sm"
+            pressed={order === "oldest"}
+            onPressedChange={(pressed) =>
+              setOrder(pressed ? "oldest" : "newest")
+            }
+            aria-label="Sort order"
             title={order === "newest" ? "Newest first" : "Oldest first"}
           >
             <ArrowUpDown size={13} />
-          </button>
+          </Toggle>
 
           {/* Rows/Table toggle group */}
           <ToggleGroup
