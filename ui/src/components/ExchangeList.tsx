@@ -26,19 +26,28 @@ import { ExchangeListItem } from "./ExchangeListItem";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 
 /**
- * Grid column template for table mode. Widths are tuned so that the fixed
- * trailing columns (TIME, SIZE, WHEN) stay within the pane edge at all
- * supported widths (1280 / 1440 / 1920). PATH is the only flexible column
- * and absorbs remaining space, truncating with ellipsis.
+ * Grid column template for table mode. Each fixed track is sized to fit the
+ * wider of its uppercase header label and its worst-case data value, plus the
+ * shared `px-2` cell padding (16px) — sizing for the *data* alone (the old
+ * 54/42px METHOD/STATUS tracks) left the spelled-out header labels overflowing
+ * their cells and butting together as "METHODSTATUSPATH" (PRO-286). PATH is the
+ * only flexible column and absorbs remaining space, truncating with ellipsis.
  *
- * - METHOD (54px): fits all standard HTTP method names in mono uppercase
- * - STATUS (42px): 3-digit status code only (reason phrase via tooltip)
- * - PATH (minmax 100px, 1fr): flexible; absorbs overflow with ellipsis
- * - TIME (54px): elapsed ms (e.g. "42ms", "1204ms")
- * - SIZE (120px): accommodates dual wire/decoded + encoding tag
- * - WHEN (94px): absolute timestamp HH:MM:SS.mmm (measured 92px scrollWidth)
+ * Measured at the rendered fonts (Inter header / JetBrains Mono data):
+ * - METHOD (68px): header "Method" ≈51px (wider than "OPTIONS"/"DELETE" data)
+ * - STATUS (62px): header "Status" ≈46px (wider than "500 ✕" data)
+ * - PATH (minmax 56px, 1fr): flexible; absorbs slack, ellipsis + URI tooltip
+ * - TIME (58px): elapsed ms "1204ms" ≈42px (5-digit ms overflow via title)
+ * - SIZE (120px): dual wire/decoded + encoding tag; overflow via title tooltip
+ * - WHEN (100px): timestamp HH:MM:SS.mmm ≈84px (was 94px — only ~2px slack at
+ *   the data width, which tipped into clipping under other font hinting; the
+ *   16px margin here is robust)
+ *
+ * The fixed tracks total 408px; at the 480px table-mode pane minimum (less the
+ * trace rail and borders) PATH still keeps ≥56px, so no column is clipped out.
+ * Header and data cells share `px-2`, so labels align over their values.
  */
-const TABLE_COLUMNS = "54px 42px minmax(100px, 1fr) 54px 120px 94px";
+const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 58px 120px 100px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -113,7 +122,7 @@ function TableRow({
       </span>
       <span
         className={cn(
-          "font-family-mono text-xs px-1 truncate",
+          "font-family-mono text-xs px-2 truncate",
           exchange.error != null
             ? "text-red"
             : exchange.status != null
@@ -134,15 +143,20 @@ function TableRow({
             : "—"}
       </span>
       <SimpleTooltip content={uri}>
-        <span className="font-family-mono text-xs text-ink px-1 truncate">
+        <span className="font-family-mono text-xs text-ink px-2 truncate">
           {path}
         </span>
       </SimpleTooltip>
-      <span className="font-family-mono text-xs text-dim px-1 text-right truncate">
+      <span
+        className="font-family-mono text-xs text-dim px-2 text-right truncate"
+        title={
+          exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : undefined
+        }
+      >
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
       <span
-        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        className="font-family-mono text-xs text-dim px-2 text-right truncate"
         title={sizeTitle}
       >
         {hasDual
@@ -151,7 +165,7 @@ function TableRow({
         {resTag && <span> ({resTag})</span>}
       </span>
       <span
-        className="font-family-mono text-xs text-dim px-1 text-right truncate"
+        className="font-family-mono text-xs text-dim px-2 text-right truncate"
         title={`${absTime}${timeZone === "utc" ? " UTC" : ""}`}
       >
         {absTime}
@@ -444,25 +458,48 @@ export function ExchangeList() {
           {/* Sticky table header */}
           <div
             data-testid="exchange-table-header"
-            className="grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]"
+            className={cn(
+              "grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]",
+              // Match the 12px trace rail that offsets the rows below, so the
+              // sticky header's columns line up with the row columns.
+              hasTraces && "pl-3",
+            )}
             style={{ gridTemplateColumns: TABLE_COLUMNS }}
           >
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
+              title="Method"
+            >
               Method
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
+              title="Status"
+            >
               Status
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate"
+              title="Path"
+            >
               Path
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
+              title="Time"
+            >
               Time
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
+              title="Size"
+            >
               Size
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-1 text-right">
+            <span
+              className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate"
+              title="When"
+            >
               When
             </span>
           </div>

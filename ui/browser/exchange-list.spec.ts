@@ -208,6 +208,71 @@ test.describe("Exchange list — table mode", () => {
     await page.getByLabel("Rows mode").click();
     await expect(page.getByText("/api/preserved").first()).toBeVisible();
   });
+
+  // Regression (PRO-286): the header tracks were sized for the *data* values
+  // (GET / 200), so the spelled-out uppercase labels overflowed their cells and
+  // butted together as "METHODSTATUSPATH". Each header label must now fit within
+  // its grid track at every supported width.
+  test("2.6 header labels fit their tracks without overflow", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/items"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    const header = page.getByTestId("exchange-table-header");
+    await expect(header).toBeVisible();
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const overflows = await header.locator("span").evaluateAll((spans) =>
+        spans.map((el) => ({
+          label: el.textContent,
+          overflow: el.scrollWidth - el.clientWidth,
+        })),
+      );
+      for (const { label, overflow } of overflows) {
+        expect(overflow, `"${label}" overflows its track at ${width}px`).toBe(
+          0,
+        );
+      }
+    }
+  });
+
+  // Regression (PRO-286): the sticky header is a sibling of the rail-offset row
+  // container, so when the trace rail is present the header columns must shift by
+  // the same 12px to stay aligned with the row cells beneath them.
+  test("2.7 header columns align with row columns when trace rail present", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeRequestWithTrace(1, "a".repeat(32), "/api/traced"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    const headerCells = page
+      .getByTestId("exchange-table-header")
+      .locator("span");
+    const rowCells = page
+      .locator("button[role='option']")
+      .first()
+      .locator("span");
+    await expect(rowCells.first()).toBeVisible();
+
+    const headerLefts = await headerCells.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().left)),
+    );
+    const rowLefts = await rowCells.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().left)),
+    );
+
+    expect(headerLefts).toHaveLength(rowLefts.length);
+    headerLefts.forEach((left, i) => {
+      // Within 1px to tolerate sub-pixel rounding.
+      expect(Math.abs(left - rowLefts[i])).toBeLessThanOrEqual(1);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
