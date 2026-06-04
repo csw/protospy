@@ -111,6 +111,31 @@ until you have concrete evidence otherwise. Test failures during CI are
 almost always caused by the change, not by flaky infrastructure."
 (Directive first, explanation second.)
 
+## Preload load-bearing skills; don't rely on lazy-load triggers
+
+If an agent's core job depends on a skill, preload it via the agent's `skills:`
+frontmatter rather than relying on the skill's lazy-load trigger to fire. Skill
+trigger descriptions are tuned for *discovery* ("when adding a shadcn
+component…") — the moment a user first reaches for the skill — not for *standing
+use*, where the agent already knows it needs the skill on every task. A literal
+model reads a discovery-tuned trigger, decides "I'm not in that situation," and
+proceeds without the skill.
+
+This has bitten repeatedly: `frontend:shadcn-ui` didn't fire during routine UI
+work, so an agent hand-rolled a button instead of using the existing shadcn
+`<Button>` (PRO-281); the session-start snapshot subagent never loaded
+`linear-cli`, guessed the CLI, and returned a wrong count (PRO-290); the
+`design-review` render step was conditional, so a literal model "reviewed" from
+source without rendering (PRO-227). The fix each time was preloading via
+frontmatter — applied to `frontend-engineer`, `convention-review`, and
+`pm-helper`.
+
+The trigger: when writing or auditing an agent definition, ask of each skill the
+agent depends on — does its core job require this skill on every task, or only
+on discovery? If every task, preload it via frontmatter. Where lazy-load is
+intentional (the skill is genuinely situational), say so in a comment so a later
+audit doesn't "fix" it.
+
 ## Test instructions by imagining the most literal reading
 
 Before finalizing any instruction, ask: if the agent does exactly what
