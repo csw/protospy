@@ -205,10 +205,19 @@ runs only when the diff touches UI source.
 Spawn a general-purpose subagent. Give it this exact prompt (substitute the
 actual PR number):
 
-> /review PR #<PR-number> for $ticket
+> /review PR #<PR-number> for $ticket. In addition to the standard checks, for
+> every test added or changed in this PR, verify it exercises the real
+> production code path rather than standing in a different library, polyfill,
+> runtime, or mock for it. Flag any divergent-path test that lacks a companion
+> test on the real path (e.g. a unit test against a Node shim with no browser
+> test covering the WASM path that ships). See `docs/agents/testing.md`, "Test
+> the real production code path".
 
 This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
-the React/Tailwind/shadcn convention checklists — that's what 8b is for.
+the React/Tailwind/shadcn convention checklists — that's what 8b is for. The
+appended prod-vs-test-path check is here because "the unit tests pass" can hide
+an entirely uncovered production path (PRO-205) — a correctness gap `/review`
+won't surface unless prompted for it.
 
 ### 8b — Convention review (UI source or UI config diffs only)
 

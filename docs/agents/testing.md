@@ -8,6 +8,27 @@ For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the p
 
 **LLM visual review is a separate layer from the deterministic browser tests — they don't replace each other.** The `ui/browser/` Playwright suite (including `browser/design-tokens.spec.ts`) makes *repeatable, deterministic* assertions about rendered properties and behaviour. LLM-based **visual review** — the `visual-review` subagent and the `/design-review` skill, judged against `docs/frontend-dod.md` — assesses *holistic* visual quality across the fixture matrix (layout, hierarchy, clipping, both themes at 1280/1440/1920). Deterministic tests can't judge whether a layout "looks right," and a visual review isn't a repeatable assertion. A UI change needs both: write/extend browser tests for what you changed, and let the visual review cover the look. See the root `CLAUDE.md` "Visual design reviews" section for how the review runs.
 
+## Test the real production code path
+
+A test that exercises a *different* implementation than production looks like
+coverage but isn't. When the code under test resolves to a different library,
+polyfill, runtime, or mock in the test environment than it does in production, a
+passing unit test proves nothing about the code that actually ships.
+
+**If a test stands in a different library, polyfill, runtime, or mock for
+production behaviour, you must also add a test that exercises the real
+production code path** — typically a browser test (Playwright under
+`ui/browser/`) when the production runtime is the browser, or an equivalent
+integration test elsewhere. A unit test against the substitute is not sufficient
+on its own, and "the unit tests pass" does not discharge this obligation.
+
+The originating case: the brotli body decoder (PRO-205) ran a WASM decoder in
+the browser but a Node implementation under Vitest, so the code that runs in
+production was never executed by any test. "Tests exist and pass" was true; the
+production path was still uncovered, and the review missed it too. The
+pre-commit gate cannot catch this — it is a judgment the author and reviewer
+must make deliberately.
+
 ## Conformance tests
 
 The conformance test suite needs to be able to run against a pre-existing protospy instance, for the sake of debuggability. You can assume it will have an appropriate configuration in that case, but the test suite must not rely on starting protospy itself. (Protospy is not yet implemented, but allow for this in test suite design.)
