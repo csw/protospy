@@ -33,6 +33,26 @@ export function formatSize(bytes: number): string {
 }
 
 /**
+ * Bounded, spaced size format for the table SIZE column, which renders a single
+ * size in a fixed-width track that must never truncate. Unlike `formatSize`
+ * (which caps at MB and so grows unboundedly for large bodies, e.g.
+ * `5120.0MB`), this scales through GB/TB so the value stays at most ~3 integer
+ * digits + 1 decimal — a known maximum width (`1023.9 GB`) the column can size
+ * to. One decimal place; a space before the unit (`1.5 KB`, `58 B`, `5.0 GB`).
+ */
+export function formatSizeShort(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value.toFixed(1)} ${units[i]}`;
+}
+
+/**
  * Normalised `Content-Encoding` value for inline display next to a wire
  * size (e.g. `1.6KB (gzip)`). Returns `null` for absent or trivial
  * encodings (`identity`, empty) so callers can `&&` it inline.

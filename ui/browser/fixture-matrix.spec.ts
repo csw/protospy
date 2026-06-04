@@ -138,15 +138,26 @@ test.describe("Fixture matrix", () => {
     expectNoErrors("list-pane-resize");
   });
 
-  test("dual-size scene shows a wire/decoded size label with a tooltip", async ({
+  test("dual-size scene shows the wire size + compression marker with a tooltip", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await applyScene(page, "dual-size");
 
-    // 66 wire bytes → 58 decoded bytes, tagged (gzip).
-    await expect(page.getByText("66B/58B").first()).toBeVisible();
-    await expect(page.getByText("(gzip)").first()).toBeVisible();
+    // 66 wire bytes → 58 decoded bytes, gzip. Table mode (the default) shows
+    // the wire size inline with a compression marker; the wire/decoded
+    // breakdown lives in the cell tooltip.
+    const sizeCell = page
+      .locator("button[role='option']")
+      .first()
+      .locator(":scope > span")
+      .nth(4);
+    await expect(sizeCell.getByText("66 B")).toBeVisible();
+    await expect(sizeCell.locator("svg")).toBeVisible();
+    await expect(sizeCell).toHaveAttribute(
+      "title",
+      /66B on the wire \/ 58B after decompression \(gzip\)/,
+    );
     expectNoErrors("dual-size");
   });
 

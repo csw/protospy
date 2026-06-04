@@ -5,7 +5,13 @@ import {
   makeResponse,
   makeCompleteExchange,
   makeRequestWithTrace,
+  makeEncodedJsonResponse,
 } from "./fixtures/exchanges";
+
+// Minimal valid gzip base64 (content is irrelevant — the displayed wire size
+// comes from the byte count argument, not the payload).
+const GZIP_BASE64 =
+  "H4sIAAAAAAAAE6tWyixJzS1WsoquVspMUbIy1FHKS8xNVbJSSswpyEhUqtWBiBvBxZNSSxKVamNrAXGp+bs6AAAA";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -331,6 +337,57 @@ test.describe("Exchange list — table mode", () => {
           `${label} cell has insufficient slack at ${width}px`,
         ).toBeGreaterThanOrEqual(3);
       }
+    }
+  });
+
+  // Regression (PRO-286): the SIZE column previously rendered the dual
+  // wire/decoded size + inline "(encoding)" tag, which overflowed the fixed
+  // track. It now shows a single bounded value + a compression marker icon,
+  // with the breakdown in the tooltip — and must never truncate, even for a
+  // large size.
+  test("2.9 SIZE column shows a bounded value + marker and never truncates", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/big"),
+      // ~4.8 MB on the wire, gzip-encoded.
+      makeEncodedJsonResponse(1, GZIP_BASE64, 5_000_000, "gzip"),
+    ]);
+
+    const row = page.locator("button[role='option']").first();
+    await expect(row).toBeVisible();
+    const sizeCell = row.locator(":scope > span").nth(4);
+
+    // Compression marker icon + tooltip with the encoding detail.
+    await expect(sizeCell.locator("svg")).toBeVisible();
+    await expect(sizeCell).toHaveAttribute("title", /gzip/);
+
+    // The bounded value text (e.g. "4.8 MB") renders in full.
+    const sizeText = sizeCell.locator(":scope > span");
+    await expect(sizeText).toHaveText(/^\d+(\.\d+)? [KMGT]?B$/);
+
+    // The whole cell content (marker icon + gap + value) must fit the track's
+    // content box with real slack. Measure the union of the cell's contents via
+    // a Range (intrinsic width, unaffected by the inner `truncate`) against the
+    // cell's content box — the inner value span shrink-wraps its text, so
+    // measuring slack on it alone would always read ~0.
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const slack = await sizeCell.evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const contentWidth = range.getBoundingClientRect().width;
+        const cs = getComputedStyle(el);
+        const box =
+          el.clientWidth -
+          parseFloat(cs.paddingLeft) -
+          parseFloat(cs.paddingRight);
+        return box - contentWidth;
+      });
+      expect(
+        slack,
+        `SIZE cell content clipped at ${width}px`,
+      ).toBeGreaterThanOrEqual(3);
     }
   });
 });

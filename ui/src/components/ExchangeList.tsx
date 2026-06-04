@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
+  FileArchive,
   Globe,
   Layers,
   Rows3,
@@ -14,6 +15,7 @@ import {
   cn,
   formatAbsoluteTime,
   formatSize,
+  formatSizeShort,
   matchesFilter,
   methodTextClass,
   shortEncoding,
@@ -36,9 +38,10 @@ import { SimpleTooltip } from "./ui/SimpleTooltip";
  *
  * Column order is METHOD · STATUS · PATH · ELAPSED · SIZE · TIME. ELAPSED is
  * the request→response duration (`elapsedMs`); TIME is the absolute wall-clock
- * timestamp. Both are sized so their content never truncates (per the column's
- * own requirement) — only SIZE may truncate, and it carries an additive tooltip
- * (wire/decoded/encoding) that ELAPSED and TIME don't need.
+ * timestamp. Every fixed column is sized so its content never truncates — SIZE
+ * shows a single bounded value (`formatSizeShort`) plus a compression marker,
+ * with the wire/decoded/encoding detail moved to a tooltip (it used to render
+ * the dual `wire/decoded (encoding)` inline, which is what overflowed).
  *
  * Measured at the rendered fonts (Inter header / JetBrains Mono data):
  * - METHOD (68px): header "Method" ≈51px (wider than "OPTIONS"/"DELETE" data)
@@ -46,17 +49,18 @@ import { SimpleTooltip } from "./ui/SimpleTooltip";
  * - PATH (minmax 56px, 1fr): flexible; absorbs slack, ellipsis + URI tooltip
  * - ELAPSED (72px): header "Elapsed" ≈52px; content area 56px fits up to a
  *   6-digit ms value ("120000ms" ≈56px) — no truncation for realistic latency
- * - SIZE (96px): single "1.2 KB (gz)" ≈77px fits; dual wire/decoded may
- *   truncate, surfaced by the existing size tooltip
+ * - SIZE (100px): worst single size "1023.9 GB" ≈63px + the ~16px compression
+ *   icon/gap fits the 84px content area with margin; `formatSizeShort` scales
+ *   through GB so the value width is bounded
  * - TIME (106px): timestamp HH:MM:SS.mmm ≈84px in a 90px content area (~6px
  *   slack) — the old 94/100px tracks left ~0–2px slack, which tipped into
  *   clipping under other font hinting (the PRO-286 / PRO-222 bug)
  *
- * The fixed tracks total 404px; at the 480px table-mode pane minimum (less the
+ * The fixed tracks total 408px; at the 480px table-mode pane minimum (less the
  * trace rail and borders) PATH still keeps ≥56px, so no column is clipped out.
  * Header and data cells share `px-2`, so labels align over their values.
  */
-const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 72px 96px 106px";
+const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 72px 100px 106px";
 
 const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
@@ -162,14 +166,15 @@ function TableRow({
       <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
+      {/* SIZE: a single bounded value (wire size) so the fixed track never
+          truncates. A compression marker replaces the inline "(encoding)" tag;
+          the full wire/decoded/encoding breakdown stays in the tooltip. */}
       <span
-        className="font-family-mono text-xs text-dim px-2 text-right truncate"
+        className="font-family-mono text-xs text-dim px-2 flex items-center justify-end gap-1 overflow-hidden"
         title={sizeTitle}
       >
-        {hasDual
-          ? `${formatSize(resSize)}/${formatSize(resDecoded)}`
-          : formatSize(resSize)}
-        {resTag && <span> ({resTag})</span>}
+        {resTag && <FileArchive className="size-3 shrink-0" aria-hidden />}
+        <span className="truncate">{formatSizeShort(resSize)}</span>
       </span>
       <span
         className="font-family-mono text-xs text-dim px-2 text-right truncate"

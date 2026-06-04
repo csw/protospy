@@ -38,6 +38,9 @@ test.describe("Compression display", () => {
   test("is visible in rows mode for a gzip-compressed response", async ({
     page,
   }) => {
+    // Rows mode renders the encoding inline as "(gzip)" after the size.
+    await page.getByLabel("Rows mode").click();
+
     await injectExchanges(page, [
       makeGetRequest(1, "/api/compressed"),
       makeEncodedJsonResponse(1, GZIP_BASE64, GZIP_BYTES, "gzip"),
@@ -50,18 +53,28 @@ test.describe("Compression display", () => {
     await expect(tags).toHaveCount(1);
   });
 
-  test("is visible in table mode for a compressed response", async ({
+  test("shows a compression marker + tooltip in table mode (not inline tag)", async ({
     page,
   }) => {
-    // Switch to table mode
-    await page.getByLabel("Table mode").click();
-
+    // Table mode is the default. Unlike rows mode, the fixed-width SIZE column
+    // shows a compression icon with the encoding in the tooltip — no inline
+    // "(gzip)" text, which would overflow the narrow track (PRO-286).
     await injectExchanges(page, [
       makeGetRequest(1, "/api/compressed"),
       makeEncodedJsonResponse(1, GZIP_BASE64, GZIP_BYTES, "gzip"),
     ]);
 
-    await expect(page.getByText("(gzip)").first()).toBeVisible();
+    const sizeCell = page
+      .locator("button[role='option']")
+      .first()
+      .locator(":scope > span")
+      .nth(4);
+    // Compression marker icon is present...
+    await expect(sizeCell.locator("svg")).toBeVisible();
+    // ...the encoding is in the tooltip...
+    await expect(sizeCell).toHaveAttribute("title", /gzip/);
+    // ...and there is no inline "(gzip)" text anywhere in the table.
+    await expect(page.getByText("(gzip)")).toHaveCount(0);
   });
 
   test("appears in timing view for a compressed response", async ({ page }) => {
