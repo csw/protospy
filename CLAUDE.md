@@ -32,7 +32,7 @@ For subproject commands, see the subproject's CLAUDE.md.
 
 Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs` container. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — see `docs/agents/host-sandbox.md`.)
 
-**After any push that can trigger CI — a new branch, a new PR, or follow-up commits to an existing PR branch — watch that run to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token **cannot** read it (`gh pr checks` and `gh api .../check-runs` both return `403 Resource not accessible by personal access token`). Query CI through the Actions API by commit SHA instead (`gh run list --commit <sha>`), which is exactly what `ci-watch` does.
+**After any push that can trigger CI — a new branch, a new PR, or follow-up commits to an existing PR branch — watch that run to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token cannot read it. Query CI through the Actions API by commit SHA (`gh run list --commit <sha>`) instead — exactly what `ci-watch` does. `ci.md` has the details.
 
 ## Documentation
 
@@ -61,70 +61,34 @@ There are specific agent guidelines in `docs/agents/`. Read the matching file wh
 - `docs/agents/worktrees.md`: worktree Claude config setup — what gets symlinked, why, and what agents must not do
 - `docs/agents/prompt-authoring.md`: when writing or modifying agent prompts, skills, commands, or CLAUDE.md content
 
-## Visual design reviews
+## Review and visual-quality tooling
 
-Use the `/design-review` skill for visual quality checks on the protospy UI. It covers
-layout, typography, colour, hierarchy, component consistency, interaction design, and
-responsive quality (at 1280/1440/1920px widths).
+The UI has dedicated review tooling beyond the built-in `/review` (which catches
+correctness bugs and CLAUDE.md compliance, but filters out style/convention findings).
+Each tool documents its own procedure, output location, and scope; this is the map of
+what exists and when to reach for it. `handle-ticket` wires them together per-ticket —
+see that skill for the orchestration.
 
-The skill is the general visual-quality bar; `docs/frontend-dod.md` is the **frontend
-Definition of Done** that layers protospy-specific requirements on top (fixture-matrix
-states, desktop-only widths, clipping affordances, pane bounds, no new console errors,
-both themes). A UI change is done only when it passes both.
+- **`/design-review` skill** — visual-quality check of the *rendered* app (layout,
+  typography, colour, hierarchy, consistency, responsive at 1280/1440/1920, both
+  themes). Reach for it on an ad-hoc "does this look right?" pass.
+- **`visual-review` subagent** (`.claude/agents/visual-review.md`) — the heavyweight
+  version: walks the fixture matrix (`ui/src/test/scenes.ts`) at the target widths in
+  both themes. A periodic sweep, not a per-PR gate.
+- **`convention-review` subagent** (`.claude/agents/convention-review.md`) — reviews
+  *code* for React/Tailwind/shadcn convention drift `/review` misses. Read-only,
+  diff-scoped.
+- **`review-synthesis` subagent** (`.claude/agents/review-synthesis.md`) — reconciles
+  the code and convention review findings into one deduplicated, jointly-ranked triage.
+- **`docs/frontend-dod.md`** — the frontend Definition of Done a UI change must clear.
 
-The **`visual-review` subagent** (`.claude/agents/visual-review.md`) is available for
-periodic sweeps and ad-hoc invocation — it derives scope from the diff, walks the
-**fixture matrix** (`ui/src/test/scenes.ts`, documented in `ui/docs/fixture-matrix.md`)
-at the target widths in both themes, and returns a prioritized findings report. It drives
-the browser through the **`playwright-cli`** skill. Invoke it directly via the Agent tool,
-or use `/design-review` for an ad-hoc check. This heavyweight sweep is not run
-automatically by `handle-ticket` — convention and code review catch most per-PR
-regressions; the visual sweep is most valuable as a periodic tool (see PRO-242).
-What `handle-ticket` *does* run per-ticket is a much lighter check (step 4): for any
-UI-source diff it spawns a `frontend-engineer` subagent (on Sonnet) to interactively
-eyeball the change via `playwright-cli` (no fixture matrix, no multi-width sweep, no
-report) before the PR is opened (PRO-282).
-
-- Output goes to `~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md`
-- Accessibility scope: **keyboard/focus visual quality only** — axe violations are
-  scanned (advisory) by `browser/a11y.spec.ts` and must not be duplicated here
-- Use the `frontend-engineer` agent to take screenshots via the `playwright-cli` skill
-
-The `frontend@jezweb-skills` plugin is also installed and provides `frontend:react-patterns`,
-`frontend:shadcn-ui`, and `frontend:tailwind-theme-builder` skills for the `frontend-engineer`
-agent. Use them when writing, reviewing, or adding components.
-
-## Code-convention reviews
-
-Visual review covers *rendered output*; **convention review** covers the *code* —
-React/Tailwind/shadcn idioms that `/review` doesn't catch. The built-in `/review`
-focuses on correctness bugs and CLAUDE.md compliance and deliberately filters out
-style/quality findings not mandated by CLAUDE.md, so convention drift (no-op Tailwind
-tokens, missing `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
-composition drift) slips through it.
-
-For any PR whose diff touches `ui/src/**`, the `handle-ticket` skill runs a convention
-review automatically (step 7b) via the **`convention-review` subagent**
-(`.claude/agents/convention-review.md`): a read-only agent that scopes from the diff,
-applies the three `frontend:*` skills above as review checklists, and returns a
-prioritized findings report alongside the code review. It runs on UI-source diffs
-regardless of the ticket's `UI` label. You can also spawn it ad-hoc via the Agent tool
-for a convention pass outside `handle-ticket`.
-
-The code and convention reviews run **independently and blind to each other**. When both
-run, `handle-ticket` step 9 reconciles their findings via the **`review-synthesis`
-subagent** (`.claude/agents/review-synthesis.md`): a read-only agent that reads the
-review reports (not the raw code), deduplicates overlapping findings, links same-root-cause
-findings across reviews ("one fix resolves both"), surfaces conflicting recommendations,
-and re-ranks everything blocking vs. advisory on one scale. This keeps the reviews
-separately tuned (and `/review` upstream-maintained) while making their *combined output*
-coherent.
+The `frontend:react-patterns`, `frontend:shadcn-ui`, and `frontend:tailwind-theme-builder`
+skills (from the `frontend@jezweb-skills` plugin) are the convention checklists, preloaded
+into the `frontend-engineer` and `convention-review` agents.
 
 ## Worktrees
 
-Worktrees go in `.claude/worktrees/` at the project root — the location the `EnterWorktree` tool manages. Use `EnterWorktree` with path `.claude/worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit. (A `.worktrees` symlink → `.claude/worktrees` is kept as an alias for external tooling, and a legacy `.worktrees/<branch-name>` path is still accepted and normalized; prefer the canonical `.claude/worktrees/` form.)
-
-Why `.claude/worktrees/` and not `.worktrees/`: the tool only lets you *switch* from one worktree into another when the target is a real directory under `.claude/worktrees/`, and it refuses a `.claude/worktrees` symlink. A `.worktrees/` location worked from the main checkout but broke worktree→worktree switching (and caused nested worktrees). See PRO-247.
+Worktrees go in `.claude/worktrees/` at the project root — the location the `EnterWorktree` tool manages. Use `EnterWorktree` with path `.claude/worktrees/<branch-name>` — do not run `git worktree add` separately. `EnterWorktree` handles creation and entry atomically; splitting them defeats automatic cleanup on exit. (The canonical `.claude/worktrees/` form is required for worktree→worktree switching; a legacy `.worktrees/<branch-name>` path is still accepted and normalized. See `docs/agents/worktrees.md` for why.)
 
 When a worktree is created, a `post-checkout` hook automatically symlinks non-version-controlled Claude config (skills, hooks, agents, `settings.local.json`, `CLAUDE.local.md`) from the main repo into the worktree. **Do not manually copy or recreate these files in a worktree.** See `docs/agents/worktrees.md` for details.
 
