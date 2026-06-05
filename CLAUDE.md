@@ -81,7 +81,7 @@ Each tool documents its own procedure, output location, and scope; this is the m
 what exists and when to reach for it. `handle-ticket` wires them together per-ticket —
 see that skill for the orchestration.
 
-- **`/design-review` skill** — visual-quality check of the *rendered* app (layout,
+- **`/protospy-design-review` skill** — visual-quality check of the *rendered* app (layout,
   typography, colour, hierarchy, consistency, responsive at 1280/1440/1920, both
   themes). Reach for it on an ad-hoc "does this look right?" pass.
 - **`visual-review` subagent** (`.claude/agents/visual-review.md`) — the heavyweight

@@ -125,7 +125,7 @@ This has bitten repeatedly: `frontend:shadcn-ui` didn't fire during routine UI
 work, so an agent hand-rolled a button instead of using the existing shadcn
 `<Button>` (PRO-281); the session-start snapshot subagent never loaded
 `linear-cli`, guessed the CLI, and returned a wrong count (PRO-290); the
-`design-review` render step was conditional, so a literal model "reviewed" from
+`protospy-design-review` render step was conditional, so a literal model "reviewed" from
 source without rendering (PRO-227). The fix each time was preloading via
 frontmatter — applied to `frontend-engineer`, `convention-review`, and
 `pm-helper`.

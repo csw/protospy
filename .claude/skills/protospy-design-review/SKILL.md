@@ -1,5 +1,5 @@
 ---
-name: design-review
+name: protospy-design-review
 description: "Review the protospy UI for visual design quality — layout, typography, spacing, colour, hierarchy, component consistency, interaction patterns, and responsive behaviour. Produces a findings report in the Obsidian Reviews directory. Triggers: 'design review', 'does this look good', 'review the design', 'check the layout', 'is this polished', 'visual review', 'design audit', 'make it look better', 'it looks off'."
 compatibility: claude-code-only
 ---

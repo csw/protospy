@@ -1,7 +1,7 @@
 # Frontend Definition of Done
 
 This is the bar a UI change must clear before it's "done." It complements — does
-not restate — the **design-review rubric** (`/design-review` skill), which is the
+not restate — the **design-review rubric** (`/protospy-design-review` skill), which is the
 general visual-quality bar (layout, typography, colour, hierarchy, component
 consistency, interaction design, responsive quality). The rubric handles general
 craft; this document adds the protospy-specific requirements the rubric doesn't
@@ -9,10 +9,10 @@ know about.
 
 ## Layer 1 — Pass the design-review rubric
 
-The change must pass the seven categories in the `/design-review` skill. Don't
+The change must pass the seven categories in the `/protospy-design-review` skill. Don't
 duplicate them here; run the skill. This is an action you must take before
 reporting the change complete, not a standard to self-assess against: actually
-invoke `/design-review` (or the `visual-review` subagent) on your change. Do not
+invoke `/protospy-design-review` (or the `visual-review` subagent) on your change. Do not
 report done having only reasoned about whether it would pass. If it fails, it
 isn't done.
 
