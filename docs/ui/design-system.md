@@ -135,13 +135,22 @@ controls → `bg-hover`; rows / list items / palette items → `bg-hl`"]:
 | Vendored primitive class (today) | Target |
 | --- | --- |
 | `Button` `ghost`/`outline` `hover:bg-accent hover:text-accent-foreground` | `hover:bg-bg-hover hover:text-ink` |
-| `DropdownMenuItem` `focus:bg-accent focus:text-accent-foreground` | `focus:bg-bg-hl focus:text-ink` |
-| `CommandItem` `data-[selected=true]:bg-accent` | `data-[selected=true]:bg-bg-hl` |
+| **all** `DropdownMenu` item variants — `DropdownMenuItem` (L75), `DropdownMenuCheckboxItem` (L93), `DropdownMenuRadioItem` (L129), `DropdownMenuSubTrigger` (L212) — `focus:bg-accent focus:text-accent-foreground` (+ SubTrigger's `data-[state=open]:bg-accent …`) | `focus:bg-bg-hl focus:text-ink` (+ `data-[state=open]:bg-bg-hl …`) |
+| `CommandItem` `data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground` | `data-[selected=true]:bg-bg-hl data-[selected=true]:text-ink` |
+| `Dialog` close button (`dialog.tsx` L71) `data-[state=open]:bg-accent` | `data-[state=open]:bg-bg-hl` |
+
+> **Enumerate every site.** `bg-accent` / `text-accent-foreground` (shadcn's neutral-surface
+> usage) appears in **all four** `DropdownMenu` item variants and the `Dialog` close button,
+> not just `DropdownMenuItem`. Missing the checkbox/radio/sub-trigger variants would leave
+> those menu rows rendering brand-blue on focus/open — the exact bug D2 kills — and leave
+> `text-accent-foreground` live.
 
 This **removes the per-call-site overrides** (closes [B §5.4]), frees `accent` to mean only
 "brand structural accent," and reserves `accent-soft`/`accent-ink` for their state/text
 meanings above. The `@theme inline` `--color-accent-foreground → ink` alias becomes
-vestigial once no primitive references it (drop it in the same chunk, or leave it inert).
+vestigial **only once every `text-accent-foreground` reference above is repointed** — drop
+it after the last one is gone (within the T2 chunk), not before, or the remaining menu
+items lose their foreground colour.
 
 **Path B (rejected, recorded):** introduce a new `--color-brand` for the structural accent
 and let `accent` revert to a neutral shadcn surface. Semantically "purest" (frees the
@@ -333,7 +342,7 @@ appearance** [A §2.1]. The generalized PRO-291 rule:
 | `Tabs` (`line`) | Inspector tab strip. Active = 2px **`accent`** underline (move the accent into the `line` variant so call sites stop overriding). | Use `accent` underline in the primitive, not `after:bg-foreground`. |
 | `DropdownMenu` | Menus (service picker, actions). Focus → neutral `bg-bg-hl`. | Repoint focus off `bg-accent`. |
 | `Command` (cmdk) | Command palette. Selected → `bg-bg-hl`. | Repoint selected off `bg-accent`. |
-| `Dialog` | Modal backbone (palette). | None. |
+| `Dialog` | Modal backbone (palette). Close-button `data-[state=open]` surface → neutral `bg-bg-hl`. | Repoint close button off `bg-accent` (P9). |
 | `Tooltip` / `SimpleTooltip` | **`SimpleTooltip` is the single tooltip mechanism.** Migrate TopBar's raw `Tooltip`/`TooltipTrigger`/`TooltipContent` and native `title` controls to `SimpleTooltip` ([B §5.6]). | Consolidate. |
 | `MethodBadge` | Keep — already token-clean ([B §4]). | None. |
 | `EmptyState` | The single empty-state primitive — adopt in `EventsView` and `Command`'s `CommandEmpty` ([B §5.8]). | Adopt at the two hand-rolled sites. |
@@ -380,14 +389,15 @@ Each row is a discrete change. The **Chunk** column proposes the execution-ticke
 
 | # | File | Change | Chunk |
 | --- | --- | --- | --- |
-| P1 | `theme/tailwind.css` | Add `--text-ui: 13px`. Resolve accent collision (drop/inert `--color-accent-foreground` alias once primitives stop using it). | **T1** |
+| P1 | `theme/tailwind.css` | Add `--text-ui: 13px`. Resolve accent collision: drop the `--color-accent-foreground` alias **only after** P5–P8 repoint every `text-accent-foreground` site (do it in T2, with P5–P8, not in T1). | **T1** |
 | P2 | `lib/utils.ts` | `extendTailwindMerge` register `text.ui`. | **T1** |
 | P3 | `components/ui/toggle.tsx` | On-state → `aria-pressed:bg-accent-soft/text-accent-ink`; add `segmented` variant; remove `cursor-pointer`; rest text `text-mid`. | **T2** |
 | P4 | `components/ui/toggle-group.tsx` | Segmented track `bg-bg-sub`; pass `variant="segmented"` to items. | **T2** |
 | P5 | `components/ui/button.tsx` | Ghost/outline hover → `bg-bg-hover hover:text-ink` (neutral). | **T2** |
 | P6 | `components/ui/tabs.tsx` | `line` variant active underline uses `accent` (2px). | **T2** |
-| P7 | `components/ui/dropdown-menu.tsx` | Item focus → `bg-bg-hl`. | **T2** |
-| P8 | `components/ui/command.tsx` | Selected → `bg-bg-hl`. | **T2** |
+| P7 | `components/ui/dropdown-menu.tsx` | **All** item variants' `focus:bg-accent focus:text-accent-foreground` → `bg-bg-hl`/`text-ink`: `DropdownMenuItem` (L75), `CheckboxItem` (L93), `RadioItem` (L129), `SubTrigger` (L212, incl. `data-[state=open]:bg-accent`). | **T2** |
+| P8 | `components/ui/command.tsx` | `CommandItem` selected `data-[selected=true]:bg-accent/text-accent-foreground` → `bg-bg-hl`/`text-ink`. | **T2** |
+| P9 | `components/ui/dialog.tsx` | Close-button `data-[state=open]:bg-accent` (L71) → `bg-bg-hl`. | **T2** |
 
 ### 5.2 App surfaces
 
