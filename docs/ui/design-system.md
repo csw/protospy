@@ -116,7 +116,7 @@ each for its meaning:
 | --- | --- | --- |
 | `accent` (`--color-accent`) | `#2563eb` / `#60a5fa` | **Structural accent** — focus border (`border-focus`), primary-button fill, tab underline, timing-waterfall fill, jump-to-latest pill, streaming caret, resize-handle hover, trace badge-dot. |
 | `accent-soft` (`--color-accent-soft`) | `#dbeafe` / `rgba(96,165,250,.16)` | **The active-state *surface*** — the "on" background of a binary toggle / chip (2.3). |
-| `accent-ink` (`--color-accent-ink`) | `#1d4ed8` / `#93c5fd` | **Emphasis/active *text* and a semantic *key* colour** — active toggle/chip text, query-param keys (context-bar path), header-name column, chip text. |
+| `accent-ink` (`--color-accent-ink`) | `#1d4ed8` / `#93c5fd` | **Emphasis/active *text* and a semantic *key* colour** — active toggle/chip text, query-param keys (context-bar path), header-name column, chip text, **stream `message_delta` event-type label**, **trace-pill external-link hover** [V §7]. |
 
 **The collision.** protospy's `@theme` defines `--color-accent` as the **brand blue**.
 The vendored primitives' stock shadcn classes use `accent` to mean a **neutral interactive
@@ -189,7 +189,7 @@ anti-pattern, [B §5.3]).
 
 ```ts
 const toggleVariants = cva(
-  "inline-flex items-center justify-center rounded-md text-ui-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center rounded text-ui-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -210,7 +210,8 @@ const toggleVariants = cva(
 `ToggleGroup` used as a segmented control passes `variant="segmented"` to its items and
 sets its own track to `bg-bg-sub` (the recess the raised fill rises from). Standalone
 `Toggle` (toolbar icon toggles) uses `variant="default"` (accent-soft). Note `cursor-pointer`
-is **removed** from the base — see 2.5.
+is **removed** from the base — see 2.5 — and the base radius is `rounded` (4px), **not** the
+current `rounded-md` (6px), per the control-radius normalization in 2.6.
 
 > **Reliability note.** Radix `ToggleGroup` items expose `data-state` on/off (confirmed
 > via Radix docs) and `aria-pressed` (per [A §2.2], the underlying `Toggle` writes it).
@@ -284,9 +285,17 @@ inconsistency (some controls pointer, some not) is itself a defect. See §7-D4.
 
 - **Control radius = `radius-sm` (4px).** v2 intends icon buttons at 4px [V §8]; TopBar's
   `iconBtnClass` uses `rounded-md` (6px) — the outlier ([B §5.9], [X]). Normalize toolbar
-  icon controls to `rounded` (Tailwind `rounded` = 4px). ContextBar already overrides to
-  4px. Method badge stays `3px`; pills stay `999px` (`rounded-full`); command palette stays
-  `10px` — all match v2.
+  icon controls to `rounded` (Tailwind `rounded` = 4px). This includes the **`Toggle`
+  primitive base** (`toggle.tsx`), currently `rounded-md` (6px) — see the corrected code
+  block in 2.3; ContextBar already overrides to 4px. Method badge stays `3px`; pills stay
+  `999px` (`rounded-full`); command palette stays `10px` — all match v2.
+- **Segmented-control button radius → `rounded` (4px).** v2's literal value is **3px**
+  [V §3, §8], which on `main` is realized as the arbitrary `rounded-[3px]`. We normalize it
+  up to `radius-sm` (4px) so segmented items share the one control radius and drop the
+  arbitrary value — an idiom simplification, not a pixel-faithful port. *Alternative (not an
+  open decision):* restore the v2 `3px` via `rounded-[3px]` if the 1px difference ever reads
+  wrong at the segmented control's small size; recorded so the choice can be reversed
+  without re-deriving it.
 - **`rounded-[4px]` is a no-op** — Tailwind `rounded` is already `0.25rem` = 4px. Replace
   the arbitrary value with `rounded` ([PRO-285 F6]).
 - **Opacity-on-token dimmers** (`text-red/60` on error icons — [B §5.12]) → keep the
@@ -369,14 +378,39 @@ the work is to *reserve* and *apply* them (§2), not extend them.
 | Add | Replaces | Sites today | Real need |
 | --- | --- | --- | --- |
 | `Input` (shadcn) + `SearchInput` composite (icon + input + clear) | byte-for-byte duplicated raw search-box shell | `FilterBar`, `HeadersPane` ([B §5.2], [PRO-285 F2/F8]) | 2 verbatim copies; raw `<input>` has no primitive. |
-| `StatusDot` (state enum → dot) | duplicated `w-[7px] h-[7px] rounded-full bg-* [animate-pulse]` | `TopBar`, `StatusBar`, `LiveIndicator` ([B §5.10], [PRO-285 F8]) | 3 copies of the same atom. |
+| `StatusDot` (state enum → dot; `size` + `halo` variants) | duplicated `w-[7px] h-[7px] rounded-full bg-* [animate-pulse]` | `TopBar`, `StatusBar`, `LiveIndicator` ([B §5.10], [PRO-285 F8]) | 3 copies of the same atom. |
 | `PaneHeader` (head bar wrapper) | duplicated `flex items-center h-[30px] bg-* border-b` | `BodyPane`, `StreamView`, `ChatStreamView`, `HeadersSplit`, `ExchangeList` ([PRO-285 F8]) | 5 copies; also the surface to apply the `bg-pane` elevation correction (2.1) once. |
 | `JumpToLatestPill` | duplicated jump pill | `StreamView`, `ChatStreamView` ([B §5.10]) | verbatim duplicate. |
 | `CopyButton` (consolidate onto `Button`) | 3 independent copy impls | `CopyButton` (text), `HeadersPane` per-row (icon), + adopt `Button variant="link"`/`ghost` | one affordance + success signal, not three ([B §5.5]). |
 
-`eventTypeBadgeClass` is **not** a new primitive but must be **tokenized** — replace raw
-`text-purple-500 bg-purple-500/10` / `bg-green-500/10` with the semantic `purple`/`green`
-(+`-bg`) tokens that theme for dark mode ([B §5.11], [PRO-285 F3]; absorbs PRO-272).
+**`StatusDot` variants (v2 values, [V §8]).** The atom backs two visually distinct dots, so
+it takes `size` and `halo` variants rather than hard-coding one:
+
+| Use | Size | Halo | States |
+| --- | --- | --- | --- |
+| **Connection dot** (`TopBar`, `StatusBar`) | `7px` | `3px` ring — `box-shadow: 0 0 0 3px <status>-bg` | open → `green`; connecting → `amber` + pulse; down → `red`. |
+| **Live-indicator dot** (`LiveIndicator`) | `6px` | none | live → `green` + pulse; paused → `amber`, no animation. |
+
+The `3px` halo is a `ring-3`/`box-shadow` on the status `-bg` token; the pulse is the existing
+`animate-pulse`. Keep both sizes — collapsing the live-indicator dot to 7px or dropping the
+connection-dot halo would diverge from v2.
+
+`eventTypeBadgeClass` is **not** a new primitive but must be **tokenized** and carry the full
+v2 event-type colour map ([V §8], [B §5.11], [PRO-285 F3]; absorbs PRO-272) — not just the two
+arms (`purple`/`green`) that exist as raw palette today:
+
+| Event type | Token (text + `-bg`) |
+| --- | --- |
+| `message_start` | `purple` / `purple-bg` |
+| `content_block_delta` | `green` / `green-bg` |
+| `message_delta` | `accent-ink` (key colour, no fill) |
+| `message_stop` | `mid` |
+| `ping` | `dim` |
+
+Replace the raw `text-purple-500 bg-purple-500/10` / `bg-green-500/10` with the semantic
+`purple`/`green` (+`-bg`) tokens that theme for dark mode, and confirm the other three arms
+render on `accent-ink`/`mid`/`dim` per the table (they carry no raw-palette smell today but are
+part of the same map and must be verified, not assumed).
 
 ---
 
@@ -391,7 +425,7 @@ Each row is a discrete change. The **Chunk** column proposes the execution-ticke
 | --- | --- | --- | --- |
 | P1 | `theme/tailwind.css` | Add `--text-ui: 13px`. Resolve accent collision: drop the `--color-accent-foreground` alias **only after** P5–P8 repoint every `text-accent-foreground` site (do it in T2, with P5–P8, not in T1). | **T1** |
 | P2 | `lib/utils.ts` | `extendTailwindMerge` register `text.ui`. | **T1** |
-| P3 | `components/ui/toggle.tsx` | On-state → `aria-pressed:bg-accent-soft/text-accent-ink`; add `segmented` variant; remove `cursor-pointer`; rest text `text-mid`. | **T2** |
+| P3 | `components/ui/toggle.tsx` | On-state → `aria-pressed:bg-accent-soft/text-accent-ink`; add `segmented` variant; remove `cursor-pointer`; base radius `rounded-md`→`rounded` (4px, 2.6); rest text `text-mid`. | **T2** |
 | P4 | `components/ui/toggle-group.tsx` | Segmented track `bg-bg-sub`; pass `variant="segmented"` to items. | **T2** |
 | P5 | `components/ui/button.tsx` | Ghost/outline hover → `bg-bg-hover hover:text-ink` (neutral). | **T2** |
 | P6 | `components/ui/tabs.tsx` | `line` variant active underline uses `accent` (2px). | **T2** |
@@ -417,7 +451,7 @@ Each row is a discrete change. The **Chunk** column proposes the execution-ticke
 | A3.4 | `ExchangeList` / `ExchangeListItem` — selection bar | Normalize to **2px** accent left bar (see A/B §6.1); font tokens (status `text-ui-sm`, meta `text-ui-xs`, path → `text-ui`). | A3 |
 | A4.1 | `ChatStreamView` — transcript/events segmented control | Hand-rolled pair → `ToggleGroup type="single"` (segmented on-state from P4). | A4 |
 | A4.2 | `StreamView` + `ChatStreamView` — jump pill | → shared `JumpToLatestPill`. | A4 |
-| A4.3 | `EventsView` | `eventTypeBadgeClass` tokenize (purple/green tokens); empty state → `EmptyState`. | A4 |
+| A4.3 | `EventsView` | `eventTypeBadgeClass` → full v2 event-type colour map (§4 table: `message_start`→purple, `content_block_delta`→green, `message_delta`→accent-ink, `message_stop`→mid, `ping`→dim); empty state → `EmptyState`. | A4 |
 | A5.1 | `Inspector` — tab strip | Drop the `tabTriggerClass` accent-underline override once P6 moves accent into the `line` variant; font tokens. | A5 |
 | A5.2 | `BodyPane`/`StreamView`/`HeadersSplit`/`ChatStreamView`/`ExchangeList` — pane heads | Adopt `PaneHeader`; apply `bg-pane` elevation correction (2.1); not-uppercase title weight 600 `ink-2` [V §8]. | A5 |
 | A5.3 | `JsonViewer` | Body font → `text-ui-mono` (12.5); chevron already `Button` (model citizen — keep). | A5 |
@@ -536,7 +570,12 @@ add `--text-ui`; register it with tailwind-merge ([A §4.2], correctness). *Why 
 the tokens to v2's bare names (`text-ui`/`text-mono`/`text-sm`/`text-xs`): they'd collide
 with Tailwind's own `text-sm`/`text-xs` defaults — the `ui-` prefix exists precisely to
 avoid that; keep it. *Density:* verified non-regressing — the dense table/rows use the
-11.5/10.5 mono rungs, not 13px [V §8].
+11.5/10.5 mono rungs, not 13px [V §8]. *Compact ramp out of scope:* v2 also defines a
+**compact** density column ([V §1, §4]) that steps every size down ~0.5–1px (`text-ui`
+13→12.5, etc.); this spec adds only the regular-density rung and does **not** introduce
+compact font tokens or a compact ramp. The density switch is a behaviour/mechanism frozen
+at `main` (§1), so the compact ramp is deliberately deferred, not forgotten — see the ticket
+comment for where v2 specifies it should apply if we revisit.
 
 **D4 — Cursor: no `cursor-pointer` (Tailwind v4 / shadcn default).** *Criteria:* Clayton
 decided; follow the platform/ecosystem default. *Call:* remove `cursor-pointer` from the
