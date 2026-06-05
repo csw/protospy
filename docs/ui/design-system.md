@@ -1,13 +1,16 @@
 # protospy UI Design System (`docs/ui/design-system.md`)
 
-**Status:** authoring pass — spec + queued visual A/Bs, **no code changes** (PRO-319,
-child of [PRO-316](https://linear.app/protospy/issue/PRO-316)). This is the top-down
-target the execution chunks (Tech children of PRO-316) conform to.
+**Status:** living reference — the target design system for protospy's UI under
+[PRO-316](https://linear.app/protospy/issue/PRO-316) (the effort to make the app's use of
+shadcn/Tailwind/etc. idiomatic and aligned with `frontend-conventions.md` and the framework
+skills). This document describes the **ideal end state**, not a migration log; the
+per-surface change inventory and chunk sequencing live in a separate working document
+(see §5).
 
-**Audience:** the PM sequencing execution chunks, and the agents implementing them.
-This document says *what the UI should be*; the per-surface inventory (§5) is the
-hand-off list the PM turns into tickets, and the decision log (§7) records *why* so a
-downstream agent that hits a bad fit flags it rather than conforming blindly.
+**Audience:** the agents and reviewers writing and migrating UI code, and the PM sequencing
+the work. This document says *what the UI should be*; the decision log (§7) records *why* so
+a downstream agent that hits a bad fit flags it rather than conforming blindly. The migration
+inventory (linked from §5) is the hand-off list the PM turns into tickets.
 
 ---
 
@@ -21,8 +24,8 @@ downstream agent that hits a bad fit flags it rather than conforming blindly.
 - **§3 — Target primitive set + selection rules.** The generalized PRO-291 rule and the
   semantics→primitive matrix, plus the per-primitive target state.
 - **§4 — Gaps.** Missing primitives/tokens to add — filling only real, on-screen needs.
-- **§5 — Per-surface change inventory.** The enumerated hand-off list, with proposed
-  execution chunks and the file-overlap sequencing that keeps them non-colliding.
+- **§5 — Execution & migration.** Pointer to the separate change-inventory working doc
+  (the enumerated hand-off list, execution chunks, and `main`→target deltas).
 - **§6 — Visual A/B queue.** The genuine appearance choices to render for Clayton to
   ratify. Everything not here is decided-with-rationale.
 - **§7 — Decision log.** Rationale + selection criteria per call.
@@ -114,7 +117,7 @@ each for its meaning:
 
 | Token | Value (light/dark) | Reserved meaning |
 | --- | --- | --- |
-| `accent` (`--color-accent`) | `#2563eb` / `#60a5fa` | **Structural accent** — focus border (`border-focus`), primary-button fill, tab underline, timing-waterfall fill, jump-to-latest pill, streaming caret, resize-handle hover, trace badge-dot. |
+| `accent` (`--color-accent`) | `#2563eb` / `#60a5fa` | **Structural accent** — focus ring (rendered as `focus-visible:ring-ring`, where `--color-ring` aliases `--color-border-focus` = `accent`; it is a *ring*, not a literal `border`), primary-button fill, tab underline, timing-waterfall fill, jump-to-latest pill, streaming caret, resize-handle hover, trace badge-dot. |
 | `accent-soft` (`--color-accent-soft`) | `#dbeafe` / `rgba(96,165,250,.16)` | **The active-state *surface*** — the "on" background of a binary toggle / chip (2.3). |
 | `accent-ink` (`--color-accent-ink`) | `#1d4ed8` / `#93c5fd` | **Emphasis/active *text* and a semantic *key* colour** — active toggle/chip text, query-param keys (context-bar path), header-name column, chip text, **stream `message_delta` event-type label**, **trace-pill external-link hover** [V §7]. |
 
@@ -175,8 +178,8 @@ ARIA attributes are written per-element by the owning primitive and don't get cl
 | Control class | "On/active" treatment (v2 intent) | Where it lives | Keyed off |
 | --- | --- | --- | --- |
 | **Binary icon/label toggle, chip** (trace-group toggle, filter chip) | `bg-accent-soft` + `text-accent-ink` (transparent border) | `toggleVariants` (`variant: default`) | `aria-pressed` |
-| **Segmented control** (rows/table switch, transcript/events) | **raised `bg-pane` fill on a `bg-sub` track** + subtle shadow `0 1px 1px rgba(0,0,0,.05)`; **no accent** | `toggleVariants` (`variant: segmented`) + `ToggleGroup` track = `bg-sub` | `aria-pressed` |
-| **Tabs** (Inspector) | `text-ink` + 2px `accent` **bottom-border underline** + weight 500 (not a fill) | `TabsList variant="line"` / `TabsTrigger` | `data-[state=active]` (not `asChild`-wrapped — safe) |
+| **Segmented control** — choose one of a small visible set (rows/table switch, transcript/events, **time-zone Local/UTC**) | **raised `bg-pane` fill on a `bg-sub` track** + a **theme-aware** elevation shadow (light `0 1px 1px rgba(0,0,0,.05)`, with a `dark:` override — see 2.3 note); **no accent** | `toggleVariants` (`variant: segmented`) + `ToggleGroup type="single"` track = `bg-sub` | `aria-pressed` |
+| **Tabs** (Inspector) | `text-ink` + 2px `accent` **bottom-border underline** + weight 500 (not a fill) | `TabsList variant="line"` / `TabsTrigger` | `data-[state=active]` — safe **only** because `TabsTrigger` is not `asChild`/tooltip-wrapped; verify at the call site, and if it ever is wrapped, re-key off `aria-selected` ([A §1.4a]) |
 | **Selected row** (exchange list, stream event) | `bg-active`; URI → `ink` + weight 500; **2px `accent` left bar**; in-trace adds the 4px trace-colour bar | row component (`role=option`) | `aria-selected` |
 
 **The current bug this fixes.** `toggleVariants` today is
@@ -196,9 +199,11 @@ const toggleVariants = cva(
         // binary toggle / chip — accent-soft active surface
         default:
           "bg-transparent text-mid hover:bg-bg-hover hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-accent-ink",
-        // segmented item — raised pane-on-recess fill, no accent
+        // segmented item — raised pane-on-recess fill, no accent.
+        // Elevation shadow is theme-aware: the 5%-black light shadow is invisible on a
+        // dark raised pane, so a dark override carries the cue there (see note below).
         segmented:
-          "bg-transparent text-mid hover:text-ink aria-pressed:bg-bg-pane aria-pressed:text-ink aria-pressed:shadow-[0_1px_1px_rgba(0,0,0,.05)]",
+          "bg-transparent text-mid hover:text-ink aria-pressed:bg-bg-pane aria-pressed:text-ink aria-pressed:shadow-[0_1px_1px_rgba(0,0,0,.05)] dark:aria-pressed:shadow-[0_1px_2px_rgba(0,0,0,.35)]",
       },
       size: { default: "h-9 min-w-9 px-2", sm: "h-[22px] min-w-[22px] px-0", lg: "h-10 min-w-10 px-2.5" },
     },
@@ -212,6 +217,14 @@ sets its own track to `bg-bg-sub` (the recess the raised fill rises from). Stand
 `Toggle` (toolbar icon toggles) uses `variant="default"` (accent-soft). Note `cursor-pointer`
 is **removed** from the base — see 2.5 — and the base radius is `rounded` (4px), **not** the
 current `rounded-md` (6px), per the control-radius normalization in 2.6.
+
+> **Dark-mode elevation note.** The segmented "on" cue is primarily the `bg-pane`-on-`bg-sub`
+> step; the drop shadow is a secondary reinforcement. The v2 value `0 1px 1px rgba(0,0,0,.05)`
+> is authored for **light** — on a dark raised pane a 5%-black shadow is effectively invisible
+> and points the wrong way. The CVA above therefore carries a `dark:` override so the cue reads
+> in both themes; if a second surface ever needs the same shadow, promote it to a
+> `--shadow-segment` token (defined per theme) rather than repeating the literals. Never ship a
+> single hardcoded light shadow into both themes.
 
 > **Reliability note.** Radix `ToggleGroup` items expose `data-state` on/off (confirmed
 > via Radix docs) and `aria-pressed` (per [A §2.2], the underlying `Toggle` writes it).
@@ -245,10 +258,18 @@ used ~13 sites vs ~73 for Tailwind defaults — [PRO-285 F7]).
   Tailwind `text-xs` 12px / `text-sm` 14px, both *wrong* vs intent).
 - **Keep the existing token names** (`--text-ui-xs/sm/mono`, `--text-ctx-path`) — they
   already match v2 sizes; renaming would churn for no gain.
-- **Register all `--text-*` keys with tailwind-merge** ([A §4.2] — custom font-size tokens
-  do **not** auto-merge; this is a correctness bug, not a nicety). The `extendTailwindMerge`
-  call in `lib/utils.ts` must list `["ui", "ui-xs", "ui-sm", "ui-mono", "ctx-path"]` under
-  `theme.text`. Add `"ui"` when the token lands.
+- **Register the custom font tokens with tailwind-merge via the `theme` keys** ([A §4.2] —
+  custom font-size tokens do **not** auto-merge; this is a correctness bug, not a nicety).
+  The idiomatic form mirrors Tailwind v4's `@theme` namespaces 1:1: register font sizes under
+  `theme.text` and font families under `theme.font` —
+  `extend: { theme: { text: ["ui", "ui-xs", "ui-sm", "ui-mono", "ctx-path"], font: ["ui", "mono"] } }`.
+  Prefer this over the lower-level `classGroups` form, which is the escape hatch for *non-theme*
+  bespoke utilities and forces repeating the `text-`/`font-` prefix per entry.
+- **Use idiomatic font-family tokens.** Name them `--font-ui` (Inter) and `--font-mono`
+  (JetBrains Mono) so the v4 `--font-*` namespace generates the conventional `font-ui` /
+  `font-mono` utilities. Non-idiomatic names like `--font-family-ui` generate the awkward
+  `font-family-ui` utility and read as a custom utility rather than a theme value — reinforcing
+  idiomatic token naming is itself in scope for the PRO-316 cleanup.
 - **Per-element exceptions that stay arbitrary** (genuine per-element values in [V §1],
   no token): brand wordmark `text-[14.5px]`; command-palette **input** is genuinely **14px**
   → use Tailwind `text-sm` (14px exactly — the one place `text-sm` is correct); `kbd`
@@ -256,8 +277,8 @@ used ~13 sites vs ~73 for Tailwind defaults — [PRO-285 F7]).
 - **Density:** the dense list/table does **not** regress — per [V §8] table cells are mono
   `text-ui-sm` (11.5) and headers `text-ui-xs` (10.5); only *chrome/body* moves to 13px.
 
-A per-surface mapping table is in §5. Where a surface's current size is ambiguous, §5
-states the target token.
+A per-surface mapping table is in the migration inventory (§5). Where a surface's current
+size is ambiguous, that inventory states the target token.
 
 ### 2.5 Cursor affordance (folds PRO-314 — decided by Clayton)
 
@@ -337,6 +358,11 @@ appearance** [A §2.1]. The generalized PRO-291 rule:
 | Transient non-interactive info on hover/focus | `Tooltip` (via `SimpleTooltip`) | `role=tooltip` |
 | Text entry / search | `Input` (**to add** — §4) | native `<input>` semantics |
 
+> **`Switch` and `Checkbox` are intentionally absent** from this matrix and the target set —
+> see §7-D8. The conventions matrix ([A §2.2–2.3]) carries them as first-class, so their
+> omission is a recorded decision, not an oversight; an agent adding a settings/preferences
+> surface should re-open the choice.
+
 > One-line semantic justification is required in a PR when a control's primitive isn't
 > obvious — especially button-vs-`Toggle` (does it have persistent on/off state?) and
 > action-vs-link.
@@ -368,7 +394,8 @@ already renders.
 | Add | Why | Real need |
 | --- | --- | --- |
 | `--text-ui: 13px` | Completes the v2 type scale; the base-body size has no current token (2.4). | ~73 default-body surfaces sit on the wrong Tailwind default today. |
-| (tailwind-merge) register `text.ui` key | Custom font-size tokens don't auto-merge ([A §4.2]); a correctness bug. | Needed the moment `--text-ui` is consumed via `cn()`. |
+| Idiomatic font-family tokens `--font-ui` / `--font-mono` | v4 `--font-*` namespace → conventional `font-ui` / `font-mono` utilities (2.4). | Replaces the non-idiomatic `--font-family-*` naming; idiom alignment for PRO-316. |
+| (tailwind-merge) register font tokens via `theme.text` + `theme.font` | Custom font-size/family tokens don't auto-merge ([A §4.2]); a correctness bug. | Needed the moment `--text-ui` / `font-*` are consumed via `cn()`. |
 
 No new *colour* tokens are needed — the elevation scale and accent family already exist;
 the work is to *reserve* and *apply* them (§2), not extend them.
@@ -414,78 +441,27 @@ part of the same map and must be verified, not assumed).
 
 ---
 
-## §5. Per-surface change inventory (hand-off list)
+## §5. Execution & migration (separate document)
 
-Each row is a discrete change. The **Chunk** column proposes the execution-ticket grouping;
-§5.x below sequences them for non-collision.
+The per-surface change inventory, execution-chunk grouping, and file-overlap sequencing are
+maintained as a **separate working document**, not in this spec:
 
-### 5.1 Vendored primitives — the foundation
+> **[protospy UI Design-System Change Inventory (PRO-316)](#)** — Obsidian:
+> `UI/v2.1/design-system-change-inventory.md`
 
-| # | File | Change | Chunk |
-| --- | --- | --- | --- |
-| P1 | `theme/tailwind.css` | Add `--text-ui: 13px`. Resolve accent collision: drop the `--color-accent-foreground` alias **only after** P5–P8 repoint every `text-accent-foreground` site (do it in T2, with P5–P8, not in T1). | **T1** |
-| P2 | `lib/utils.ts` | `extendTailwindMerge` register `text.ui`. | **T1** |
-| P3 | `components/ui/toggle.tsx` | On-state → `aria-pressed:bg-accent-soft/text-accent-ink`; add `segmented` variant; remove `cursor-pointer`; base radius `rounded-md`→`rounded` (4px, 2.6); rest text `text-mid`. | **T2** |
-| P4 | `components/ui/toggle-group.tsx` | Segmented track `bg-bg-sub`; pass `variant="segmented"` to items. | **T2** |
-| P5 | `components/ui/button.tsx` | Ghost/outline hover → `bg-bg-hover hover:text-ink` (neutral). | **T2** |
-| P6 | `components/ui/tabs.tsx` | `line` variant active underline uses `accent` (2px). | **T2** |
-| P7 | `components/ui/dropdown-menu.tsx` | **All** item variants' `focus:bg-accent focus:text-accent-foreground` → `bg-bg-hl`/`text-ink`: `DropdownMenuItem` (L75), `CheckboxItem` (L93), `RadioItem` (L129), `SubTrigger` (L212, incl. `data-[state=open]:bg-accent`). | **T2** |
-| P8 | `components/ui/command.tsx` | `CommandItem` selected `data-[selected=true]:bg-accent/text-accent-foreground` → `bg-bg-hl`/`text-ink`. | **T2** |
-| P9 | `components/ui/dialog.tsx` | Close-button `data-[state=open]:bg-accent` (L71) → `bg-bg-hl`. | **T2** |
+They live there because they describe the *path* from `main` to this target — and go stale as
+the migration lands — whereas this spec describes the *destination* and does not. That doc
+carries the `main`→target deltas this spec deliberately omits, including:
 
-### 5.2 App surfaces
+- the per-primitive (`P*`) and per-surface (`A*`) change rows, grouped into execution chunks;
+- the dependency order and file-overlap sequencing;
+- the **global mechanical migrations** the spec implies but doesn't enumerate — the twMerge
+  `classGroups`→`theme` move (2.4), the `--font-family-*`→`--font-*` token rename (2.4), the
+  `--color-accent-foreground` alias-removal sequencing (2.2), and the `cursor-pointer` /
+  icon-sizing sweeps (2.5/2.6).
 
-| # | Surface / file | Change | Chunk |
-| --- | --- | --- | --- |
-| A1.1 | `TopBar` — trace-group toggle | Hand-rolled `<button>` → `Toggle` (accent-soft on-state via primitive); drop manual `aria-pressed` styling. | A1 |
-| A1.2 | `TopBar` — density / theme cycle | Hand-rolled `<button>` → `Button variant="ghost" size="icon-xs"` (mode-cycle: icon conveys state, no persistent fill — §7-D1). | A1 |
-| A1.3 | `TopBar` — service-picker trigger, "Jump to…" | → `Button` (`outline`/`secondary` `size="sm"`). | A1 |
-| A1.4 | `TopBar` | Radius `rounded-md` → `rounded` (4px); raw `Tooltip` → `SimpleTooltip`; adopt `StatusDot`; font tokens. | A1 |
-| A2.1 | `FilterBar` + `HeadersPane` — search box | Extract/adopt `SearchInput` (+ shadcn `Input`); clear `X` → `Button ghost icon-xs`. | A2 |
-| A2.2 | `HeadersPane` — decode toggle | → `Button variant="outline" size="xs"` (or `Toggle` if persistent). | A2 |
-| A2.3 | `HeadersPane` — per-row copy | → consolidated `CopyButton`. | A2 |
-| A2.4 | `FilterBar` — trace chip | Keep `bg-accent-soft`/`text-accent-ink` (chip = active-surface meaning, correct); remove `cursor-pointer` on clear. | A2 |
-| A3.1 | `ExchangeList` — rows/table switch | Already `ToggleGroup`; gets segmented track+on-state free from P4. Verify `bordered` + `bg-sub` track render. | A3 |
-| A3.2 | `ExchangeList` — order toggle | → `Toggle` (binary newest/oldest → `aria-pressed`) **or** `Button` if treated as cycle (§7-D1); pick `Toggle`. | A3 |
-| A3.3 | `ExchangeList` — local/UTC toggle | → `Toggle` (binary; on = `accent-soft`, replacing color-only `text-accent`). | A3 |
-| A3.4 | `ExchangeList` / `ExchangeListItem` — selection bar | Normalize to **2px** accent left bar (see A/B §6.1); font tokens (status `text-ui-sm`, meta `text-ui-xs`, path → `text-ui`). | A3 |
-| A4.1 | `ChatStreamView` — transcript/events segmented control | Hand-rolled pair → `ToggleGroup type="single"` (segmented on-state from P4). | A4 |
-| A4.2 | `StreamView` + `ChatStreamView` — jump pill | → shared `JumpToLatestPill`. | A4 |
-| A4.3 | `EventsView` | `eventTypeBadgeClass` → full v2 event-type colour map (§4 table: `message_start`→purple, `content_block_delta`→green, `message_delta`→accent-ink, `message_stop`→mid, `ping`→dim); empty state → `EmptyState`. | A4 |
-| A5.1 | `Inspector` — tab strip | Drop the `tabTriggerClass` accent-underline override once P6 moves accent into the `line` variant; font tokens. | A5 |
-| A5.2 | `BodyPane`/`StreamView`/`HeadersSplit`/`ChatStreamView`/`ExchangeList` — pane heads | Adopt `PaneHeader`; apply `bg-pane` elevation correction (2.1); not-uppercase title weight 600 `ink-2` [V §8]. | A5 |
-| A5.3 | `JsonViewer` | Body font → `text-ui-mono` (12.5); chevron already `Button` (model citizen — keep). | A5 |
-| A5.4 | `CopyButton` (shared) | Consolidate onto `Button variant="link" size="xs"`; resting `dim` per [V §8] (not `accent`). | A5 |
-| A6.1 | `CommandPalette` | `CommandEmpty` → `EmptyState`; selected surface from P8; input stays `text-sm` (14px, correct); font tokens for headings/items. | A6 |
-
-Display-only surfaces (`StatusBar`, `TimingView`, `LiveIndicator`, `StreamErrorBanner`,
-`BodySplit`) need only token/elevation alignment, folded into the nearest chunk.
-
-### 5.3 Execution-chunk sequencing & file overlaps
-
-**Dependency order (must respect):**
-
-1. **T1 (tokens)** — `theme/tailwind.css`, `lib/utils.ts`. **Lands first.** Everything
-   that uses `--text-ui` or the de-collided accent depends on it.
-2. **T2 (primitives)** — all `components/ui/*`. **Lands after T1.** A1–A6 adopt the
-   updated primitives, so T2 precedes them.
-3. **A1–A6 (app surfaces)** — depend on T2; otherwise touch **disjoint files** and can
-   run in parallel **except** for the overlaps below.
-
-**File-overlap collisions to sequence (do not run these in parallel on the same branch):**
-
-| Overlap | Chunks | Resolution |
-| --- | --- | --- |
-| `lib/utils.ts` | **T1** (twMerge) **+ A4** (`eventTypeBadgeClass`) | Land A4's `lib/utils.ts` edit after T1, or fold `eventTypeBadgeClass` tokenization into T1. |
-| `StreamView.tsx`, `ChatStreamView.tsx` | **A4** (segmented + jump pill) **+ A5** (PaneHeader) | Sequence A5 after A4, or move all StreamView/ChatStreamView edits into one chunk. |
-| `ExchangeList.tsx` | **A3** (toolbar, selection) **+ A5** (PaneHeader at list head) | Sequence A5 after A3 for this file, or carve the list-head PaneHeader edit into A3. |
-| `HeadersPane.tsx` / `FilterBar.tsx` | **A2** (SearchInput) — self-contained | None — A2 owns both files. |
-
-Recommended order: **T1 → T2 → {A1, A2, A6 in parallel} → A3 → A4 → A5** (A5 last because
-`PaneHeader` reaches into files A3/A4 also touch). New shared components (`SearchInput`,
-`StatusDot`, `PaneHeader`, `JumpToLatestPill`) are created in the chunk that first needs
-them and live under `components/ui/` (or `components/` for app-composite) per existing
-convention.
+When this spec changes, update that inventory; when the inventory's rows all land, this spec
+still stands as the reference for *what the UI is*.
 
 ---
 
@@ -547,12 +523,18 @@ fill keyed off `aria-pressed`; tabs → `accent` underline (`data-[state=active]
 not `asChild`-wrapped); rows → `bg-active` + 2px `accent` bar keyed off `aria-selected`.
 *Why not* a single universal on-state: v2 deliberately differentiates by control role, and
 a one-size token (`data-[state=on]:bg-bg-pane`) is invisible on `bg-pane` bars — the bug we
-are fixing. *Mode-cycle controls* (theme, density, list order, time-zone) get **no
-persistent accent fill** — the icon/label conveys state; an `aria-pressed` fill on a
-3-state cycle (theme) is misleading. (Order and time-zone are binary, so they *do* become
-`Toggle`s with the accent-soft on-state; theme/density stay `Button` cycles.) *Flag if:*
-moving to Base UI (`render` prop instead of Slot) — the `data-state` clobber that motivates
-ARIA-keying disappears; re-audit.
+are fixing. *Mode-cycle controls* (theme, density, **list order**) get **no persistent accent
+fill** — the icon/label conveys state; an `aria-pressed` fill on a cycle is misleading.
+*Order* stays its v2 arrow-icon form (README §228, list toolbar) → `Button variant="ghost"`
+that flips newest↔oldest, icon + tooltip conveying direction; *not* a `Toggle` (whose
+`aria-pressed` would announce only "pressed", naming neither option) and *not* a segmented
+group (the arrow icon is the chosen toolbar treatment). *Time-zone* (Local/UTC) is a genuine
+choose-one-of-two, so it becomes a **`ToggleGroup type="single"`** (segmented, both labels
+always visible) — which also fixes the current control's APG violation (its label flips
+Local↔UTC with state, and "the label must not change with state" [A §2.3]); the rejected
+alternative — a bare `Toggle` — both announces only "pressed" and forces that state-dependent
+label. *Flag if:* moving to Base UI (`render` prop instead of Slot) — the `data-state` clobber
+that motivates ARIA-keying disappears; re-audit.
 
 **D2 — Accent collision: keep `accent` = brand, give primitives a neutral surface (Path A).**
 *Criteria:* preserve v2's accent vocabulary; remove the per-call-site override smell
@@ -601,17 +583,33 @@ job ([B §5.6, §5.8]). *Call:* migrate `EventsView`/`CommandEmpty` to `EmptySta
 TopBar raw tooltips and native `title` controls to `SimpleTooltip`. *Why:* the parallel
 implementations drift; consolidation is pure debt reduction, no visual change intended.
 
+**D8 — `Switch` and `Checkbox` intentionally excluded from the target primitive set.**
+*Criteria:* the conventions matrix ([A §2.2–2.3]) carries `Switch` (`role=switch`/`aria-checked`,
+"on/off") and `Checkbox` (`aria-checked`, indeterminate, form-submitted) as first-class, and
+recommends "default to Switch for immediate-effect on/off settings" — so excluding them is a
+call that must be recorded, not assumed. *Call:* protospy's binary controls are **toolbar-style
+icon/label toggles** (trace-group, decode), where `Toggle`'s `aria-pressed` button semantics
+fit; its choose-one-of-N controls (rows/table, transcript/events, time-zone) are **segmented
+`ToggleGroup`s**. There is **no settings/preferences list surface** where a sliding `Switch`'s
+on/off affordance and footprint would belong, and no multi-select form list or indeterminate
+need that would call for `Checkbox` — so adding either would invent a primitive the UI doesn't
+render (against §4's gap discipline). *Why not* route the toolbar toggles to `Switch`: they are
+immediate-effect *buttons* in a dense bar, not labelled settings rows; `Toggle` is the matched
+primitive ([A §2.2], "toolbar bold, mute" row). *Flag if:* a settings/preferences surface is
+introduced — re-open the choice and default to `Switch` for its immediate on/off rows per
+[A §2.3].
+
 ---
 
-## Acceptance check (this authoring pass)
+## Acceptance check
 
-- [x] `docs/ui/design-system.md` exists with all required sections.
-- [x] Every open design decision is decided-with-rationale (§7) **or** queued as a visual
-      A/B (§6) — none left abstract.
-- [x] The four folded decisions are each settled, encoding v2 intent via [A]'s method:
+- [x] `docs/ui/design-system.md` stands as a living reference with all sections (§1–§7).
+- [x] Every design decision is decided-with-rationale (§7) **or** queued as a visual A/B
+      (§6) — none left abstract.
+- [x] The folded decisions are each settled, encoding v2 intent via [A]'s method:
       **on-state** (§2.3 / D1), **accent** (§2.2 / D2), **font tokens** (§2.4 / D3),
-      **cursor** (§2.5 / D4).
-- [x] Per-surface change inventory is enumerated as a hand-off-ready list with chunk
-      grouping and file-overlap sequencing (§5).
+      **cursor** (§2.5 / D4) — plus the `Switch`/`Checkbox` exclusion (D8).
+- [x] The per-surface change inventory, execution chunks, and file-overlap sequencing live
+      in the separate migration working doc (§5), keeping this spec a stable reference.
 - [x] Decision log present (§7).
 - [x] Structure/content/layout left at `main` — not reconciled against the handoff (§1).
