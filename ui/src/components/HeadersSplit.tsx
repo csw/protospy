@@ -23,10 +23,10 @@ function HeadersPanel({
       data-testid={testId}
     >
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <span className="font-family-ui text-xs font-semibold text-ink-2">
+        <span className="font-ui text-xs font-semibold text-ink-2">
           {title}
         </span>
-        <span className="font-family-mono text-xs text-dim">
+        <span className="font-mono text-xs text-dim">
           {headers.length} {headers.length === 1 ? "header" : "headers"}
         </span>
       </div>

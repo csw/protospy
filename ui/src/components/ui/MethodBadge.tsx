@@ -14,7 +14,7 @@ export function MethodBadge({ method, size = "sm" }: Props) {
     <span
       data-testid="method-badge"
       className={cn(
-        "font-family-mono font-semibold tracking-[0.04em] rounded-[3px] inline-flex items-center justify-center shrink-0",
+        "font-mono font-semibold tracking-[0.04em] rounded-[3px] inline-flex items-center justify-center shrink-0",
         textSize,
         padding,
         minWidth,

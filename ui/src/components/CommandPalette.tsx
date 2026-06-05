@@ -92,17 +92,17 @@ export function CommandPalette() {
     >
       <CommandInput
         placeholder="Search commands…"
-        className="font-family-mono text-sm text-ink placeholder:text-dim"
+        className="font-mono text-sm text-ink placeholder:text-dim"
       />
       <CommandList className="max-h-[480px]">
-        <CommandEmpty className="py-6 text-center font-family-ui text-sm text-dim">
+        <CommandEmpty className="py-6 text-center font-ui text-sm text-dim">
           No results found.
         </CommandEmpty>
 
         {/* Theme section */}
         <CommandGroup
           heading="Theme"
-          className="[&_[cmdk-group-heading]]:font-family-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
         >
           {THEME_OPTIONS.map((opt) => (
             <CommandItem
@@ -112,9 +112,7 @@ export function CommandPalette() {
               className={cmdItemClass}
             >
               <opt.icon className="size-4 text-mid" />
-              <span className="font-family-ui text-sm text-ink">
-                {opt.label}
-              </span>
+              <span className="font-ui text-sm text-ink">{opt.label}</span>
               {theme === opt.value && (
                 <span className="ml-auto text-xs text-accent">active</span>
               )}
@@ -125,7 +123,7 @@ export function CommandPalette() {
         {/* Commands section */}
         <CommandGroup
           heading="Commands"
-          className="[&_[cmdk-group-heading]]:font-family-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
         >
           <CommandItem
             value="toggle density compact regular"
@@ -133,9 +131,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <LayoutGrid className="size-4 text-mid" />
-            <span className="font-family-ui text-sm text-ink">
-              Toggle density
-            </span>
+            <span className="font-ui text-sm text-ink">Toggle density</span>
           </CommandItem>
 
           <CommandItem
@@ -148,7 +144,7 @@ export function CommandPalette() {
             ) : (
               <Rows3 className="size-4 text-mid" />
             )}
-            <span className="font-family-ui text-sm text-ink">
+            <span className="font-ui text-sm text-ink">
               {listMode === "rows"
                 ? "Switch to table view"
                 : "Switch to rows view"}
@@ -161,7 +157,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <Layers className="size-4 text-mid" />
-            <span className="font-family-ui text-sm text-ink">
+            <span className="font-ui text-sm text-ink">
               Toggle trace grouping
             </span>
           </CommandItem>
@@ -172,7 +168,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <Globe className="size-4 text-mid" />
-            <span className="font-family-ui text-sm text-ink">
+            <span className="font-ui text-sm text-ink">
               {timeZone === "local"
                 ? "Switch to UTC timestamps"
                 : "Switch to local timestamps"}
@@ -186,9 +182,7 @@ export function CommandPalette() {
               className={cmdItemClass}
             >
               <X className="size-4 text-mid" />
-              <span className="font-family-ui text-sm text-ink">
-                Clear filter
-              </span>
+              <span className="font-ui text-sm text-ink">Clear filter</span>
             </CommandItem>
           )}
         </CommandGroup>

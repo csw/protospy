@@ -7,17 +7,17 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
  * and font-family tokens defined in `theme/tailwind.css`. Without this,
  * `twMerge` treats e.g. `text-ui-xs` (font-size) and `text-m-get` (color)
  * as the same `text-*` group and strips the font-size class.
+ *
+ * The tokens are registered via the v4-idiomatic `theme` namespaces (mirroring
+ * Tailwind's `@theme` keys 1:1 — font sizes under `text`, families under
+ * `font`) rather than the lower-level `classGroups` form. See design-system
+ * §2.4.
  */
 const twMerge = extendTailwindMerge({
   extend: {
-    classGroups: {
-      "font-size": [
-        "text-ui-xs",
-        "text-ui-sm",
-        "text-ui-mono",
-        "text-ctx-path",
-      ],
-      "font-family": ["font-family-ui", "font-family-mono"],
+    theme: {
+      text: ["ui", "ui-xs", "ui-sm", "ui-mono", "ctx-path"],
+      font: ["ui", "mono"],
     },
   },
 });

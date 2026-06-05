@@ -10,7 +10,7 @@ export function EmptyState({ children, textSize = "xs" }: Props) {
     <div className="flex items-center justify-center h-full">
       <span
         className={cn(
-          "text-dim font-family-ui uppercase tracking-widest",
+          "text-dim font-ui uppercase tracking-widest",
           textSize === "xs" ? "text-xs" : "text-sm",
         )}
       >

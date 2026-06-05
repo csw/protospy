@@ -13,9 +13,7 @@ function EventDataSummary({ event }: { event: SSEEvent }) {
     event.data.length > 80 ? event.data.slice(0, 80) + "…" : event.data;
   return (
     <SimpleTooltip content={event.data}>
-      <span className="font-family-mono text-xs text-dim truncate">
-        {summary}
-      </span>
+      <span className="font-mono text-xs text-dim truncate">{summary}</span>
     </SimpleTooltip>
   );
 }
@@ -100,12 +98,12 @@ export function EventsView({ events, scrollRef }: EventsViewProps) {
             }}
           >
             <div className="flex items-center gap-3 px-3 min-h-[28px] py-1 border-b border-border hover:bg-bg-hl">
-              <span className="font-family-mono text-xs text-dim shrink-0 w-6 text-right">
+              <span className="font-mono text-xs text-dim shrink-0 w-6 text-right">
                 {event.index}
               </span>
               <span
                 className={cn(
-                  "font-family-mono text-xs px-1.5 py-0.5 rounded shrink-0",
+                  "font-mono text-xs px-1.5 py-0.5 rounded shrink-0",
                   eventTypeBadgeClass(event.type),
                 )}
               >

@@ -24,7 +24,7 @@ export function StreamView({ exchange }: Props) {
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         <LiveIndicator state={state} />
-        <span className="ml-auto text-xs text-dim font-family-mono">
+        <span className="ml-auto text-xs text-dim font-mono">
           {totalEventCount} events
         </span>
       </div>

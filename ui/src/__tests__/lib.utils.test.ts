@@ -795,6 +795,12 @@ describe("cn", () => {
     expect(cn("base", isHidden && "hidden", "extra")).toBe("base extra");
   });
 
+  it("preserves the base text-ui font-size alongside text-color", () => {
+    // text-ui is the 13px base UI font-size token; text-m-get is a color.
+    // Registered via the `theme.text` namespace so twMerge keeps both.
+    expect(cn("text-ui", "text-m-get")).toBe("text-ui text-m-get");
+  });
+
   it("preserves custom font-size text-ui-xs alongside text-color", () => {
     // text-ui-xs is a custom font-size token; text-m-get is a color.
     // Without extendTailwindMerge config, twMerge strips the font-size.
@@ -811,17 +817,18 @@ describe("cn", () => {
 
   it("still deduplicates conflicting custom font sizes", () => {
     expect(cn("text-ui-xs", "text-ui-sm")).toBe("text-ui-sm");
+    expect(cn("text-ui", "text-ui-sm")).toBe("text-ui-sm");
   });
 
   it("deduplicates conflicting custom font families", () => {
-    // font-family-mono should win over font-family-ui when both are passed.
-    expect(cn("font-family-ui", "font-family-mono")).toBe("font-family-mono");
+    // font-mono should win over font-ui when both are passed.
+    expect(cn("font-ui", "font-mono")).toBe("font-mono");
   });
 
   it("preserves font-family alongside font-size and text-color", () => {
     // All three groups are independent and should coexist.
-    expect(cn("font-family-mono", "text-ui-xs", "text-dim")).toBe(
-      "font-family-mono text-ui-xs text-dim",
+    expect(cn("font-mono", "text-ui-xs", "text-dim")).toBe(
+      "font-mono text-ui-xs text-dim",
     );
   });
 });

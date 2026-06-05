@@ -45,9 +45,7 @@ test.describe("Relative timestamps (rows mode)", () => {
     await expect(page.locator("button[aria-selected]").first()).toBeVisible();
     const row = page.locator("button[aria-selected]").first();
     // The timestamp cell shows "now" for a brand-new exchange
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "now",
-    );
+    await expect(row.locator(".font-mono.text-dim").last()).toHaveText("now");
   });
 
   test("updates to '5s' after 5 seconds", async ({ page }) => {
@@ -63,9 +61,7 @@ test.describe("Relative timestamps (rows mode)", () => {
     await page.clock.fastForward(5000);
 
     const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "5s",
-    );
+    await expect(row.locator(".font-mono.text-dim").last()).toHaveText("5s");
   });
 
   test("updates to '1m' after 60 seconds", async ({ page }) => {
@@ -80,9 +76,7 @@ test.describe("Relative timestamps (rows mode)", () => {
     await page.clock.fastForward(60_000);
 
     const row = page.locator("button[aria-selected]").first();
-    await expect(row.locator(".font-family-mono.text-dim").last()).toHaveText(
-      "1m",
-    );
+    await expect(row.locator(".font-mono.text-dim").last()).toHaveText("1m");
   });
 });
 

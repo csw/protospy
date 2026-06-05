@@ -76,7 +76,7 @@ export function TopBar({ services, onSwitchService }: Props) {
   return (
     <div className="flex items-center h-[40px] bg-bg-pane border-b border-border px-3 gap-2 shrink-0">
       {/* Logo */}
-      <span className="font-family-ui font-semibold text-[14.5px] tracking-tight select-none">
+      <span className="font-ui font-semibold text-[14.5px] tracking-tight select-none">
         <span className="text-ink">proto</span>
         <span className="text-accent">spy</span>
       </span>
@@ -84,7 +84,7 @@ export function TopBar({ services, onSwitchService }: Props) {
       {/* Service picker */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-1.5 px-2.5 h-[26px] rounded border border-border font-family-mono text-[11.5px] text-ink-2 hover:bg-bg-hover cursor-pointer transition-colors">
+          <button className="flex items-center gap-1.5 px-2.5 h-[26px] rounded border border-border font-mono text-[11.5px] text-ink-2 hover:bg-bg-hover cursor-pointer transition-colors">
             <span className={connectionDotClass()} />
             <span>{service ?? "—"}</span>
             <ChevronDown size={11} className="text-dim ml-0.5" />
@@ -92,10 +92,7 @@ export function TopBar({ services, onSwitchService }: Props) {
         </DropdownMenuTrigger>
         <DropdownMenuContent className="min-w-[200px]" align="start">
           {services.length === 0 ? (
-            <DropdownMenuItem
-              disabled
-              className="text-dim font-family-mono text-xs"
-            >
+            <DropdownMenuItem disabled className="text-dim font-mono text-xs">
               No services configured
             </DropdownMenuItem>
           ) : (
@@ -103,7 +100,7 @@ export function TopBar({ services, onSwitchService }: Props) {
               <DropdownMenuItem
                 key={svc.name}
                 onClick={() => onSwitchService(svc.name)}
-                className="flex flex-col items-start gap-0.5 font-family-mono text-xs cursor-pointer"
+                className="flex flex-col items-start gap-0.5 font-mono text-xs cursor-pointer"
               >
                 <span className="font-medium text-ink">{svc.name}</span>
                 <span className="text-dim text-[10px]">→ {svc.target}</span>
@@ -122,8 +119,8 @@ export function TopBar({ services, onSwitchService }: Props) {
         className="flex items-center gap-1.5 h-[26px] px-2 rounded border border-border bg-bg-sub text-dim hover:text-ink hover:bg-bg-hover transition-colors cursor-pointer"
       >
         <Search size={13} />
-        <span className="font-family-mono text-xs">Jump to…</span>
-        <span className="inline-flex items-center px-1 h-4 rounded border border-border-strong font-family-mono text-[10px] text-dim bg-bg-sub">
+        <span className="font-mono text-xs">Jump to…</span>
+        <span className="inline-flex items-center px-1 h-4 rounded border border-border-strong font-mono text-[10px] text-dim bg-bg-sub">
           ⌘K
         </span>
       </button>

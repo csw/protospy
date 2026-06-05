@@ -131,7 +131,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       <MethodBadge method={method} size="md" />
 
       {/* Path + query params */}
-      <div className="flex items-center gap-0 font-family-mono text-ctx-path flex-1 overflow-hidden min-w-0">
+      <div className="flex items-center gap-0 font-mono text-ctx-path flex-1 overflow-hidden min-w-0">
         <SimpleTooltip content={uri} side="bottom">
           <span className="flex items-center gap-0 overflow-hidden min-w-0">
             <span className="text-ink truncate shrink-0 max-w-[40%]">
@@ -174,7 +174,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
       {hasStatus && exchange.status != null && (
         <span
           className={cn(
-            "font-family-mono text-ui-sm font-semibold shrink-0",
+            "font-mono text-ui-sm font-semibold shrink-0",
             statusTextClass(exchange.status),
           )}
         >
@@ -182,7 +182,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         </span>
       )}
       {!hasStatus && !hasError && (
-        <span className="flex items-center gap-1.5 shrink-0 text-amber font-family-mono text-ui-xs">
+        <span className="flex items-center gap-1.5 shrink-0 text-amber font-mono text-ui-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" />
           pending
         </span>
@@ -191,7 +191,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
         <SimpleTooltip content={exchange.error?.message} side="bottom">
           <span
             data-testid="error-indicator"
-            className="font-family-mono text-ui-sm font-semibold text-red shrink-0"
+            className="font-mono text-ui-sm font-semibold text-red shrink-0"
           >
             Error
           </span>
@@ -200,7 +200,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
 
       {/* Elapsed pill */}
       {exchange.elapsedMs != null && (
-        <span className="font-family-mono text-xs bg-bg-sub border border-border rounded-full px-2 h-5 flex items-center shrink-0">
+        <span className="font-mono text-xs bg-bg-sub border border-border rounded-full px-2 h-5 flex items-center shrink-0">
           {exchange.elapsedMs}ms
         </span>
       )}
@@ -234,9 +234,7 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: traceColor(traceId) }}
               />
-              <span className="font-family-mono text-xs text-ink-2">
-                {shortTrace}
-              </span>
+              <span className="font-mono text-xs text-ink-2">{shortTrace}</span>
             </Button>
           </SimpleTooltip>
           {/* Copy trace ID */}

@@ -32,7 +32,7 @@ export function CopyButton({ text }: Props) {
     <button
       onClick={handleClick}
       disabled={!text}
-      className="font-family-mono text-xs text-accent hover:text-ink transition-colors cursor-pointer disabled:text-dim disabled:cursor-not-allowed disabled:opacity-50"
+      className="font-mono text-xs text-accent hover:text-ink transition-colors cursor-pointer disabled:text-dim disabled:cursor-not-allowed disabled:opacity-50"
     >
       {copied ? "Copied!" : "Copy"}
     </button>
