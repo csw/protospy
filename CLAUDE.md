@@ -46,6 +46,15 @@ Also read the **titles of the sibling tickets** under the same parent, and open 
 
 Get the parent and children with `linear issue view PRO-NNN --json` (`.parent.identifier`, `.children.nodes[].identifier`) — see `docs/agents/linear.md`.
 
+## Refer to roles, not people by name
+
+This is an open-source project. Do not name the maintainer (or any individual) personally in durable text you produce — commit messages, PR titles and descriptions, code comments, design notes, ticket comments, or docs. Phrase deferrals and open questions in terms of the role or the decision itself, not a named person.
+
+- Instead of "this is a decision for Clayton to make" → "this is an outstanding design decision" (or "a decision for the maintainer").
+- Instead of "ask Clayton whether…" → "confirm with the maintainer whether…" or "this needs a maintainer decision."
+
+Naming a person in a one-off message to the user in this session is fine; the rule is about text that gets committed or otherwise persists.
+
 ## Specific guidelines
 
 There are specific agent guidelines in `docs/agents/`. Read the matching file whenever your task plausibly falls under its topic, interpreting each trigger broadly — "writing code" includes modifying, refactoring, or debugging it; "tests" includes fixing a test you didn't write. **More than one guide usually applies to a single task** (a Python change that also adds a dependency and touches CI needs `python.md`, `dependencies.md`, *and* `ci.md`) — read all that apply, not just the closest match. When unsure whether a trigger fires, read the file.
