@@ -200,7 +200,7 @@ function JsonTreeView({ value }: { value: unknown }) {
   return (
     <div
       ref={parentRef}
-      className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
+      className="font-mono text-xs leading-5 overflow-auto w-full h-full"
       style={{ contain: "strict" }}
       aria-label={VIEWER_LABEL}
     >
@@ -341,7 +341,7 @@ function JsonFlatView({ text }: { text: string }) {
   return (
     <div
       ref={parentRef}
-      className="font-family-mono text-xs leading-5 overflow-auto w-full h-full"
+      className="font-mono text-xs leading-5 overflow-auto w-full h-full"
       style={{ contain: "strict" }}
       aria-label={VIEWER_LABEL}
     >

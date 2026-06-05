@@ -13,10 +13,10 @@ interface FactRowProps {
 function FactRow({ label, value }: FactRowProps) {
   return (
     <div className="flex items-baseline py-1.5 border-b border-border last:border-0">
-      <span className="font-family-ui text-xs text-mid font-medium w-32 shrink-0">
+      <span className="font-ui text-xs text-mid font-medium w-32 shrink-0">
         {label}
       </span>
-      <span className="font-family-mono text-xs text-ink">{value}</span>
+      <span className="font-mono text-xs text-ink">{value}</span>
     </div>
   );
 }
@@ -85,13 +85,13 @@ export function TimingView({ exchange }: Props) {
 
       {/* Waterfall */}
       <div className="mt-4 px-3">
-        <div className="font-family-ui text-xs font-semibold text-ink-2 mb-2">
+        <div className="font-ui text-xs font-semibold text-ink-2 mb-2">
           Waterfall
         </div>
 
         {/* Upstream row */}
         <div className="flex items-center h-[14px] mb-1">
-          <span className="w-20 text-xs text-mid font-family-ui shrink-0">
+          <span className="w-20 text-xs text-mid font-ui shrink-0">
             Upstream
           </span>
           <div className="flex-1 bg-bg-sub rounded-sm h-[14px] overflow-hidden">
@@ -106,9 +106,7 @@ export function TimingView({ exchange }: Props) {
 
         {/* Proxy row */}
         <div className="flex items-center h-[14px] mb-1">
-          <span className="w-20 text-xs text-mid font-family-ui shrink-0">
-            Proxy
-          </span>
+          <span className="w-20 text-xs text-mid font-ui shrink-0">Proxy</span>
           <div className="flex-1 bg-bg-sub rounded-sm h-[14px] overflow-hidden" />
           <span className="text-xs text-dim ml-1.5">—</span>
         </div>

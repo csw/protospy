@@ -30,20 +30,20 @@ export function StatusBar() {
     <div className="flex items-center h-[24px] bg-bg-sub border-t border-border px-2 gap-2 shrink-0">
       {/* Connection dot + text */}
       {connectionDot(connection)}
-      <span className="font-family-mono text-xs text-dim">
+      <span className="font-mono text-xs text-dim">
         {connectionText(connection)}
       </span>
 
       {/* Service target */}
       {service != null && (
-        <span className="font-family-mono text-xs text-dim">→ {service}</span>
+        <span className="font-mono text-xs text-dim">→ {service}</span>
       )}
 
       {/* Spacer */}
       <div className="flex-1" />
 
       {/* Exchange count */}
-      <span className="font-family-mono text-xs text-dim">
+      <span className="font-mono text-xs text-dim">
         {ids.length} request{ids.length !== 1 ? "s" : ""}
       </span>
     </div>

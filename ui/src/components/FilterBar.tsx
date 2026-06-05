@@ -36,7 +36,7 @@ export function FilterBar() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter requests…"
-          className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
+          className="flex-1 bg-transparent border-none outline-none font-mono text-xs text-ink placeholder:text-dim min-w-0"
         />
         {filter.length > 0 && (
           <button
@@ -56,7 +56,7 @@ export function FilterBar() {
             className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: traceColor(traceFilter) }}
           />
-          <span className="font-family-mono text-xs text-accent-ink">
+          <span className="font-mono text-xs text-accent-ink">
             trace {shortenTraceId(traceFilter)}
           </span>
           <button
@@ -70,7 +70,7 @@ export function FilterBar() {
       )}
 
       {/* Exchange count */}
-      <span className="font-family-mono text-xs text-dim shrink-0 ml-auto">
+      <span className="font-mono text-xs text-dim shrink-0 ml-auto">
         {isFiltered
           ? `${filteredCount} of ${totalCount}`
           : `${totalCount} request${totalCount !== 1 ? "s" : ""}`}

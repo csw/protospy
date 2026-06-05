@@ -129,7 +129,7 @@ function TableRow({
     >
       <span
         className={cn(
-          "font-family-mono text-xs uppercase px-2 truncate",
+          "font-mono text-xs uppercase px-2 truncate",
           methodTextClass(method),
         )}
       >
@@ -137,7 +137,7 @@ function TableRow({
       </span>
       <span
         className={cn(
-          "font-family-mono text-xs px-2 truncate",
+          "font-mono text-xs px-2 truncate",
           exchange.error != null
             ? "text-red"
             : exchange.status != null
@@ -158,28 +158,26 @@ function TableRow({
             : "—"}
       </span>
       <SimpleTooltip content={uri}>
-        <span className="font-family-mono text-xs text-ink px-2 truncate">
-          {path}
-        </span>
+        <span className="font-mono text-xs text-ink px-2 truncate">{path}</span>
       </SimpleTooltip>
       {/* ELAPSED: request→response duration. Track is sized to fit the value
           (up to 6-digit ms); `truncate` is only an overflow guard, so no tooltip
           is needed — it would merely repeat the visible text. */}
-      <span className="font-family-mono text-xs text-dim px-2 text-right truncate">
+      <span className="font-mono text-xs text-dim px-2 text-right truncate">
         {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
       </span>
       {/* SIZE: a single bounded value (wire size) so the fixed track never
           truncates. A compression marker replaces the inline "(encoding)" tag;
           the full wire/decoded/encoding breakdown stays in the tooltip. */}
       <span
-        className="font-family-mono text-xs text-dim px-2 flex items-center justify-end gap-1 overflow-hidden"
+        className="font-mono text-xs text-dim px-2 flex items-center justify-end gap-1 overflow-hidden"
         title={sizeTitle}
       >
         {resTag && <FileArchive className="size-3 shrink-0" aria-hidden />}
         <span className="truncate">{formatSizeShort(resSize)}</span>
       </span>
       <span
-        className="font-family-mono text-xs text-dim px-2 text-right truncate"
+        className="font-mono text-xs text-dim px-2 text-right truncate"
         title={`${absTime}${timeZone === "utc" ? " UTC" : ""}`}
       >
         {absTime}
@@ -192,15 +190,13 @@ function ListEmptyState({ filtered }: { filtered: boolean }) {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg-pane">
       {filtered ? (
-        <span className="font-family-ui text-xs text-dim">
-          {EMPTY_STATE_NO_MATCH}
-        </span>
+        <span className="font-ui text-xs text-dim">{EMPTY_STATE_NO_MATCH}</span>
       ) : (
         <div className="flex flex-col items-center gap-1.5 text-center max-w-[260px]">
-          <span className="font-family-ui text-sm font-medium text-ink-2">
+          <span className="font-ui text-sm font-medium text-ink-2">
             No requests yet
           </span>
-          <span className="font-family-ui text-xs text-dim leading-relaxed">
+          <span className="font-ui text-xs text-dim leading-relaxed">
             Traffic will appear here when requests flow through the proxy
           </span>
         </div>
@@ -403,7 +399,7 @@ export function ExchangeList() {
       {/* Toolbar */}
       <div className="flex items-center px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         {/* Left: label + trace group indicator */}
-        <span className="font-family-ui text-ui-xs font-semibold text-mid tracking-[0.03em]">
+        <span className="font-ui text-ui-xs font-semibold text-mid tracking-[0.03em]">
           Requests
         </span>
         {traceGroupOn && (
@@ -423,7 +419,7 @@ export function ExchangeList() {
                 setTimeZone(timeZone === "local" ? "utc" : "local")
               }
               className={cn(
-                "h-[22px] px-1.5 flex items-center gap-1 rounded text-dim hover:text-ink transition-colors cursor-pointer font-family-mono text-[10px] uppercase tracking-wider",
+                "h-[22px] px-1.5 flex items-center gap-1 rounded text-dim hover:text-ink transition-colors cursor-pointer font-mono text-[10px] uppercase tracking-wider",
                 timeZone === "utc" && "text-accent",
               )}
               aria-label={`Time zone: ${timeZone === "utc" ? "UTC" : "Local"}. Click to toggle.`}
@@ -489,22 +485,22 @@ export function ExchangeList() {
                 test 2.6 asserts zero overflow, so no `title` fallback is
                 needed — `truncate` only guards against a future regression,
                 which CI would catch rather than silently clip on screen. */}
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Method
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Status
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
               Path
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Elapsed
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Size
             </span>
-            <span className="font-family-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
+            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
               Time
             </span>
           </div>

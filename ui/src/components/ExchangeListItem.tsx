@@ -107,7 +107,7 @@ export function ExchangeListItem({
           <span
             data-testid="status-code"
             className={cn(
-              "font-family-mono text-ui-sm font-semibold shrink-0",
+              "font-mono text-ui-sm font-semibold shrink-0",
               statusTextClass(exchange.status),
             )}
           >
@@ -117,20 +117,20 @@ export function ExchangeListItem({
         {hasError && (
           <span
             data-testid="error-badge"
-            className="font-family-mono text-ui-sm font-semibold shrink-0 text-red"
+            className="font-mono text-ui-sm font-semibold shrink-0 text-red"
           >
             Error
           </span>
         )}
 
-        <span className="font-family-mono text-xs ml-auto shrink-0 text-dim">
+        <span className="font-mono text-xs ml-auto shrink-0 text-dim">
           {relTime}
         </span>
       </div>
 
       {/* Row 2: URI path + query */}
       <SimpleTooltip content={uri} side="right">
-        <div className="flex min-w-0 overflow-hidden font-family-mono text-sm">
+        <div className="flex min-w-0 overflow-hidden font-mono text-sm">
           <span className="text-ink-2 truncate">{path}</span>
           {query && (
             <span className="text-dim truncate shrink-0 max-w-[40%]">
@@ -144,7 +144,7 @@ export function ExchangeListItem({
           whitespace-nowrap prevents spans from wrapping at narrow widths (which would
           inflate the button height and cause row overlap). Content hard-clips at the
           pane edge with no ellipsis — acceptable for supplementary size metadata. */}
-      <div className="flex gap-1.5 min-w-0 overflow-hidden whitespace-nowrap font-family-mono text-xs text-mid">
+      <div className="flex gap-1.5 min-w-0 overflow-hidden whitespace-nowrap font-mono text-xs text-mid">
         {exchange.elapsedMs != null && (
           <>
             <span>{exchange.elapsedMs}ms</span>

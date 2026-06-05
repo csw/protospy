@@ -21,14 +21,12 @@ function ErrorPanel({
   return (
     <div className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center">
       <AlertTriangle size={20} className="text-red/60" />
-      <span className="font-family-ui text-sm font-medium text-red">
-        {panelTitle}
-      </span>
-      <span className="font-family-mono text-xs text-mid max-w-md leading-relaxed">
+      <span className="font-ui text-sm font-medium text-red">{panelTitle}</span>
+      <span className="font-mono text-xs text-mid max-w-md leading-relaxed">
         {message}
       </span>
       {detail != null && (
-        <span className="font-family-mono text-xs text-dim">{detail}</span>
+        <span className="font-mono text-xs text-dim">{detail}</span>
       )}
     </div>
   );
@@ -59,13 +57,11 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
     <div className="flex flex-col border border-border h-full overflow-hidden">
       {/* Pane head (30px) */}
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <span className="font-family-ui text-xs font-semibold text-ink-2">
+        <span className="font-ui text-xs font-semibold text-ink-2">
           {title}
         </span>
         {result != null && (
-          <span className="font-family-mono text-xs text-dim">
-            {result.mediaType}
-          </span>
+          <span className="font-mono text-xs text-dim">{result.mediaType}</span>
         )}
         <div className="ml-auto flex items-center gap-2">
           {result != null && (
@@ -77,7 +73,7 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
               }
             >
               <span
-                className="font-family-mono text-xs text-dim"
+                className="font-mono text-xs text-dim"
                 data-testid="body-size"
               >
                 {result.decodedBytes != null
@@ -138,7 +134,7 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
           result != null &&
           result.kind === "text" &&
           result.text != null && (
-            <pre className="font-family-mono text-xs text-ink p-3 whitespace-pre-wrap">
+            <pre className="font-mono text-xs text-ink p-3 whitespace-pre-wrap">
               {result.text}
             </pre>
           )}

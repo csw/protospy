@@ -29,18 +29,18 @@ function TranscriptView({
       {(transcript.model != null || transcript.messageId != null) && (
         <div className="flex gap-3 px-3 py-1.5 border-b border-border shrink-0">
           {transcript.messageId != null && (
-            <span className="font-family-mono text-xs text-dim">
+            <span className="font-mono text-xs text-dim">
               {transcript.messageId}
             </span>
           )}
           {transcript.model != null && (
-            <span className="font-family-mono text-xs text-dim">
+            <span className="font-mono text-xs text-dim">
               {transcript.model}
             </span>
           )}
         </div>
       )}
-      <pre className="font-family-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
+      <pre className="font-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
         {transcript.text}
         {!isTerminal && !transcript.isComplete && (
           <span className="inline-block w-[2px] h-[14px] bg-accent animate-pulse align-middle ml-px" />
@@ -119,7 +119,7 @@ export function ChatStreamView({ exchange }: Props) {
             events
           </button>
         </div>
-        <span className="ml-auto text-xs text-dim font-family-mono">
+        <span className="ml-auto text-xs text-dim font-mono">
           {totalEventCount} events
         </span>
       </div>

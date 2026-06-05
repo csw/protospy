@@ -70,7 +70,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter headers…"
-            className="flex-1 bg-transparent border-none outline-none font-family-mono text-xs text-ink placeholder:text-dim min-w-0"
+            className="flex-1 bg-transparent border-none outline-none font-mono text-xs text-ink placeholder:text-dim min-w-0"
           />
           {query.length > 0 && (
             <button
@@ -89,7 +89,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
         <EmptyState>No matching headers</EmptyState>
       ) : (
         <div className="overflow-auto flex-1 px-3 pb-3">
-          <table className="w-full text-xs font-family-mono">
+          <table className="w-full text-xs font-mono">
             <tbody>
               {displayHeaders.map((h) => {
                 // Use the original-array index as a stable identity for this
