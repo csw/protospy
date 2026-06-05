@@ -127,6 +127,37 @@ test.describe("design token fidelity", () => {
   });
 });
 
+test.describe("primitive on-state surfaces (PRO-321)", () => {
+  test("segmented control: active item is raised bg-pane on a bg-sub track", async ({
+    page,
+  }) => {
+    // The rows/table switch is a ToggleGroup type="single" rendered as a
+    // segmented control. Its on-state must render via data-[state=on] (not
+    // aria-pressed, which Radix strips for type="single"). Switch to rows mode
+    // so the "Rows mode" segment is the active one.
+    await page.getByLabel("Rows mode").click();
+
+    const track = page.locator('[data-slot="toggle-group"]').first();
+    const active = page.getByLabel("Rows mode");
+    const inactive = page.getByLabel("Table mode");
+
+    await expect(track).toBeVisible();
+    // toHaveCSS auto-retries, so it settles past the `transition-colors`
+    // animation that a one-shot getComputedStyle read would catch mid-flight.
+
+    // Track is the bg-sub recess (#f4f5f7 light) the raised fill rises from.
+    await expect(track).toHaveCSS("background-color", "rgb(244, 245, 247)");
+
+    // Active segment is raised to bg-pane (#ffffff light) — no accent fill.
+    // This is the regression guard: keyed off data-[state=on] (not aria-pressed,
+    // which Radix strips for type="single"), so the on-fill actually renders.
+    await expect(active).toHaveCSS("background-color", "rgb(255, 255, 255)");
+
+    // Inactive segment stays transparent.
+    await expect(inactive).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  });
+});
+
 test.describe("shadcn semantic tokens", () => {
   test("all shadcn semantic color tokens resolve to concrete colors", async ({
     page,
@@ -145,7 +176,6 @@ test.describe("shadcn semantic tokens", () => {
       "--color-destructive",
       "--color-muted",
       "--color-muted-foreground",
-      "--color-accent-foreground",
       "--color-popover",
       "--color-popover-foreground",
       "--color-ring",

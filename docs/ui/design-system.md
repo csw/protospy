@@ -92,17 +92,24 @@ items → `bg-hl`):
 ### 2.3 On-state / interaction-state language
 
 The on-state is a **coherent per-control-class system**, not one universal "on" treatment. Each
-is encoded via relative elevation and **keyed off `aria-pressed` / `aria-checked` /
-`aria-selected`, never `data-[state=…]`** — because Radix Tooltip/Popover/Dialog triggers
-clobber `data-state` on `asChild`-wrapped toggles (the merged node carries the *outer*
-primitive's `data-state`), and protospy's toolbar toggles are tooltip-wrapped. ARIA attributes
-are written per-element by the owning primitive and don't get clobbered ([A §1.4a], the single
-highest-leverage rule). Each treatment is centralized at its primitive.
+is encoded via relative elevation, centralized at its primitive. The selector keyed on splits by
+whether the control is tooltip-wrapped:
+
+- **Tooltip-wrapped standalone toggles key off `aria-pressed`, not `data-[state=…]`** — Radix
+  Tooltip/Popover/Dialog triggers clobber `data-state` on `asChild`-wrapped toggles (the merged
+  node carries the *outer* primitive's `data-state`), and protospy's toolbar toggles are
+  tooltip-wrapped. ARIA attributes are written per-element by the owning primitive and don't get
+  clobbered ([A §1.4a], the single highest-leverage rule).
+- **Controls that are *not* tooltip-wrapped — segmented `ToggleGroup` items and `Tabs` — key off
+  the stock shadcn `data-[state=on]` / `data-[state=active]`.** Radix sets `data-state` for both
+  `type="single"` and `type="multiple"`, so styling off it sidesteps the `aria-checked`-vs-
+  `aria-pressed` split entirely (which ARIA attribute Radix emits per `type` is Radix's contract —
+  not something this spec specifies or tests).
 
 | Control class | "On/active" treatment | Where it lives | Keyed off |
 | --- | --- | --- | --- |
 | **Binary icon/label toggle, chip** (trace-group toggle, filter chip) | `bg-accent-soft` + `text-accent-ink` (transparent border) | `toggleVariants` (`variant: default`) | `aria-pressed` |
-| **Segmented control** — choose one of a small visible set (rows/table switch, transcript/events, time-zone Local/UTC) | raised `bg-pane` fill on a `bg-sub` track + a **theme-aware** elevation shadow (light `0 1px 1px rgba(0,0,0,.05)`, with a `dark:` override — see note); **no accent** | `toggleVariants` (`variant: segmented`) + `ToggleGroup type="single"` track = `bg-sub` | `aria-pressed` |
+| **Segmented control** — choose one of a small visible set (rows/table switch, transcript/events, time-zone Local/UTC) | raised `bg-pane` fill on a `bg-sub` track + a **theme-aware** elevation shadow (light `0 1px 1px rgba(0,0,0,.05)`, with a `dark:` override — see note); **no accent** | `toggleVariants` (`variant: segmented`) + `ToggleGroup type="single"` track = `bg-sub` | `data-[state=on]` |
 | **Tabs** (Inspector) | `text-ink` + 2px `accent` bottom-border underline + weight 500 (not a fill) | `TabsList variant="line"` / `TabsTrigger` | `data-[state=active]` — safe **only** because `TabsTrigger` is not `asChild`/tooltip-wrapped; verify at the call site, and if it ever is wrapped, re-key off `aria-selected` ([A §1.4a]) |
 | **Selected row** (exchange list, stream event) | `bg-active`; URI → `ink` + weight 500; **2px `accent` left bar**; in-trace adds the 4px trace-colour bar | row component (`role=option`) | `aria-selected` |
 
@@ -121,7 +128,7 @@ const toggleVariants = cva(
         // Elevation shadow is theme-aware: the 5%-black light shadow is invisible on a
         // dark raised pane, so a dark override carries the cue there (see note below).
         segmented:
-          "bg-transparent text-mid hover:text-ink aria-pressed:bg-bg-pane aria-pressed:text-ink aria-pressed:shadow-[0_1px_1px_rgba(0,0,0,.05)] dark:aria-pressed:shadow-[0_1px_2px_rgba(0,0,0,.35)]",
+          "bg-transparent text-mid hover:text-ink data-[state=on]:bg-bg-pane data-[state=on]:text-ink data-[state=on]:shadow-[0_1px_1px_rgba(0,0,0,.05)] dark:data-[state=on]:shadow-[0_1px_2px_rgba(0,0,0,.35)]",
       },
       size: { default: "h-9 min-w-9 px-2", sm: "h-[22px] min-w-[22px] px-0", lg: "h-10 min-w-10 px-2.5" },
     },
@@ -140,11 +147,6 @@ its own track to `bg-bg-sub` (the recess the raised fill rises from). Standalone
 > is invisible on a dark raised pane and points the wrong way, so the CVA carries a `dark:`
 > override; a single hardcoded light shadow is never shipped to both themes. If a second surface
 > needs the same shadow, promote it to a `--shadow-segment` token defined per theme.
-
-> **Reliability note.** Radix `ToggleGroup` items expose both `data-state` on/off and
-> `aria-pressed` (the underlying `Toggle` writes it, [A §2.2]). Keying off `aria-pressed` is
-> robust whether or not the item is later wrapped in a tooltip — prefer it uniformly, and
-> confirm `aria-pressed` renders on items (it is the load-bearing selector).
 
 **Selection-bar width** is normalized to **2px** (`border-l-2`) across both rows and table
 modes. The 4px trace-colour bar coexists with the 2px selection bar and must read distinctly.
@@ -217,8 +219,8 @@ appearance** ([A §2.1]):
 | Stateless action | `Button` / `<button>` | `role=button` |
 | Navigate to URL/route | `<a>` (`Button asChild`) | `role=link` |
 | Binary persistent on/off, immediate (toolbar toggle) | `Toggle` | `role=button` + `aria-pressed` |
-| Choose exactly one of a small visible set | `ToggleGroup type="single"` | items `aria-pressed` |
-| Choose many of a visible set | `ToggleGroup type="multiple"` | per-item `aria-pressed` |
+| Choose exactly one of a small visible set | `ToggleGroup type="single"` | items `role=radio` + `aria-checked` (styled via `data-[state=on]`) |
+| Choose many of a visible set | `ToggleGroup type="multiple"` | per-item `aria-pressed` (styled via `data-[state=on]`) |
 | Mutually exclusive panels, one always visible | `Tabs` | `aria-selected` / `tabpanel` |
 | Trigger a list of actions/commands | `DropdownMenu` | `role=menu`/`menuitem` |
 | Command launcher (type to filter actions) | `Command` (cmdk) | combobox + listbox |
