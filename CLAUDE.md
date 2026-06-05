@@ -38,6 +38,14 @@ Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs
 
 **You must consult documentation before reasoning from first principles** — via Context7 or web search — both for how to use any tool, library, or API (before reading source or trial-and-error) and for the conventional approach to a common problem (before designing your own). Many problems are standard — e.g. dark mode persistence, form validation, auth flows, state hydration, error boundaries — and solved the same way across millions of apps; look up the conventional solution rather than reconstructing it from training data, which may be outdated. Before proposing any approach that involves a well-known library doing a well-known thing, look it up first: your confidence that you know the answer is not evidence that you do.
 
+## Read the ticket — and its parent and siblings
+
+When your task references a Linear ticket (`PRO-NNN`), read that ticket **and its parent issue** before you start. This applies to reviewers reviewing a ticket's work as much as to implementers. Parent issues routinely carry the context that bounds the child: the umbrella's scope, the agreed approach, the decisions already made, and what's deliberately out of scope. An agent — implementer or reviewer — that reads only the child ticket can miss constraints the parent settled and act against them; a reviewer in that position will flag "problems" the parent already resolved and recommend counterproductive changes.
+
+Also read the **titles of the sibling tickets** under the same parent, and open any sibling whose title suggests it bears on your work, so you understand how your piece fits the larger effort.
+
+Get the parent and children with `linear issue view PRO-NNN --json` (`.parent.identifier`, `.children.nodes[].identifier`) — see `docs/agents/linear.md`.
+
 ## Specific guidelines
 
 There are specific agent guidelines in `docs/agents/`. Read the matching file whenever your task plausibly falls under its topic, interpreting each trigger broadly — "writing code" includes modifying, refactoring, or debugging it; "tests" includes fixing a test you didn't write. **More than one guide usually applies to a single task** (a Python change that also adds a dependency and touches CI needs `python.md`, `dependencies.md`, *and* `ci.md`) — read all that apply, not just the closest match. When unsure whether a trigger fires, read the file.
