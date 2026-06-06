@@ -196,6 +196,28 @@ test.describe("command palette tokens (PRO-326)", () => {
     });
     expect(actual).toBe(expected);
   });
+
+  test("empty-state copy uses the text-ui-xs token (10.5px)", async ({
+    page,
+  }) => {
+    // The palette's no-results copy shares the empty-state treatment via the
+    // CommandEmpty children (not a nested EmptyState wrapper). Its size must be
+    // the 10.5px text-ui-xs token, matching every other EmptyState — guards the
+    // A6.1c/A6.1d token fix against a regression to a bare Tailwind default.
+    await page.keyboard.press("Meta+k");
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const input = page.getByPlaceholder("Search commands…");
+    await input.fill("zzzznomatch");
+
+    const empty = page.getByText("No results found.");
+    await expect(empty).toBeVisible();
+
+    const fontSize = await empty.evaluate(
+      (el) => getComputedStyle(el).fontSize,
+    );
+    expect(fontSize).toBe("10.5px");
+  });
 });
 
 test.describe("shadcn semantic tokens", () => {

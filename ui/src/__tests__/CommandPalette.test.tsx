@@ -94,22 +94,32 @@ describe("CommandPalette", () => {
     });
   });
 
-  it("shows the EmptyState when no command matches the query", async () => {
+  it("shows the empty state only when no command matches the query", async () => {
     useStore.getState().setCmdKOpen(true);
     render(<CommandPalette />);
+
+    // cmdk drives empty-state visibility: with matches present (initial render),
+    // the no-results copy must be absent. Guards against a regression where the
+    // empty state is rendered unconditionally rather than via CommandEmpty.
+    expect(screen.queryByText("No results found.")).not.toBeInTheDocument();
 
     const input = screen.getByPlaceholderText("Search commands…");
     await act(async () => {
       fireEvent.change(input, { target: { value: "zzzznomatch" } });
     });
 
-    // The shared EmptyState primitive renders the no-results copy.
+    // No match → CommandEmpty reveals the shared empty-state treatment.
     await waitFor(() => {
       expect(screen.getByText("No results found.")).toBeInTheDocument();
     });
     // All command items are filtered out.
     expect(screen.queryByText("Dark mode")).not.toBeInTheDocument();
     expect(screen.queryByText("Toggle density")).not.toBeInTheDocument();
+
+    // The no-results copy carries the shared empty-state text treatment
+    // (font-ui + the 10.5px text-ui-xs token), not a bare Tailwind default.
+    const empty = screen.getByText("No results found.");
+    expect(empty).toHaveClass("font-ui", "text-ui-xs", "text-dim");
   });
 
   it("clicking 'Dark mode' sets theme to dark and closes the palette", async () => {
