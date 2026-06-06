@@ -8,6 +8,8 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Keep both current:** when you change the UI's architecture, stack, data flow, or directory structure, update `ARCHITECTURE.md`, the `## Architecture` section of `README.md`, and the TL;DR below in the same change. See [`docs/agents/tldr-maintenance.md`](../docs/agents/tldr-maintenance.md) for the regeneration prompt.
 
+**Design system.** The visual design system, token contract, and component rationale are specified in [`docs/ui/design-system.md`](../docs/ui/design-system.md) (with [`rationale.md`](../docs/ui/rationale.md) and [`mapping.md`](../docs/ui/mapping.md)). Consult it before changing tokens, theming, or shared visual treatment. The v2.3 scaffolds under `src/components/protospy/` and their `src/lib/` helpers are **landed but not yet wired** into the live app — integration is tracked separately; do not import them into rendered surfaces as part of unrelated work.
+
 ### TL;DR
 
 **Stack.** React ^19 + TypeScript ^6, Zustand ^5 (with `persist` middleware), `@tanstack/react-virtual` ^3, Radix ^1.4 primitives (shadcn `new-york` wrappers under `components/ui/`), `cmdk` ^1, `react-resizable-panels` ^4, Tailwind v4 (no `tailwind.config.js` — tokens live in `theme/tailwind.css` under `@theme`, dark variant bound to `[data-theme=dark]`). Vite ^8, Vitest ^4 (node + jsdom projects), Playwright. **React Compiler is not run here** — `eslint-plugin-react-hooks@7` surfaces the compiler's static checks at lint time only.

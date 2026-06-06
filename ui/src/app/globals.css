@@ -1,0 +1,370 @@
+/* ============================================================================
+   protospy UI — globals.css  (design system v2.3)
+   Tailwind v4 (CSS-first) + shadcn/ui token contract.
+
+   Layering, top to bottom:
+     1. @custom-variant  — dark mode (next-themes class strategy) + density
+     2. :root / .dark    — RAW token values (the only place hex/oklch lives)
+     3. @theme inline    — exposes tokens as Tailwind utilities (bg-*, text-*…)
+     4. @layer base      — global element defaults
+
+   RULE FOR AGENTS: never write a raw color in a component. Reference a token
+   utility (bg-card, text-muted-foreground, text-method-get …) so light/dark
+   and density are handled for free. See design-system.md §Tokens.
+   ============================================================================ */
+
+@import "tailwindcss";
+@import "tw-animate-css"; /* shadcn animation keyframes (accordion, etc.) */
+
+/* next-themes sets class="dark" on <html>. This is the shadcn default. */
+@custom-variant dark (&:is(.dark *));
+
+/* Density is a single attribute set by <DensityProvider>. Use the compact:
+   variant ONLY for the few size deltas that the token swaps don't cover. */
+@custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
+
+/* ----------------------------------------------------------------------------
+   1. RAW TOKENS — Modern aesthetic
+   shadcn semantic slots first, then protospy domain tokens.
+   `--primary` is the brand blue. `--accent` is the *selected/hover surface*,
+   NOT the brand color — this is the shadcn convention; do not conflate them.
+---------------------------------------------------------------------------- */
+:root {
+  --radius: 0.5rem; /* 8px → sm 4 / md 6 / lg 8, matches Modern's 4&6 radii */
+
+  /* shadcn semantic slots — LIGHT */
+  --background: #fbfbfc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb; /* brand blue (Modern --accent) */
+  --primary-foreground: #ffffff;
+  --secondary: #f4f5f7; /* subtle fill (Modern --bg-sub) */
+  --secondary-foreground: #334155;
+  --muted: #f4f5f7;
+  --muted-foreground: #475569; /* tertiary text — MUST stay legible */
+  --accent: #e8effc; /* selected/hover surface (Modern --bg-active) */
+  --accent-foreground: #1d4ed8;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --border: #e3e6ec;
+  --input: #e3e6ec;
+  --ring: #2563eb;
+
+  /* extra surface steps protospy needs beyond shadcn's set */
+  --hover: color-mix(in srgb, #0f172a 3.5%, transparent); /* row/icon hover */
+  --border-strong: #c9cfd9;
+
+  /* status / semantic accents (fg + bg pairs) — LIGHT */
+  --ok: #047857;
+  --ok-bg: #d1fae5;
+  --redirect: #b45309;
+  --redirect-bg: #fef3c7;
+  --client: #b45309;
+  --client-bg: #fef3c7;
+  --server: #b91c1c;
+  --server-bg: #fee2e2;
+  --pending: #475569;
+  --pending-bg: #f4f5f7;
+  --error: #b91c1c;
+  --error-bg: #fee2e2;
+
+  /* HTTP method tints (fg / bg) — LIGHT */
+  --method-get: #047857;
+  --method-get-bg: #d1fae5;
+  --method-post: #1d4ed8;
+  --method-post-bg: #dbeafe;
+  --method-put: #b45309;
+  --method-put-bg: #fef3c7;
+  --method-patch: #7c2d12;
+  --method-patch-bg: #ffedd5;
+  --method-delete: #b91c1c;
+  --method-delete-bg: #fee2e2;
+  --method-head: #475569;
+  --method-head-bg: #e2e8f0;
+  --method-options: #475569;
+  --method-options-bg: #e2e8f0;
+
+  /* JSON / JSONL syntax — LIGHT */
+  --json-key: #0b4a8b;
+  --json-string: #15803d;
+  --json-number: #9a3412;
+  --json-boolean: #7c2d12;
+  --json-null: #64748b;
+  --json-punct: #94a3b8;
+  --json-lineno: #cbd5e1;
+
+  /* Trace palette — deterministic hash(traceId) % 7. Shared by rail, tags,
+     group cards. Treated like shadcn's --chart-1..n. Same in light & dark
+     (these oklch values read on both). */
+  --trace-1: oklch(0.66 0.17 30); /* orange  */
+  --trace-2: oklch(0.66 0.14 95); /* gold    */
+  --trace-3: oklch(0.66 0.17 150); /* green   */
+  --trace-4: oklch(0.66 0.13 210); /* cyan    */
+  --trace-5: oklch(0.6 0.18 260); /* blue    */
+  --trace-6: oklch(0.58 0.21 300); /* purple  */
+  --trace-7: oklch(0.64 0.2 350); /* magenta */
+
+  /* ── DENSITY-AWARE SIZE TOKENS (regular) ──
+     These flip under [data-density="compact"] below, and are surfaced as
+     Tailwind utilities (text-ui, h-row…) via @theme inline, so most density
+     behaviour is automatic. useDensity() exposes the px numbers to JS. */
+  --text-ui: 13px; /* default UI text         */
+  --text-mono: 12.5px; /* code / body content     */
+  --text-sm: 11.5px; /* labels, secondary       */
+  --text-xs: 10.5px; /* meta, counts, timestamps*/
+
+  /* ── ACCESSIBILITY OPT-IN: rem type scale ──
+     px is safe under browser zoom (it scales the CSS-px reference) and under
+     HiDPI (CSS px ≠ device px). The ONE thing px ignores is the user's browser
+     *default font-size* preference (distinct from zoom) — only rem/em honour it.
+     For a dense desktop dev tool px is a defensible default; if you want to
+     respect the font-size preference too, delete the four px lines above and
+     uncomment these (÷16 of the px values). Nothing else changes — every
+     component reads these tokens.
+
+       --text-ui:    0.8125rem;   (= 13px)
+       --text-mono:  0.78125rem;  (= 12.5px)
+       --text-sm:    0.71875rem;  (= 11.5px)
+       --text-xs:    0.65625rem;  (= 10.5px)
+
+     ⚠ Virtualizer caveat: @tanstack/react-virtual needs a numeric px row height,
+     and ROW_PX in lib/density.tsx is hard-coded px. If you switch row heights to
+     rem as well, resolve them at runtime instead of hard-coding, e.g.:
+       const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+       estimateSize: () => remRowHeight * rootPx;
+     Pure type-only rem (keeping --row-h* in px) needs no virtualizer change. */
+
+  --row-h: 74px; /* exchange row, rows mode  */
+  --row-h-table: 30px; /* exchange row, table mode */
+  --topbar-h: 40px;
+  --filterbar-h: 36px;
+  --statusbar-h: 24px;
+  --tab-h: 32px;
+  --ctxbar-h: 50px;
+
+  --pad-x: 12px;
+  --pad-y: 8px;
+  --gap: 8px;
+
+  /* fonts */
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* shadcn semantic slots + domain tokens — DARK */
+.dark {
+  --background: #0c0f14;
+  --foreground: #e6edf6;
+  --card: #11151c;
+  --card-foreground: #e6edf6;
+  --popover: #11151c;
+  --popover-foreground: #e6edf6;
+  --primary: #60a5fa;
+  --primary-foreground: #0c0f14;
+  --secondary: #161b23;
+  --secondary-foreground: #c5cee0;
+  --muted: #161b23;
+  --muted-foreground: #94a3b8;
+  --accent: color-mix(in srgb, #60a5fa 16%, transparent);
+  --accent-foreground: #93c5fd;
+  --destructive: #f87171;
+  --destructive-foreground: #0c0f14;
+  --border: #1c222b;
+  --input: #1c222b;
+  --ring: #60a5fa;
+
+  --hover: color-mix(in srgb, #ffffff 4%, transparent);
+  --border-strong: #2a3340;
+
+  --ok: #34d399;
+  --ok-bg: color-mix(in srgb, #34d399 14%, transparent);
+  --redirect: #fbbf24;
+  --redirect-bg: color-mix(in srgb, #fbbf24 14%, transparent);
+  --client: #fbbf24;
+  --client-bg: color-mix(in srgb, #fbbf24 14%, transparent);
+  --server: #f87171;
+  --server-bg: color-mix(in srgb, #f87171 14%, transparent);
+  --pending: #94a3b8;
+  --pending-bg: #161b23;
+  --error: #f87171;
+  --error-bg: color-mix(in srgb, #f87171 14%, transparent);
+
+  --method-get: #34d399;
+  --method-get-bg: color-mix(in srgb, #34d399 14%, transparent);
+  --method-post: #60a5fa;
+  --method-post-bg: color-mix(in srgb, #60a5fa 14%, transparent);
+  --method-put: #fbbf24;
+  --method-put-bg: color-mix(in srgb, #fbbf24 14%, transparent);
+  --method-patch: #fb923c;
+  --method-patch-bg: color-mix(in srgb, #fb923c 14%, transparent);
+  --method-delete: #f87171;
+  --method-delete-bg: color-mix(in srgb, #f87171 14%, transparent);
+  --method-head: #94a3b8;
+  --method-head-bg: color-mix(in srgb, #94a3b8 14%, transparent);
+  --method-options: #94a3b8;
+  --method-options-bg: color-mix(in srgb, #94a3b8 14%, transparent);
+
+  --json-key: #93c5fd;
+  --json-string: #86efac;
+  --json-number: #fdba74;
+  --json-boolean: #fbbf24;
+  --json-null: #94a3b8;
+  --json-punct: #475569;
+  --json-lineno: #2a3340;
+}
+
+/* compact density — only the size tokens change */
+[data-density="compact"] {
+  --text-ui: 12.5px;
+  --text-mono: 12px;
+  --text-sm: 11px;
+  --text-xs: 10px;
+
+  --row-h: 58px;
+  --row-h-table: 24px;
+  --topbar-h: 34px;
+  --filterbar-h: 30px;
+  --statusbar-h: 22px;
+  --tab-h: 28px;
+  --ctxbar-h: 40px;
+
+  --pad-x: 10px;
+  --pad-y: 6px;
+  --gap: 6px;
+}
+
+/* ----------------------------------------------------------------------------
+   2. @theme inline — expose tokens as Tailwind utilities.
+   `inline` keeps the var() reference, so runtime theme/density swaps apply
+   without rebuilding. e.g. bg-card, text-muted-foreground, text-method-get,
+   bg-method-get-bg, text-ui, h-row, gap-gutter.
+---------------------------------------------------------------------------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-hover: var(--hover);
+
+  /* status */
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-redirect: var(--redirect);
+  --color-redirect-bg: var(--redirect-bg);
+  --color-client: var(--client);
+  --color-client-bg: var(--client-bg);
+  --color-server: var(--server);
+  --color-server-bg: var(--server-bg);
+  --color-pending: var(--pending);
+  --color-pending-bg: var(--pending-bg);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+
+  /* methods */
+  --color-method-get: var(--method-get);
+  --color-method-get-bg: var(--method-get-bg);
+  --color-method-post: var(--method-post);
+  --color-method-post-bg: var(--method-post-bg);
+  --color-method-put: var(--method-put);
+  --color-method-put-bg: var(--method-put-bg);
+  --color-method-patch: var(--method-patch);
+  --color-method-patch-bg: var(--method-patch-bg);
+  --color-method-delete: var(--method-delete);
+  --color-method-delete-bg: var(--method-delete-bg);
+  --color-method-head: var(--method-head);
+  --color-method-head-bg: var(--method-head-bg);
+  --color-method-options: var(--method-options);
+  --color-method-options-bg: var(--method-options-bg);
+
+  /* json */
+  --color-json-key: var(--json-key);
+  --color-json-string: var(--json-string);
+  --color-json-number: var(--json-number);
+  --color-json-boolean: var(--json-boolean);
+  --color-json-null: var(--json-null);
+  --color-json-punct: var(--json-punct);
+  --color-json-lineno: var(--json-lineno);
+
+  /* traces */
+  --color-trace-1: var(--trace-1);
+  --color-trace-2: var(--trace-2);
+  --color-trace-3: var(--trace-3);
+  --color-trace-4: var(--trace-4);
+  --color-trace-5: var(--trace-5);
+  --color-trace-6: var(--trace-6);
+  --color-trace-7: var(--trace-7);
+
+  /* fonts */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* density-aware font sizes → text-ui / text-mono / text-sm / text-xs */
+  --text-ui: var(--text-ui);
+  --text-mono: var(--text-mono);
+  --text-sm: var(--text-sm);
+  --text-xs: var(--text-xs);
+
+  /* density-aware sizing → h-row, h-topbar, p-gutter (via --spacing-*) */
+  --spacing-row: var(--row-h);
+  --spacing-row-table: var(--row-h-table);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-filterbar: var(--filterbar-h);
+  --spacing-statusbar: var(--statusbar-h);
+  --spacing-tab: var(--tab-h);
+  --spacing-ctxbar: var(--ctxbar-h);
+  --spacing-gutter-x: var(--pad-x);
+  --spacing-gutter-y: var(--pad-y);
+  --spacing-gutter: var(--gap);
+
+  /* radii */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ----------------------------------------------------------------------------
+   3. base layer
+---------------------------------------------------------------------------- */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: var(--text-ui);
+    line-height: 1.4;
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+  /* keyboard focus only (shadcn pattern) */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-0;
+  }
+}
