@@ -14,8 +14,6 @@ uv run pytest -q                               # run tests (always pass -q when 
 uvx vulture src                                # check for dead code
 ```
 
-Run all commands from `flix/` using `uv run`. (On the host macOS sandbox, run `cd flix/` once first — see `docs/agents/host-sandbox.md`.)
-
 ## Architecture
 
 For the deep reference (full library/version table, per-endpoint ES query bodies, OTel setup details, unit-test mocking recipe with the right `ApiResponseMeta` shape, E2E fixture wiring), read [`ARCHITECTURE.md`](./ARCHITECTURE.md). The TL;DR below is enough for adding a route or template that fits an existing pattern — but if your change touches the FastAPI lifespan, OTel/telemetry setup, the ES client lifecycle, the loader script, the dual HTML/JSON response pattern, or the directory layout, you need the deep doc.
