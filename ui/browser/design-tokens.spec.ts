@@ -9,7 +9,11 @@
 
 import { test, expect } from "@playwright/test";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
-import { makeCompleteExchange } from "./fixtures/exchanges";
+import {
+  makeCompleteExchange,
+  makeGetRequest,
+  makeResponse,
+} from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -155,6 +159,40 @@ test.describe("primitive on-state surfaces (PRO-321)", () => {
 
     // Inactive segment stays transparent.
     await expect(inactive).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  });
+
+  test("standalone Toggle: pressed on-state renders accent-soft fill + accent-ink text", async ({
+    page,
+  }) => {
+    // The HeadersPane Basic-auth decode control is the first standalone Toggle
+    // consumer (PRO-323). The default variant's on-state is keyed off
+    // aria-pressed (not data-[state=on]) because a standalone Toggle is
+    // tooltip-wrappable; toggle.tsx's NOTE requires this runtime check to prove
+    // the aria-pressed selector actually matches, not just that the class exists.
+    // "user:pass" → base64 "dXNlcjpwYXNz".
+    await injectExchanges(page, [
+      makeGetRequest(2, "/auth-check", undefined, [
+        { name: "authorization", value: "Basic dXNlcjpwYXNz" },
+      ]),
+      makeResponse(2, "200 OK", undefined, undefined, []),
+    ]);
+    await page.getByText("/auth-check").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
+
+    const panel = page.locator('[data-testid="headers-panel-request"]');
+    const toggle = panel.getByLabel("Show decoded Basic auth value");
+    await expect(toggle).toBeVisible();
+
+    // Off-state: transparent fill (default variant resting surface).
+    await expect(toggle).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+    await toggle.click();
+
+    // On-state (now aria-pressed): accent-soft fill + accent-ink text.
+    // accent-soft #dbeafe = rgb(219, 234, 254); accent-ink #1d4ed8 = rgb(29, 78, 216).
+    const pressed = panel.getByLabel("Hide decoded value");
+    await expect(pressed).toHaveCSS("background-color", "rgb(219, 234, 254)");
+    await expect(pressed).toHaveCSS("color", "rgb(29, 78, 216)");
   });
 });
 

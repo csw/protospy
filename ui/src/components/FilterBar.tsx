@@ -1,6 +1,8 @@
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useStore } from "@ui/state/store";
 import { matchesFilter, shortenTraceId, traceColor } from "@ui/lib/utils";
+import { Button } from "./ui/button";
+import { SearchInput } from "./ui/SearchInput";
 
 export function FilterBar() {
   const filter = useStore((s) => s.filter);
@@ -26,28 +28,13 @@ export function FilterBar() {
   return (
     <div className="flex items-center h-[36px] bg-bg border-b border-border px-3 gap-2 shrink-0">
       {/* Search input */}
-      <div
+      <SearchInput
         data-testid="filter-input-wrapper"
-        className="flex items-center flex-1 gap-1.5 rounded-[4px] bg-bg-sub border border-border px-2.5 h-[24px] min-w-0 focus-within:border-border-focus"
-      >
-        <Search size={11} className="text-dim shrink-0" />
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter requests…"
-          className="flex-1 bg-transparent border-none outline-none font-mono text-xs text-ink placeholder:text-dim min-w-0"
-        />
-        {filter.length > 0 && (
-          <button
-            onClick={() => setFilter("")}
-            className="text-dim hover:text-ink transition-colors shrink-0 cursor-pointer"
-            aria-label="Clear filter"
-          >
-            <X size={11} />
-          </button>
-        )}
-      </div>
+        className="flex-1"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter requests…"
+      />
 
       {/* Trace filter chip */}
       {traceFilter != null && (
@@ -59,13 +46,18 @@ export function FilterBar() {
           <span className="font-mono text-xs text-accent-ink">
             trace {shortenTraceId(traceFilter)}
           </span>
-          <button
+          {/* Stays accent-ink (chip = active surface, A2.4) rather than the
+              ghost Button's neutral hover; size-4 override keeps it chip-sized. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setTraceFilter(null)}
-            className="text-accent-ink hover:text-accent transition-colors cursor-pointer"
             aria-label="Clear trace filter"
+            className="size-4 shrink-0 text-accent-ink hover:bg-transparent hover:text-accent"
           >
-            <X size={11} />
-          </button>
+            <X />
+          </Button>
         </div>
       )}
 

@@ -122,4 +122,32 @@ describe("CopyButton", () => {
     expect(mockWriteText).toHaveBeenCalledWith("space");
     expect(btn.textContent).toBe("Copied!");
   });
+
+  describe("icon mode", () => {
+    it("exposes the accessible name via aria-label (no visible text)", () => {
+      render(<CopyButton mode="icon" text="v" aria-label="Copy x-foo value" />);
+      const btn = screen.getByLabelText("Copy x-foo value");
+      expect(btn).toBeInTheDocument();
+      expect(btn.textContent).toBe("");
+      expect(btn.querySelector("svg")).toBeInTheDocument();
+    });
+
+    it("copies the provided text on click", () => {
+      render(<CopyButton mode="icon" text="secret" aria-label="Copy value" />);
+      fireEvent.click(screen.getByLabelText("Copy value"));
+      expect(mockWriteText).toHaveBeenCalledWith("secret");
+    });
+
+    it("swaps to the success (green check) icon after a click", () => {
+      render(<CopyButton mode="icon" text="v" aria-label="Copy value" />);
+      const btn = screen.getByLabelText("Copy value");
+      expect(btn.querySelector("svg")?.getAttribute("class")).not.toContain(
+        "text-green",
+      );
+      fireEvent.click(btn);
+      expect(btn.querySelector("svg")?.getAttribute("class")).toContain(
+        "text-green",
+      );
+    });
+  });
 });
