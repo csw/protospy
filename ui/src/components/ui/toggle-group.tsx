@@ -29,7 +29,7 @@ function ToggleGroup({
       data-slot="toggle-group"
       data-size={size}
       className={cn(
-        "group/toggle-group flex w-fit items-center rounded-md",
+        "group/toggle-group flex w-fit items-center rounded-md bg-bg-sub",
         bordered && "border border-border overflow-hidden",
         className,
       )}
@@ -57,9 +57,10 @@ function ToggleGroupItem({
       data-size={context.size || size}
       className={cn(
         toggleVariants({
+          variant: "segmented",
           size: context.size || size,
         }),
-        "rounded-none border-0 shadow-none focus:z-10 focus-visible:z-10",
+        "rounded-none border-0 focus:z-10 focus-visible:z-10",
         className,
       )}
       {...props}

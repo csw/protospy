@@ -81,6 +81,36 @@ describe("ToggleGroup", () => {
     expect(root).toHaveClass("border", "border-border", "overflow-hidden");
   });
 
+  it("renders as a segmented control: bg-sub track, items carry the segmented on-state fill (PRO-321)", () => {
+    const { container } = render(
+      <ToggleGroup type="single" value="a" onValueChange={() => {}}>
+        <ToggleGroupItem value="a" aria-label="Option A">
+          A
+        </ToggleGroupItem>
+        <ToggleGroupItem value="b" aria-label="Option B">
+          B
+        </ToggleGroupItem>
+      </ToggleGroup>,
+    );
+    // The group track is the bg-sub recess the raised on-fill rises from.
+    const root = container.querySelector('[data-slot="toggle-group"]');
+    expect(root).toHaveClass("bg-bg-sub");
+
+    // Items use the `segmented` variant: on-state keyed off data-[state=on]
+    // (type-agnostic, no accent), raised bg-pane fill. Keyed off data-state —
+    // not aria-pressed — so it works for both single- and multiple-select.
+    const item = screen.getByLabelText("Option A");
+    expect(item).toHaveClass(
+      "data-[state=on]:bg-bg-pane",
+      "data-[state=on]:text-ink",
+    );
+    // No accent on the segmented on-state.
+    expect(item.className).not.toContain("data-[state=on]:bg-accent");
+    expect(item.className).not.toContain("aria-pressed:bg-accent-soft");
+    // shadow-none was removed so the segmented elevation shadow can render.
+    expect(item.className).not.toContain("shadow-none");
+  });
+
   it("applies the sm size to items via context", () => {
     render(
       <ToggleGroup type="single" value="a" onValueChange={() => {}} size="sm">

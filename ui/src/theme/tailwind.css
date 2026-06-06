@@ -105,8 +105,6 @@
   --color-muted: var(--color-bg-sub);
   --color-muted-foreground: var(--color-mid);
 
-  --color-accent-foreground: var(--color-ink);
-
   --color-popover: var(--color-bg-pane);
   --color-popover-foreground: var(--color-ink);
 
