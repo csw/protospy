@@ -8,6 +8,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "./ui/command";
+import { EmptyState } from "./ui/EmptyState";
 import {
   Sun,
   Moon,
@@ -20,8 +21,9 @@ import {
   X,
 } from "lucide-react";
 
-const cmdItemClass =
-  "h-[36px] px-2 rounded-md hover:bg-bg-hover data-[selected=true]:bg-bg-active cursor-pointer";
+// Layout-only overrides; the selected surface (bg-bg-hl + text-ink) and the
+// default cursor are inherited from the CommandItem primitive (T2/P8, §2.2/§2.5).
+const cmdItemClass = "h-[36px] px-2 rounded-md";
 
 /** Theme options shown in the command palette. */
 const THEME_OPTIONS: Array<{
@@ -95,14 +97,14 @@ export function CommandPalette() {
         className="font-mono text-sm text-ink placeholder:text-dim"
       />
       <CommandList className="max-h-[480px]">
-        <CommandEmpty className="py-6 text-center font-ui text-sm text-dim">
-          No results found.
+        <CommandEmpty>
+          <EmptyState>No results found.</EmptyState>
         </CommandEmpty>
 
         {/* Theme section */}
         <CommandGroup
           heading="Theme"
-          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-ui-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
         >
           {THEME_OPTIONS.map((opt) => (
             <CommandItem
@@ -112,9 +114,9 @@ export function CommandPalette() {
               className={cmdItemClass}
             >
               <opt.icon className="size-4 text-mid" />
-              <span className="font-ui text-sm text-ink">{opt.label}</span>
+              <span className="font-ui text-ui text-ink">{opt.label}</span>
               {theme === opt.value && (
-                <span className="ml-auto text-xs text-accent">active</span>
+                <span className="ml-auto text-ui-xs text-accent">active</span>
               )}
             </CommandItem>
           ))}
@@ -123,7 +125,7 @@ export function CommandPalette() {
         {/* Commands section */}
         <CommandGroup
           heading="Commands"
-          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          className="[&_[cmdk-group-heading]]:font-ui [&_[cmdk-group-heading]]:text-ui-xs [&_[cmdk-group-heading]]:text-mid [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
         >
           <CommandItem
             value="toggle density compact regular"
@@ -131,7 +133,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <LayoutGrid className="size-4 text-mid" />
-            <span className="font-ui text-sm text-ink">Toggle density</span>
+            <span className="font-ui text-ui text-ink">Toggle density</span>
           </CommandItem>
 
           <CommandItem
@@ -144,7 +146,7 @@ export function CommandPalette() {
             ) : (
               <Rows3 className="size-4 text-mid" />
             )}
-            <span className="font-ui text-sm text-ink">
+            <span className="font-ui text-ui text-ink">
               {listMode === "rows"
                 ? "Switch to table view"
                 : "Switch to rows view"}
@@ -157,7 +159,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <Layers className="size-4 text-mid" />
-            <span className="font-ui text-sm text-ink">
+            <span className="font-ui text-ui text-ink">
               Toggle trace grouping
             </span>
           </CommandItem>
@@ -168,7 +170,7 @@ export function CommandPalette() {
             className={cmdItemClass}
           >
             <Globe className="size-4 text-mid" />
-            <span className="font-ui text-sm text-ink">
+            <span className="font-ui text-ui text-ink">
               {timeZone === "local"
                 ? "Switch to UTC timestamps"
                 : "Switch to local timestamps"}
@@ -182,7 +184,7 @@ export function CommandPalette() {
               className={cmdItemClass}
             >
               <X className="size-4 text-mid" />
-              <span className="font-ui text-sm text-ink">Clear filter</span>
+              <span className="font-ui text-ui text-ink">Clear filter</span>
             </CommandItem>
           )}
         </CommandGroup>

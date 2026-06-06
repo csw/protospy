@@ -94,6 +94,24 @@ describe("CommandPalette", () => {
     });
   });
 
+  it("shows the EmptyState when no command matches the query", async () => {
+    useStore.getState().setCmdKOpen(true);
+    render(<CommandPalette />);
+
+    const input = screen.getByPlaceholderText("Search commands…");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "zzzznomatch" } });
+    });
+
+    // The shared EmptyState primitive renders the no-results copy.
+    await waitFor(() => {
+      expect(screen.getByText("No results found.")).toBeInTheDocument();
+    });
+    // All command items are filtered out.
+    expect(screen.queryByText("Dark mode")).not.toBeInTheDocument();
+    expect(screen.queryByText("Toggle density")).not.toBeInTheDocument();
+  });
+
   it("clicking 'Dark mode' sets theme to dark and closes the palette", async () => {
     useStore.getState().setTheme("light");
     useStore.getState().setCmdKOpen(true);

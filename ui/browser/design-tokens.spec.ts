@@ -158,6 +158,46 @@ test.describe("primitive on-state surfaces (PRO-321)", () => {
   });
 });
 
+test.describe("command palette tokens (PRO-326)", () => {
+  test("command item label uses text-ui (13px)", async ({ page }) => {
+    // First rendered-path consumer of --text-ui (13px): the command-palette
+    // item labels. Guards the base UI/chrome body size against drift.
+    await page.keyboard.press("Meta+k");
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const label = page.getByText("Toggle density", { exact: true });
+    await expect(label).toBeVisible();
+
+    const fontSize = await label.evaluate(
+      (el) => getComputedStyle(el).fontSize,
+    );
+    expect(fontSize).toBe("13px");
+  });
+
+  test("selected command item uses the bg-hl surface", async ({ page }) => {
+    // The selected row inherits bg-bg-hl + text-ink from the CommandItem
+    // primitive (T2/P8); the palette no longer overrides it to bg-bg-active.
+    await page.keyboard.press("Meta+k");
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    // cmdk auto-selects the first item.
+    const selected = page.locator('[cmdk-item][data-selected="true"]').first();
+    await expect(selected).toBeVisible();
+
+    // Compare the rendered background to a probe painted with the token, so
+    // the assertion holds in both themes without hard-coding rgba strings.
+    const { actual, expected } = await selected.evaluate((el) => {
+      const probe = document.createElement("div");
+      probe.style.backgroundColor = "var(--color-bg-hl)";
+      document.body.appendChild(probe);
+      const expected = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return { actual: getComputedStyle(el).backgroundColor, expected };
+    });
+    expect(actual).toBe(expected);
+  });
+});
+
 test.describe("shadcn semantic tokens", () => {
   test("all shadcn semantic color tokens resolve to concrete colors", async ({
     page,
