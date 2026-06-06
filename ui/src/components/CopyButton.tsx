@@ -17,9 +17,15 @@ interface Props {
 }
 
 /**
- * The single copy affordance + success signal, on `Button variant="link"
- * size="xs"`, resting `dim` (design-system §4). Self-manages its 2s "copied"
- * window, so each call site is just `<CopyButton text=… />`.
+ * The single copy affordance + success signal, resting `dim`
+ * (design-system §4). Self-manages its 2s "copied" window, so each call site
+ * is just `<CopyButton text=… />`.
+ *
+ * `mode="label"` renders inline text on `Button variant="link" size="xs"`;
+ * `mode="icon"` renders an icon-only square on `variant="ghost"
+ * size="icon-2xs"` — the honest 16px icon-button variant (no padding class),
+ * matching the SearchInput / trace-chip clear buttons rather than overriding a
+ * text-sized variant back down.
  */
 export function CopyButton({
   text,
@@ -29,6 +35,7 @@ export function CopyButton({
 }: Props) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isIcon = mode === "icon";
 
   useEffect(() => {
     return () => {
@@ -53,14 +60,17 @@ export function CopyButton({
   return (
     <Button
       type="button"
-      variant="link"
-      size="xs"
+      variant={isIcon ? "ghost" : "link"}
+      size={isIcon ? "icon-2xs" : "xs"}
       onClick={handleClick}
       disabled={!text}
       aria-label={ariaLabel}
       className={cn(
-        "h-auto font-mono text-xs text-dim transition-colors hover:text-ink hover:no-underline disabled:text-dim disabled:opacity-50",
-        mode === "icon" && "p-0",
+        "font-mono text-dim transition-colors hover:text-ink disabled:text-dim disabled:opacity-50",
+        // Label mode is inline text on the link variant: content-height plus
+        // underline suppression. Icon mode keeps the icon-2xs square (size-4),
+        // so it must NOT pick up h-auto (which would collapse the fixed height).
+        !isIcon && "h-auto text-xs hover:no-underline",
         className,
       )}
     >

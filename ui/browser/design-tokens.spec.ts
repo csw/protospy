@@ -164,6 +164,46 @@ test.describe("design token fidelity", () => {
     expect(box.width).toBe("16px");
     expect(box.height).toBe("16px");
   });
+
+  test("per-row copy button (icon mode) renders at 16px (icon-2xs)", async ({
+    page,
+  }) => {
+    // The HeadersPane per-row copy uses CopyButton mode="icon", which must
+    // render as a 16px icon-2xs square. Guards against the regression where
+    // mode="icon" was built on size="xs" + p-0: the xs variant's
+    // `has-[>svg]:px-1.5` survives tailwind-merge (different modifier) and beats
+    // `p-0` on specificity, so the button rendered 24px wide with 6px padding.
+    await injectExchanges(page, [
+      makeGetRequest(3, "/auth-check", undefined, [
+        { name: "authorization", value: "Basic dXNlcjpwYXNz" },
+      ]),
+      makeResponse(3, "200 OK", undefined, undefined, []),
+    ]);
+    await page.getByText("/auth-check").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
+
+    const panel = page.locator('[data-testid="headers-panel-request"]');
+    const copy = panel.getByRole("button", {
+      name: "Copy authorization value",
+    });
+    // The button is `invisible` until row hover; hover the row to reveal it.
+    await panel.getByText("authorization").hover();
+    await expect(copy).toBeVisible();
+
+    const box = await copy.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        width: cs.width,
+        height: cs.height,
+        paddingLeft: cs.paddingLeft,
+        paddingRight: cs.paddingRight,
+      };
+    });
+    expect(box.width).toBe("16px");
+    expect(box.height).toBe("16px");
+    expect(box.paddingLeft).toBe("0px");
+    expect(box.paddingRight).toBe("0px");
+  });
 });
 
 test.describe("primitive on-state surfaces (PRO-321)", () => {
