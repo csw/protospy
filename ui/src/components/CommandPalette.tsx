@@ -8,7 +8,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "./ui/command";
-import { EmptyState } from "./ui/EmptyState";
+import { emptyStateText } from "./ui/EmptyState";
 import {
   Sun,
   Moon,
@@ -97,8 +97,11 @@ export function CommandPalette() {
         className="font-mono text-sm text-ink placeholder:text-dim"
       />
       <CommandList className="max-h-[480px]">
-        <CommandEmpty>
-          <EmptyState>No results found.</EmptyState>
+        {/* cmdk owns empty-state visibility (filter-driven); CommandEmpty owns
+            its own py-6 layout and borrows the shared empty-state text
+            treatment — no nested EmptyState centering wrapper (§3.2). */}
+        <CommandEmpty className="py-6 text-center">
+          <span className={emptyStateText}>No results found.</span>
         </CommandEmpty>
 
         {/* Theme section */}
