@@ -35,7 +35,7 @@ Before starting the review, read these files — they define the quality bar:
 3. `ui/ARCHITECTURE.md` — understand the component tree so you can name
    components accurately in findings.
 
-The `/design-review` skill defines the general visual-quality rubric
+The `/protospy-design-review` skill defines the general visual-quality rubric
 (layout, typography, colour, hierarchy, component consistency, interaction
 design, responsive quality). Invoke it via `Skill` to load the full
 checklist, then apply the relevant categories to what you see.
@@ -473,7 +473,7 @@ prioritize, and synthesize into the final report.
   code) to understand what you're looking at.
 - You **do** use `playwright-cli` to drive the browser and capture
   screenshots.
-- You **do** use `Skill` to load the design-review rubric.
+- You **do** use `Skill` to load the protospy-design-review rubric.
 
 ## Resumable follow-up
 

@@ -88,7 +88,7 @@ Passing lint/typecheck/tests is necessary but not sufficient for any change that
 what the UI renders or how it behaves on screen — this includes changes to reducers,
 hooks, selectors, or formatters whose output is visible, not only changes to components or
 CSS. Such a change is "done" only when it also clears the **frontend Definition of Done**
-([`../docs/frontend-dod.md`](../docs/frontend-dod.md)): the `/design-review` rubric plus
+([`../docs/frontend-dod.md`](../docs/frontend-dod.md)): the `/protospy-design-review` rubric plus
 protospy-specific requirements —
 
 - every **fixture-matrix** state renders correctly (the matrix lives in
