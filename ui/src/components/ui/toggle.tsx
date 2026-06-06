@@ -12,6 +12,11 @@ const toggleVariants = cva(
         // Binary toolbar toggle / chip — accent-soft active surface.
         // Standalone Toggle is tooltip-wrapped, so its on-state is keyed off
         // aria-pressed (which Radix Tooltip's data-state would clobber).
+        // NOTE: this on-state is class-guarded only (no consumer yet). The
+        // first component to render a standalone Toggle must add a
+        // computed-style check to browser/design-tokens.spec.ts — a
+        // class-guard can't prove the aria-pressed selector actually matches
+        // at runtime.
         default:
           "bg-transparent text-mid hover:bg-bg-hover hover:text-ink aria-pressed:bg-accent-soft aria-pressed:text-accent-ink",
         // Segmented item (inside ToggleGroup) — raised bg-pane fill on a bg-sub
