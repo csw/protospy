@@ -46,16 +46,20 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-auto flex-1 border-0 bg-transparent p-0 font-mono text-xs text-ink shadow-none placeholder:text-dim focus-visible:ring-0 md:text-xs"
+        // `md:text-xs` is load-bearing, not redundant: the Input base sets
+        // `text-base md:text-sm`, so a flat `text-xs` alone leaves `md:text-sm`
+        // (14px) winning at ≥md widths — every width this desktop app runs at.
+        // Both classes are needed to hold the frozen 12px at all widths.
+        className="h-auto flex-1 border-0 bg-transparent p-0 font-mono text-xs text-ink placeholder:text-dim focus-visible:ring-0 md:text-xs"
       />
       {value.length > 0 && (
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon-2xs"
           onClick={() => onChange("")}
           aria-label={clearLabel}
-          className="size-4 shrink-0 text-dim"
+          className="shrink-0 text-dim"
         >
           <X />
         </Button>

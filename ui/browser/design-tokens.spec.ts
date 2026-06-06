@@ -129,6 +129,41 @@ test.describe("design token fidelity", () => {
     );
     expect(borderRadius).toBe("4px");
   });
+
+  test("search input text stays 12px at desktop width", async ({ page }) => {
+    // The frozen-at-main search box is text-xs font-mono (12px). The Input base
+    // primitive sets `text-base md:text-sm`, so SearchInput must carry BOTH
+    // `text-xs` and `md:text-xs` to hold 12px at >=md widths. This guards
+    // against a future "redundant class" cleanup of md:text-xs that would let
+    // the base's md:text-sm (14px) win on every desktop width the app runs at.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const input = page.locator('[data-testid="filter-input-wrapper"] input');
+    await expect(input).toBeVisible();
+
+    const fontSize = await input.evaluate(
+      (el) => getComputedStyle(el).fontSize,
+    );
+    expect(fontSize).toBe("12px");
+  });
+
+  test("search input clear button renders at 16px (icon-2xs)", async ({
+    page,
+  }) => {
+    // The clear affordance uses Button size="icon-2xs" (size-4 = 16px) — the
+    // honest size variant rather than icon-xs (24px) overridden back to 16px.
+    const wrapper = page.locator('[data-testid="filter-input-wrapper"]');
+    await wrapper.locator("input").fill("something");
+
+    const clear = wrapper.getByRole("button", { name: "Clear filter" });
+    await expect(clear).toBeVisible();
+
+    const box = await clear.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { width: cs.width, height: cs.height };
+    });
+    expect(box.width).toBe("16px");
+    expect(box.height).toBe("16px");
+  });
 });
 
 test.describe("primitive on-state surfaces (PRO-321)", () => {

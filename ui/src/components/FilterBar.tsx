@@ -51,10 +51,10 @@ export function FilterBar() {
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-2xs"
             onClick={() => setTraceFilter(null)}
             aria-label="Clear trace filter"
-            className="size-4 shrink-0 text-accent-ink hover:bg-transparent hover:text-accent"
+            className="shrink-0 text-accent-ink hover:bg-transparent hover:text-accent"
           >
             <X />
           </Button>

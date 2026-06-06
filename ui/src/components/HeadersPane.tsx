@@ -81,6 +81,7 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                           {/* Basic auth decode toggle (persistent on/off) */}
                           {decoded !== null && (
                             <Toggle
+                              size="sm"
                               pressed={isDecoded}
                               onPressedChange={(p) =>
                                 setDecodedRow(p ? origIdx : null)
@@ -90,7 +91,10 @@ export function HeadersPane({ headers, emptyMessage }: HeadersPaneProps) {
                                   ? "Hide decoded value"
                                   : "Show decoded Basic auth value"
                               }
-                              className="ml-2 h-auto min-w-0 rounded border border-border px-1 py-px text-[10px] align-baseline"
+                              // Keep content-height (h-auto) over the sm variant's
+                              // fixed h-[22px] so the inline chip matches the frozen
+                              // main appearance and doesn't heighten rows unevenly.
+                              className="ml-2 h-auto border border-border px-1 py-px text-[10px]"
                             >
                               {isDecoded ? "hide" : "decode"}
                             </Toggle>
