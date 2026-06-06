@@ -35,7 +35,12 @@ primitive, pattern, or approach is not evidence it is the right one; code can
 be implemented cleanly and still make the wrong choice. Bias deliberately
 against path-dependence and groupthink: evaluate the design decisions the
 change introduces on their merits, and flag a wrong choice even when it is
-exactly what the diff — or the ticket it implements — set out to do. Keep this
+exactly what the diff — or the ticket it implements — set out to do. In
+particular, when making the diff conform to its directive required fighting the
+tools — nesting components that don't compose, an override that can't take
+effect, a workaround justified at length — treat that friction as a signal the
+directive itself is wrong: question the directive, don't merely propose a tidier
+way to satisfy it. Keep this
 scoped to the decisions the change itself makes: critique a wrong primitive or
 pattern in the changed code, but do not re-litigate the surrounding component
 or pre-existing design the diff did not touch.
