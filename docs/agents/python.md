@@ -32,7 +32,6 @@ Ruff formats multi-exception `except` clauses without parentheses: `except A, B:
 Before reporting a unit of work as complete (whether you are the primary agent or a subagent), **all of the following must pass** for any Python file you add or change that lives in the repo. `flix/` and `conformance/` are the main homes; a one-off script you do not commit is exempt.
 
 ```bash
-cd <package>       # flix/ or conformance/
 uv run ruff check .
 uv run ruff format .
 uv run pyright .

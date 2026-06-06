@@ -1,7 +1,5 @@
 # CLAUDE.md — protospy UI
 
-Run all commands from `ui/`. (On the host macOS sandbox, run `cd ui/` once first — see `docs/agents/host-sandbox.md`.)
-
 If `CLAUDE.local.md` exists in this directory, read it for additional local guidance.
 
 ## Architecture

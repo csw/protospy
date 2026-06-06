@@ -14,8 +14,6 @@ uv run ruff format .               # format
 uv run pyright .                   # type check
 ```
 
-Run all commands from `conformance/` using `uv run`. (On the host macOS sandbox, run `cd conformance/` once first — see `docs/agents/host-sandbox.md`.)
-
 ## Architecture
 
 For the deep reference (full module roles, fixture wiring, channel taxonomy, source-module-by-source-module breakdown, ProxyTestCase / quirk semantics, conftest split rationale), read [`ARCHITECTURE.md`](./ARCHITECTURE.md). For the testing concept and what's tested, see [`docs/conformance-tests.md`](../docs/conformance-tests.md) and [`docs/conformance-test-catalog.md`](../docs/conformance-test-catalog.md). The TL;DR below is enough for adding a conformance test that fits an existing pattern — but if your change touches the proxy fixture lifecycle, the parametrization hook, port allocation, the quirk/findings mechanism, target-server protocols (wire/h2c/grpc), or the directory layout, you need the deep doc.

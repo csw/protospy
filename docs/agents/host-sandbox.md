@@ -58,10 +58,6 @@ GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P) && ...
 
 The individual commands are pre-approved and run without confirmation.
 
-## Working in a subproject directory
-
-When working in a subproject that runs its commands from its own directory (e.g. `conformance/`), run `cd <subproject>/` once as your first command. The shell working directory persists across Bash calls, so you avoid a `cd <subproject>/ &&` prefix on every subsequent command. That prefix-avoidance only matters on the host: the compound `cd … && …` form can't be statically analyzed and triggers an approval prompt. In the container there are no such prompts, so prefix freely.
-
 ## Commands needing `dangerouslyDisableSandbox: true`
 
 - **`git commit`** — the sandbox blocks the SSH agent socket, so signed commits
