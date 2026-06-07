@@ -20,6 +20,7 @@ on:
       # Docs never affect the image; exclude them even under src/ui/flix.
       - "!**/*.md"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "Cargo.toml"
       - "Cargo.lock"
@@ -43,6 +44,7 @@ jobs:
   # validates the image end-to-end on every PR.
   setup:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
     steps:
