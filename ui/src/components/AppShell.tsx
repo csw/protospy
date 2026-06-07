@@ -130,7 +130,7 @@ export function AppShell() {
           <ExchangeList />
         </Panel>
         <Separator
-          className="w-px bg-border shrink-0 cursor-col-resize hover:bg-accent transition-colors"
+          className="w-px bg-border shrink-0 cursor-col-resize hover:bg-primary transition-colors"
           onDoubleClick={handleSeparatorDoubleClick}
           onPointerDown={() => {
             interacting.current = true;

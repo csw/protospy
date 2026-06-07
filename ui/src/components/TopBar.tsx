@@ -81,7 +81,7 @@ export function TopBar({ services, onSwitchService }: Props) {
       {/* Logo */}
       <span className="font-ui font-semibold text-[14.5px] tracking-tight select-none">
         <span className="text-ink">proto</span>
-        <span className="text-accent">spy</span>
+        <span className="text-primary">spy</span>
       </span>
 
       {/* Service picker */}
@@ -135,7 +135,7 @@ export function TopBar({ services, onSwitchService }: Props) {
             onClick={toggleTraceGroup}
             className={cn(
               iconBtnClass,
-              traceGroupOn && "bg-accent-soft text-accent border-accent/30",
+              traceGroupOn && "bg-accent-soft text-primary border-primary/30",
             )}
             aria-label="Group by trace"
             aria-pressed={traceGroupOn}

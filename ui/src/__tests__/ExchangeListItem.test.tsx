@@ -127,7 +127,7 @@ describe("ExchangeListItem", () => {
     const btn = screen.getByRole("option");
     expect(btn).toHaveAttribute("aria-selected", "true");
     expect(btn).toHaveClass("bg-bg-active");
-    expect(btn).toHaveClass("border-l-accent");
+    expect(btn).toHaveClass("border-l-primary");
   });
 
   it("applies aria-selected='false' when not selected", () => {

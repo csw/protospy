@@ -117,7 +117,7 @@ function TableRow({
         "border-l-[3px] cursor-pointer transition-colors overflow-hidden",
         heightClass,
         selected
-          ? "bg-bg-active border-l-accent"
+          ? "bg-bg-active border-l-primary"
           : "bg-bg-pane hover:bg-bg-hover",
       )}
       style={{
@@ -405,7 +405,7 @@ export function ExchangeList() {
         {traceGroupOn && (
           <Layers
             size={12}
-            className="ml-1.5 text-accent"
+            className="ml-1.5 text-primary"
             aria-label="Trace grouping active"
           />
         )}
@@ -420,7 +420,7 @@ export function ExchangeList() {
               }
               className={cn(
                 "h-[22px] px-1.5 flex items-center gap-1 rounded text-dim hover:text-ink transition-colors cursor-pointer font-mono text-[10px] uppercase tracking-wider",
-                timeZone === "utc" && "text-accent",
+                timeZone === "utc" && "text-primary",
               )}
               aria-label={`Time zone: ${timeZone === "utc" ? "UTC" : "Local"}. Click to toggle.`}
               title={

@@ -43,7 +43,7 @@ function TranscriptView({
       <pre className="font-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
         {transcript.text}
         {!isTerminal && !transcript.isComplete && (
-          <span className="inline-block w-[2px] h-[14px] bg-accent animate-pulse align-middle ml-px" />
+          <span className="inline-block w-[2px] h-[14px] bg-primary animate-pulse align-middle ml-px" />
         )}
       </pre>
       {transcript.isComplete && (
@@ -141,7 +141,7 @@ export function ChatStreamView({ exchange }: Props) {
         {state === "paused" && (
           <button
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
           >
             Jump to latest
           </button>

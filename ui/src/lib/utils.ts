@@ -4,7 +4,8 @@ import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
 /**
  * Configured tailwind-merge instance that knows about the custom font-size
- * and font-family tokens defined in `theme/tailwind.css`. Without this,
+ * and font-family tokens defined in `app/globals.css` (and the transitional
+ * `theme/legacy-tokens.css`). Without this,
  * `twMerge` treats e.g. `text-ui-xs` (font-size) and `text-m-get` (color)
  * as the same `text-*` group and strips the font-size class.
  *
@@ -355,7 +356,7 @@ export function eventTypeBadgeClass(type: string): string {
     case "content_block_delta":
       return "text-green bg-green-500/10";
     case "message_delta":
-      return "text-accent bg-accent/10";
+      return "text-primary bg-primary/10";
     case "message_stop":
       return "text-mid bg-bg-sub";
     case "ping":

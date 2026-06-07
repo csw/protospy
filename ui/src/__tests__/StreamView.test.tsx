@@ -385,7 +385,7 @@ describe("ChatStreamView — error/disconnected state", () => {
     // Switch to transcript mode
     fireEvent.click(screen.getByText("transcript"));
     // The pulsing cursor span should not be present
-    const cursor = container.querySelector("span.animate-pulse.bg-accent");
+    const cursor = container.querySelector("span.animate-pulse.bg-primary");
     expect(cursor).toBeNull();
   });
 

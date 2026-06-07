@@ -89,15 +89,15 @@ export function ExchangeListItem({
         paddingX,
         rowGap,
         selected
-          ? "bg-bg-active border-l-accent"
+          ? "bg-bg-active border-l-primary"
           : "bg-bg-pane hover:bg-bg-hover",
       )}
       style={selected ? undefined : traceBarStyle}
       role="option"
       aria-selected={selected}
     >
-      {/* When selected, overlay 2px accent inset bar via box-shadow or inline —
-          the border-l-accent class handles it as the full 4px bar in accent color */}
+      {/* When selected, overlay 2px primary inset bar via box-shadow or inline —
+          the border-l-primary class handles it as the full 4px bar in primary color */}
 
       {/* Row 1: method + status + timestamp */}
       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">

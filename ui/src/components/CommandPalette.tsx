@@ -120,7 +120,7 @@ export function CommandPalette() {
               <opt.icon className="size-4 text-mid" />
               <span className="font-ui text-ui text-ink">{opt.label}</span>
               {theme === opt.value && (
-                <span className="ml-auto text-ui-xs text-accent">active</span>
+                <span className="ml-auto text-ui-xs text-primary">active</span>
               )}
             </CommandItem>
           ))}
