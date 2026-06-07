@@ -5,26 +5,31 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
 import { resolveDefaultTheme } from "./theme/theme";
 
+// Resolved once at module load: it reads window.location.search, which is fixed
+// for the page lifetime, and ThemeProvider only consumes it on initial mount.
+const DEFAULT_NEXT_THEME = resolveDefaultTheme();
+
+// Gate for the test-only theme bridge — true in dev and test-mode preview
+// builds, false (and tree-shaken) in prod. Mirrors the `__test_store` gate.
+const TEST_HOOKS_ENABLED =
+  import.meta.env.DEV || import.meta.env.VITE_EXPOSE_TEST_HOOKS === "true";
+
 /**
  * Dev/test-only bridge exposing next-themes' control to the Playwright harness
  * and component tests. Theme moved out of the Zustand store with the v2.3
  * next-themes swap, so `window.__test_store` no longer carries it; tests drive
- * theme through `window.__test_theme` instead. Gated like `__test_store`:
- * present in dev and test-mode preview builds, tree-shaken from prod.
+ * theme through `window.__test_theme` instead. Rendered only when
+ * `TEST_HOOKS_ENABLED` (see its gate at the call site), so its effect never runs
+ * in prod.
  */
 function ThemeTestBridge() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   useEffect(() => {
-    if (
-      import.meta.env.DEV ||
-      import.meta.env.VITE_EXPOSE_TEST_HOOKS === "true"
-    ) {
-      (window as unknown as Record<string, unknown>).__test_theme = {
-        theme,
-        resolvedTheme,
-        setTheme,
-      };
-    }
+    (window as unknown as Record<string, unknown>).__test_theme = {
+      theme,
+      resolvedTheme,
+      setTheme,
+    };
   }, [theme, resolvedTheme, setTheme]);
   return null;
 }
@@ -33,7 +38,7 @@ function App() {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme={resolveDefaultTheme()}
+      defaultTheme={DEFAULT_NEXT_THEME}
       enableSystem
       storageKey="theme"
       disableTransitionOnChange
@@ -41,7 +46,7 @@ function App() {
       <TooltipProvider>
         <AppShell />
         <Toaster />
-        <ThemeTestBridge />
+        {TEST_HOOKS_ENABLED && <ThemeTestBridge />}
       </TooltipProvider>
     </ThemeProvider>
   );
