@@ -180,9 +180,9 @@ Push the branch.
 
 ## 6 — Create the PR
 
-Create the PR. Include the ticket ID in parentheses at the end of the commit
-message and PR title: `fix(ui): bust virtualizer cache on mode change
-(PRO-126)`. This links the commit to the issue in Linear.
+Create the PR **as a draft** (`gh pr create --draft ...`). Include the ticket
+ID in parentheses at the end of the PR title: `fix(ui): bust virtualizer cache
+on mode change (PRO-126)`. This links the commit to the issue in Linear.
 
 Note the PR number.
 
@@ -447,7 +447,19 @@ Repeat the round as many times as the review surfaces things worth fixing.
 
 When the user is satisfied and there is nothing left to act on:
 
-1. **Post a summary comment to the ticket.** This is the durable record of the
+1. **Mark the PR ready for review.** This transitions the draft PR and triggers
+   the deferred expensive checks (Docker builds + browser tests):
+
+   ```bash
+   gh pr ready <PR-number>
+   ```
+
+   Then watch CI to completion per `docs/agents/ci.md` — the ready transition
+   is what fires the deferred runs. If CI fails, fix the issue, push the fix,
+   and re-watch; repeat until CI is green. Only proceed once the ready-PR run
+   is fully green.
+
+2. **Post a summary comment to the ticket.** This is the durable record of the
    run, required on completion (`docs/agents/linear.md`, "Post a summary comment
    when you finish"). Write a concise summary of $ticket's work and fold it into
    a Linear comment:
@@ -468,4 +480,4 @@ When the user is satisfied and there is nothing left to act on:
    `linear issue comment add $ticket --body-file <path>` (write the body with
    the Write tool first; `--body-file` is preferred for markdown). Skip only for
    trivial mechanical changes (use judgment); when in doubt, post one.
-2. Call `ExitWorktree` to return to the main checkout.
+3. Call `ExitWorktree` to return to the main checkout.
