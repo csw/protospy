@@ -38,24 +38,31 @@ on:
   #   tags: ["v*"]
 
 jobs:
+  # Emit the build matrix: amd64+arm64 on push/dispatch, amd64-only on PRs.
+  # arm64 drift is caught on push-to-main and dispatch; the amd64 smoke-test
+  # validates the image end-to-end on every PR.
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo 'matrix={"include":[{"arch":"amd64","target":"x86_64-unknown-linux-musl","packages":"musl-tools"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"include":[{"arch":"amd64","target":"x86_64-unknown-linux-musl","packages":"musl-tools"},{"arch":"arm64","target":"aarch64-unknown-linux-musl","packages":"musl-tools gcc-aarch64-linux-gnu","linker":"aarch64-linux-gnu-gcc"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
   # Host-side musl build of the protospy binary for each target arch, plus
   # the UI bundle. Runs amd64 and arm64 in parallel; each uploads its own
   # binary artifact. ui/dist is arch-independent so only the amd64 instance
-  # uploads it. arm64 is skipped on pull_request (amd64 smoke-test validates
-  # the image end-to-end); arm64 drift is caught on push-to-main and dispatch.
+  # uploads it.
   build:
+    needs: setup
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'pull_request' || matrix.arch == 'amd64' }}
     strategy:
-      matrix:
-        include:
-          - arch: amd64
-            target: x86_64-unknown-linux-musl
-            packages: musl-tools
-          - arch: arm64
-            target: aarch64-unknown-linux-musl
-            packages: musl-tools gcc-aarch64-linux-gnu
-            linker: aarch64-linux-gnu-gcc
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
 
