@@ -201,6 +201,29 @@ that `N`.
 Two reviews can run here. The code review always runs; the convention review
 runs only when the diff touches UI source.
 
+### Maintainer review instructions (relay if present)
+
+Before spawning the reviews, check the ticket description (fetched in step 1)
+for a `## Reviewer instructions` section. If it exists, its body is
+maintainer-authored guidance written for **this PR's** reviewers — relay it
+**verbatim** into both the 7a and 7b prompts, appended as the block below. It
+carries what a diff-scoped review can't infer on its own: a mechanism the PR
+deliberately changes (so the reviewer doesn't flag the intended change as
+drift), an area to scrutinize harder, or scope the maintainer has explicitly
+bounded out (e.g. vendored code imported verbatim — don't code-review it). Treat
+it as authoritative context for the review, not a finding to evaluate.
+
+When the section exists, append this block to each reviewer prompt, filling in
+its body verbatim:
+
+> **Maintainer instructions for this review** (authoritative — context the diff
+> can't show you; weigh accordingly):
+>
+> <verbatim body of the ticket's `## Reviewer instructions` section>
+
+If the ticket has no `## Reviewer instructions` section, skip this — most
+tickets won't have one.
+
 ### 7a — Code review (always)
 
 Spawn a general-purpose subagent. Give it this exact prompt (substitute the
@@ -213,6 +236,10 @@ actual PR number):
 > test on the real path (e.g. a unit test against a Node shim with no browser
 > test covering the WASM path that ships). See `docs/agents/testing.md`, "Test
 > the real production code path".
+
+If the ticket carried a `## Reviewer instructions` section, append the
+maintainer-instructions block (see *Maintainer review instructions* above) to
+this prompt.
 
 This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
 the React/Tailwind/shadcn convention checklists — that's what 7b is for. The
@@ -239,6 +266,10 @@ code review so they run in parallel. Give it this prompt shape:
 > `<branch-name>`). Apply the frontend:react-patterns, frontend:shadcn-ui,
 > and frontend:tailwind-theme-builder skills to the changed UI source and
 > return your prioritized convention-findings report.
+
+If the ticket carried a `## Reviewer instructions` section, append the
+maintainer-instructions block (see *Maintainer review instructions* above) to
+this prompt.
 
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
