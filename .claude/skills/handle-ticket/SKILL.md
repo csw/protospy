@@ -137,9 +137,15 @@ components/views your change touched and the dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the
-> `playwright-cli` skill to drive the app: navigate to the affected view(s) —
-> inject fixture state via `window.__test_scenes.apply('<scene-id>')` where it
-> helps you reach the right state — and check:
+> `playwright-cli` skill to drive the app. **Save any screenshots to a gitignored
+> path** so step 5 can't sweep a stray PNG into the commit: omit `--filename` to
+> use the default `.playwright-cli/` location (gitignored), or pass an explicit
+> gitignored path such as `--filename=.playwright-cli/$ticket-<desc>.png`. **Never
+> pass a bare relative `--filename`** like `--filename=after.png` — that writes a
+> loose PNG into the worktree's `ui/`, which step 5 then stages. Then navigate to
+> the affected view(s) — inject fixture state via
+> `window.__test_scenes.apply('<scene-id>')` where it helps you reach the right
+> state — and check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
 >   misaligns; the change renders what it should.
@@ -166,6 +172,13 @@ here.
 ---
 
 ## 5 — Commit and push
+
+**Staging.** `git add -A` is the staging approach here. The visual-verify step
+(step 4) directs screenshots to gitignored paths and a root-scoped `/*.png`
+backstop ignore in `ui/.gitignore` catches a stray dropped at the `ui/` cwd root
+(PRO-348), so `-A` cannot sweep a loose screenshot into the commit — those two
+defenses make `-A` safe without per-file path discipline. Still glance at
+`git status` before committing to confirm only the files you intended are staged.
 
 Commit with a Conventional Commits message:
 - Subject: use the ticket title verbatim as the description, append `($ticket)`
