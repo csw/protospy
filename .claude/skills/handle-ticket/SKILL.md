@@ -123,10 +123,11 @@ through the Playwright CLI and report back whether the change holds together.
 doesn't collide with anything the user is running, and note the URL. Run it in
 the background (e.g. `pnpm dev --port <port>` from `ui/`).
 
-**Spawn a `frontend-engineer` subagent on Sonnet** (`model: sonnet`) — it has
-Playwright CLI access via the `playwright-cli` skill, is the agent CLAUDE.md
-designates for `playwright-cli` screenshots, and arrives pre-loaded with the
-UI's architecture and conventions. Use Sonnet, not Opus: eyeballing a rendered
+**Spawn a `general-purpose` subagent on Sonnet** (`model: sonnet`). Tell it to
+drive the browser via the `playwright-cli` skill (it invokes the skill itself);
+the prompt below is self-contained, so it needs no UI-specific preloading beyond
+`ui/CLAUDE.md`, which it loads on reading any `ui/` file. Use Sonnet, not Opus:
+eyeballing a rendered
 change is not Opus-grade reasoning, and screenshots are token-heavy (~1.5k each),
 so the cheaper model keeps this check inexpensive — the same reason the
 `visual-review` agent is pinned to Sonnet. This is still the *lightweight* path:
@@ -362,14 +363,23 @@ fires), skip synthesis — there is nothing to reconcile, and no `synthesis-<N>`
 file is written. Present that review's findings directly using the triage
 shape below.
 
-### 9b — Present and discuss
+### 9b — Record, present, and discuss
 
-Present the merged triage (from 9a, or the single review's findings if
-synthesis was skipped). Group by **blocking** vs. **advisory**, note which
-review surfaced each finding (code / convention), and call out the
-cross-review links and any conflicts the synthesis raised. For each finding,
-say whether you'd address it now or defer, and flag anything low-signal,
-redundant, or likely incorrect.
+Assemble the triage (from 9a, or the single review's findings if synthesis was
+skipped): group by **blocking** vs. **advisory**, note which review surfaced each
+finding (code / convention), call out the cross-review links and any conflicts the
+synthesis raised, and for each finding say whether you'd address it now or defer,
+flagging anything low-signal, redundant, or likely incorrect.
+
+**Post this triage as a ticket comment before you show it to the user.** Record the
+review summary, the blocking/advisory triage, and your proposed course of action on
+each finding as a Linear comment on $ticket — agent-header prefixed per
+`docs/agents/linear.md` — and then present the same content in-session. Posting it
+first makes the triage a durable, linkable record the moment it exists, so a case worth
+a second opinion can be handed to the senior-pm agent (or revisited later) by pointing
+at the ticket rather than digging through the transcript. This is in addition to the
+close-out summary comment in step 10: that one records what shipped; this one records
+the review findings and the decision still to be made.
 
 Then invite the user to discuss: which findings to act on, which to push back
 on, what to do next. Continue the conversation as long as the user wants.
