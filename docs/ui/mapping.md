@@ -1,7 +1,7 @@
 # protospy UI — Region → Component Map (v2.3)
 
 Every region of the UI and what realizes it. `▣ shadcn · ⬡ Radix · ◷ library · ◆ custom`.
-Cross-reference: tokens in `design-system.md §2`, code in `scaffolds/`.
+Cross-reference: tokens in `design-system.md §2`, code in `ui/src/components/protospy/` and `ui/src/lib/`.
 
 ---
 

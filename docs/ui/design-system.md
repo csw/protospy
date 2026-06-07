@@ -2,7 +2,8 @@
 
 Agent-facing rules for building protospy's UI. Terse and prescriptive. Rationale
 lives in `rationale.md`; the UI-region → component map lives in `mapping.md`; the
-visual reference is `index.html`; copy-ready code is in `scaffolds/`.
+visual reference is `docs/ui/index.html`; the landed scaffold code is under
+`ui/src/components/protospy/` and `ui/src/lib/`.
 
 > **Prime directive:** reach for a stock **shadcn/Radix** primitive first. Build a
 > custom component only for the content-centric core (list, trace rail, body
@@ -32,7 +33,7 @@ Use Radix directly only where shadcn ships no wrapper.
 
 ## 2. Tokens — the contract
 
-All color/size comes from tokens defined in `scaffolds/app/globals.css`. Components
+All color/size comes from tokens defined in `ui/src/app/globals.css`. Components
 reference **token utilities**, never literals. Tokens resolve per theme and per
 density automatically.
 
