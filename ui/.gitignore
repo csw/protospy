@@ -6,3 +6,12 @@ dist-ssr/
 test-results/
 playwright-report/
 coverage/
+
+# Backstop against stray visual-verify / ad-hoc screenshots (handle-ticket step 4).
+# Captures are meant to land in gitignored dirs (.playwright-cli/, test-results/);
+# the leak is a bare relative --filename, which writes to the process cwd — the
+# `ui/` root. Scoped to the root (not **/*.png) so it catches that stray without
+# ignoring legitimate PNG assets in subdirs (ui/public/, ui/src/assets/, …). A
+# genuine PNG asset directly at ui/ root can still be force-added with
+# `git add -f`. See PRO-348.
+/*.png
