@@ -44,7 +44,7 @@ the specific agent doing the writing**:
 ```
 
 The header is the first line, followed by a blank line, then the content. Name
-the concrete agent — e.g. `handle-ticket`, `senior-pm`, `frontend-engineer` —
+the concrete agent — e.g. `handle-ticket`, `senior-pm`, `convention-review` —
 not a generic "Claude agent", so a reader can tell which agent produced the
 item. If you are an interactive Claude Code session with no specific agent
 identity, use `**Claude agent**` on its own.

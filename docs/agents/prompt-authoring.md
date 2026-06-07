@@ -127,14 +127,26 @@ work, so an agent hand-rolled a button instead of using the existing shadcn
 `linear-cli`, guessed the CLI, and returned a wrong count (PRO-290); the
 `protospy-design-review` render step was conditional, so a literal model "reviewed" from
 source without rendering (PRO-227). The fix each time was preloading via
-frontmatter — applied to `frontend-engineer`, `convention-review`, and
-`pm-helper`.
+frontmatter — applied to `convention-review` and `pm-helper`.
 
 The trigger: when writing or auditing an agent definition, ask of each skill the
 agent depends on — does its core job require this skill on every task, or only
 on discovery? If every task, preload it via frontmatter. Where lazy-load is
 intentional (the skill is genuinely situational), say so in a comment so a later
 audit doesn't "fix" it.
+
+**But preloading only pays when the agent is a *subagent*.** A custom agent
+definition *replaces* the entire default Claude Code system prompt — the body is
+all the agent gets, not an addition to the base. For a narrow, single-purpose
+subagent (a reviewer, a snapshot fetcher) that trade is fine: it doesn't need the
+full default methodology, and preloaded skills earn their keep. For an agent run
+as the *primary* (`claude --agent …`) it is usually a bad trade — you lose the
+base prompt's tool-use methodology, planning discipline, and subagent-delegation
+reflexes (notably the reach for `Explore` on fan-out searches) to gain a few
+baked-in rules. There, prefer imperative standing guidance in a `CLAUDE.md` the
+agent loads — which *augments* the default prompt rather than replacing it — and
+let the skills load on demand. A primary `frontend-engineer` agent was retired for
+exactly this reason; its convention obligations moved to `ui/CLAUDE.md`.
 
 ## Test instructions by imagining the most literal reading
 

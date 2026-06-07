@@ -42,6 +42,35 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
 - `docs/fixture-matrix.md` — the injectable state matrix and how to reach each cell
 
+## UI conventions
+
+Standing obligations on every UI change — not reference you reach for only when a
+change feels complex.
+
+**Use the existing component library — don't hand-roll.** Before you build any UI
+element — button, tooltip, toggle, input, dropdown, dialog, or the like — check
+whether a shadcn primitive already exists in `src/components/ui/` and use it. This
+is an obligation, not a preference: hand-rolling markup a shadcn primitive already
+provides loses focus rings, disabled states, hover behavior, and design-system
+consistency, and it is a recurring failure mode for this UI (it has shipped bugs
+before). If a primitive's default sizing or spacing doesn't fit, override the
+specific dimensions via `className` (e.g. `className="size-4"`) — don't drop to raw
+elements just to get the size you want.
+
+**Invoke the convention skills — nothing preloads them.** Three skills are the
+convention checklists for this UI. You must invoke them yourself via the Skill tool
+rather than waiting for a discovery-tuned trigger to fire:
+
+- `frontend:shadcn-ui` — the component inventory. Invoke before writing any new
+  element from scratch, to confirm one doesn't already exist.
+- `frontend:react-patterns` — performance and composition rules. Apply whenever you
+  write or change a component.
+- `frontend:tailwind-theme-builder` — semantic tokens, `@theme inline`, no no-op or
+  undefined token classes. Follow whenever you touch styling.
+
+The `convention-review` subagent backstops these on a PR, but fixing drift there
+costs more than getting it right the first time.
+
 ## Commands
 
 ```bash

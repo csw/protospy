@@ -96,7 +96,8 @@ see that skill for the orchestration.
 
 The `frontend:react-patterns`, `frontend:shadcn-ui`, and `frontend:tailwind-theme-builder`
 skills (from the `frontend@jezweb-skills` plugin) are the convention checklists, preloaded
-into the `frontend-engineer` and `convention-review` agents.
+into the `convention-review` agent. For implementation work there is no preload: `ui/CLAUDE.md`
+("UI conventions") makes invoking these skills a standing obligation on every UI change.
 
 ## Worktrees
 
