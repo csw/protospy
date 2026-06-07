@@ -455,8 +455,9 @@ When the user is satisfied and there is nothing left to act on:
    ```
 
    Then watch CI to completion per `docs/agents/ci.md` — the ready transition
-   is what fires the deferred runs, so CI-green must be confirmed here before
-   posting the close-out summary. If CI fails, fix the issue, push, and re-watch.
+   is what fires the deferred runs. If CI fails, fix the issue, push the fix,
+   and re-watch; repeat until CI is green. Only proceed once the ready-PR run
+   is fully green.
 
 2. **Post a summary comment to the ticket.** This is the durable record of the
    run, required on completion (`docs/agents/linear.md`, "Post a summary comment
