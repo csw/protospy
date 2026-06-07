@@ -5,7 +5,7 @@ import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/jetbrains-mono/600.css";
 import "@fontsource/jetbrains-mono/700.css";
-import "./theme/tailwind.css";
+import "./app/globals.css";
 import { useStore } from "./state/store";
 import App from "./App.tsx";
 

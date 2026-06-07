@@ -1,5 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { getStoreState, waitForStore } from "./helpers/inject";
+import {
+  getResolvedTheme,
+  getThemePreference,
+  getStoreState,
+  setTheme,
+  waitForStore,
+  waitForTheme,
+} from "./helpers/inject";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -10,27 +17,19 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-async function readTheme(page: import("@playwright/test").Page) {
-  return page.evaluate(() =>
-    document.documentElement.getAttribute("data-theme"),
-  );
-}
-
 test.describe("localStorage persistence", () => {
   test("light theme survives a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
 
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__test_store.getState().setTheme("light");
-    });
-    expect(await readTheme(page)).toBe("light");
+    await setTheme(page, "light");
+    expect(await getResolvedTheme(page)).toBe("light");
 
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("light");
-    expect(await getStoreState(page, "theme")).toBe("light");
+    await waitForTheme(page);
+    expect(await getResolvedTheme(page)).toBe("light");
+    expect(await getThemePreference(page)).toBe("light");
   });
 
   test("switching to dark persists across a reload", async ({ page }) => {
@@ -38,22 +37,19 @@ test.describe("localStorage persistence", () => {
     await waitForStore(page);
 
     // Set light first, persist it
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__test_store.getState().setTheme("light");
-    });
+    await setTheme(page, "light");
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("light");
+    expect(await getResolvedTheme(page)).toBe("light");
 
     // Now switch to dark via command palette
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /dark mode/i }).click();
-    expect(await readTheme(page)).toBe("dark");
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
 
     await page.reload();
     await waitForStore(page);
-    expect(await readTheme(page)).toBe("dark");
+    expect(await getResolvedTheme(page)).toBe("dark");
   });
 
   test("density persists across a reload", async ({ page }) => {
@@ -133,11 +129,14 @@ test.describe("localStorage persistence", () => {
       s.setListWidth("rows", 400);
       s.setListWidth("table", 500);
       s.toggleTraceGroup();
-      s.setTheme("light");
     });
+    // Theme lives outside the store now (next-themes), so it persists under its
+    // own `theme` localStorage key, not `protospy-ui-prefs`.
+    await setTheme(page, "light");
 
     await page.reload();
     await waitForStore(page);
+    await waitForTheme(page);
 
     expect(await getStoreState(page, "density")).toBe("compact");
     expect(await getStoreState(page, "order")).toBe("oldest");
@@ -147,7 +146,7 @@ test.describe("localStorage persistence", () => {
       table: 500,
     });
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
-    expect(await getStoreState(page, "theme")).toBe("light");
-    expect(await readTheme(page)).toBe("light");
+    expect(await getThemePreference(page)).toBe("light");
+    expect(await getResolvedTheme(page)).toBe("light");
   });
 });

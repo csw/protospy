@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
   injectExchanges,
   resetStore,
+  setTheme,
   waitForStore,
   getStoreState,
 } from "./helpers/inject";
@@ -314,13 +315,12 @@ test.describe("ContextBar — focus ring fidelity", () => {
 // 3c. Hover background fidelity (PRO-294)
 // ---------------------------------------------------------------------------
 //
-// The shadcn `ghost` Button variant hovers to `bg-accent`, which in this
-// project resolves to the brand blue (`--color-accent` = #2563eb / #60a5fa).
-// The original hand-rolled controls had no hover background, so the active
-// icon buttons override it with `hover:bg-bg-hover` (a near-transparent
-// neutral) and the disabled Jaeger placeholder suppresses it with
-// `hover:bg-transparent`. These tests lock in that the blue accent hover does
-// not return.
+// The shadcn `ghost` Button variant hovers to `bg-accent`, the v2.3
+// selected/hover surface tint (`--accent`). The original hand-rolled controls
+// had no hover background, so the active icon buttons override it with
+// `hover:bg-bg-hover` (a near-transparent neutral) and the disabled Jaeger
+// placeholder suppresses it with `hover:bg-transparent`. These tests lock in
+// that the ghost accent hover does not return.
 
 test.describe("ContextBar — hover background fidelity", () => {
   // Resolve a CSS color string through getComputedStyle so it is normalized to
@@ -339,15 +339,13 @@ test.describe("ContextBar — hover background fidelity", () => {
     }, value);
   }
 
-  // Run in both themes: the ghost variant sets a separate `dark:hover:bg-accent/50`,
-  // so a light-only check would miss a dark-mode blue-flash regression.
+  // Run in both themes: `--accent` has a distinct dark value (a translucent
+  // blue surface), so a light-only check would miss a dark-mode regression.
   for (const theme of ["light", "dark"] as const) {
-    test(`3c.1 active icon button hovers to the neutral token, not accent blue (${theme})`, async ({
+    test(`3c.1 active icon button hovers to the neutral token, not the accent surface (${theme})`, async ({
       page,
     }) => {
-      await page.evaluate((t) => {
-        document.documentElement.setAttribute("data-theme", t);
-      }, theme);
+      await setTheme(page, theme);
 
       const traceId = "abcdef1234567890abcdef1234567890";
       await injectExchanges(page, [
@@ -372,11 +370,13 @@ test.describe("ContextBar — hover background fidelity", () => {
             .trim(),
         ),
       );
+      // Read `--accent` (the real :root var the `bg-accent` utility points at);
+      // `--color-accent` is `@theme inline`, so it is not emitted to :root.
       const accent = await normalizeColor(
         page,
         await page.evaluate(() =>
           getComputedStyle(document.documentElement)
-            .getPropertyValue("--color-accent")
+            .getPropertyValue("--accent")
             .trim(),
         ),
       );

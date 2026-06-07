@@ -7,9 +7,10 @@ import {
   SunMoon,
   ChevronDown,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useStore } from "@ui/state/store";
 import { cn } from "@ui/lib/utils";
-import type { ThemePreference } from "@ui/theme/applyTheme";
+import type { ThemePreference } from "@ui/theme/theme";
 import type { Service } from "@ui/api/info";
 import {
   DropdownMenu,
@@ -56,8 +57,10 @@ export function TopBar({ services, onSwitchService }: Props) {
   const toggleTraceGroup = useStore((s) => s.toggleTraceGroup);
   const density = useStore((s) => s.density);
   const setDensity = useStore((s) => s.setDensity);
-  const theme = useStore((s) => s.theme);
-  const setTheme = useStore((s) => s.setTheme);
+  // Theme is owned by next-themes (the `.dark` class on <html>), not the store.
+  // `theme` is `string | undefined`; coerce to our three-state preference.
+  const { theme, setTheme } = useTheme();
+  const themePref = (theme as ThemePreference | undefined) ?? "system";
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
 
   function connectionDotClass(): string {
@@ -69,7 +72,7 @@ export function TopBar({ services, onSwitchService }: Props) {
   }
 
   function cycleTheme() {
-    const idx = THEME_CYCLE.indexOf(theme);
+    const idx = THEME_CYCLE.indexOf(themePref);
     setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
   }
 
@@ -169,12 +172,12 @@ export function TopBar({ services, onSwitchService }: Props) {
           <button
             onClick={cycleTheme}
             className={iconBtnClass}
-            aria-label={themeTooltip(theme)}
+            aria-label={themeTooltip(themePref)}
           >
-            <ThemeIcon theme={theme} />
+            <ThemeIcon theme={themePref} />
           </button>
         </TooltipTrigger>
-        <TooltipContent>{themeTooltip(theme)}</TooltipContent>
+        <TooltipContent>{themeTooltip(themePref)}</TooltipContent>
       </Tooltip>
     </div>
   );

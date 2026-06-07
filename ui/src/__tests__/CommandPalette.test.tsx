@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { ReactElement } from "react";
 import {
   render,
   screen,
@@ -6,6 +7,7 @@ import {
   act,
   waitFor,
 } from "@testing-library/react";
+import { ThemeProvider } from "next-themes";
 import type { EventMessage } from "@bindings/EventMessage";
 import { CommandPalette } from "@ui/components/CommandPalette";
 import { useStore } from "@ui/state/store";
@@ -18,11 +20,28 @@ class ResizeObserverStub {
   disconnect() {}
 }
 
+// CommandPalette drives theme through next-themes' useTheme(); render it inside
+// a ThemeProvider configured exactly as App.tsx does (class strategy, `theme`
+// storage key) so the theme commands and the active-theme marker work.
+function renderCP(ui: ReactElement) {
+  return render(
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      storageKey="theme"
+      disableTransitionOnChange
+    >
+      {ui}
+    </ThemeProvider>,
+  );
+}
+
 describe("CommandPalette", () => {
   beforeEach(() => {
     useStore.setState(useStore.getInitialState(), true);
     localStorage.clear();
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark", "light");
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
     // cmdk calls scrollIntoView on its selected item; jsdom does not
     // implement it on HTMLElement.
@@ -32,7 +51,7 @@ describe("CommandPalette", () => {
   });
 
   it("does not render palette content when cmdKOpen is false", () => {
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
     // Radix Dialog only mounts content when open; theme items should not
     // appear in the DOM at all.
     expect(screen.queryByText("Dark mode")).not.toBeInTheDocument();
@@ -43,7 +62,7 @@ describe("CommandPalette", () => {
 
   it("renders the input and command items when cmdKOpen is true", () => {
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const input = screen.getByPlaceholderText("Search commands…");
     expect(input).toBeInTheDocument();
@@ -67,7 +86,7 @@ describe("CommandPalette", () => {
         makeGetRequest(42, "/api/widgets") as unknown as EventMessage,
       );
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     // The exchange path must not appear in the command palette.
     expect(screen.queryByText("/api/widgets")).not.toBeInTheDocument();
@@ -77,7 +96,7 @@ describe("CommandPalette", () => {
 
   it("filters the rendered list when the user types", async () => {
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const input = screen.getByPlaceholderText("Search commands…");
     await act(async () => {
@@ -96,7 +115,7 @@ describe("CommandPalette", () => {
 
   it("shows the empty state only when no command matches the query", async () => {
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     // cmdk drives empty-state visibility: with matches present (initial render),
     // the no-results copy must be absent. Guards against a regression where the
@@ -123,25 +142,28 @@ describe("CommandPalette", () => {
   });
 
   it("clicking 'Dark mode' sets theme to dark and closes the palette", async () => {
-    useStore.getState().setTheme("light");
+    localStorage.setItem("theme", "light");
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Dark mode");
     await act(async () => {
       fireEvent.click(item);
     });
 
+    // next-themes persists the plain preference string under `theme` and
+    // toggles the `.dark` class on <html>.
     await waitFor(() => {
-      expect(useStore.getState().theme).toBe("dark");
+      expect(localStorage.getItem("theme")).toBe("dark");
     });
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
 
   it("clicking 'Light mode' sets theme to light and closes the palette", async () => {
-    useStore.getState().setTheme("dark");
+    localStorage.setItem("theme", "dark");
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Light mode");
     await act(async () => {
@@ -149,15 +171,16 @@ describe("CommandPalette", () => {
     });
 
     await waitFor(() => {
-      expect(useStore.getState().theme).toBe("light");
+      expect(localStorage.getItem("theme")).toBe("light");
     });
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
 
   it("clicking 'System theme' sets theme to system and closes the palette", async () => {
-    useStore.getState().setTheme("dark");
+    localStorage.setItem("theme", "dark");
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("System theme");
     await act(async () => {
@@ -165,19 +188,21 @@ describe("CommandPalette", () => {
     });
 
     await waitFor(() => {
-      expect(useStore.getState().theme).toBe("system");
+      expect(localStorage.getItem("theme")).toBe("system");
     });
     expect(useStore.getState().cmdKOpen).toBe(false);
   });
 
-  it("marks the active theme with an 'active' indicator", () => {
-    useStore.getState().setTheme("dark");
+  it("marks the active theme with an 'active' indicator", async () => {
+    localStorage.setItem("theme", "dark");
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
-    // The active theme's item should have an "active" label.
-    const darkItem = screen.getByText("Dark mode").closest("[cmdk-item]")!;
-    expect(darkItem.textContent).toContain("active");
+    // next-themes resolves the stored preference on mount; wait for the marker.
+    await waitFor(() => {
+      const darkItem = screen.getByText("Dark mode").closest("[cmdk-item]")!;
+      expect(darkItem.textContent).toContain("active");
+    });
 
     // The inactive items should not.
     const lightItem = screen.getByText("Light mode").closest("[cmdk-item]")!;
@@ -187,7 +212,7 @@ describe("CommandPalette", () => {
   it("clicking 'Toggle density' toggles density and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
     expect(useStore.getState().density).toBe("regular");
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Toggle density");
     await act(async () => {
@@ -203,7 +228,7 @@ describe("CommandPalette", () => {
   it("clicking 'Switch to rows view' changes listMode and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
     expect(useStore.getState().listMode).toBe("table");
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Switch to rows view");
     await act(async () => {
@@ -218,7 +243,7 @@ describe("CommandPalette", () => {
 
   it("clicking 'Toggle trace grouping' toggles traceGroup and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Toggle trace grouping");
     await act(async () => {
@@ -234,7 +259,7 @@ describe("CommandPalette", () => {
   it("clicking 'Switch to UTC timestamps' toggles timeZone and closes the palette", async () => {
     useStore.getState().setCmdKOpen(true);
     expect(useStore.getState().timeZone).toBe("local");
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Switch to UTC timestamps");
     await act(async () => {
@@ -250,7 +275,7 @@ describe("CommandPalette", () => {
   it("clicking 'Clear filter' clears the filter and closes the palette", async () => {
     useStore.getState().setFilter("hello");
     useStore.getState().setCmdKOpen(true);
-    render(<CommandPalette />);
+    renderCP(<CommandPalette />);
 
     const item = screen.getByText("Clear filter");
     await act(async () => {

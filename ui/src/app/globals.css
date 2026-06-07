@@ -15,12 +15,20 @@
 
 @import "tailwindcss";
 @import "tw-animate-css"; /* shadcn animation keyframes (accordion, etc.) */
+/* TRANSITIONAL (v2.3 integration, PRO-345): the legacy v2.1 token vocabulary,
+   kept alive so not-yet-migrated live surfaces keep rendering. Each surface
+   slice deletes the legacy tokens it migrates; remove THIS import line when
+   src/theme/legacy-tokens.css is empty and deleted (= integration complete).
+   It must sit in the Tailwind `@import "tailwindcss"` graph so its `@theme`
+   tokens generate utilities — a sibling JS import would not. */
+@import "../theme/legacy-tokens.css";
 
 /* next-themes sets class="dark" on <html>. This is the shadcn default. */
 @custom-variant dark (&:is(.dark *));
 
-/* Density is a single attribute set by <DensityProvider>. Use the compact:
-   variant ONLY for the few size deltas that the token swaps don't cover. */
+/* Density is a single attribute (data-density) written by the store subscription
+   in state/store.ts. Use the compact: variant ONLY for the few size deltas that
+   the token swaps don't cover. */
 @custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
 
 /* ----------------------------------------------------------------------------

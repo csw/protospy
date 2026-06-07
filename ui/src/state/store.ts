@@ -3,12 +3,6 @@ import { persist, subscribeWithSelector } from "zustand/middleware";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
 import type { ConnectionStatus } from "@ui/api/sse";
-import {
-  applyThemeToDOM,
-  resolveTheme,
-  DEFAULT_THEME,
-} from "@ui/theme/applyTheme";
-import type { ThemePreference } from "@ui/theme/applyTheme";
 import type { TimeZone } from "@ui/lib/utils";
 import { apply } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
@@ -19,8 +13,6 @@ interface PersistedPrefs {
   order: "newest" | "oldest";
   listMode: "rows" | "table";
   traceGroupOn: boolean;
-  /** Three-state theme preference: `'light'`, `'dark'`, or `'system'` (follow OS). */
-  theme: ThemePreference;
   /** Time zone for absolute timestamp display in table mode. */
   timeZone: TimeZone;
 }
@@ -68,8 +60,6 @@ export interface StoreState extends PersistedPrefs {
   setDensity: (density: "regular" | "compact") => void;
   toggleTraceGroup: () => void;
   setCmdKOpen: (open: boolean) => void;
-  /** Set the theme preference. The single runtime subscriber handles the DOM. */
-  setTheme: (theme: ThemePreference) => void;
   setTimeZone: (tz: TimeZone) => void;
 }
 
@@ -94,7 +84,6 @@ export const useStore = create<StoreState>()(
         density: "regular",
         traceGroupOn: false,
         cmdKOpen: false,
-        theme: DEFAULT_THEME,
         timeZone: "local",
 
         // Core actions
@@ -155,10 +144,6 @@ export const useStore = create<StoreState>()(
 
         setCmdKOpen: (open) => set({ cmdKOpen: open }),
 
-        // Theme action — only updates store state; the subscribeWithSelector
-        // subscriber below is the sole runtime DOM writer.
-        setTheme: (theme) => set({ theme }),
-
         setTimeZone: (tz) => set({ timeZone: tz }),
       }),
       {
@@ -170,7 +155,6 @@ export const useStore = create<StoreState>()(
           order: state.order,
           listMode: state.listMode,
           traceGroupOn: state.traceGroupOn,
-          theme: state.theme,
           timeZone: state.timeZone,
         }),
         // onRehydrateStorage intentionally does NOT touch the DOM.
@@ -182,48 +166,29 @@ export const useStore = create<StoreState>()(
 );
 
 // ---------------------------------------------------------------------------
-// Single runtime DOM writer — the theme ownership contract (Part A).
+// Density ownership contract — the single runtime DOM writer for density.
 //
-// This subscription is the ONLY runtime code path that writes
-// `<html data-theme>`. It fires:
-//   - Immediately on store creation (fireImmediately), reconciling the
-//     bootstrap IIFE's first-paint theme with the hydrated store state.
-//   - On every subsequent `theme` change (user toggle, persist rehydration).
+// Mirrors the (now next-themes-owned) theme pattern: a single
+// `subscribeWithSelector` subscription is the ONLY code path that writes
+// `<html data-density>`. The `density` slice stays in the store (persisted);
+// `useDensity()` reads it, and globals.css keys its size-token swaps + the
+// `compact:` variant off the attribute this subscription sets. It fires:
+//   - Immediately on store creation (fireImmediately).
+//   - On every subsequent `density` change (user toggle, persist rehydration).
 //
-// It also manages the OS-preference listener for `'system'` mode: when the
-// preference is `'system'`, a `matchMedia` change listener re-applies the
-// resolved theme live.
+// Theme is intentionally NOT here — next-themes owns the `.dark` class on
+// `<html>`; the old `applyTheme.ts` + `[data-theme=dark]` writer was retired.
 // ---------------------------------------------------------------------------
 
-let cleanupMediaListener: (() => void) | null = null;
-
-function onThemeChange(theme: ThemePreference) {
-  applyThemeToDOM(resolveTheme(theme));
-
-  // Manage the matchMedia listener for 'system' mode.
-  if (cleanupMediaListener) {
-    cleanupMediaListener();
-    cleanupMediaListener = null;
-  }
-
-  if (
-    theme === "system" &&
-    typeof window !== "undefined" &&
-    window.matchMedia
-  ) {
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      // Only re-apply if still in system mode (guard against race).
-      if (useStore.getState().theme === "system") {
-        applyThemeToDOM(resolveTheme("system"));
-      }
-    };
-    mql.addEventListener("change", handler);
-    cleanupMediaListener = () => mql.removeEventListener("change", handler);
+function applyDensityToDOM(density: "regular" | "compact") {
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-density", density);
   }
 }
 
-useStore.subscribe((s) => s.theme, onThemeChange, { fireImmediately: true });
+useStore.subscribe((s) => s.density, applyDensityToDOM, {
+  fireImmediately: true,
+});
 
 /**
  * The bound Zustand store API. Exported as a type so the dev-only scene

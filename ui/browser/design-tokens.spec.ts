@@ -8,7 +8,12 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import {
+  injectExchanges,
+  resetStore,
+  setTheme,
+  waitForStore,
+} from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
@@ -305,9 +310,7 @@ test.describe("shadcn semantic tokens", () => {
     page,
   }) => {
     // Switch to dark theme and verify the border token follows
-    await page.evaluate(() => {
-      document.documentElement.setAttribute("data-theme", "dark");
-    });
+    await setTheme(page, "dark");
 
     const borderColor = await page.evaluate(() => {
       const el = document.createElement("div");

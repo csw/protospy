@@ -95,8 +95,8 @@ export function ContextBar({ exchange, ordered, currentIdx }: Props) {
           `disabled:pointer-events-auto` re-enables hover so the tooltip still
           shows on disabled controls (Button's base sets pointer-events-none).
           `hover:bg-bg-hover dark:hover:bg-bg-hover` overrides the ghost
-          variant's `hover:bg-accent` / `dark:hover:bg-accent/50` (which resolve
-          to the brand blue here) with a neutral toolbar hover — the original
+          variant's `hover:bg-accent` / `dark:hover:bg-accent/50` (the v2.3
+          selection-surface tint) with a neutral toolbar hover — the original
           hand-rolled controls had no accent hover. Both light and dark must be
           overridden; the dark hover is a separate class. The same override is
           applied to every active icon control below. */}
