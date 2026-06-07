@@ -12,16 +12,17 @@
     />
     <!--
       Critical anti-flash styles — loaded synchronously before Vite's
-      CSS modules arrive (tailwind.css is imported via main.tsx, so it's
+      CSS modules arrive (globals.css is imported via main.tsx, so it's
       injected by JS). Only background-color and color-scheme are needed;
-      the full theme loads later. Values must match tailwind.css tokens.
+      the full theme loads later. Keyed on the next-themes `.dark` class.
+      Values must match the --background token in app/globals.css.
     -->
     <style>
-      html[data-theme="dark"] {
+      html.dark {
         color-scheme: dark;
         background-color: #0c0f14;
       }
-      html:not([data-theme="dark"]) {
+      html:not(.dark) {
         color-scheme: light;
         background-color: #fbfbfc;
       }
@@ -29,17 +30,18 @@
     <!--
       Theme bootstrap IIFE — runs before React to prevent a flash.
 
-      Theme ownership contract:
-        1. This IIFE owns the FIRST paint: it reads the persisted preference
-           from localStorage and sets data-theme synchronously.
-        2. The runtime subscriber in state/store.ts (subscribeWithSelector on
-           the theme slice, fireImmediately) owns ALL subsequent DOM writes.
-        3. No other code path touches data-theme.
+      v2.3 owns theme through next-themes (`.dark` class on <html>, persisted as
+      a plain string under the `theme` localStorage key). This is a client-only
+      Vite SPA, so next-themes can't apply the class until its JS runs; this IIFE
+      sets the class synchronously on first paint to match what next-themes will
+      reconcile on mount, preventing a flash. The retired bootstrap read the old
+      Zustand `protospy-ui-prefs` key and set `data-theme`.
 
       The preference is a three-state enum: 'light' | 'dark' | 'system'.
       'system' resolves via matchMedia. The default for fresh installs (no
       stored preference) is 'system', overridable at runtime via a
       ?defaultTheme= query parameter (the demo site uses this to force dark).
+      Must agree with resolveDefaultTheme() in src/theme/theme.ts.
     -->
     <script>
       (function () {
@@ -64,23 +66,17 @@
         var qp = new URLSearchParams(location.search).get("defaultTheme");
         var defaultTheme = isValidPref(qp) ? qp : "system";
 
+        var pref = defaultTheme;
         try {
-          var raw = localStorage.getItem("protospy-ui-prefs");
-          if (raw) {
-            var parsed = JSON.parse(raw);
-            if (parsed.state && typeof parsed.state.theme === "string") {
-              document.documentElement.setAttribute(
-                "data-theme",
-                resolve(parsed.state.theme),
-              );
-              return;
-            }
-          }
+          // next-themes stores the raw preference string under `theme`.
+          var stored = localStorage.getItem("theme");
+          if (isValidPref(stored)) pref = stored;
         } catch (e) {}
-        // No stored preference: use the default.
-        document.documentElement.setAttribute(
-          "data-theme",
-          resolve(defaultTheme),
+
+        // next-themes' class strategy: toggle `.dark` on <html>.
+        document.documentElement.classList.toggle(
+          "dark",
+          resolve(pref) === "dark",
         );
       })();
     </script>

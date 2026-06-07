@@ -1,5 +1,6 @@
+import { useTheme } from "next-themes";
 import { useStore } from "@ui/state/store";
-import type { ThemePreference } from "@ui/theme/applyTheme";
+import type { ThemePreference } from "@ui/theme/theme";
 import {
   CommandDialog,
   CommandInput,
@@ -39,8 +40,8 @@ const THEME_OPTIONS: Array<{
 export function CommandPalette() {
   const cmdKOpen = useStore((s) => s.cmdKOpen);
   const setCmdKOpen = useStore((s) => s.setCmdKOpen);
-  const theme = useStore((s) => s.theme);
-  const setTheme = useStore((s) => s.setTheme);
+  // Theme is owned by next-themes (the `.dark` class on <html>), not the store.
+  const { theme, setTheme } = useTheme();
   const density = useStore((s) => s.density);
   const setDensity = useStore((s) => s.setDensity);
   const listMode = useStore((s) => s.listMode);
@@ -119,7 +120,7 @@ export function CommandPalette() {
               <opt.icon className="size-4 text-mid" />
               <span className="font-ui text-ui text-ink">{opt.label}</span>
               {theme === opt.value && (
-                <span className="ml-auto text-ui-xs text-accent">active</span>
+                <span className="ml-auto text-ui-xs text-primary">active</span>
               )}
             </CommandItem>
           ))}

@@ -11,7 +11,7 @@ import { TimingView } from "./TimingView";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 const tabTriggerClass =
-  "h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent data-[state=active]:bg-transparent";
+  "h-full rounded-none px-3 text-xs text-mid hover:text-ink data-[state=active]:text-ink data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent";
 
 export function Inspector() {
   const exchanges = useStore((s) => s.exchanges);

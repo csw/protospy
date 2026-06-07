@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { EventMessage } from "@bindings/EventMessage";
 import { useStore } from "@ui/state/store";
-import { DEFAULT_THEME } from "@ui/theme/applyTheme";
 import { makeGetRequest } from "@ui/test/fixtures";
 
 describe("state/store", () => {
   beforeEach(() => {
     useStore.setState(useStore.getInitialState(), true);
     localStorage.clear();
-    document.documentElement.removeAttribute("data-theme");
+    // Theme moved to next-themes (the `.dark` class on <html>); the store now
+    // owns only `data-density` via its subscribeWithSelector subscription.
+    document.documentElement.removeAttribute("data-density");
   });
 
   describe("factory / initial state", () => {
@@ -33,8 +34,11 @@ describe("state/store", () => {
       expect(useStore.getState().protocol).toBeNull();
     });
 
-    it("has theme matching DEFAULT_THEME at creation", () => {
-      expect(useStore.getState().theme).toBe(DEFAULT_THEME);
+    it("has no theme slice (next-themes owns theme)", () => {
+      expect("theme" in useStore.getState()).toBe(false);
+      expect(
+        (useStore.getState() as Record<string, unknown>).setTheme,
+      ).toBeUndefined();
     });
   });
 
@@ -135,29 +139,24 @@ describe("state/store", () => {
     });
   });
 
-  describe("setTheme", () => {
-    it("sets theme to each valid value", () => {
-      useStore.getState().setTheme("light");
-      expect(useStore.getState().theme).toBe("light");
-      useStore.getState().setTheme("dark");
-      expect(useStore.getState().theme).toBe("dark");
-      useStore.getState().setTheme("system");
-      expect(useStore.getState().theme).toBe("system");
+  describe("density DOM ownership", () => {
+    it("drives data-density on documentElement via the subscriber", () => {
+      useStore.getState().setDensity("compact");
+      expect(document.documentElement.getAttribute("data-density")).toBe(
+        "compact",
+      );
+      useStore.getState().setDensity("regular");
+      expect(document.documentElement.getAttribute("data-density")).toBe(
+        "regular",
+      );
     });
 
-    it("drives data-theme on documentElement via the subscriber", () => {
-      useStore.getState().setTheme("light");
-      expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-      useStore.getState().setTheme("dark");
-      expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-    });
-
-    it("persists theme to localStorage via persist middleware", () => {
-      useStore.getState().setTheme("light");
+    it("persists density to localStorage via persist middleware", () => {
+      useStore.getState().setDensity("compact");
       const stored = JSON.parse(
         localStorage.getItem("protospy-ui-prefs") ?? "{}",
       );
-      expect(stored.state.theme).toBe("light");
+      expect(stored.state.density).toBe("compact");
     });
   });
 
@@ -323,7 +322,6 @@ describe("state/store", () => {
             listMode: "table",
             listWidth: { rows: 340, table: 999 },
             traceGroupOn: true,
-            theme: "dark",
           },
           version: 1,
         }),
@@ -343,7 +341,6 @@ describe("state/store", () => {
       expect(state.listMode).toBe("table");
       expect(state.listWidth.table).toBe(999);
       expect(state.traceGroupOn).toBe(true);
-      expect(state.theme).toBe("dark");
     });
   });
 });

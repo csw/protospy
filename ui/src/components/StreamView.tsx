@@ -42,7 +42,7 @@ export function StreamView({ exchange }: Props) {
         {state === "paused" && (
           <button
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-accent text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
           >
             Jump to latest
           </button>

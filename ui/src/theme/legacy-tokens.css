@@ -1,11 +1,43 @@
-@import "tailwindcss";
+/* ============================================================================
+   protospy UI — legacy-tokens.css  (TRANSITIONAL — v2.1 token vocabulary)
 
-/* Map data-theme="dark" to the dark: variant */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+   This file keeps the not-yet-migrated live surfaces rendering during the v2.3
+   integration. `app/globals.css` is the canonical v2.3 token contract; these
+   are the OLD protospy-domain tokens it does not define (bg, ink, m-… method
+   tints, j-… JSON tokens …).
 
-/* ── Modern Light (default) ── */
+   LIFECYCLE — this file is the integration progress bar:
+     - Each v2.3 surface slice deletes the legacy tokens it migrates.
+     - When the last surface migrates, this file is empty and is DELETED.
+     - An empty/absent legacy-tokens.css == surface integration complete.
+
+   RULES:
+     - No `@import "tailwindcss"` and no `@custom-variant` here — globals.css
+       owns the Tailwind entry and the `.dark` variant. This file is pulled into
+       the Tailwind context via a single `@import` from globals.css, so its
+       `@theme` tokens generate utilities.
+     - Dark values live under `.dark` (next-themes class strategy), NOT the
+       retired `[data-theme=dark]` selector.
+     - Tokens that COLLIDE with globals.css are deliberately absent — globals
+       owns them: the shadcn semantic slots (--color-background, --color-foreground,
+       --color-primary, --color-secondary, --color-muted, --color-popover,
+       --color-destructive, --color-ring, --color-input, --color-border,
+       --color-border-strong), --font-mono, --text-ui, and brand --color-accent
+       (use --primary; see the accent note below).
+
+   ACCENT NOTE (the one axis-conflation hazard, PRO-310):
+     v2.1 overloaded `accent` as the brand blue. v2.3 splits it: brand goes to
+     shadcn `--primary`; selected/hover surface goes to shadcn `--accent`. So
+     brand uses were migrated text/bg/border-accent to the -primary equivalents
+     (pixel-identical: --primary is #2563eb / #60a5fa, same as the old brand
+     accent). Only the non-colliding `--color-accent-soft` / `--color-accent-ink`
+     remain here (brand soft fill / brand ink — still used by FilterBar chips,
+     the Toggle on-state, headers).
+   ============================================================================ */
+
+/* ── v2.1 token vocabulary — LIGHT ── */
 @theme {
-  /* Backgrounds */
+  /* Backgrounds (elevation scale) */
   --color-bg: #fbfbfc;
   --color-bg-pane: #ffffff;
   --color-bg-sub: #f4f5f7;
@@ -22,8 +54,7 @@
   --color-dim: #52606f;
   --color-faint: #cbd5e1;
 
-  /* Accent */
-  --color-accent: #2563eb;
+  /* Brand soft fill / ink (brand solid → --primary) */
   --color-accent-soft: #dbeafe;
   --color-accent-ink: #1d4ed8;
 
@@ -37,9 +68,7 @@
   --color-purple: #6d28d9;
   --color-purple-bg: #ede9fe;
 
-  /* Borders */
-  --color-border: #e3e6ec;
-  --color-border-strong: #c9cfd9;
+  /* Focus border (distinct from the shadcn --ring globals owns) */
   --color-border-focus: #2563eb;
 
   /* Method tints */
@@ -67,57 +96,20 @@
   --color-j-punct: #94a3b8;
   --color-j-ln: #cbd5e1;
 
-  /* Typography */
+  /* Typography — font-ui only (font-mono collides; globals owns it) */
   --font-ui: "Inter Variable", "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
 
-  /* Custom font sizes matching design spec (design uses --text-ui/xs/sm/mono,
-     which differ from Tailwind's text-xs/sm defaults). Named to avoid conflicts. */
-  --text-ui: 13px; /* design --text-ui: default UI chrome / body text  */
+  /* Custom font sizes (text-ui collides; globals owns the density-aware one).
+     These keep the old non-density-aware secondary sizes alive for surfaces
+     that haven't migrated to the globals text-xs/sm/mono scale yet. */
   --text-ui-xs: 10.5px; /* design --text-xs: toolbar labels, table headers */
   --text-ui-sm: 11.5px; /* design --text-sm: status codes, mono list text  */
-  --text-ui-mono: 12.5px; /* design --text-mono: mono body text              */
-  --text-ctx-path: 13.5px; /* design calc(--text-mono + 1px): inspector path  */
+  --text-ui-mono: 12.5px; /* design --text-mono: mono body text */
+  --text-ctx-path: 13.5px; /* design inspector path size (mono + 1px) */
 }
 
-/* ── shadcn semantic tokens (aliased onto the protospy palette) ──
-   Stock shadcn primitives (components/ui/*) reference these tokens.
-   In Tailwind v4, a --color-* utility is only generated when the token
-   exists in @theme, so without these aliases every shadcn class that
-   uses them (bg-primary, text-muted-foreground, ring-ring, …) is a
-   no-op that emits no CSS.
-
-   @theme inline is required here (not @theme) because the values are
-   var() references to other custom properties — @theme uses @property
-   declarations which require concrete initial values.                  */
-@theme inline {
-  --color-background: var(--color-bg-pane);
-  --color-foreground: var(--color-ink);
-
-  --color-primary: var(--color-accent);
-  --color-primary-foreground: #ffffff;
-
-  --color-secondary: var(--color-bg-sub);
-  --color-secondary-foreground: var(--color-ink-2);
-
-  --color-destructive: var(--color-red);
-
-  --color-muted: var(--color-bg-sub);
-  --color-muted-foreground: var(--color-mid);
-
-  --color-popover: var(--color-bg-pane);
-  --color-popover-foreground: var(--color-ink);
-
-  --color-ring: var(--color-border-focus);
-  --color-input: var(--color-border);
-}
-
-/* ── Modern Dark overrides ── */
-[data-theme="dark"] {
-  /* shadcn alias that needs an explicit dark value (white text on light
-     blue has insufficient contrast; dark bg on light-blue primary is fine) */
-  --color-primary-foreground: var(--color-bg);
-
+/* ── v2.1 token vocabulary — DARK (next-themes `.dark`, not [data-theme=dark]) ── */
+.dark {
   --color-bg: #0c0f14;
   --color-bg-pane: #11151c;
   --color-bg-sub: #161b23;
@@ -127,17 +119,12 @@
   --color-bg-overlay: rgba(17, 21, 28, 0.92);
   --color-bg-tab-active: #11151c;
 
-  --color-border: #1c222b;
-  --color-border-strong: #2a3340;
-  --color-border-focus: #60a5fa;
-
   --color-ink: #e6edf6;
   --color-ink-2: #c5cee0;
   --color-mid: #94a3b8;
   --color-dim: #9aa5b6;
   --color-faint: #3a4150;
 
-  --color-accent: #60a5fa;
   --color-accent-soft: rgba(96, 165, 250, 0.16);
   --color-accent-ink: #93c5fd;
 
@@ -149,6 +136,8 @@
   --color-amber-bg: rgba(251, 191, 36, 0.14);
   --color-purple: #a78bfa;
   --color-purple-bg: rgba(167, 139, 250, 0.14);
+
+  --color-border-focus: #60a5fa;
 
   --color-m-get: #34d399;
   --color-m-get-bg: rgba(52, 211, 153, 0.14);
@@ -172,24 +161,4 @@
   --color-j-null: #94a3b8;
   --color-j-punct: #475569;
   --color-j-ln: #2a3340;
-}
-
-/* ── Base styles ── */
-
-/* Restore a sensible default border color (Tailwind v4 preflight uses
-   currentColor; shadcn primitives expect the theme border token). */
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-border, currentColor);
-  }
-}
-
-html {
-  background-color: var(--color-bg);
-  color: var(--color-ink);
-  font-family: var(--font-ui);
 }

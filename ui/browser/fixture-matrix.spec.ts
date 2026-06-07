@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { waitForStore } from "./helpers/inject";
+import { setTheme, waitForStore } from "./helpers/inject";
 import {
   SCENES,
   SUPPORTED_WIDTHS,
@@ -166,19 +166,9 @@ test.describe("Fixture matrix", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await applyScene(page, "selected");
-    await page.evaluate(() => {
-      (
-        window as unknown as {
-          __test_store: {
-            getState: () => { setTheme: (t: string) => void };
-          };
-        }
-      ).__test_store
-        .getState()
-        .setTheme("light");
-    });
+    await setTheme(page, "light");
 
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
     await expect(page.getByText("Requests").first()).toBeVisible();
     expectNoErrors("light-mode");
   });

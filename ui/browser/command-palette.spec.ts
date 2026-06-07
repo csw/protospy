@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { resetStore, waitForStore, getStoreState } from "./helpers/inject";
+import {
+  resetStore,
+  waitForStore,
+  getStoreState,
+  getThemePreference,
+} from "./helpers/inject";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -40,7 +45,7 @@ test.describe("Command palette — open/close", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Command palette — commands", () => {
-  test("2.1 selecting a theme option sets the store theme", async ({
+  test("2.1 selecting a theme option sets the theme preference", async ({
     page,
   }) => {
     await page.keyboard.press("Meta+k");
@@ -49,7 +54,7 @@ test.describe("Command palette — commands", () => {
     // Palette closes after selection
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
-    expect(await getStoreState(page, "theme")).toBe("light");
+    expect(await getThemePreference(page)).toBe("light");
   });
 
   test("2.2 toggle density changes store density state", async ({ page }) => {

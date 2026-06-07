@@ -61,7 +61,7 @@ export function FilterBar() {
           </span>
           <button
             onClick={() => setTraceFilter(null)}
-            className="text-accent-ink hover:text-accent transition-colors cursor-pointer"
+            className="text-accent-ink hover:text-primary transition-colors cursor-pointer"
             aria-label="Clear trace filter"
           >
             <X size={11} />

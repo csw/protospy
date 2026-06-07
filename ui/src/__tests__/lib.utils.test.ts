@@ -569,9 +569,9 @@ describe("eventTypeBadgeClass", () => {
     );
   });
 
-  it("returns accent classes for message_delta", () => {
+  it("returns primary classes for message_delta", () => {
     expect(eventTypeBadgeClass("message_delta")).toBe(
-      "text-accent bg-accent/10",
+      "text-primary bg-primary/10",
     );
   });
 

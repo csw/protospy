@@ -17,4 +17,21 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     ResizeObserverMock as unknown as typeof ResizeObserver;
 }
 
+// next-themes' ThemeProvider with `enableSystem` calls window.matchMedia to
+// read the OS color-scheme preference; jsdom does not implement it. Provide a
+// minimal stub (defaults to light: `matches: false`) so theme-aware component
+// tests can mount within a ThemeProvider.
+if (typeof globalThis.matchMedia === "undefined") {
+  globalThis.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof globalThis.matchMedia;
+}
+
 afterEach(cleanup);

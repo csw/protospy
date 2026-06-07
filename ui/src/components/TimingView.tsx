@@ -96,7 +96,7 @@ export function TimingView({ exchange }: Props) {
           </span>
           <div className="flex-1 bg-bg-sub rounded-sm h-[14px] overflow-hidden">
             {exchange.elapsedMs != null && (
-              <div className="bg-accent h-full w-full" />
+              <div className="bg-primary h-full w-full" />
             )}
           </div>
           <span className="text-xs text-dim ml-1.5">
