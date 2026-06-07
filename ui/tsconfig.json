@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@bindings/*": ["../bindings/*"],
-      "@ui/*": ["./src/*"]
+      "@ui/*": ["./src/*"],
+      "@/*": ["./src/*"]
     },
     "types": []
   },

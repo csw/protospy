@@ -8,6 +8,7 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const alias = {
   "@bindings": path.resolve(__dirname, "../bindings"),
   "@ui": path.resolve(__dirname, "src"),
+  "@": path.resolve(__dirname, "src"),
 };
 
 const thresholds = JSON.parse(
@@ -32,6 +33,14 @@ export default defineConfig({
         "src/test/**",
         "src/llm/fixtures/**",
         "**/__tests__/**",
+        // PRO-341: v2.3 design-system scaffolds landed but not yet wired into
+        // the live app (PRO-345 integrates; PRO-346 owns the format helpers).
+        // Excluded from coverage until they are imported and exercised.
+        "src/components/protospy/**",
+        "src/lib/types.ts",
+        "src/lib/tokens.ts",
+        "src/lib/density.tsx",
+        "src/lib/format.ts",
       ],
       // Thresholds are read from coverage-thresholds.json and ratcheted
       // automatically by the coverage-ratchet workflow (~4% margin below
@@ -74,6 +83,7 @@ export default defineConfig({
               replacement: path.resolve(__dirname, "../bindings"),
             },
             { find: "@ui", replacement: path.resolve(__dirname, "src") },
+            { find: "@", replacement: path.resolve(__dirname, "src") },
             // Redirect 'brotli-dec-wasm' to the Node-compatible wrapper.
             //
             // IMPORTANT: use a regex anchored with $ so the alias only matches
