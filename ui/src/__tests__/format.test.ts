@@ -120,6 +120,11 @@ describe("mediaTypeSlug", () => {
     );
   });
 
+  it("falls back to the whole subtype when '+' has no suffix after it", () => {
+    // A trailing "+" is not a usable structured-syntax suffix — keep the subtype.
+    expect(mediaTypeSlug("application/foo+")).toBe("foo+");
+  });
+
   it("is shorter than the raw header it derives from", () => {
     const raw = "application/vnd.elasticsearch+json; compatible-with=8";
     const slug = mediaTypeSlug(raw);
