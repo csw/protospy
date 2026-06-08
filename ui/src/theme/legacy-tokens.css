@@ -87,15 +87,6 @@
   --color-m-opts: #475569;
   --color-m-opts-bg: #e2e8f0;
 
-  /* JSON syntax tokens */
-  --color-j-key: #0b4a8b;
-  --color-j-str: #15803d;
-  --color-j-num: #9a3412;
-  --color-j-bool: #7c2d12;
-  --color-j-null: #64748b;
-  --color-j-punct: #94a3b8;
-  --color-j-ln: #cbd5e1;
-
   /* Typography — font-ui only (font-mono collides; globals owns it) */
   --font-ui: "Inter Variable", "Inter", sans-serif;
 
@@ -153,12 +144,4 @@
   --color-m-head-bg: rgba(148, 163, 184, 0.14);
   --color-m-opts: #94a3b8;
   --color-m-opts-bg: rgba(148, 163, 184, 0.14);
-
-  --color-j-key: #93c5fd;
-  --color-j-str: #86efac;
-  --color-j-num: #fdba74;
-  --color-j-bool: #fbbf24;
-  --color-j-null: #94a3b8;
-  --color-j-punct: #475569;
-  --color-j-ln: #2a3340;
 }

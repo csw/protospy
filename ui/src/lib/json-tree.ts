@@ -160,7 +160,7 @@ function flattenNode(
       depth,
       key: node.key,
       valueText: containerType === "object" ? "{}" : "[]",
-      valueCls: "text-j-punct",
+      valueCls: "text-json-punct",
       hasComma,
     });
     return;
@@ -259,19 +259,19 @@ function collectExpanded(
 
 /**
  * Format a primitive JSON value for display.
- * Uses `text-j-bool` for both booleans and null, matching the existing
- * line tokenizer for visual consistency (a `j-null` token exists in the
+ * Uses `text-json-boolean` for both booleans and null, matching the existing
+ * line tokenizer for visual consistency (a `json-null` token exists in the
  * theme but isn't used by the tokenizer).
  */
 export function formatPrimitive(value: string | number | boolean | null): {
   text: string;
   cls: string;
 } {
-  if (value === null) return { text: "null", cls: "text-j-bool" };
+  if (value === null) return { text: "null", cls: "text-json-boolean" };
   if (typeof value === "boolean")
-    return { text: String(value), cls: "text-j-bool" };
+    return { text: String(value), cls: "text-json-boolean" };
   if (typeof value === "number")
-    return { text: String(value), cls: "text-j-num" };
+    return { text: String(value), cls: "text-json-number" };
   // String — JSON.stringify preserves escapes and adds quotes
-  return { text: JSON.stringify(value), cls: "text-j-str" };
+  return { text: JSON.stringify(value), cls: "text-json-string" };
 }

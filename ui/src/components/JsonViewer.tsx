@@ -77,8 +77,8 @@ export function tokenizeLine(line: string): Token[] {
       // Separate the colon from the quoted key for styling
       const full = keyMatch[1];
       const colonIdx = full.lastIndexOf(":");
-      tokens.push({ cls: "text-j-key", text: full.slice(0, colonIdx) });
-      tokens.push({ cls: "text-j-punct", text: ":" });
+      tokens.push({ cls: "text-json-key", text: full.slice(0, colonIdx) });
+      tokens.push({ cls: "text-json-punct", text: ":" });
       rest = rest.slice(full.length);
       continue;
     }
@@ -86,7 +86,7 @@ export function tokenizeLine(line: string): Token[] {
     // String value
     const strMatch = /^("(?:[^"\\]|\\.)*")/.exec(rest);
     if (strMatch) {
-      tokens.push({ cls: "text-j-str", text: strMatch[1] });
+      tokens.push({ cls: "text-json-string", text: strMatch[1] });
       rest = rest.slice(strMatch[1].length);
       continue;
     }
@@ -94,7 +94,7 @@ export function tokenizeLine(line: string): Token[] {
     // Number
     const numMatch = /^(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(rest);
     if (numMatch) {
-      tokens.push({ cls: "text-j-num", text: numMatch[1] });
+      tokens.push({ cls: "text-json-number", text: numMatch[1] });
       rest = rest.slice(numMatch[1].length);
       continue;
     }
@@ -102,7 +102,7 @@ export function tokenizeLine(line: string): Token[] {
     // Boolean / null
     const boolMatch = /^(true|false|null)/.exec(rest);
     if (boolMatch) {
-      tokens.push({ cls: "text-j-bool", text: boolMatch[1] });
+      tokens.push({ cls: "text-json-boolean", text: boolMatch[1] });
       rest = rest.slice(boolMatch[1].length);
       continue;
     }
@@ -110,7 +110,7 @@ export function tokenizeLine(line: string): Token[] {
     // Punctuation: { } [ ] , (colon already handled above)
     const punctMatch = /^([{}[\],])/.exec(rest);
     if (punctMatch) {
-      tokens.push({ cls: "text-j-punct", text: punctMatch[1] });
+      tokens.push({ cls: "text-json-punct", text: punctMatch[1] });
       rest = rest.slice(punctMatch[1].length);
       continue;
     }
@@ -240,7 +240,7 @@ function JsonTreeView({ value }: { value: unknown }) {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="size-4 text-j-punct hover:bg-bg-hl hover:text-ink"
+                    className="size-4 text-json-punct hover:bg-bg-hl hover:text-ink"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggle(line.nodeId);
@@ -262,14 +262,14 @@ function JsonTreeView({ value }: { value: unknown }) {
               <span className="whitespace-pre">
                 {line.key != null && (
                   <>
-                    <span className="text-j-key">
+                    <span className="text-json-key">
                       {JSON.stringify(line.key)}
                     </span>
-                    <span className="text-j-punct">: </span>
+                    <span className="text-json-punct">: </span>
                   </>
                 )}
                 <LineValue line={line} />
-                {line.hasComma && <span className="text-j-punct">,</span>}
+                {line.hasComma && <span className="text-json-punct">,</span>}
               </span>
             </div>
           );
@@ -284,14 +284,14 @@ function LineValue({ line }: { line: FlatLine }) {
   switch (line.kind) {
     case "open":
       return (
-        <span className="text-j-punct">
+        <span className="text-json-punct">
           {line.containerType === "object" ? "{" : "["}
         </span>
       );
 
     case "close":
       return (
-        <span className="text-j-punct">
+        <span className="text-json-punct">
           {line.containerType === "object" ? "}" : "]"}
         </span>
       );
@@ -310,9 +310,9 @@ function LineValue({ line }: { line: FlatLine }) {
         : undefined;
       return (
         <>
-          <span className="text-j-punct">{open}</span>
+          <span className="text-json-punct">{open}</span>
           <span className="text-dim italic">{"…"}</span>
-          <span className="text-j-punct">{close}</span>
+          <span className="text-json-punct">{close}</span>
           {label != null && <span className="text-dim ml-2">{label}</span>}
         </>
       );
@@ -369,7 +369,7 @@ function JsonFlatView({ text }: { text: string }) {
                 transform: `translateY(${vRow.start}px)`,
               }}
             >
-              <span className="select-none w-10 shrink-0 text-right pr-3 text-j-ln">
+              <span className="select-none w-10 shrink-0 text-right pr-3 text-json-lineno">
                 {lineNum}
               </span>
               <span className="flex-1 whitespace-pre">
