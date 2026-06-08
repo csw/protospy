@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   await waitForStore(page);
   await resetStore(page);
 
-  // Error badges (data-testid="error-badge") are rows-mode only;
+  // The rows-mode list shows the full status line + an "Error" treatment;
   // switch from the default table mode so list-level assertions work.
   await page.getByLabel("Rows mode").click();
 });
@@ -53,8 +53,12 @@ test.describe("Network error rendering — proxy-level failures", () => {
     ]);
 
     // Exchange-list row shows Error badge
-    await expect(page.getByTestId("error-badge").first()).toBeVisible();
-    await expect(page.getByTestId("error-badge").first()).toHaveText("Error");
+    await expect(
+      page.locator('[data-testid="status-code"][data-error]').first(),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="status-code"][data-error]').first(),
+    ).toHaveText("Error");
 
     await page.getByText("/api/connect-refused").first().click();
 
@@ -64,9 +68,13 @@ test.describe("Network error rendering — proxy-level failures", () => {
       "Error",
     );
 
-    // Body pane shows the error message instead of blank
+    // Body pane shows the error message instead of blank. Scope to the
+    // inspector tabpanel: the list row now also shows the error message inline,
+    // so an unscoped match would be ambiguous.
     await expect(
-      page.getByText("Connection refused", { exact: false }),
+      page
+        .getByRole("tabpanel")
+        .getByText("Connection refused", { exact: false }),
     ).toBeVisible();
 
     // Inspector tabs remain functional — clicking each does not throw
@@ -99,7 +107,9 @@ test.describe("Network error rendering — proxy-level failures", () => {
       ),
     ]);
 
-    await expect(page.getByTestId("error-badge").first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="status-code"][data-error]').first(),
+    ).toBeVisible();
     await page.getByText("/api/timeout").first().click();
     await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
 
@@ -137,7 +147,9 @@ test.describe("Network error rendering — proxy-level failures", () => {
     );
 
     // The list row shows both status and error badge
-    await expect(page.getByTestId("error-badge").first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="status-code"][data-error]').first(),
+    ).toBeVisible();
 
     // Verify the inspector remains operable.
     await page.getByRole("tab", { name: "Headers" }).click();
@@ -157,7 +169,9 @@ test.describe("Network error rendering — proxy-level failures", () => {
     ]);
 
     // A row exists for this exchange (no URI yet → falls back to "/")
-    await expect(page.getByTestId("error-badge").first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="status-code"][data-error]').first(),
+    ).toBeVisible();
   });
 });
 
@@ -171,7 +185,9 @@ test.describe("Network error rendering — table mode", () => {
     await page.getByLabel("Table mode").click();
   });
 
-  test("connection refused: status cell shows ERR in red", async ({ page }) => {
+  test("connection refused: status cell shows Error in the error color", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/connect-refused"),
       makeProxyError(
@@ -181,12 +197,13 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table mode: error with no status shows "ERR" in red
+    // Table mode: a transport error with no status shows "Error" (never "ERR",
+    // kept deviation §1) in text-error.
     const statusCell = page
-      .locator("button[role='option'] span.text-red")
+      .locator("button[role='option'] span.text-error")
       .first();
     await expect(statusCell).toBeVisible();
-    await expect(statusCell).toHaveText("ERR");
+    await expect(statusCell).toHaveText("Error");
   });
 
   test("mid-stream disconnect: status cell shows code with error marker", async ({
@@ -202,9 +219,9 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table mode: mid-stream error shows "200 ✕" in red
+    // Table mode: mid-stream error shows "200 ✕" in text-error
     const statusCell = page
-      .locator("button[role='option'] span.text-red")
+      .locator("button[role='option'] span.text-error")
       .first();
     await expect(statusCell).toBeVisible();
     await expect(statusCell).toHaveText("200 ✕");

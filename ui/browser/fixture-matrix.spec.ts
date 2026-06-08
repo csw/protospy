@@ -89,26 +89,12 @@ test.describe("Fixture matrix", () => {
           await expect(page.getByText("120 requests").first()).toBeVisible();
         }
         if (scene.id === "error-row" || scene.id === "error-midstream") {
-          // In rows mode (if set by scene), the error-badge is visible.
-          // In table mode (default), errors show as "ERR" or "NNN ✕" in
-          // the status cell — check for the error text class instead.
-          const listMode = await page.evaluate(
-            () =>
-              (
-                window as unknown as Record<
-                  string,
-                  { getState: () => Record<string, unknown> }
-                >
-              ).__test_store.getState().listMode,
-          );
-          if (listMode === "rows") {
-            await expect(page.getByTestId("error-badge").first()).toBeVisible();
-          } else {
-            // Table mode: error row shows "ERR" or code + "✕"
-            await expect(
-              page.locator("button[role='option'] span.text-red").first(),
-            ).toBeVisible();
-          }
+          // The status cell carries the error treatment in both modes: "Error"
+          // (no status) or "NNN ✕" (mid-stream), rendered via StatusCode with a
+          // data-error marker in text-error. Locate it mode-agnostically.
+          await expect(
+            page.locator('[data-testid="status-code"][data-error]').first(),
+          ).toBeVisible();
         }
 
         expectNoErrors(label);

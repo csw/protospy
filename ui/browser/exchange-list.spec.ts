@@ -93,15 +93,17 @@ test.describe("Exchange list — rows mode", () => {
       makeResponse(1, "200 OK"),
     ]);
 
-    // The row should have a colored left border (border-l-4 with traceColor)
+    // The row carries a colored trace bar via a ::after pseudo-element whose
+    // background is the per-trace color, selected by the data-trace attribute.
     const row = page.locator("button[aria-selected]").first();
     await expect(row).toBeVisible();
-    const borderColor = await row.evaluate(
-      (el) => getComputedStyle(el).borderLeftColor,
+    expect(await row.getAttribute("data-trace")).toMatch(/^[1-7]$/);
+    const traceColor = await row.evaluate(
+      (el) => getComputedStyle(el, "::after").backgroundColor,
     );
-    // Should not be transparent — trace color is applied
-    expect(borderColor).not.toBe("rgba(0, 0, 0, 0)");
-    expect(borderColor).not.toBe("transparent");
+    // Should not be transparent — the trace color is applied to the bar.
+    expect(traceColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(traceColor).not.toBe("transparent");
   });
 
   test("1.5 multiple exchanges render in order", async ({ page }) => {
@@ -154,7 +156,8 @@ test.describe("Exchange list — table mode", () => {
       page.locator("button[role='option'] span", { hasText: /^200$/ }).first(),
     ).toBeVisible();
     await expect(page.getByText("/api/items").first()).toBeVisible();
-    await expect(page.getByText("42ms").first()).toBeVisible();
+    // ELAPSED uses the canonical fmtMs formatter ("42 ms", with a space).
+    await expect(page.getByText("42 ms").first()).toBeVisible();
   });
 
   test("2.3 compact density reduces row height", async ({ page }) => {
@@ -247,9 +250,10 @@ test.describe("Exchange list — table mode", () => {
     }
   });
 
-  // Regression (PRO-286): the sticky header is a sibling of the rail-offset row
-  // container, so when the trace rail is present the header columns must shift by
-  // the same 12px to stay aligned with the row cells beneath them.
+  // Regression (PRO-286): header and rows share one grid template. The sticky
+  // header and the virtualized rows both live inside the table's scroll
+  // container (the trace-rail gutter sits outside it), so their grid tracks must
+  // line up. Header cells are sortable <button>s; row cells are <span>s.
   test("2.7 header columns align with row columns when trace rail present", async ({
     page,
   }) => {
@@ -258,12 +262,11 @@ test.describe("Exchange list — table mode", () => {
       makeResponse(1, "200 OK"),
     ]);
 
-    // Scope to direct children: the SIZE data cell nests a <span> for the
-    // encoding tag, so an unscoped "span" locator would miscount on encoded
-    // responses. ":scope > span" pins to the six grid-track cells.
+    // Scope to direct children: ":scope > button" pins to the six header sort
+    // controls; ":scope > span" pins to the six row grid-track cells.
     const headerCells = page
       .getByTestId("exchange-table-header")
-      .locator(":scope > span");
+      .locator(":scope > button");
     const rowCells = page
       .locator("button[role='option']")
       .first()
@@ -306,7 +309,8 @@ test.describe("Exchange list — table mode", () => {
     // Column order: METHOD · STATUS · PATH · ELAPSED · SIZE · TIME.
     const elapsed = cells.nth(3);
     const time = cells.nth(5);
-    await expect(elapsed).toHaveText("98765ms");
+    // fmtMs scales ≥1s to seconds: 98765ms → "98.8 s".
+    await expect(elapsed).toHaveText("98.8 s");
     await expect(time).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
 
     for (const width of [1280, 1440, 1920]) {
@@ -449,19 +453,19 @@ test.describe("Edge cases", () => {
     await expect(dashes.first()).toBeVisible();
   });
 
-  test("11.2 5xx errors show red status", async ({ page }) => {
+  test("11.2 5xx errors show the server-status color", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/fail"),
       makeResponse(1, "500 Internal Server Error"),
     ]);
 
     // Table mode (default) shows just the numeric code; look for "500"
-    // within a table row's status cell.
+    // within a table row's status cell. v2.3 colours 5xx via text-server.
     const status = page
       .locator("button[role='option'] span", { hasText: /^500$/ })
       .first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveClass(/text-red/);
+    await expect(status).toHaveClass(/text-server/);
   });
 
   test("11.3 compact rows mode sizes wrapper to fit content without clipping", async ({

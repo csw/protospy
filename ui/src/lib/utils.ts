@@ -76,45 +76,30 @@ export function statusClass(
   return "ok";
 }
 
+/**
+ * Method-tint classes for the live `ui/MethodBadge`. Resolves against the
+ * canonical `--method-*` token set in `globals.css` (PRO-359 drained the legacy
+ * `--color-m-*` vocabulary; the values are pixel-identical). `OPTIONS` maps to the
+ * `method-options` slug; an unknown method falls back to neutral tokens.
+ */
 export function methodBadgeClass(method: string): string {
   switch (method.toUpperCase()) {
     case "GET":
-      return "bg-m-get-bg text-m-get";
+      return "bg-method-get-bg text-method-get";
     case "POST":
-      return "bg-m-post-bg text-m-post";
+      return "bg-method-post-bg text-method-post";
     case "PUT":
-      return "bg-m-put-bg text-m-put";
+      return "bg-method-put-bg text-method-put";
     case "PATCH":
-      return "bg-m-patch-bg text-m-patch";
+      return "bg-method-patch-bg text-method-patch";
     case "DELETE":
-      return "bg-m-delete-bg text-m-delete";
+      return "bg-method-delete-bg text-method-delete";
     case "HEAD":
-      return "bg-m-head-bg text-m-head";
+      return "bg-method-head-bg text-method-head";
     case "OPTIONS":
-      return "bg-m-opts-bg text-m-opts";
+      return "bg-method-options-bg text-method-options";
     default:
-      return "bg-bg-sub text-mid";
-  }
-}
-
-export function methodTextClass(method: string): string {
-  switch (method.toUpperCase()) {
-    case "GET":
-      return "text-m-get";
-    case "POST":
-      return "text-m-post";
-    case "PUT":
-      return "text-m-put";
-    case "PATCH":
-      return "text-m-patch";
-    case "DELETE":
-      return "text-m-delete";
-    case "HEAD":
-      return "text-m-head";
-    case "OPTIONS":
-      return "text-m-opts";
-    default:
-      return "text-mid";
+      return "bg-secondary text-muted-foreground";
   }
 }
 

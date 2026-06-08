@@ -62,8 +62,8 @@ test.describe("design token fidelity", () => {
 
     expect(styles.fontFamily).toContain("JetBrains Mono");
     expect(styles.fontWeight).toBe("600");
-    // tracking-[0.04em] at text-ui-xs (10.5px) → 0.04 × 10.5 = 0.42px
-    expect(styles.letterSpacing).toBe("0.42px");
+    // v2.3 MethodBadge: tracking-wide (0.025em) at text-[10.5px] → 0.2625px.
+    expect(styles.letterSpacing).toBe("0.2625px");
     expect(styles.borderRadius).toBe("3px");
   });
 

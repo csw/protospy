@@ -20,7 +20,7 @@ export const DEFAULT_LIST_WIDTH = { rows: 340, table: 720 } as const;
  *
  * - `LIST_MIN_WIDTH` (px, per mode): floor for the list pane. Mode-dependent
  *   because the two modes have very different intrinsic minimum widths:
- *   - **rows** (280px): ensures the timestamp in row 1 of `ExchangeListItem`
+ *   - **rows** (280px): ensures the timestamp in row 1 of `ExchangeRow`
  *     doesn't clip behind the resize separator.
  *   - **table** (480px): ensures all six grid columns (METHOD 54 + STATUS 42 +
  *     PATH minmax(100,1fr) + TIME 54 + SIZE 120 + WHEN 88 = 458px intrinsic

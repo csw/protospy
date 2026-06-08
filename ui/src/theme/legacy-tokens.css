@@ -71,21 +71,8 @@
   /* Focus border (distinct from the shadcn --ring globals owns) */
   --color-border-focus: #2563eb;
 
-  /* Method tints */
-  --color-m-get: #047857;
-  --color-m-get-bg: #d1fae5;
-  --color-m-post: #1d4ed8;
-  --color-m-post-bg: #dbeafe;
-  --color-m-put: #b45309;
-  --color-m-put-bg: #fef3c7;
-  --color-m-patch: #7c2d12;
-  --color-m-patch-bg: #ffedd5;
-  --color-m-delete: #b91c1c;
-  --color-m-delete-bg: #fee2e2;
-  --color-m-head: #475569;
-  --color-m-head-bg: #e2e8f0;
-  --color-m-opts: #475569;
-  --color-m-opts-bg: #e2e8f0;
+  /* Method tints (--color-m-*) drained in PRO-359 — the exchange list now uses
+     the canonical --method-* set in globals.css (pixel-identical values). */
 
   /* Typography — font-ui only (font-mono collides; globals owns it) */
   --font-ui: "Inter Variable", "Inter", sans-serif;
@@ -129,19 +116,5 @@
   --color-purple-bg: rgba(167, 139, 250, 0.14);
 
   --color-border-focus: #60a5fa;
-
-  --color-m-get: #34d399;
-  --color-m-get-bg: rgba(52, 211, 153, 0.14);
-  --color-m-post: #60a5fa;
-  --color-m-post-bg: rgba(96, 165, 250, 0.14);
-  --color-m-put: #fbbf24;
-  --color-m-put-bg: rgba(251, 191, 36, 0.14);
-  --color-m-patch: #fb923c;
-  --color-m-patch-bg: rgba(251, 146, 60, 0.14);
-  --color-m-delete: #f87171;
-  --color-m-delete-bg: rgba(248, 113, 113, 0.14);
-  --color-m-head: #94a3b8;
-  --color-m-head-bg: rgba(148, 163, 184, 0.14);
-  --color-m-opts: #94a3b8;
-  --color-m-opts-bg: rgba(148, 163, 184, 0.14);
+  /* --color-m-* method tints drained in PRO-359 (see the light block above). */
 }

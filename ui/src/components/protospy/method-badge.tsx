@@ -1,13 +1,16 @@
 // src/components/protospy/method-badge.tsx
 // Exemplar of the project's custom-component pattern: cva variants over semantic
 // tokens, composed with cn(). Never hard-codes a color.
+//
+// Consumes the live string `method` (PRO-359): the runtime model carries
+// `method?: string`, so an unknown or absent method falls back to neutral tokens
+// and renders "?" rather than assuming the 7-method enum.
 
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
-import type { HttpMethod } from "@/lib/types";
+import { cn } from "@ui/lib/utils";
 
 const methodBadge = cva(
-  "inline-flex items-center justify-center rounded-[3px] font-mono font-semibold uppercase tracking-wide tabular-nums leading-tight",
+  "inline-flex items-center justify-center rounded-[3px] font-mono font-semibold uppercase tracking-wide tabular-nums leading-tight shrink-0",
   {
     variants: {
       method: {
@@ -28,15 +31,46 @@ const methodBadge = cva(
   },
 );
 
-export interface MethodBadgeProps extends VariantProps<typeof methodBadge> {
-  method: HttpMethod;
+const KNOWN_METHODS = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+] as const;
+type KnownMethod = (typeof KNOWN_METHODS)[number];
+
+function knownMethod(method: string): KnownMethod | undefined {
+  const upper = method.toUpperCase();
+  return (KNOWN_METHODS as readonly string[]).includes(upper)
+    ? (upper as KnownMethod)
+    : undefined;
+}
+
+export interface MethodBadgeProps extends Omit<
+  VariantProps<typeof methodBadge>,
+  "method"
+> {
+  method: string | undefined;
   className?: string;
 }
 
 export function MethodBadge({ method, size, className }: MethodBadgeProps) {
+  const known = method != null ? knownMethod(method) : undefined;
   return (
-    <span className={cn(methodBadge({ method, size }), className)}>
-      {method}
+    <span
+      data-testid="method-badge"
+      className={cn(
+        methodBadge({ method: known, size }),
+        // Unknown/absent method (e.g. CONNECT, or no request line yet): neutral
+        // tokens instead of an un-themed transparent badge.
+        known == null && "text-muted-foreground bg-secondary",
+        className,
+      )}
+    >
+      {method ?? "?"}
     </span>
   );
 }

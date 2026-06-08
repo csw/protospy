@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowUpDown,
-  FileArchive,
   Globe,
   Layers,
   Rows3,
@@ -11,199 +10,10 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
-import {
-  cn,
-  formatAbsoluteTime,
-  formatSize,
-  formatSizeShort,
-  matchesFilter,
-  methodTextClass,
-  shortEncoding,
-  splitUri,
-  statusTextClass,
-  traceColor,
-} from "@ui/lib/utils";
-import type { TimeZone } from "@ui/lib/utils";
-import { ExchangeListItem } from "./ExchangeListItem";
-import { SimpleTooltip } from "./ui/SimpleTooltip";
-
-/**
- * Grid column template for table mode. Each fixed track is sized to fit the
- * wider of its uppercase header label and its worst-case data value, plus the
- * shared `px-2` cell padding (16px), with a few px of margin — sizing for the
- * *data* alone (the old 54/42px METHOD/STATUS tracks) left the spelled-out
- * header labels overflowing their cells and butting together as
- * "METHODSTATUSPATH" (PRO-286). PATH is the only flexible column and absorbs
- * remaining space, truncating with ellipsis.
- *
- * Column order is METHOD · STATUS · PATH · ELAPSED · SIZE · TIME. ELAPSED is
- * the request→response duration (`elapsedMs`); TIME is the absolute wall-clock
- * timestamp. Every fixed column is sized so its content never truncates — SIZE
- * shows a single bounded value (`formatSizeShort`) plus a compression marker,
- * with the wire/decoded/encoding detail moved to a tooltip (it used to render
- * the dual `wire/decoded (encoding)` inline, which is what overflowed).
- *
- * Measured at the rendered fonts (Inter header / JetBrains Mono data):
- * - METHOD (68px): header "Method" ≈51px (wider than "OPTIONS"/"DELETE" data)
- * - STATUS (62px): header "Status" ≈46px (wider than "500 ✕" data)
- * - PATH (minmax 56px, 1fr): flexible; absorbs slack, ellipsis + URI tooltip
- * - ELAPSED (72px): header "Elapsed" ≈52px; content area 56px fits up to a
- *   6-digit ms value ("120000ms" ≈56px) — no truncation for realistic latency
- * - SIZE (100px): worst single size "1023.9 GB" ≈63px + the ~16px compression
- *   icon/gap fits the 84px content area with margin; `formatSizeShort` scales
- *   through GB so the value width is bounded
- * - TIME (106px): timestamp HH:MM:SS.mmm ≈84px in a 90px content area (~6px
- *   slack) — the old 94/100px tracks left ~0–2px slack, which tipped into
- *   clipping under other font hinting (the PRO-286 / PRO-222 bug)
- *
- * The fixed tracks total 408px; at the 480px table-mode pane minimum (less the
- * trace rail and borders) PATH still keeps ≥56px, so no column is clipped out.
- * Header and data cells share `px-2`, so labels align over their values.
- */
-const TABLE_COLUMNS = "68px 62px minmax(56px, 1fr) 72px 100px 106px";
-
-const EMPTY_STATE_NO_MATCH = "No requests match your filter";
-
-/** Extract the numeric status code from a status string like "200 OK". */
-function statusCode(status: string): string {
-  return status.split(" ")[0];
-}
-
-interface TableRowProps {
-  exchange: Exchange;
-  selected: boolean;
-  onSelect: () => void;
-  density: "regular" | "compact";
-  timeZone: TimeZone;
-}
-
-function TableRow({
-  exchange,
-  selected,
-  onSelect,
-  density,
-  timeZone,
-}: TableRowProps) {
-  const method = exchange.method ?? "?";
-  const uri = exchange.uri ?? "/";
-  const { path } = splitUri(uri);
-  const resSize = exchange.responseBody?.wireBytes ?? 0;
-  const resEncoding = exchange.responseBody?.contentEncoding;
-  const resDecoded = exchange.responseBody?.decodedBytes;
-  const resTag = shortEncoding(resEncoding);
-  // A distinct decoded size is known (compressed body whose decoded bytes were
-  // cached). Only used to pick the tooltip text — the cell shows the wire size.
-  const hasDecodedSize =
-    resTag != null && resDecoded != null && resDecoded !== resSize;
-  const sizeTitle = resTag
-    ? hasDecodedSize
-      ? `${formatSize(resSize)} on the wire / ${formatSize(resDecoded)} after decompression (${resEncoding})`
-      : `${formatSize(resSize)} on the wire (${resEncoding}; decoded size unknown until body is opened)`
-    : undefined;
-
-  const absTime = formatAbsoluteTime(exchange.timestamp, timeZone);
-
-  const traceBarStyle: React.CSSProperties = exchange.traceId
-    ? { borderLeftColor: traceColor(exchange.traceId) }
-    : {};
-
-  const heightClass = density === "compact" ? "h-6" : "h-[30px]";
-
-  return (
-    <button
-      onClick={onSelect}
-      className={cn(
-        "w-full text-left grid items-center border-b border-border",
-        "border-l-[3px] cursor-pointer transition-colors overflow-hidden",
-        heightClass,
-        selected
-          ? "bg-bg-active border-l-primary"
-          : "bg-bg-pane hover:bg-bg-hover",
-      )}
-      style={{
-        gridTemplateColumns: TABLE_COLUMNS,
-        ...(selected ? undefined : traceBarStyle),
-      }}
-      role="option"
-      aria-selected={selected}
-    >
-      <span
-        className={cn(
-          "font-mono text-xs uppercase px-2 truncate",
-          methodTextClass(method),
-        )}
-      >
-        {method}
-      </span>
-      <span
-        className={cn(
-          "font-mono text-xs px-2 truncate",
-          exchange.error != null
-            ? "text-red"
-            : exchange.status != null
-              ? statusTextClass(exchange.status)
-              : "text-dim",
-        )}
-        title={
-          exchange.error?.message ??
-          (exchange.status != null ? exchange.status : undefined)
-        }
-      >
-        {exchange.error != null
-          ? exchange.status != null
-            ? `${statusCode(exchange.status)} ✕`
-            : "ERR"
-          : exchange.status != null
-            ? statusCode(exchange.status)
-            : "—"}
-      </span>
-      <SimpleTooltip content={uri}>
-        <span className="font-mono text-xs text-ink px-2 truncate">{path}</span>
-      </SimpleTooltip>
-      {/* ELAPSED: request→response duration. Track is sized to fit the value
-          (up to 6-digit ms); `truncate` is only an overflow guard, so no tooltip
-          is needed — it would merely repeat the visible text. */}
-      <span className="font-mono text-xs text-dim px-2 text-right truncate">
-        {exchange.elapsedMs != null ? `${exchange.elapsedMs}ms` : "—"}
-      </span>
-      {/* SIZE: a single bounded value (wire size) so the fixed track never
-          truncates. A compression marker replaces the inline "(encoding)" tag;
-          the full wire/decoded/encoding breakdown stays in the tooltip. */}
-      <span
-        className="font-mono text-xs text-dim px-2 flex items-center justify-end gap-1 overflow-hidden"
-        title={sizeTitle}
-      >
-        {resTag && <FileArchive className="size-3 shrink-0" aria-hidden />}
-        <span className="truncate">{formatSizeShort(resSize)}</span>
-      </span>
-      <span
-        className="font-mono text-xs text-dim px-2 text-right truncate"
-        title={`${absTime}${timeZone === "utc" ? " UTC" : ""}`}
-      >
-        {absTime}
-      </span>
-    </button>
-  );
-}
-
-function ListEmptyState({ filtered }: { filtered: boolean }) {
-  return (
-    <div className="flex-1 flex items-center justify-center bg-bg-pane">
-      {filtered ? (
-        <span className="font-ui text-xs text-dim">{EMPTY_STATE_NO_MATCH}</span>
-      ) : (
-        <div className="flex flex-col items-center gap-1.5 text-center max-w-[260px]">
-          <span className="font-ui text-sm font-medium text-ink-2">
-            No requests yet
-          </span>
-          <span className="font-ui text-xs text-dim leading-relaxed">
-            Traffic will appear here when requests flow through the proxy
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
+import { cn, matchesFilter } from "@ui/lib/utils";
+import { ExchangeTable } from "./protospy/exchange-table";
+import { ExchangeRow } from "./protospy/exchange-row";
+import { ListEmptyState } from "./ListEmptyState";
 
 export function ExchangeList() {
   const exchanges = useStore((s) => s.exchanges);
@@ -241,44 +51,26 @@ export function ExchangeList() {
     if (v) setListMode(v as "rows" | "table");
   }
 
-  // Virtualizer setup
+  // Rows-mode virtualizer (table mode is virtualized inside ExchangeTable).
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledToRef = useRef<number | null>(null);
 
-  // Estimate sizes are initial approximations; measureElement measures actual
-  // rendered heights via ResizeObserver, so these don't need to be pixel-exact.
-  const estimatedHeight =
-    listMode === "table"
-      ? density === "compact"
-        ? 24
-        : 30
-      : density === "compact"
-        ? 66
-        : 74;
+  // estimateSize is an initial approximation; measureElement measures actual
+  // rendered heights via ResizeObserver, so it need not be pixel-exact.
+  const estimatedHeight = density === "compact" ? 58 : 74;
 
-  // Always-current reference to ordered. Updated synchronously each render so
-  // that two consumers can read the live list without capturing a stale closure:
-  //   • getItemKey (below) — stable callback identity for the virtualizer cache
-  //   • scroll effect rAF (below) — reads truly-current index at frame time
+  // Always-current reference to ordered, read by getItemKey and the scroll rAF so
+  // neither captures a stale closure. See the long-form note that previously lived
+  // here (and in git history): reading ordered through a ref keeps getItemKey's
+  // identity stable while giving it an up-to-date view.
   const orderedRef = useRef(ordered);
-  orderedRef.current = ordered; // kept current each render
+  orderedRef.current = ordered;
 
-  // Include listMode and density in item keys so the virtualizer invalidates
-  // its measurement cache when mode or density changes. Without this, stale
-  // measurements persist and rows render at wrong positions.
-  //
-  // `ordered` is read through orderedRef rather than captured directly.
-  // Capturing ordered in the closure caused a key collision: when a scene
-  // replaced the exchange list without changing listMode or density, the
-  // memoized callback still held the old ordered. In newest-first order,
-  // old ordered[0].id (the previous newest) equalled the fallback index N
-  // (the old list length), so two virtual items received the same React key
-  // (e.g. "7|rows|regular"). Reading through the ref gives getItemKey an
-  // always-current view of ordered without changing its stable identity.
+  // Include density in the item key so the virtualizer invalidates its measurement
+  // cache when density changes (listMode no longer varies the rows-mode row).
   const getItemKey = useCallback(
-    (index: number) =>
-      `${orderedRef.current[index]?.id ?? index}|${listMode}|${density}`,
-    [listMode, density],
+    (index: number) => `${orderedRef.current[index]?.id ?? index}|${density}`,
+    [density],
   );
 
   // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`)
@@ -295,52 +87,18 @@ export function ExchangeList() {
     overscan: 5,
   });
 
-  // Scroll selected item into view on programmatic selection.
-  //
-  // Fires when selectedId, order, filter, traceFilter, or listMode
-  // changes. The first triggers a new selection; the rest shift the
-  // selected row's position in the list without changing the selection
-  // itself, so the guard must be reset to allow a re-scroll.
-  //
-  // Uses requestAnimationFrame to defer the scroll by one frame: on
-  // the initial render with data, the virtualizer hasn't established
-  // its scroll observation on the freshly-mounted container element
-  // yet, so a synchronous scrollToIndex silently no-ops. Deferring by
-  // one frame lets the browser complete layout first.
-  //
-  // The index is re-derived inside the rAF callback via orderedRef so it
-  // reads the truly-current list at frame time rather than the closure's
-  // snapshot — a new exchange arriving in the one-frame window would
-  // shift indices, and orderedRef.current is always up to date.
-  //
-  // `align: "auto"` only scrolls when the target is outside the
-  // visible viewport, so user-initiated clicks (which require the row
-  // to already be visible) don't cause jarring scroll jumps.
-  //
-  // `ordered` is intentionally omitted from deps — it rebuilds every
-  // render, so including it would fire the effect on every render.
-  // The `scrolledToRef` guard prevents redundant scrolls when the
-  // same selectedId persists across re-renders.
-  //
-  // `virtualizer` is listed: useVirtualizer holds the instance in
-  // useState (created once, `setOptions` on later renders), so its
-  // identity is stable — including it satisfies exhaustive-deps without
-  // re-running the effect on every render.
+  // Scroll selected row into view on programmatic selection (rows mode only —
+  // ExchangeTable owns the equivalent for table mode). See ExchangeTable and git
+  // history for why the scroll is deferred one frame and read through orderedRef.
   useEffect(() => {
-    if (selectedId == null) {
+    if (listMode !== "rows" || selectedId == null) {
       scrolledToRef.current = null;
       return;
     }
-
-    // Guard: don't re-scroll if we already scrolled to this selection
-    // and the deps that affect position haven't changed (React re-runs
-    // the effect when they do, clearing the guard implicitly).
     if (scrolledToRef.current === selectedId) return;
     scrolledToRef.current = selectedId;
 
     const handle = requestAnimationFrame(() => {
-      // Read orderedRef.current (not the closure's ordered) so the index
-      // reflects any exchange that arrived during the one-frame delay.
       const idx = orderedRef.current.findIndex((ex) => ex.id === selectedId);
       if (idx < 0) return;
       virtualizer.scrollToIndex(idx, { align: "auto" });
@@ -467,106 +225,24 @@ export function ExchangeList() {
         </div>
       </div>
 
-      {/* Content area */}
+      {/* Content area. Table mode renders ExchangeTable even when empty so its
+          column headers stay visible (matching the prior table behaviour); the
+          empty-state message renders inside it. Rows mode shows the empty state
+          in place of the list. */}
       {listMode === "table" ? (
-        <>
-          {/* Sticky table header */}
-          <div
-            data-testid="exchange-table-header"
-            className={cn(
-              "grid shrink-0 h-[26px] items-center bg-bg-sub border-b border-border border-l-[3px] border-l-transparent sticky top-0 z-[2]",
-              // Match the 12px trace rail that offsets the rows below, so the
-              // sticky header's columns line up with the row columns.
-              hasTraces && "pl-3",
-            )}
-            style={{ gridTemplateColumns: TABLE_COLUMNS }}
-          >
-            {/* Labels are sized to fit their tracks (see TABLE_COLUMNS) and
-                test 2.6 asserts zero overflow, so no `title` fallback is
-                needed — `truncate` only guards against a future regression,
-                which CI would catch rather than silently clip on screen. */}
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
-              Method
-            </span>
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
-              Status
-            </span>
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 truncate">
-              Path
-            </span>
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
-              Elapsed
-            </span>
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
-              Size
-            </span>
-            <span className="font-ui text-ui-xs font-semibold text-mid uppercase tracking-wider px-2 text-right truncate">
-              Time
-            </span>
-          </div>
-
-          {ordered.length === 0 ? (
-            <ListEmptyState filtered={!!(filter || traceFilter)} />
-          ) : (
-            /* Trace rail + virtualized table rows */
-            <div className="flex flex-1 overflow-hidden">
-              {/* Trace rail placeholder */}
-              {hasTraces && (
-                <div className="w-3 shrink-0 bg-bg-pane border-r border-border" />
-              )}
-              {/* Scrollable rows */}
-              <div
-                ref={scrollRef}
-                role="listbox"
-                aria-label="Requests"
-                className="flex-1 overflow-y-auto overflow-x-hidden bg-bg-pane"
-              >
-                <div
-                  style={{
-                    height: virtualizer.getTotalSize(),
-                    position: "relative",
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((virtualItem) => {
-                    const ex = ordered[virtualItem.index];
-                    return (
-                      <div
-                        key={virtualItem.key}
-                        ref={virtualizer.measureElement}
-                        data-index={virtualItem.index}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          transform: `translateY(${virtualItem.start}px)`,
-                        }}
-                      >
-                        <TableRow
-                          exchange={ex}
-                          selected={ex.id === selectedId}
-                          onSelect={() => setSelectedId(ex.id)}
-                          density={density}
-                          timeZone={timeZone}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+        <ExchangeTable
+          exchanges={ordered}
+          selectedId={selectedId}
+          tz={timeZone}
+          filtered={!!(filter || traceFilter)}
+          onSelect={setSelectedId}
+        />
       ) : ordered.length === 0 ? (
         <ListEmptyState filtered={!!(filter || traceFilter)} />
       ) : (
-        /* Trace rail + virtualized scrollable list */
+        /* Trace rail placeholder + virtualized rows list */
         <div className="flex flex-1 overflow-hidden">
-          {/* Trace rail placeholder */}
-          {hasTraces && (
-            <div className="w-3 shrink-0 bg-bg-pane border-r border-border" />
-          )}
-          {/* Scrollable list */}
+          {hasTraces && <div className="w-3 shrink-0 border-r" aria-hidden />}
           <div
             ref={scrollRef}
             role="listbox"
@@ -594,11 +270,11 @@ export function ExchangeList() {
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
-                    <ExchangeListItem
+                    <ExchangeRow
                       exchange={ex}
                       selected={ex.id === selectedId}
+                      tz={timeZone}
                       onSelect={() => setSelectedId(ex.id)}
-                      density={density}
                     />
                   </div>
                 );
