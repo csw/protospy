@@ -211,15 +211,16 @@ fixes earns a fresh round so the new reports never clobber the old ones. The
 round number `N` is assigned in step 8; everything written in a round shares
 that `N`.
 
-Two reviews can run here. The code review always runs; the convention review
-runs only when the diff touches UI source.
+Up to three reviews can run here. The code review always runs; the convention
+review and the design-system-conformance review each run when the diff touches
+UI styling/component source — they share one trigger (step 7b's diff check).
 
 ### Maintainer review instructions (relay if present)
 
 Before spawning the reviews, check the ticket description (fetched in step 1)
 for a `## Reviewer instructions` section. If it exists, its body is
 maintainer-authored guidance written for **this PR's** reviewers — relay it
-**verbatim** into both the 7a and 7b prompts, appended as the block below. It
+**verbatim** into the 7a, 7b, and 7c prompts, appended as the block below. It
 carries what a diff-scoped review can't infer on its own: a mechanism the PR
 deliberately changes (so the reviewer doesn't flag the intended change as
 drift), an area to scrutinize harder, or scope the maintainer has explicitly
@@ -294,9 +295,39 @@ If the diff matches **none** of those paths (no `ui/src/**`, `ui/components.json
 or `ui/*.config.*` files), skip 7b — there are no React/Tailwind/shadcn
 conventions to review.
 
-Wait for both subagents to finish. Capture each one's complete output. If a
-subagent fails or returns empty, note it and continue — the other review
-still stands.
+### 7c — Design-system conformance review (UI source or UI config diffs only)
+
+Uses the **same trigger as 7b** — the identical three-dot diff check above. If it
+lists any files, spawn the **`design-system-conformance-review` subagent**
+(`subagent_type: "design-system-conformance-review"`) in the **same message** as
+the 7a code review and the 7b convention review, so all run in one parallel
+batch. Give it this prompt shape:
+
+> Run a design-system conformance review for $ticket ("<title>"). Linear URL:
+> <url>. Scope from the diff against `main` (branch `<branch-name>`). Audit the
+> changed UI against `docs/ui/design-system.md` — hard rules 1–14, the §3
+> component decision table, and the §2 token contract (semantic-slot correctness
+> per §2.1) — plus the both-themes token-resolution check (run
+> `scripts/agents/token-resolution-map`). Defer generic React/Tailwind hygiene to
+> the convention review. Return your prioritized findings report.
+
+If the ticket carried a `## Reviewer instructions` section, append the
+maintainer-instructions block (see *Maintainer review instructions* above) to
+this prompt.
+
+This is a read-only agent that judges **adherence to the named spec**
+(`docs/ui/design-system.md`) — drift from the hard rules, the §3 component table,
+and the §2 token contract, plus tokens that resolve in light but not dark. It is
+the inverse stance to 7b (which is an independent expert that second-guesses
+design choices); it defers generic craft back to 7b and perceptual-contrast bugs
+to the visual sweep. See `.claude/agents/design-system-conformance-review.md`.
+
+Skip 7c on the **same condition** as 7b — when the diff matches none of those
+paths, there is no UI styling/component surface to check against the spec.
+
+Wait for all (two or three) subagents to finish. Capture each one's complete
+output. If a subagent fails or returns empty, note it and continue — the other
+reviews still stand.
 
 ---
 
@@ -312,7 +343,7 @@ scripts/agents/review-paths $ticket <PR-number>
 ```
 
 It prints `round=<N>` and the absolute path for each report
-(`code_review`, `convention_review`, `synthesis`) under
+(`code_review`, `convention_review`, `ds_review`, `synthesis`) under
 `~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`. The first round
 is `N=1`; a re-review after pushing fixes (step 10) is the next integer. Reuse
 these exact paths for every write in this round — do **not** call the helper
@@ -357,12 +388,23 @@ the first heading:
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
+### Design-system conformance review (only if 7c ran)
+
+If a design-system conformance review ran in step 7c, write its findings to the
+`ds_review` path. The report already includes its own YAML front matter
+(`type: design-system-conformance-review`, `title`, `scope`, `files_reviewed`,
+`spec`). Use it as the primary block; ensure `ticket`, `title`, `pr`, `round`,
+and `date` are present, adding any that are missing. Then insert the same links
+list (Linear + PR) after the front matter's closing `---`, before the first
+heading.
+
 ---
 
 ## 9 — Evaluate and discuss
 
-Triage **every** review that ran: the code review (always) and the convention
-review (UI source diffs, step 7b).
+Triage **every** review that ran: the code review (always), the convention
+review (UI source diffs, step 7b), and the design-system conformance review
+(same trigger, step 7c).
 
 ### 9a — Synthesize (when two or more reviews ran)
 
@@ -374,7 +416,7 @@ spawn the **`review-synthesis` subagent** (`subagent_type:
 
 - The ticket ID and PR number
 - The round number `N` (so it reads this round's reports, not an older one)
-- Which reviews ran (code / convention)
+- Which reviews ran (code / convention / ds-conformance)
 
 It reads this round's review reports written to Obsidian in step 8 and returns
 a single merged triage: deduplicated, with same-root-cause findings linked
@@ -411,7 +453,7 @@ shape below.
 
 Assemble the triage (from 9a, or the single review's findings if synthesis was
 skipped): group by **blocking** vs. **advisory**, note which review surfaced each
-finding (code / convention), call out the cross-review links and any conflicts the
+finding (code / convention / ds-conformance), call out the cross-review links and any conflicts the
 synthesis raised, and for each finding say whether you'd address it now or defer,
 flagging anything low-signal, redundant, or likely incorrect.
 
@@ -447,8 +489,10 @@ behavior, touched more than a trivial number of lines, or addressed a blocking
 finding. A pure comment/rename/formatting fix does not require a new round.
 When you do run another round against the updated PR:
 
-1. Re-spawn the code review (and the convention review, if the step-7b diff
-   check still lists files) on the new diff.
+1. Re-spawn the code review (and the convention **and** design-system
+   conformance reviews, if the step-7b/7c diff check still lists files) on the
+   new diff. The UI passes are a floor — they re-run every round, not just the
+   first.
 2. In step 8, `scripts/agents/review-paths $ticket <PR-number>` now returns the
    **next** round number, so the new reports land as `code-review-2.md`,
    `synthesis-2.md`, and so on without touching round 1's files.

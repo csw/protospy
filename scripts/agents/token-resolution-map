@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+"""token-resolution-map — authoritative light/dark resolution map for UI tokens.
+
+The design-system-conformance review (`.claude/agents/design-system-conformance-
+review.md`) needs to know, for every design token the UI exposes, whether it
+resolves correctly in BOTH theme scopes. That question is purely a function of
+the token *definitions* — deterministic — so it lives here rather than in the
+review agent's head, where unioning two CSS files with two different `@theme`
+mechanisms is error-prone (it false-flagged ~50 tokens in the PRO-228 sweep).
+
+This script parses the two token files and emits one record per exposed token:
+its light value, dark value, kind, whether it resolves in both themes, and
+whether being absent-from-`.dark` is fine by design. It deliberately does NOT
+look at the diff or at component source — token *usage* is routinely indirected
+through `cva()` variants and helpers like `methodBadgeClass()`, which a static
+scan can't follow. Usage-discovery is the review agent's job; this is the map it
+checks usage against.
+
+Token definitions live in two files during the v2.3 migration (PRO-345):
+  - ui/src/app/globals.css      canonical v2.3. Two-level: `:root`/`.dark` hold
+                                raw `--X` values; `@theme inline` exposes them as
+                                utilities via `--color-X: var(--X)`.
+  - ui/src/theme/legacy-tokens.css  quarantined v2.1 vocabulary. One-level:
+                                `@theme { --color-X }` (light) + `.dark { ... }`.
+Both must be unioned, or quarantined legacy tokens false-flag as missing-in-dark.
+
+Output:
+  --table   human-readable table (default)
+  --json    machine-readable array of records
+
+Each record: name, source (canonical|legacy), light, dark, kind
+(color|size|font|radius|other — oklch counts as a color), resolves
+(both|light-only|dark-only|undefined), shared_ok.
+
+`shared_ok` is the deterministic half of the "theme-specific vs intentionally-
+shared" judgment, and it KEYS ON TOKEN NAME, NOT on the oklch kind. It is true
+when absent-from-`.dark` is fine by design — a non-color token (size/font/radius
+is theme-invariant) or an explicitly-shared color namespace (`--trace-*`). It is
+false for any other light-only color, INCLUDING an oklch one: v2.3 may introduce
+semantic oklch colors that are genuinely theme-specific, and whitelisting all
+oklch would false-negative exactly the bug class this map exists to catch. So a
+light-only, non-trace color reaches the agent as a candidate (fail-open toward
+flagging).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+# Tailwind v4 @theme namespaces → the kind of value the token carries. Drives
+# both the `kind` field and (for non-color kinds) shared_ok. Derived from the
+# @theme prefixes themselves, so ordinary token additions need no change here.
+NAMESPACE_KIND = {
+    "color": "color",
+    "text": "size",  # --text-* are font sizes
+    "spacing": "size",
+    "radius": "radius",
+    "font": "font",
+}
+
+# Color namespaces whose tokens are theme-invariant by design (shared across
+# light/dark on purpose). Keyed by NAME, never by the oklch value-kind.
+SHARED_COLOR_PREFIXES = ("trace-",)
+
+VAR_ONLY_RE = re.compile(r"^var\(\s*(--[A-Za-z0-9-]+)\s*\)$")
+VAR_REF_RE = re.compile(r"var\(\s*(--[A-Za-z0-9-]+)")
+COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def strip_comments(css: str) -> str:
+    return COMMENT_RE.sub("", css)
+
+
+def iter_top_level_blocks(css: str):
+    """Yield (prelude, body) for each top-level `prelude { body }` rule.
+
+    Brace-matched so nested rules (e.g. @layer base) are captured whole; we only
+    care about preludes we whitelist, so nesting inside others is ignored.
+    """
+    i, n = 0, len(css)
+    while i < n:
+        brace = css.find("{", i)
+        if brace == -1:
+            break
+        prelude = css[i:brace].strip()
+        # Walk to the matching close brace.
+        depth, j = 1, brace + 1
+        while j < n and depth:
+            c = css[j]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            j += 1
+        body = css[brace + 1 : j - 1]
+        # Keep only the last prelude line (drop any stray text / preceding decls).
+        prelude = prelude.splitlines()[-1].strip() if prelude else prelude
+        yield prelude, body
+        i = j
+
+
+def parse_decls(body: str) -> dict[str, str]:
+    """Extract `--name: value` custom-property declarations from a block body.
+
+    Splits on top-level `;` (paren-depth aware so color-mix()/calc()/font lists
+    survive), then on the first `:`.
+    """
+    decls: dict[str, str] = {}
+    depth, start = 0, 0
+    pieces = []
+    for idx, ch in enumerate(body):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == ";" and depth == 0:
+            pieces.append(body[start:idx])
+            start = idx + 1
+    pieces.append(body[start:])
+    for piece in pieces:
+        piece = piece.strip()
+        if not piece.startswith("--") or ":" not in piece:
+            continue
+        name, _, value = piece.partition(":")
+        decls[name.strip()] = value.strip()
+    return decls
+
+
+def collect_scopes(css: str, *, theme_prelude: str):
+    """Return (root, dark, theme) declaration dicts for one file.
+
+    `theme_prelude` is "@theme inline" for globals, "@theme" for legacy. `.dark`
+    and `:root` accumulate across blocks; `[data-density=...]` and other scopes
+    are ignored (they don't bear on theme resolution).
+    """
+    root: dict[str, str] = {}
+    dark: dict[str, str] = {}
+    theme: dict[str, str] = {}
+    for prelude, body in iter_top_level_blocks(css):
+        if prelude == ":root":
+            root.update(parse_decls(body))
+        elif prelude == ".dark":
+            dark.update(parse_decls(body))
+        elif prelude == theme_prelude:
+            theme.update(parse_decls(body))
+    return root, dark, theme
+
+
+def split_namespace(token: str) -> tuple[str, str]:
+    """`--color-method-get` → ("color", "method-get"). Unknown → ("", suffix)."""
+    bare = token[2:] if token.startswith("--") else token
+    for ns in NAMESPACE_KIND:
+        if bare.startswith(ns + "-"):
+            return ns, bare[len(ns) + 1 :]
+        if bare == ns:  # e.g. --color (none today, but be total)
+            return ns, ""
+    return "", bare
+
+
+def resolve_in_scope(name: str, scope: dict[str, str], fallback: dict[str, str]):
+    """Follow pure `var(--X)` chains to a literal within a scope.
+
+    `scope` is the active theme dict; `fallback` is `:root` (the cascade base for
+    `.dark`). Returns (literal, reached_name) or (None, name) if undefined. Only
+    bare `var(--X)` indirection is followed transitively — a calc()/color-mix()
+    expression that merely *contains* a var is returned as-is for display.
+    """
+    seen: set[str] = set()
+    cur = name
+    while cur not in seen:
+        seen.add(cur)
+        if cur in scope:
+            val = scope[cur]
+        elif cur in fallback:
+            val = fallback[cur]
+        else:
+            return None, cur
+        m = VAR_ONLY_RE.match(val)
+        if not m:
+            return val, cur
+        cur = m.group(1)
+    return None, cur  # cycle
+
+
+def chain_has_scope(name: str, scope: dict[str, str], base: dict[str, str]) -> bool:
+    """Does `name` (following bare var() chains via `base`) have a definition in
+    `scope`? Used to decide whether a token gets an explicit dark value."""
+    seen: set[str] = set()
+    cur = name
+    while cur not in seen:
+        seen.add(cur)
+        if cur in scope:
+            return True
+        val = base.get(cur)
+        if val is None:
+            return False
+        m = VAR_ONLY_RE.match(val)
+        if not m:
+            return False
+        cur = m.group(1)
+    return False
+
+
+def classify_kind(namespace: str, light_value: str | None) -> str:
+    kind = NAMESPACE_KIND.get(namespace, "other")
+    return kind
+
+
+def is_shared_ok(namespace: str, suffix: str, kind: str) -> bool:
+    if kind in ("size", "font", "radius"):
+        return True
+    if namespace == "color" and suffix.startswith(SHARED_COLOR_PREFIXES):
+        return True
+    return False
+
+
+def resolves_status(has_light: bool, has_dark: bool) -> str:
+    if has_light and has_dark:
+        return "both"
+    if has_light:
+        return "light-only"
+    if has_dark:
+        return "dark-only"
+    return "undefined"
+
+
+def build_records(globals_css: str, legacy_css: str) -> list[dict]:
+    records: list[dict] = []
+
+    # --- canonical (globals.css): @theme inline aliases over :root/.dark raw ---
+    g_root, g_dark, g_theme = collect_scopes(globals_css, theme_prelude="@theme inline")
+    for token, alias in g_theme.items():
+        namespace, suffix = split_namespace(token)
+        ref = VAR_REF_RE.search(alias)
+        primary = ref.group(1) if ref else None
+        if primary is None:
+            # Alias is a bare literal (no var()) — resolves identically in both.
+            light_val, dark_val = alias, alias
+            has_light = has_dark = True
+        else:
+            light_val, _ = resolve_in_scope(primary, g_root, g_root)
+            has_light = chain_has_scope(primary, g_root, g_root)
+            has_dark = chain_has_scope(primary, g_dark, g_root)
+            if has_dark:
+                dark_val, _ = resolve_in_scope(primary, g_dark, g_root)
+            else:
+                dark_val = "inherits-light"
+        kind = classify_kind(namespace, light_val)
+        records.append(
+            {
+                "name": token,
+                "source": "canonical",
+                "light": light_val,
+                "dark": dark_val,
+                "kind": kind,
+                "resolves": resolves_status(has_light, has_dark),
+                "shared_ok": is_shared_ok(namespace, suffix, kind),
+            }
+        )
+
+    # --- legacy (legacy-tokens.css): one-level @theme + .dark ---
+    l_root, l_dark, l_theme = collect_scopes(legacy_css, theme_prelude="@theme")
+    # Legacy declares light values directly in @theme; some files also carry a
+    # :root block — fold it in so either style is handled.
+    legacy_light = {**l_root, **l_theme}
+    for token, light_val in legacy_light.items():
+        namespace, suffix = split_namespace(token)
+        has_dark = token in l_dark
+        dark_val = l_dark.get(token, "inherits-light")
+        kind = classify_kind(namespace, light_val)
+        records.append(
+            {
+                "name": token,
+                "source": "legacy",
+                "light": light_val,
+                "dark": dark_val,
+                "kind": kind,
+                "resolves": resolves_status(True, has_dark),
+                "shared_ok": is_shared_ok(namespace, suffix, kind),
+            }
+        )
+
+    records.sort(key=lambda r: (r["source"], split_namespace(r["name"]), r["name"]))
+    return records
+
+
+def find_default_paths() -> tuple[Path, Path]:
+    repo = Path(__file__).resolve().parents[2]
+    return (
+        repo / "ui/src/app/globals.css",
+        repo / "ui/src/theme/legacy-tokens.css",
+    )
+
+
+def render_table(records: list[dict]) -> str:
+    cols = ("name", "source", "kind", "resolves", "shared_ok")
+    widths = {c: len(c) for c in cols}
+    for r in records:
+        for c in cols:
+            widths[c] = max(widths[c], len(str(r[c])))
+    lines = []
+    header = "  ".join(c.ljust(widths[c]) for c in cols) + "  light → dark"
+    lines.append(header)
+    lines.append("-" * len(header))
+    for r in records:
+        row = "  ".join(str(r[c]).ljust(widths[c]) for c in cols)
+        lines.append(f"{row}  {r['light']} → {r['dark']}")
+    # Summary: the rows the agent cares about most.
+    flagged = [
+        r for r in records if r["resolves"] == "light-only" and not r["shared_ok"]
+    ]
+    undefined = [r for r in records if r["resolves"] == "undefined"]
+    lines.append("")
+    lines.append(
+        f"{len(records)} tokens · {len(flagged)} light-only non-shared color(s) "
+        f"(candidate dark-mode bugs) · {len(undefined)} undefined"
+    )
+    if flagged:
+        lines.append("  candidates: " + ", ".join(r["name"] for r in flagged))
+    return "\n".join(lines)
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="token-resolution-map",
+        description="Light/dark resolution map for protospy UI design tokens.",
+    )
+    fmt = parser.add_mutually_exclusive_group()
+    fmt.add_argument("--table", action="store_true", help="human table (default)")
+    fmt.add_argument("--json", action="store_true", help="JSON array of records")
+    parser.add_argument("--globals", type=Path, help="override globals.css path")
+    parser.add_argument("--legacy", type=Path, help="override legacy-tokens.css path")
+    args = parser.parse_args(argv)
+
+    default_globals, default_legacy = find_default_paths()
+    globals_path = args.globals or default_globals
+    legacy_path = args.legacy or default_legacy
+
+    globals_css = strip_comments(globals_path.read_text(encoding="utf-8"))
+    # Legacy file is deleted when migration completes (PRO-345); treat absent as
+    # empty rather than erroring.
+    if legacy_path.exists():
+        legacy_css = strip_comments(legacy_path.read_text(encoding="utf-8"))
+    else:
+        legacy_css = ""
+
+    records = build_records(globals_css, legacy_css)
+
+    if args.json:
+        print(json.dumps(records, indent=2))
+    else:
+        print(render_table(records))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

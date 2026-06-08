@@ -10,9 +10,10 @@
 #     code-review-<N>.md
 #     visual-review-<N>.md
 #     convention-review-<N>.md
+#     design-system-conformance-review-<N>.md
 #     synthesis-<N>.md
 #
-# All four files in one review round share the same round number <N>. Round 1
+# All report files in one review round share the same round number <N>. Round 1
 # is the first review pass; each subsequent pass (after pushing fixes) is the
 # next integer. Screenshots are temporary and PR-agnostic (they're captured
 # before the PR exists), so they live in a ticket-scoped directory instead:
@@ -40,6 +41,7 @@
 #   code_review=<abs path>
 #   visual_review=<abs path>
 #   convention_review=<abs path>
+#   ds_review=<abs path>
 #   synthesis=<abs path>
 #   screenshots=<abs ticket screenshots dir>
 #
@@ -102,6 +104,7 @@ emit_round() {
 	printf 'code_review=%s/code-review-%s.md\n' "$dir" "$round"
 	printf 'visual_review=%s/visual-review-%s.md\n' "$dir" "$round"
 	printf 'convention_review=%s/convention-review-%s.md\n' "$dir" "$round"
+	printf 'ds_review=%s/design-system-conformance-review-%s.md\n' "$dir" "$round"
 	printf 'synthesis=%s/synthesis-%s.md\n' "$dir" "$round"
 	printf 'screenshots=%s\n' "$(screenshots_dir "$ticket")"
 }
