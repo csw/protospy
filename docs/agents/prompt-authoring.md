@@ -6,6 +6,62 @@ follow these principles. They're derived from empirical observation of how
 agents (particularly literal-following models like Opus 4.7+) actually
 interpret instructions in this project.
 
+## Concision first — words are spent from a finite budget
+
+**Read this section as the constraint on every principle that follows.** The
+rest of this doc is about making instructions _land_ — framing them as
+obligations, stating the principle alongside examples, telling agents to read
+all applicable guides. Each of those pushes text _longer_. That is fine only
+because length is not free, and this section is the counterweight that keeps the
+rest from ratcheting every file toward an encyclopedia. Apply the principles
+below to the words that survive this one.
+
+Always-loaded text — root and subproject `CLAUDE.md`, agent definitions, the
+guides an agent is told to read up front — enters the context window before the
+agent reads a line of code, and competes for attention with the task and with
+itself. The official guidance is explicit, and it is not advisory throughput
+advice — it is about _adherence_:
+
+- **Target under ~200 lines per `CLAUDE.md` file.** Per Claude Code's memory
+  docs, "longer files consume more context and reduce adherence." Past a point,
+  adding a rule makes the model follow your rules _less_ reliably, not more.
+- **Context is a finite attention budget.** Anthropic's context-engineering
+  guidance: "you should be striving for the minimal set of information that fully
+  outlines your expected behavior," because models "have an 'attention budget'
+  that they draw on when parsing large volumes of context."
+- **State each fact once.** Duplication across always-loaded layers is paid every
+  session; worse, conflicting copies make the model "pick one arbitrarily."
+  Review periodically and delete redundant or stale instructions.
+
+So before adding text to an always-loaded file, ask **where the words belong**,
+cheapest home first:
+
+1. **A fact that only matters in one area** → that area's subproject `CLAUDE.md`
+   (loads on demand when the agent reads files there) or a **path-scoped rule**
+   (`.claude/rules/` with a `paths:` glob — loads only when the agent touches
+   matching files). Not the root `CLAUDE.md`.
+2. **A multi-step procedure** → a **skill**. A skill's body loads only when the
+   skill is used, so long reference material costs nothing until needed. "A
+   section of CLAUDE.md that has grown into a procedure rather than a fact"
+   belongs here.
+3. **Deep reference** (detailed patterns, architecture detail, code samples) →
+   an on-demand doc or path-scoped rule, with a **terse pointer** left in the
+   always-loaded file.
+4. **Only genuinely cross-cutting, every-task facts** stay in always-loaded
+   `CLAUDE.md`.
+
+**`@import` does not save context** — imported files expand into the context
+window at launch, same as inline text. It is an organization tool, not a
+cost-reduction one. For genuine on-demand loading, use skills or path-scoped
+rules, never imports.
+
+**When concision and explicitness collide,** the test is whether the extra words
+change behavior in a case that _actually arises_. Keep words that prevent a real,
+recurring failure — a "hard-won lesson" note that encodes a shipped bug earns its
+length. Cut words that restate, hedge, or duplicate. The win is almost always in
+structural duplication, always-on deep reference that should be on-demand, and
+cross-layer dupes — not in stripping the lessons.
+
 ## Frame instructions as obligations, not self-checks
 
 A literal model may not perform a self-check that isn't framed as a
@@ -58,15 +114,18 @@ model follows the examples exactly; a generalizing model follows the
 principle. Providing both covers both failure modes.
 
 Bad:
+
 ```
 Delegate when the work looks like:
 - "Which process is listening on port X?"
 - Sweeping logs for a needle
 - Repeated probing where only the conclusion matters
 ```
+
 (A literal model delegates only for these three patterns.)
 
 Good:
+
 ```
 Delegate when the work looks like:
 - "Which process is listening on port X?"
@@ -93,7 +152,7 @@ is not the same as issuing a directive ("Read the subproject's CLAUDE.md
 and run every quality check it lists"). A literal model notes the fact
 without acting on it.
 
-Check every instruction: does it tell the agent to *do* something, or
+Check every instruction: does it tell the agent to _do_ something, or
 does it describe how the world is and hope the agent infers what to do?
 
 ## Explain why, but don't substitute explanation for instruction
@@ -115,9 +174,9 @@ almost always caused by the change, not by flaky infrastructure."
 
 If an agent's core job depends on a skill, preload it via the agent's `skills:`
 frontmatter rather than relying on the skill's lazy-load trigger to fire. Skill
-trigger descriptions are tuned for *discovery* ("when adding a shadcn
-component…") — the moment a user first reaches for the skill — not for *standing
-use*, where the agent already knows it needs the skill on every task. A literal
+trigger descriptions are tuned for _discovery_ ("when adding a shadcn
+component…") — the moment a user first reaches for the skill — not for _standing
+use_, where the agent already knows it needs the skill on every task. A literal
 model reads a discovery-tuned trigger, decides "I'm not in that situation," and
 proceeds without the skill.
 
@@ -135,16 +194,16 @@ on discovery? If every task, preload it via frontmatter. Where lazy-load is
 intentional (the skill is genuinely situational), say so in a comment so a later
 audit doesn't "fix" it.
 
-**But preloading only pays when the agent is a *subagent*.** A custom agent
-definition *replaces* the entire default Claude Code system prompt — the body is
+**But preloading only pays when the agent is a _subagent_.** A custom agent
+definition _replaces_ the entire default Claude Code system prompt — the body is
 all the agent gets, not an addition to the base. For a narrow, single-purpose
 subagent (a reviewer, a snapshot fetcher) that trade is fine: it doesn't need the
 full default methodology, and preloaded skills earn their keep. For an agent run
-as the *primary* (`claude --agent …`) it is usually a bad trade — you lose the
+as the _primary_ (`claude --agent …`) it is usually a bad trade — you lose the
 base prompt's tool-use methodology, planning discipline, and subagent-delegation
 reflexes (notably the reach for `Explore` on fan-out searches) to gain a few
 baked-in rules. There, prefer imperative standing guidance in a `CLAUDE.md` the
-agent loads — which *augments* the default prompt rather than replacing it — and
+agent loads — which _augments_ the default prompt rather than replacing it — and
 let the skills load on demand. A primary `frontend-engineer` agent was retired for
 exactly this reason; its convention obligations moved to `ui/CLAUDE.md`.
 

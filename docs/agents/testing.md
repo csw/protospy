@@ -2,15 +2,15 @@
 
 You MUST follow these guidelines when writing or maintaining tests, particularly for the conformance test suite.
 
-For **UI tests** (Vitest + Playwright under `ui/`), see `ui/CLAUDE.md` for the project split (`.test.ts` → node, `.test.tsx` → jsdom), shared fixture location (`src/test/fixtures.ts`), jest-dom matchers, coverage-threshold policy, and the `browser/` injection harness (note: Playwright tests live in `ui/browser/` rather than `ui/e2e/` — they verify UI rendering, not full-stack flow).
+For **UI tests** (Vitest + Playwright under `ui/`), the deep mechanics — the project split (`.test.ts` → node, `.test.tsx` → jsdom), shared fixture location (`src/test/fixtures.ts`), jest-dom matchers, coverage-threshold policy, and the `browser/` injection harness (note: Playwright tests live in `ui/browser/` rather than `ui/e2e/` — they verify UI rendering, not full-stack flow) — are in the path-scoped rule `.claude/rules/ui-testing.md` (auto-loads when you read files under `ui/`'s test directories). The always-on policy (which test type to write, that UI changes require tests) is in `ui/CLAUDE.md`.
 
 **UI code changes require tests.** Every change to `ui/src/` or `ui/browser/` must include corresponding tests — unit, component, or browser depending on the code changed. See the "Test-Writing Requirements" section of `ui/CLAUDE.md` for the full policy, including which test type to use for which kind of change.
 
-**LLM visual review is a separate layer from the deterministic browser tests — they don't replace each other.** The `ui/browser/` Playwright suite (including `browser/design-tokens.spec.ts`) makes *repeatable, deterministic* assertions about rendered properties and behaviour. LLM-based **visual review** — the `visual-review` subagent and the `/protospy-design-review` skill, judged against `docs/frontend-dod.md` — assesses *holistic* visual quality across the fixture matrix (layout, hierarchy, clipping, both themes at 1280/1440/1920). Deterministic tests can't judge whether a layout "looks right," and a visual review isn't a repeatable assertion. A UI change needs both: write/extend browser tests for what you changed, and let the visual review cover the look. See the root `CLAUDE.md` "Visual design reviews" section for how the review runs.
+**LLM visual review is a separate layer from the deterministic browser tests — they don't replace each other.** The `ui/browser/` Playwright suite (including `browser/design-tokens.spec.ts`) makes _repeatable, deterministic_ assertions about rendered properties and behaviour. LLM-based **visual review** — the `visual-review` subagent and the `/protospy-design-review` skill, judged against `docs/frontend-dod.md` — assesses _holistic_ visual quality across the fixture matrix (layout, hierarchy, clipping, both themes at 1280/1440/1920). Deterministic tests can't judge whether a layout "looks right," and a visual review isn't a repeatable assertion. A UI change needs both: write/extend browser tests for what you changed, and let the visual review cover the look. See the root `CLAUDE.md` "Visual design reviews" section for how the review runs.
 
 ## Test the real production code path
 
-A test that exercises a *different* implementation than production looks like
+A test that exercises a _different_ implementation than production looks like
 coverage but isn't. When the code under test resolves to a different library,
 polyfill, runtime, or mock in the test environment than it does in production, a
 passing unit test proves nothing about the code that actually ships.
@@ -103,7 +103,7 @@ to find the actual cause. Common agent failure mode: constructing a plausible-
 sounding narrative ("load-sensitive," "worker contention," "race
 condition in the test framework") without reading the test code or
 checking whether the failure reproduces deterministically. If you
-can't explain *which line of your code* caused the failure and *why*,
+can't explain _which line of your code_ caused the failure and _why_,
 you haven't finished investigating.
 
 ### Reproducing CI-only timing failures locally
@@ -129,6 +129,7 @@ taskpolicy -b uv run pytest -q --proxy protospy -k 'test_name'
 
 `taskpolicy -b` typically produces a 4-6x slowdown; the Linux single-core
 constraint is comparable but not separately calibrated. Either is useful for:
+
 - Verifying a flaky-test fix actually holds under resource pressure
 - Reproducing timing-dependent failures (BrokenPipeError, connection races) that only appear in CI
 - Stress-testing with a loop: `for i in $(seq 1 30); do <constrain> uv run pytest ...; done`

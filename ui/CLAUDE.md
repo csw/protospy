@@ -12,13 +12,11 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 ### TL;DR
 
-**Stack.** React ^19 + TypeScript ^6, Zustand ^5 (with `persist` middleware), `@tanstack/react-virtual` ^3, Radix ^1.4 primitives (shadcn `new-york` wrappers under `components/ui/`), `cmdk` ^1, `react-resizable-panels` ^4, Tailwind v4 (no `tailwind.config.js` — tokens live in `app/globals.css` under `:root`/`.dark` + `@theme inline`; the dark variant is `@custom-variant dark (&:is(.dark *))`, keyed on the `.dark` class; the transitional `theme/legacy-tokens.css` quarantines the un-migrated v2.1 vocabulary, PRO-345), `next-themes` ^0.4 (owns theme via the `.dark` class on `<html>`), `sonner` ^2 (toasts). Vite ^8, Vitest ^4 (node + jsdom projects), Playwright. **React Compiler is not run here** — `eslint-plugin-react-hooks@7` surfaces the compiler's static checks at lint time only.
+**Stack.** React ^19 + TypeScript ^6, Zustand ^5 (`persist` middleware), `@tanstack/react-virtual` ^3, Radix ^1.4 primitives (shadcn `new-york` wrappers under `components/ui/`), `cmdk` ^1, `react-resizable-panels` ^4, Tailwind v4 (no `tailwind.config.js` — tokens live in `app/globals.css` under `:root`/`.dark` + `@theme inline`; dark variant is `@custom-variant dark (&:is(.dark *))`, keyed on the `.dark` class; transitional `theme/legacy-tokens.css` quarantines un-migrated v2.1 vocabulary, PRO-345), `next-themes` ^0.4 (owns theme via `.dark` on `<html>`), `sonner` ^2 (toasts). Vite ^8, Vitest ^4 (node + jsdom projects), Playwright. **React Compiler is not run here** — `eslint-plugin-react-hooks@7` surfaces the compiler's static checks at lint time only.
 
-**Data flow.** `index.html` bootstraps the `.dark` class from the next-themes `theme` localStorage key (a plain `light`/`dark`/`system` string) before React loads; `main.tsx` imports `app/globals.css` and renders `App` — a next-themes `ThemeProvider` (`attribute="class"`, `storageKey="theme"`, `defaultTheme={resolveDefaultTheme()}`) wrapping `AppShell`. next-themes is the sole runtime writer of the theme class; the store's `subscribeWithSelector` subscription instead owns the **`density`** slice → `<html data-density>` (the density-ownership contract in `state/store.ts`). `AppShell` calls `fetchInfo()` (`api/info.ts` → `GET /info`) once and then `subscribeToEvents(service, …)` (`api/sse.ts` → `EventSource` at `/service/<name>/events`). Each `"exchange-report"` named event is `JSON.parse`d into an `EventMessage` and passed to `applyEvent(msg)` on the store. `applyEvent` copy-on-writes `exchanges` (a `Map<number, Exchange>`) and `ids`, then delegates to the **pure reducer** `apply()` in `state/reducer.ts` (testable without React in the node Vitest project). Components subscribe to slices via `useStore(selector)`; both `ExchangeList` and `Inspector` re-derive the filtered/ordered visible list each render.
+**Architecture in brief.** `api/sse.ts` opens an `EventSource` at `/service/<name>/events`; each `"exchange-report"` event is `JSON.parse`d into an `EventMessage` and passed to `applyEvent(msg)` on the Zustand store (`state/store.ts`), which copy-on-writes `exchanges`/`ids` and delegates to the **pure reducer** `apply()` in `state/reducer.ts` (unit-testable without React in the node project). Components subscribe via `useStore(selector)`; `ExchangeList` and `Inspector` each re-derive the filtered/ordered visible list per render. Theme is owned by next-themes (`.dark` on `<html>`); the store's `subscribeWithSelector` subscription owns only the **`density`** slice → `<html data-density>`. Bodies never touch chunks directly: `BodyPane` → `useDecodeBody` → `decodeBody()` (`body/decode.ts`), and `text/event-stream` bodies parse incrementally in the reducer via `body/sse-stream.ts`. **Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full data flow, the `EventMessage` shape (§3), the reducer per-event rules (§4), and the body/SSE decode pipeline (§6) before any change touching them.**
 
 **Types.** Wire types come from `@bindings/*` (→ `../bindings/`, generated from Rust by ts-rs — **do not edit**). `@ui/*` → `./src/*`.
-
-**Bodies.** Never touch chunks directly. `BodyPane` → `useDecodeBody(body)` (only runs once `body.atEnd === true`) → `decodeBody()` in `body/decode.ts`: concat chunks → decompress (`gzip`/`deflate` via `DecompressionStream`; `br` via `brotli-dec-wasm` WASM, lazy-loaded; `zstd` via `@bokuweb/zstd-wasm` WASM, lazy-loaded) → `TextDecoder` → classify as `jsonl` / `json` / `binary` / `text`. SSE bodies (`text/event-stream`) are parsed incrementally in the reducer via `body/sse-stream.ts` — each chunk is fed through `feedChunk()` (O(chunk), not O(total stream)), parsed events live in `BodyState.sseState`, and `chunks` stays empty. `StreamView`/`ChatStreamView` read `sseState.events` directly (no component-layer parse). Retention is bounded at `MAX_SSE_EVENTS` (10,000). Shared scroll-follow logic is in `hooks/useStreamFollow.ts`; shared event rendering in `components/EventsView.tsx` (virtualized with `@tanstack/react-virtual`). Anthropic transcripts fold via `anthropic/transcript.ts`.
 
 **Load-bearing details — don't break these:**
 
@@ -135,7 +133,7 @@ below.
 
 ## Test-Writing Requirements
 
-**Every change to code under `src/` or `browser/` must include corresponding tests.** Do not consider a feature, bug fix, or refactor complete until it has test coverage. Shipping code without tests — even if the existing suite still passes — is a recurring failure mode and is not acceptable.
+**Every change to code under `src/` or `browser/` must include corresponding tests.** Shipping UI code without tests — even when the existing suite still passes — is a recurring failure mode that has required expensive backfill passes; the real bar is "tests _exist_ for the code I wrote," not "tests pass." Do not consider a feature, bug fix, or refactor complete until it has test coverage, and if you are about to commit and have not written or updated any test file, stop and ask what you missed.
 
 ### Which test type to write
 
@@ -155,96 +153,18 @@ When a change spans categories, cover _each_ distinct observable behavior with t
 - Refactors that change observable behavior (even subtly — e.g. a different empty-state message) must update or add assertions covering the new behavior.
 - If a change is purely internal (renaming a local variable, reformatting) and no observable behavior changed, no new test is needed — but the existing suite must still pass.
 
-### Common failure mode
-
-Agents have repeatedly shipped UI features with zero test coverage, requiring expensive backfill passes after the fact. The root cause is treating "tests pass" as sufficient when the real bar is "tests _exist_ for the code I wrote." If you are about to commit and have not written or updated any test file, stop and ask yourself what you missed.
-
 ## Testing
 
-### Layout
-
-```
-src/
-  __tests__/           # Vitest unit + component tests
-  test/
-    setup.ts           # jsdom-project setup (jest-dom matchers)
-    fixtures.ts        # shared EventMessage builders (imported by both unit and browser)
-  hooks/               # extracted hooks (testable in isolation)
-  lib/utils.ts         # pure helpers — formatters, matchers, splitUri, etc.
-  theme/theme.ts       # pure helpers — ThemePreference, DEFAULT_THEME, resolveDefaultTheme
-
-browser/
-  *.spec.ts            # Playwright browser tests (UI rendering, layout, interaction)
-  fixtures/exchanges.ts  # one-line re-export of src/test/fixtures.ts
-  helpers/inject.ts    # waitForStore, resetStore, injectExchanges, getStoreState
-```
-
-### Test types
-
-| Type      | File                | Vitest project | Environment | Use for                                                                  |
-| --------- | ------------------- | -------------- | ----------- | ------------------------------------------------------------------------ |
-| Unit      | `*.test.ts`         | `node`         | node        | Pure functions: formatters, parsers, reducers, decoders.                 |
-| Component | `*.test.tsx`        | `jsdom`        | jsdom       | React components + hooks. jest-dom matchers available.                   |
-| Browser   | `browser/*.spec.ts` | (Playwright)   | chromium    | UI rendering, layout, interaction through real DOM + store. Not network. |
-
-Vitest auto-selects the project from file extension. **Any module that touches `localStorage`, `window`, or `document` at import time must be tested under `jsdom`** (`.test.tsx` extension). This includes anything that transitively imports `state/store.ts` — though after the v2 refactor the store no longer side-effects at import.
-
-`@testing-library/jest-dom@^6` matchers are auto-imported via `src/test/setup.ts` for the `jsdom` project — use `toBeInTheDocument`, `toHaveTextContent`, `toHaveClass`, `toBeDisabled`, etc. instead of raw DOM querying.
-
-`browser/a11y.spec.ts` runs an `@axe-core/playwright` scan on the empty page and on the inspector with an exchange selected. It is **advisory, not a gate** — a11y is low priority for protospy (no screen-reader target), so axe violations never fail the test, block merge, or fail pre-commit. Violations surface as `console.warn` lines in the test output and are also recorded as `testInfo.annotations` (HTML report) and attached as JSON for triage detail. The scan keeps the full WCAG tag set, so keyboard/focus rules still run — keyboard/focus quality remains the a11y bar.
-
-### Browser test scope and framing
-
-The `browser/` suite uses Playwright to codify a manual verification process for UI rendering, layout, and interaction. It is **not** an end-to-end suite — tests inject `EventMessage`s directly into the Zustand store via `window.__test_store.applyEvent(...)` and stub `/info` and `/service/.../events` via `page.route`. The real `EventSource` code path is never exercised. Reconnection / large-body / compressed-body / SSE-stream behavior is **not** covered by `browser/` — those gaps go in `src/__tests__/` or need a dedicated browser test that drives `page.route` honestly.
-
-The directory is called `browser/` rather than `e2e/` for two reasons: (1) it names the execution context accurately, and (2) it reserves `e2e/` for a future true full-stack suite if one ever lands.
-
-The `__test_store` dev-mode window exposure in `state/store.ts` is intentional and load-bearing for the browser harness; do not remove it.
-
-### Browser-test patterns worth knowing
-
-A few non-obvious techniques that came out of writing the suite:
-
-- **`route.fulfill` is atomic — there is no Playwright streaming primitive.** Once you fulfill, the response delivers and the TCP connection closes in one tick. To park a connection (e.g. to keep an `EventSource` in CONNECTING long enough to assert on), `await` an external gate inside the handler before calling `route.fulfill`. See `sse-reconnect.spec.ts` for the pattern.
-- **Hook `__test_store` before the app assigns it.** A subscriber installed via `page.evaluate` after `waitForStore` will miss the initial state transitions. Use `page.addInitScript` plus an `Object.defineProperty` setter on `window.__test_store` to attach the subscriber the moment the store mounts. Again, `sse-reconnect.spec.ts` demonstrates this.
-- **Record transitions rather than racing `expect.poll`.** Fleeting state changes (sub-100 ms) can fall between poll samples. Push every change into an array via a store subscriber, then assert on the recorded sequence (indices, ordering) after driving the cycle.
-- **Scrolling: walk the overflow ancestors.** When a nested element carries `aria-label` but its parent owns the `overflow-auto`, setting `scrollTop` on the inner element silently no-ops. Set it on each ancestor up the chain and take the max — see `body-large.spec.ts`.
-
-### Design token fidelity tests
-
-`browser/design-tokens.spec.ts` spot-checks that key rendered CSS properties match the design spec. This exists because styling drift is hard to catch — agents translating CSS to Tailwind classes will round values to the nearest utility class, and the result looks "close enough" visually but diverges on exact font sizes, weights, spacing, etc.
-
-The pattern: inject an exchange so elements render, then use `page.evaluate()` with `getComputedStyle()` to extract the actual rendered value and assert it against the design spec value.
-
-```typescript
-const badge = page.locator('[data-testid="method-badge"]').first();
-const styles = await badge.evaluate((el) => {
-  const cs = getComputedStyle(el);
-  return { fontFamily: cs.fontFamily, fontWeight: cs.fontWeight };
-});
-expect(styles.fontFamily).toContain("JetBrains Mono");
-expect(styles.fontWeight).toBe("600");
-```
-
-**When to add assertions here:** when a design spec defines an exact CSS property value that Tailwind might approximate. High-drift-risk properties: font-family, font-size, font-weight, letter-spacing, border-radius, padding, position (sticky). Don't test every property on every element — focus on values that have drifted before or that use non-standard Tailwind values (arbitrary values like `text-[11.5px]`).
-
-**When NOT to use this:** for conditional styling logic (method badge changes color by HTTP method), write a regular component or browser test that exercises the condition. Design token tests are for static property fidelity, not behavioral assertions.
-
-### Fixtures
-
-Shared `EventMessage` builders live in `src/test/fixtures.ts` (`makeGetRequest`, `makePostRequest`, `makeResponse`, `makeCompleteExchange`, `makeMsearchRequest`, `makeSSEResponse`, `makeRequestWithTrace`, plus data-extreme builders `makeLongUriRequest`, `makeManyExchanges`, `makeDualSizeResponse`, …). Unit and component tests import from `@ui/test/fixtures`; browser specs import from `./fixtures/exchanges` (which re-exports). When you need a new fixture variant, add it to `src/test/fixtures.ts` — do not duplicate in `browser/`.
-
-`src/test/scenes.ts` composes these builders into the **fixture matrix**: `SCENES`, a list of injectable UI-state cells (one per matrix cell), the pure `applySceneToStore` applier, and the dev-only `window.__test_scenes` harness. The browser breadth check is `browser/fixture-matrix.spec.ts`; the full matrix and per-cell injection calls are documented in `docs/fixture-matrix.md`. Add a new cell by appending to `SCENES`.
-
-### Coverage thresholds
-
-Coverage thresholds live in `coverage-thresholds.json` and are read by `vitest.config.ts` at startup. They are a safety net against catastrophic regressions (someone deletes a test file), not a per-PR gate. **Do not adjust thresholds in your PR** — they are ratcheted automatically on a weekly schedule by `scripts/ratchet-coverage.ts` (via the repo-root workflow `.github/workflows/coverage-ratchet.yml` — at the repo root, not under `ui/`). To run the ratchet manually: `pnpm run coverage:ratchet`.
-
-If your PR causes `pnpm test:coverage` to fail the threshold check, that means coverage dropped significantly. Investigate — you likely need to add unit or component tests. But small threshold movements (1-2 points) caused by adding code that's covered by browser tests (which Vitest can't measure) are expected and not a problem. Browser tests in `browser/` provide real coverage; the Vitest report just can't see it.
-
-`coverage/`, `playwright-report/`, and `test-results/` are gitignored.
-
-shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.tsx`), CSS tokens (`theme/**`), and the `test/` and `__tests__/` directories are excluded from coverage — see the `exclude` list in the config before adding a new top-level src directory.
+The always-on testing **policy** is above: every change under `src/` or
+`browser/` needs tests, which type to write for which change, and what "covered"
+means. The deep **mechanics** — the Vitest project/environment layout, the
+`browser/` injection harness and its scope, the hard-won browser-test patterns,
+design-token fidelity tests, fixtures, and coverage-threshold policy — live in
+[`.claude/rules/ui-testing.md`](../.claude/rules/ui-testing.md). That path-scoped
+rule auto-loads when you read a file under `ui/browser/`, `ui/src/__tests__/`, or
+`ui/src/test/`. **Read it before writing or changing a browser test or a
+design-token test** — explicitly, since creating a brand-new test file does not
+trigger the auto-load.
 
 ## Versioning dependencies
 

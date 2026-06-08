@@ -185,7 +185,7 @@ The `@bindings` directory lives at `../bindings/` (repo root), not under `ui/`.
 
 ## Testing architecture
 
-Brief overview; the deep detail (patterns, fixtures, coverage policy, browser-test gotchas) is in **`ui/CLAUDE.md`** — read it before writing tests.
+Brief overview; the deep detail (patterns, fixtures, coverage policy, browser-test gotchas) is in the path-scoped rule **`.claude/rules/ui-testing.md`** (auto-loads when you read files under `ui/`'s test directories) — read it before writing tests.
 
 Three tiers, with Vitest auto-selecting its project by file extension:
 

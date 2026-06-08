@@ -9,8 +9,12 @@ disable-model-invocation: true
 Handle Linear ticket **$ticket** end-to-end. Work through the steps below in
 order. Stop and surface blockers rather than guessing through them.
 
-Read `docs/agents/linear.md` and `docs/agents/implementation.md` before
-starting.
+Read `docs/agents/implementation.md` before starting. You do **not** need to
+read all of `docs/agents/linear.md` for the standard flow — the rules this skill
+exercises are inlined at point of use: the `linear issue view --json` command and
+the branch-name truncation rule in step 1, and the agent-header comment format
+and summary-comment obligation in steps 9–10. Open `linear.md` only when a step's
+point-of-use reference sends you there.
 
 **Your directions.** Everything after the ticket ID is freeform direction for
 this run. `$ARGUMENTS` is the full invocation as typed; the ticket ID is
@@ -254,10 +258,6 @@ actual PR number):
 > test covering the WASM path that ships). See `docs/agents/testing.md`, "Test
 > the real production code path".
 
-If the ticket carried a `## Reviewer instructions` section, append the
-maintainer-instructions block (see *Maintainer review instructions* above) to
-this prompt.
-
 This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
 the React/Tailwind/shadcn convention checklists — that's what 7b is for. The
 appended prod-vs-test-path check is here because "the unit tests pass" can hide
@@ -284,10 +284,6 @@ code review so they run in parallel. Give it this prompt shape:
 > and frontend:tailwind-theme-builder skills to the changed UI source and
 > return your prioritized convention-findings report.
 
-If the ticket carried a `## Reviewer instructions` section, append the
-maintainer-instructions block (see *Maintainer review instructions* above) to
-this prompt.
-
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
 composition drift) — the recurring class of issue that `/review` structurally
@@ -313,10 +309,6 @@ batch. Give it this prompt shape:
 > per §2.1) — plus the both-themes token-resolution check (run
 > `scripts/agents/token-resolution-map`). Defer generic React/Tailwind hygiene to
 > the convention review. Return your prioritized findings report.
-
-If the ticket carried a `## Reviewer instructions` section, append the
-maintainer-instructions block (see *Maintainer review instructions* above) to
-this prompt.
 
 This is a read-only agent that judges **adherence to the named spec**
 (`docs/ui/design-system.md`) — drift from the hard rules, the §3 component table,
@@ -356,10 +348,12 @@ again per file, or you will advance the round counter mid-round.
 paths. The `review-synthesis` agent reads the same directory via the same
 helper (`--current`); do not hand-roll these paths anywhere.
 
-### Code review (always)
+### Front matter and links list (every report in this round)
 
-Write the code review subagent's output **verbatim** to the `code_review`
-path. Prepend a front matter block and links list:
+Each report below — and the synthesis in step 9a — gets a YAML front matter
+block with these five common fields plus a `type` (named per report), and,
+after the front matter's closing `---` and before the first heading, an
+identical links list:
 
 ```yaml
 ---
@@ -368,38 +362,39 @@ title: "<ticket title from step 1>"
 pr: <PR-number>
 round: <N>
 date: <today's date>
-type: code-review
+type: <named per report>
 ---
 
 - **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
+The per-report subsections below state only the `type` value and whether to
+write the report verbatim or merge these fields into its own front matter.
+
+### Code review (always)
+
+Write the code review subagent's output **verbatim** to the `code_review`
+path. Prepend the front matter (`type: code-review`) and links list above.
+
 ### Convention review (only if 7b ran)
 
 If a convention review ran in step 7b, write its findings to the
 `convention_review` path. The report already includes its own YAML front
 matter (`type: convention-review`, `title`, `scope`, `files_reviewed`,
-`skills_applied`). Use it as the primary block; ensure `ticket`, `title`,
-`pr`, `round`, and `date` are present, adding any that are missing.
-
-After the merged front matter's closing `---`, insert a links list before
-the first heading:
-
-```
-- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
-- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
-```
+`skills_applied`). Use it as the primary block; ensure the five common fields
+above (`ticket`, `title`, `pr`, `round`, `date`) are present, adding any that
+are missing. Then insert the links list above, after the merged front matter's
+closing `---` and before the first heading.
 
 ### Design-system conformance review (only if 7c ran)
 
 If a design-system conformance review ran in step 7c, write its findings to the
 `ds_review` path. The report already includes its own YAML front matter
 (`type: design-system-conformance-review`, `title`, `scope`, `files_reviewed`,
-`spec`). Use it as the primary block; ensure `ticket`, `title`, `pr`, `round`,
-and `date` are present, adding any that are missing. Then insert the same links
-list (Linear + PR) after the front matter's closing `---`, before the first
-heading.
+`spec`). Use it as the primary block; ensure the five common fields above are
+present, adding any that are missing. Then insert the links list above, after
+the front matter's closing `---` and before the first heading.
 
 ---
 
@@ -428,21 +423,8 @@ blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
 
 **Persist the synthesis.** The subagent is read-only, so write its returned
 triage **verbatim** to this round's `synthesis` path (from the step-8
-`review-paths` call), with a front matter block and links table:
-
-```yaml
----
-ticket: $ticket
-title: "<ticket title from step 1>"
-pr: <PR-number>
-round: <N>
-date: <today's date>
-type: synthesis
----
-
-- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
-- **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
-```
+`review-paths` call), prepending the front matter (`type: synthesis`) and links
+list from step 8's "Front matter and links list" block.
 
 This keeps the merged triage alongside the reports it reconciles, one
 `synthesis-<N>.md` per round.
