@@ -6,15 +6,17 @@ export const EMPTY_STATE_NO_MATCH = "No requests match your filter";
 
 export function ListEmptyState({ filtered }: { filtered: boolean }) {
   return (
-    <div className="flex-1 flex items-center justify-center bg-bg-pane">
+    <div className="flex-1 flex items-center justify-center bg-card">
       {filtered ? (
-        <span className="font-ui text-xs text-dim">{EMPTY_STATE_NO_MATCH}</span>
+        <span className="text-xs text-muted-foreground">
+          {EMPTY_STATE_NO_MATCH}
+        </span>
       ) : (
         <div className="flex flex-col items-center gap-1.5 text-center max-w-[260px]">
-          <span className="font-ui text-sm font-medium text-ink-2">
+          <span className="text-sm font-medium text-secondary-foreground">
             No requests yet
           </span>
-          <span className="font-ui text-xs text-dim leading-relaxed">
+          <span className="text-xs text-muted-foreground leading-relaxed">
             Traffic will appear here when requests flow through the proxy
           </span>
         </div>

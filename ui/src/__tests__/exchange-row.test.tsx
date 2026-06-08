@@ -134,4 +134,11 @@ describe("ExchangeRow", () => {
     expect(row).toHaveAttribute("aria-selected", "true");
     expect(row).toHaveAttribute("data-selected", "true");
   });
+
+  it("renders aria-selected='false' (not absent) when unselected — role=option requires it", () => {
+    render(<ExchangeRow exchange={makeExchange()} />);
+    const row = screen.getByRole("option");
+    expect(row).toHaveAttribute("aria-selected", "false");
+    expect(row).not.toHaveAttribute("data-selected");
+  });
 });

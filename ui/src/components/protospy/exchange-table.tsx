@@ -257,7 +257,7 @@ export function ExchangeTable({
                       gridTemplateColumns: gridCols,
                     }}
                     className={cn(
-                      "grid items-center gap-2 border-b px-3 text-left text-sm text-secondary-foreground",
+                      "relative grid items-center gap-2 border-b px-3 text-left text-sm text-secondary-foreground",
                       "hover:bg-hover data-[selected]:bg-accent",
                       x.traceId &&
                         "after:absolute after:inset-y-0 after:left-0 after:w-1 after:bg-(--trace-color)",

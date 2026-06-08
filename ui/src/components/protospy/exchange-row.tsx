@@ -33,7 +33,7 @@ export interface ExchangeRowProps {
 
 export function ExchangeRow({
   exchange: x,
-  selected,
+  selected = false,
   tz = "local",
   onSelect,
 }: ExchangeRowProps) {
@@ -79,11 +79,15 @@ export function ExchangeRow({
         </span>
         <span className="whitespace-nowrap">
           req {fmtBytesOrDash(req.wireBytes)}
-          {req.encoding && <span className="text-dim"> ({req.encoding})</span>}
+          {req.encoding && (
+            <span className="text-muted-foreground"> ({req.encoding})</span>
+          )}
         </span>
         <span className="whitespace-nowrap">
           res {fmtBytesOrDash(res.wireBytes)}
-          {res.encoding && <span className="text-dim"> ({res.encoding})</span>}
+          {res.encoding && (
+            <span className="text-muted-foreground"> ({res.encoding})</span>
+          )}
         </span>
       </div>
     </button>
