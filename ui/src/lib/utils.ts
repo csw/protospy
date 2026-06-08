@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
+import { fmtBytes, fmtClock } from "./format";
 
 /**
  * Configured tailwind-merge instance that knows about the custom font-size
@@ -40,25 +41,12 @@ export function formatSize(bytes: number): string {
  * `5120.0MB`), this scales through GB/TB so the value stays at most ~3 integer
  * digits + 1 decimal — a known maximum width (`1023.9 GB`) the column can size
  * to. One decimal place; a space before the unit (`1.5 KB`, `58 B`, `5.0 GB`).
+ *
+ * This is the legacy name for the canonical `fmtBytes` (lib/format.ts); the live
+ * components import it under this name. Same function — there is no second
+ * implementation (PRO-346).
  */
-export function formatSizeShort(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = bytes / 1024;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i++;
-  }
-  // The unit was chosen from the un-rounded value, but we display rounded to 1
-  // decimal — so a value like 1023.99 KB would print "1024.0 KB". If rounding
-  // tips it to ≥1024 and a larger unit exists, roll up one unit (→ "1.0 MB").
-  if (Number(value.toFixed(1)) >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i++;
-  }
-  return `${value.toFixed(1)} ${units[i]}`;
-}
+export const formatSizeShort = fmtBytes;
 
 /**
  * Normalised `Content-Encoding` value for inline display next to a wire
@@ -195,28 +183,19 @@ export function formatTime(timestamp: string): string {
 export type TimeZone = "local" | "utc";
 
 /**
- * Format a timestamp as an absolute time with millisecond resolution.
- * Returns `HH:MM:SS.mmm` in either local or UTC time zone.
- * Suitable for log correlation — milliseconds help match events across
- * different log sources.
+ * Format an ISO timestamp string as an absolute time with millisecond
+ * resolution: `HH:MM:SS.mmm` in either local or UTC time zone. Suitable for log
+ * correlation — milliseconds help match events across different log sources.
+ *
+ * String-timestamp adapter over the canonical `fmtClock` (lib/format.ts), which
+ * takes epoch ms; the live components feed the `Exchange.timestamp` ISO string.
+ * Same formatting logic — there is no second implementation (PRO-346).
  */
 export function formatAbsoluteTime(
   timestamp: string,
   tz: TimeZone = "local",
 ): string {
-  const d = new Date(timestamp);
-  if (tz === "utc") {
-    const h = String(d.getUTCHours()).padStart(2, "0");
-    const m = String(d.getUTCMinutes()).padStart(2, "0");
-    const s = String(d.getUTCSeconds()).padStart(2, "0");
-    const ms = String(d.getUTCMilliseconds()).padStart(3, "0");
-    return `${h}:${m}:${s}.${ms}`;
-  }
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const s = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${h}:${m}:${s}.${ms}`;
+  return fmtClock(new Date(timestamp).getTime(), tz);
 }
 
 export function matchesFilter(
