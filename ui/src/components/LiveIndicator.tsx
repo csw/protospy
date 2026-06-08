@@ -30,14 +30,18 @@ const INDICATOR_CONFIG: Record<
   StreamState,
   { dot: string; text: string; label: string }
 > = {
-  disconnected: { dot: "bg-red", text: "text-red", label: "disconnected" },
-  complete: { dot: "bg-mid", text: "text-mid", label: "complete" },
+  disconnected: { dot: "bg-error", text: "text-error", label: "disconnected" },
+  complete: {
+    dot: "bg-muted-foreground",
+    text: "text-muted-foreground",
+    label: "complete",
+  },
   live: {
-    dot: "bg-green animate-pulse",
-    text: "text-green",
+    dot: "bg-ok animate-pulse",
+    text: "text-ok",
     label: "live",
   },
-  paused: { dot: "bg-amber", text: "text-amber", label: "paused" },
+  paused: { dot: "bg-redirect", text: "text-redirect", label: "paused" },
 };
 
 interface Props {

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
+import { readEventStream } from "@ui/body/event-stream";
 import { cn } from "@ui/lib/utils";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventsView } from "@ui/components/EventsView";
@@ -77,10 +78,9 @@ type Mode = "events" | "transcript";
 export function ChatStreamView({ exchange }: Props) {
   const [mode, setMode] = useState<Mode>("events");
 
-  const body = exchange.responseBody;
-  const atEnd = body?.atEnd ?? true;
-  const events = body?.sseState?.events ?? [];
-  const totalEventCount = body?.sseState?.totalEventCount ?? events.length;
+  const { events, totalEventCount, atEnd } = readEventStream(
+    exchange.responseBody,
+  );
 
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);

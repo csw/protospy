@@ -354,14 +354,14 @@ export function eventTypeBadgeClass(type: string): string {
     case "content_block_start":
     case "content_block_stop":
     case "content_block_delta":
-      return "text-green bg-green-500/10";
+      return "text-ok bg-green-500/10";
     case "message_delta":
       return "text-primary bg-primary/10";
     case "message_stop":
-      return "text-mid bg-bg-sub";
+      return "text-muted-foreground bg-muted";
     case "ping":
-      return "text-dim bg-bg-sub";
+      return "text-muted-foreground bg-muted";
     default:
-      return "text-ink-2 bg-bg-sub";
+      return "text-secondary-foreground bg-muted";
   }
 }

@@ -5,6 +5,7 @@ import {
   observeElementRect as defaultObserveRect,
 } from "@tanstack/react-virtual";
 import type { SSEEvent } from "@ui/body/sse";
+import { classifyEvent } from "@ui/body/event-stream";
 import { cn, eventTypeBadgeClass } from "@ui/lib/utils";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 
@@ -13,7 +14,9 @@ function EventDataSummary({ event }: { event: SSEEvent }) {
     event.data.length > 80 ? event.data.slice(0, 80) + "…" : event.data;
   return (
     <SimpleTooltip content={event.data}>
-      <span className="font-mono text-xs text-dim truncate">{summary}</span>
+      <span className="font-mono text-xs text-muted-foreground truncate">
+        {summary}
+      </span>
     </SimpleTooltip>
   );
 }
@@ -69,7 +72,7 @@ export function EventsView({ events, scrollRef }: EventsViewProps) {
 
   if (events.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-dim text-xs">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
         No events yet
       </div>
     );
@@ -84,11 +87,18 @@ export function EventsView({ events, scrollRef }: EventsViewProps) {
     >
       {virtualizer.getVirtualItems().map((virtualItem) => {
         const event = events[virtualItem.index];
+        // O2 classification seam: today every event is "generic" and renders the
+        // row below. Future render classes (PRO-265 structured proxy events,
+        // PRO-196/197 LLM stream rendering) branch here on `eventClass.kind`. The
+        // per-type badge tint (`eventTypeBadgeClass`) is cosmetic within the
+        // generic row and is subsumed when those richer renderers land.
+        const eventClass = classifyEvent(event);
         return (
           <div
             key={virtualItem.key}
             ref={virtualizer.measureElement}
             data-index={virtualItem.index}
+            data-event-class={eventClass.kind}
             style={{
               position: "absolute",
               top: 0,
@@ -97,8 +107,8 @@ export function EventsView({ events, scrollRef }: EventsViewProps) {
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
-            <div className="flex items-center gap-3 px-3 min-h-[28px] py-1 border-b border-border hover:bg-bg-hl">
-              <span className="font-mono text-xs text-dim shrink-0 w-6 text-right">
+            <div className="flex items-center gap-3 px-3 min-h-[28px] py-1 border-b border-border hover:bg-hover">
+              <span className="font-mono text-xs text-muted-foreground shrink-0 w-6 text-right">
                 {event.index}
               </span>
               <span

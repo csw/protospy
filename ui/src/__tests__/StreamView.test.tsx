@@ -96,8 +96,8 @@ describe("StreamView — generic SSE rendering", () => {
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
     const badge = screen.getByText("ping");
-    expect(badge).toHaveClass("text-dim");
-    expect(badge).toHaveClass("bg-bg-sub");
+    expect(badge).toHaveClass("text-muted-foreground");
+    expect(badge).toHaveClass("bg-muted");
   });
 
   it("applies default badge class for unknown event types", async () => {
@@ -105,8 +105,8 @@ describe("StreamView — generic SSE rendering", () => {
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
     const badge = screen.getByText("message");
-    expect(badge).toHaveClass("text-ink-2");
-    expect(badge).toHaveClass("bg-bg-sub");
+    expect(badge).toHaveClass("text-secondary-foreground");
+    expect(badge).toHaveClass("bg-muted");
   });
 });
 
@@ -144,9 +144,9 @@ describe("StreamView — live indicator states", () => {
     );
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
+    expect(dot).toHaveClass("bg-muted-foreground");
+    expect(dot).not.toHaveClass("bg-ok");
+    expect(dot).not.toHaveClass("bg-redirect");
   });
 
   it("shows 'live' with green pulsing dot when streaming and following", async () => {
@@ -155,7 +155,7 @@ describe("StreamView — live indicator states", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green");
+    expect(dot).toHaveClass("bg-ok");
     expect(dot).toHaveClass("animate-pulse");
   });
 
@@ -167,7 +167,7 @@ describe("StreamView — live indicator states", () => {
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber");
+    expect(dot).toHaveClass("bg-redirect");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 });
@@ -186,7 +186,7 @@ describe("StreamView — error/disconnected state", () => {
     );
     expect(screen.getByText("disconnected")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
+    expect(dot).toHaveClass("bg-error");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 
@@ -239,6 +239,60 @@ describe("StreamView — error/disconnected state", () => {
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
     expect(screen.queryByTestId("stream-error-banner")).not.toBeInTheDocument();
+  });
+});
+
+describe("StreamView — play/pause (freeze the live tail)", () => {
+  const TWO = "event: a\ndata: 1\n\nevent: b\ndata: 2\n\n";
+  const FOUR = TWO + "event: c\ndata: 3\n\nevent: d\ndata: 4\n\n";
+
+  it("shows a Pause control while the stream is active", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(TWO, false)} />,
+    );
+    expect(screen.getByLabelText("Pause stream")).toBeInTheDocument();
+  });
+
+  it("hides the play/pause control once the stream has ended", async () => {
+    await renderAndSettle(<StreamView exchange={makeSSEExchange(TWO, true)} />);
+    expect(screen.queryByLabelText("Pause stream")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Resume stream")).not.toBeInTheDocument();
+  });
+
+  it("freezes new events while paused and catches up on resume", async () => {
+    const { rerender } = await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(TWO, false)} />,
+    );
+    fireEvent.click(screen.getByLabelText("Pause stream"));
+    // Indicator reflects the user-initiated pause.
+    expect(screen.getByText("paused")).toBeInTheDocument();
+
+    // More events stream in while paused — they must not appear in the view.
+    await act(async () => {
+      rerender(<StreamView exchange={makeSSEExchange(FOUR, false)} />);
+    });
+    expect(screen.getByText("a")).toBeInTheDocument();
+    expect(screen.queryByText("c")).not.toBeInTheDocument();
+    expect(screen.queryByText("d")).not.toBeInTheDocument();
+    // The header count still reflects real arrivals (not the frozen view).
+    expect(screen.getByText("4 events")).toBeInTheDocument();
+
+    // Resuming unfreezes and catches up to the live tip.
+    fireEvent.click(screen.getByLabelText("Resume stream"));
+    await act(async () => {});
+    expect(screen.getByText("c")).toBeInTheDocument();
+    expect(screen.getByText("d")).toBeInTheDocument();
+  });
+});
+
+describe("StreamView — a11y live region", () => {
+  it("announces stream state and event count via a polite live region", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    const region = screen.getByText(/^Stream live, 2 received$/);
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toHaveClass("sr-only");
   });
 });
 
@@ -313,9 +367,9 @@ describe("ChatStreamView — live indicator states", () => {
     );
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
+    expect(dot).toHaveClass("bg-muted-foreground");
+    expect(dot).not.toHaveClass("bg-ok");
+    expect(dot).not.toHaveClass("bg-redirect");
   });
 
   it("shows 'live' with green pulsing dot when streaming and following", async () => {
@@ -324,7 +378,7 @@ describe("ChatStreamView — live indicator states", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green");
+    expect(dot).toHaveClass("bg-ok");
     expect(dot).toHaveClass("animate-pulse");
   });
 
@@ -336,7 +390,7 @@ describe("ChatStreamView — live indicator states", () => {
     simulateScrollAway(scrollEl);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber");
+    expect(dot).toHaveClass("bg-redirect");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 });
@@ -355,7 +409,7 @@ describe("ChatStreamView — error/disconnected state", () => {
     );
     expect(screen.getByText("disconnected")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
+    expect(dot).toHaveClass("bg-error");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 

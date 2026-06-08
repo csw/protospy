@@ -551,21 +551,21 @@ describe("eventTypeBadgeClass", () => {
     );
   });
 
-  it("returns green classes for content_block_start", () => {
+  it("returns ok classes for content_block_start", () => {
     expect(eventTypeBadgeClass("content_block_start")).toBe(
-      "text-green bg-green-500/10",
+      "text-ok bg-green-500/10",
     );
   });
 
-  it("returns green classes for content_block_stop", () => {
+  it("returns ok classes for content_block_stop", () => {
     expect(eventTypeBadgeClass("content_block_stop")).toBe(
-      "text-green bg-green-500/10",
+      "text-ok bg-green-500/10",
     );
   });
 
-  it("returns green classes for content_block_delta", () => {
+  it("returns ok classes for content_block_delta", () => {
     expect(eventTypeBadgeClass("content_block_delta")).toBe(
-      "text-green bg-green-500/10",
+      "text-ok bg-green-500/10",
     );
   });
 
@@ -575,22 +575,24 @@ describe("eventTypeBadgeClass", () => {
     );
   });
 
-  it("returns mid/sub classes for message_stop", () => {
-    expect(eventTypeBadgeClass("message_stop")).toBe("text-mid bg-bg-sub");
-  });
-
-  it("returns dim/sub classes for ping", () => {
-    expect(eventTypeBadgeClass("ping")).toBe("text-dim bg-bg-sub");
-  });
-
-  it("returns ink-2/sub classes for an unknown type", () => {
-    expect(eventTypeBadgeClass("some_custom_event")).toBe(
-      "text-ink-2 bg-bg-sub",
+  it("returns muted classes for message_stop", () => {
+    expect(eventTypeBadgeClass("message_stop")).toBe(
+      "text-muted-foreground bg-muted",
     );
   });
 
-  it("returns ink-2/sub classes for empty string", () => {
-    expect(eventTypeBadgeClass("")).toBe("text-ink-2 bg-bg-sub");
+  it("returns muted classes for ping", () => {
+    expect(eventTypeBadgeClass("ping")).toBe("text-muted-foreground bg-muted");
+  });
+
+  it("returns secondary classes for an unknown type", () => {
+    expect(eventTypeBadgeClass("some_custom_event")).toBe(
+      "text-secondary-foreground bg-muted",
+    );
+  });
+
+  it("returns secondary classes for empty string", () => {
+    expect(eventTypeBadgeClass("")).toBe("text-secondary-foreground bg-muted");
   });
 });
 
