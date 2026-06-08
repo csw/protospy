@@ -33,14 +33,18 @@ export default defineConfig({
         "src/test/**",
         "src/llm/fixtures/**",
         "**/__tests__/**",
-        // PRO-341: v2.3 design-system scaffolds landed but not yet wired into
-        // the live app (PRO-345 integrates; PRO-346 owns the format helpers).
-        // Excluded from coverage until they are imported and exercised.
-        "src/components/protospy/**",
+        // v2.3 design-system scaffolds landed but not yet wired into the live app
+        // (PRO-345 integrates surface-by-surface). Excluded from coverage until an
+        // integration slice imports and exercises them. PRO-359 (Slice 1) wired the
+        // exchange table/row + method-badge/status-code and the lib helpers they
+        // consume (format/tokens/density), so those are now covered; the rest stay
+        // excluded until their slice lands.
+        "src/components/protospy/inspector.tsx",
+        "src/components/protospy/msearch-view.tsx",
+        "src/components/protospy/stream-view.tsx",
+        "src/components/protospy/trace-rail.tsx",
+        "src/components/protospy/trace-tag.tsx",
         "src/lib/types.ts",
-        "src/lib/tokens.ts",
-        "src/lib/density.tsx",
-        "src/lib/format.ts",
       ],
       // Thresholds are read from coverage-thresholds.json and ratcheted
       // automatically by the coverage-ratchet workflow (~4% margin below

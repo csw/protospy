@@ -13,7 +13,6 @@ import {
   maskHeaderValue,
   matchesFilter,
   methodBadgeClass,
-  methodTextClass,
   parseQueryParams,
   shortEncoding,
   shortenTraceId,
@@ -157,78 +156,50 @@ describe("statusClass", () => {
 });
 
 describe("methodBadgeClass", () => {
+  // PRO-359 drained the legacy --color-m-* tints onto the canonical --method-*
+  // token set in globals.css (pixel-identical values).
   it("maps GET", () => {
-    expect(methodBadgeClass("GET")).toBe("bg-m-get-bg text-m-get");
+    expect(methodBadgeClass("GET")).toBe("bg-method-get-bg text-method-get");
   });
 
   it("maps POST", () => {
-    expect(methodBadgeClass("POST")).toBe("bg-m-post-bg text-m-post");
+    expect(methodBadgeClass("POST")).toBe("bg-method-post-bg text-method-post");
   });
 
   it("maps PUT", () => {
-    expect(methodBadgeClass("PUT")).toBe("bg-m-put-bg text-m-put");
+    expect(methodBadgeClass("PUT")).toBe("bg-method-put-bg text-method-put");
   });
 
   it("maps PATCH", () => {
-    expect(methodBadgeClass("PATCH")).toBe("bg-m-patch-bg text-m-patch");
+    expect(methodBadgeClass("PATCH")).toBe(
+      "bg-method-patch-bg text-method-patch",
+    );
   });
 
   it("maps DELETE", () => {
-    expect(methodBadgeClass("DELETE")).toBe("bg-m-delete-bg text-m-delete");
+    expect(methodBadgeClass("DELETE")).toBe(
+      "bg-method-delete-bg text-method-delete",
+    );
   });
 
   it("maps HEAD", () => {
-    expect(methodBadgeClass("HEAD")).toBe("bg-m-head-bg text-m-head");
+    expect(methodBadgeClass("HEAD")).toBe("bg-method-head-bg text-method-head");
   });
 
   it("maps OPTIONS", () => {
-    expect(methodBadgeClass("OPTIONS")).toBe("bg-m-opts-bg text-m-opts");
+    expect(methodBadgeClass("OPTIONS")).toBe(
+      "bg-method-options-bg text-method-options",
+    );
   });
 
   it("lowercases input still matches uppercase mapping", () => {
-    expect(methodBadgeClass("get")).toBe("bg-m-get-bg text-m-get");
+    expect(methodBadgeClass("get")).toBe("bg-method-get-bg text-method-get");
   });
 
   it("falls back for unknown methods", () => {
-    expect(methodBadgeClass("CONNECT")).toBe("bg-bg-sub text-mid");
-  });
-});
-
-describe("methodTextClass", () => {
-  it("maps GET", () => {
-    expect(methodTextClass("GET")).toBe("text-m-get");
-  });
-
-  it("maps POST", () => {
-    expect(methodTextClass("POST")).toBe("text-m-post");
-  });
-
-  it("maps PUT", () => {
-    expect(methodTextClass("PUT")).toBe("text-m-put");
-  });
-
-  it("maps PATCH", () => {
-    expect(methodTextClass("PATCH")).toBe("text-m-patch");
-  });
-
-  it("maps DELETE", () => {
-    expect(methodTextClass("DELETE")).toBe("text-m-delete");
-  });
-
-  it("maps HEAD", () => {
-    expect(methodTextClass("HEAD")).toBe("text-m-head");
-  });
-
-  it("maps OPTIONS", () => {
-    expect(methodTextClass("OPTIONS")).toBe("text-m-opts");
-  });
-
-  it("lowercases input still matches uppercase mapping", () => {
-    expect(methodTextClass("post")).toBe("text-m-post");
-  });
-
-  it("falls back for unknown methods", () => {
-    expect(methodTextClass("CONNECT")).toBe("text-mid");
+    expect(methodBadgeClass("CONNECT")).toBe(
+      "bg-secondary text-muted-foreground",
+    );
   });
 });
 
@@ -796,15 +767,17 @@ describe("cn", () => {
   });
 
   it("preserves the base text-ui font-size alongside text-color", () => {
-    // text-ui is the 13px base UI font-size token; text-m-get is a color.
+    // text-ui is the 13px base UI font-size token; text-method-get is a color.
     // Registered via the `theme.text` namespace so twMerge keeps both.
-    expect(cn("text-ui", "text-m-get")).toBe("text-ui text-m-get");
+    expect(cn("text-ui", "text-method-get")).toBe("text-ui text-method-get");
   });
 
   it("preserves custom font-size text-ui-xs alongside text-color", () => {
-    // text-ui-xs is a custom font-size token; text-m-get is a color.
+    // text-ui-xs is a custom font-size token; text-method-get is a color.
     // Without extendTailwindMerge config, twMerge strips the font-size.
-    expect(cn("text-ui-xs", "text-m-get")).toBe("text-ui-xs text-m-get");
+    expect(cn("text-ui-xs", "text-method-get")).toBe(
+      "text-ui-xs text-method-get",
+    );
   });
 
   it("preserves custom font-size text-ui-sm alongside text-color", () => {

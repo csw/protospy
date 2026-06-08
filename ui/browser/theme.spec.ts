@@ -148,7 +148,7 @@ test.describe("Status text colors", () => {
 
     const status = page.getByText("200 OK").first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveClass(/text-green/);
+    await expect(status).toHaveClass(/text-ok/);
   });
 
   test("2.2 5xx status renders red", async ({ page }) => {
@@ -165,7 +165,7 @@ test.describe("Status text colors", () => {
 
     const status = page.getByText("500 Internal Server Error").first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveClass(/text-red/);
+    await expect(status).toHaveClass(/text-server/);
   });
 });
 
@@ -181,7 +181,7 @@ test.describe("Status text colors (table mode)", () => {
       .locator("button[role='option'] span", { hasText: /^200$/ })
       .first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveClass(/text-green/);
+    await expect(status).toHaveClass(/text-ok/);
   });
 
   test("2.4 5xx status code renders red in table mode", async ({ page }) => {
@@ -198,7 +198,7 @@ test.describe("Status text colors (table mode)", () => {
       .locator("button[role='option'] span", { hasText: /^500$/ })
       .first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveClass(/text-red/);
+    await expect(status).toHaveClass(/text-server/);
   });
 });
 
@@ -228,18 +228,18 @@ test.describe("Method badge colors", () => {
     await expect(getBadge).toBeVisible();
     await expect(postBadge).toBeVisible();
 
-    // Each badge gets a method-specific bg-m-<method>-bg + text-m-<method>
-    // class pair from methodBadgeClass(); assert on the classes rather than
+    // Each badge gets a method-specific bg-method-<m>-bg + text-method-<m>
+    // class pair (v2.3 --method-* tokens); assert on the classes rather than
     // computed colors so theme tweaks don't break the test.
-    await expect(getBadge).toHaveClass(/bg-m-get-bg/);
-    await expect(getBadge).toHaveClass(/text-m-get/);
-    await expect(postBadge).toHaveClass(/bg-m-post-bg/);
-    await expect(postBadge).toHaveClass(/text-m-post/);
+    await expect(getBadge).toHaveClass(/bg-method-get-bg/);
+    await expect(getBadge).toHaveClass(/text-method-get/);
+    await expect(postBadge).toHaveClass(/bg-method-post-bg/);
+    await expect(postBadge).toHaveClass(/text-method-post/);
   });
 });
 
-test.describe("Method text colors (table mode)", () => {
-  test("3.2 GET and POST have distinct method-typed text classes in table mode", async ({
+test.describe("Method badge colors (table mode)", () => {
+  test("3.2 GET and POST have distinct method-typed classes in table mode", async ({
     page,
   }) => {
     // Table mode is the default — no mode switch needed.
@@ -252,7 +252,7 @@ test.describe("Method text colors (table mode)", () => {
       }),
     ]);
 
-    // Table mode uses text-only method classes (no background badge).
+    // Table mode renders the same MethodBadge as rows mode (v2.3 --method-* tokens).
     const getMethod = page
       .locator("button[role='option'] span", { hasText: /^GET$/ })
       .first();
@@ -263,9 +263,8 @@ test.describe("Method text colors (table mode)", () => {
     await expect(getMethod).toBeVisible();
     await expect(postMethod).toBeVisible();
 
-    // methodTextClass() applies text-m-<method> (no background).
-    await expect(getMethod).toHaveClass(/text-m-get/);
-    await expect(postMethod).toHaveClass(/text-m-post/);
+    await expect(getMethod).toHaveClass(/text-method-get/);
+    await expect(postMethod).toHaveClass(/text-method-post/);
   });
 });
 

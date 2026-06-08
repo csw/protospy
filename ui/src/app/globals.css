@@ -376,3 +376,33 @@
     @apply outline-none ring-2 ring-ring ring-offset-0;
   }
 }
+
+/* ----------------------------------------------------------------------------
+   4. trace-color binding
+   `data-trace="N"` selects one of the --trace-1..7 palette tokens into the local
+   `--trace-color` var, which the exchange row/table left border consumes via
+   `bg-[--trace-color]`. Driving it from an attribute rather than an inline style
+   keeps the row markup CSP-forward (PRO-359); the lane-packed trace rail in
+   Slice 1b (PRO-356) reads the same binding.
+---------------------------------------------------------------------------- */
+[data-trace="1"] {
+  --trace-color: var(--trace-1);
+}
+[data-trace="2"] {
+  --trace-color: var(--trace-2);
+}
+[data-trace="3"] {
+  --trace-color: var(--trace-3);
+}
+[data-trace="4"] {
+  --trace-color: var(--trace-4);
+}
+[data-trace="5"] {
+  --trace-color: var(--trace-5);
+}
+[data-trace="6"] {
+  --trace-color: var(--trace-6);
+}
+[data-trace="7"] {
+  --trace-color: var(--trace-7);
+}

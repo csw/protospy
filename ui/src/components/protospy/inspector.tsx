@@ -162,7 +162,10 @@ function ContextBar({
       <PathDisplay uri={x.uri} onNextMatching={onNextMatching} />
       <StatusCode
         className="ml-auto shrink-0"
-        status={x.status}
+        // PRO-359 converged StatusCode onto the live string `status`; this scaffold
+        // inspector is still on the scaffold's numeric Exchange. Stringify to keep
+        // it compiling until the inspector slice (Slice 2) wires it to live data.
+        status={x.status != null ? String(x.status) : undefined}
         hasError={hasError}
       />
       {x.elapsedMs != null && (
