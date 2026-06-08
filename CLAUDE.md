@@ -90,8 +90,16 @@ see that skill for the orchestration.
 - **`convention-review` subagent** (`.claude/agents/convention-review.md`) — reviews
   *code* for React/Tailwind/shadcn convention drift `/review` misses. Read-only,
   diff-scoped.
+- **`design-system-conformance-review` subagent**
+  (`.claude/agents/design-system-conformance-review.md`) — reviews *code* for drift from
+  `docs/ui/design-system.md` (hard rules 1–14, the §3 component table, the §2 token
+  contract) plus a static both-themes token-resolution check (backed by
+  `scripts/agents/token-resolution-map`). Read-only, diff-scoped, no rendering — a floor
+  pass that runs per-PR alongside `convention-review` (PRO-331). Inverse stance to it:
+  judges adherence to the named spec rather than second-guessing design choices.
 - **`review-synthesis` subagent** (`.claude/agents/review-synthesis.md`) — reconciles
-  the code and convention review findings into one deduplicated, jointly-ranked triage.
+  the code, convention, and design-system review findings into one deduplicated,
+  jointly-ranked triage.
 - **`docs/frontend-dod.md`** — the frontend Definition of Done a UI change must clear.
 
 The `frontend:react-patterns`, `frontend:shadcn-ui`, and `frontend:tailwind-theme-builder`
