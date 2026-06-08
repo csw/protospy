@@ -42,6 +42,29 @@ export interface BodyState {
   sseState?: SSEStreamState;
 }
 
+/**
+ * Exchange-level transport/network failure — the *cause* of a failed exchange
+ * (upstream unreachable, TLS, timeout, connection reset). Distinct from an HTTP
+ * error response: a transport failure populates `error` while `status` stays
+ * absent; a 5xx populates `status` with no `error`. The whole
+ * network-error-vs-HTTP-error rule keys off `error != null` (design-system hard
+ * rule 4).
+ *
+ * Typed with a single generic variant today (PRO-346). `kind` is the discriminant
+ * for *additive* extension: as the proxy exposes more of its `Cause`
+ * classification (`src/proxy/hyper_errors.rs`), new variants are added here
+ * without re-laying this boundary. `direction` — the proxy's authoritative
+ * statement of which leg failed — and `message` are preserved from the proxy's
+ * `Error` event (`direction` is the only direction signal when the failing side
+ * has no body to mark truncated, e.g. a network error before the response
+ * begins).
+ */
+export interface ExchangeError {
+  kind: "generic";
+  direction: "Request" | "Response";
+  message: string;
+}
+
 export interface Exchange {
   id: number;
   timestamp: string;
@@ -57,8 +80,8 @@ export interface Exchange {
   responseHeaders?: ProxyHeaders;
   elapsedMs?: number;
   responseBody?: BodyState;
-  // Error
-  error?: { direction: "Request" | "Response"; message: string };
+  // Error — transport-failure cause, distinct from a 5xx HTTP response
+  error?: ExchangeError;
   // Trace
   traceId?: string;
 }
@@ -215,7 +238,11 @@ export function apply(
       ex.responseBody = appendBodyData(ex.responseBody, event);
     }
   } else if (event.type === "Error") {
-    ex.error = { direction: event.direction, message: event.message };
+    ex.error = {
+      kind: "generic",
+      direction: event.direction,
+      message: event.message,
+    };
   } else {
     // Unknown event type — leave the Map and ids untouched, matching the
     // prior behavior where unmatched events created no exchange.

@@ -321,7 +321,10 @@ describe("Error event", () => {
     });
 
     const ex = exchanges.get(1)!;
+    // Typed error model: single generic variant carrying direction + message
+    // (PRO-346). `kind` is the discriminant for additive extension.
     expect(ex.error).toEqual({
+      kind: "generic",
       direction: "Request",
       message: "connection reset",
     });
@@ -343,6 +346,49 @@ describe("Error event", () => {
     expect(exchanges.size).toBe(1);
     expect(ids).toEqual([99]);
     expect(exchanges.get(99)!.error?.message).toBe("timeout");
+    expect(exchanges.get(99)!.error?.kind).toBe("generic");
+  });
+
+  it("distinguishes a transport failure from a 5xx HTTP response", () => {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+
+    // Exchange 1: a transport/network failure — Error event, no Response.
+    apply(exchanges, ids, {
+      exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
+      direction: "Response",
+      event: {
+        type: "Error",
+        direction: "Response",
+        message: "connection refused",
+      },
+    });
+
+    // Exchange 2: a 5xx HTTP response that came back — Response event, no Error.
+    apply(exchanges, ids, {
+      exchange: { exchange_id: 2, timestamp: "2024-01-01T00:00:00Z" },
+      direction: "Response",
+      event: {
+        type: "Response",
+        status: "503 Service Unavailable",
+        version: "HTTP/1.1",
+        headers: [],
+        elapsed_ms: 12,
+        body: { type: "NoBody" },
+      },
+    });
+
+    const transportFailed = exchanges.get(1)!;
+    const httpError = exchanges.get(2)!;
+
+    // Transport failure: error present, status absent.
+    expect(transportFailed.error != null).toBe(true);
+    expect(transportFailed.status == null).toBe(true);
+
+    // 5xx: status present (≥ 500), error absent.
+    expect(httpError.error == null).toBe(true);
+    expect(httpError.status != null).toBe(true);
+    expect(parseInt(httpError.status!, 10)).toBeGreaterThanOrEqual(500);
   });
 });
 
@@ -926,7 +972,11 @@ describe("immutable updates (object identity)", () => {
 
     expect(after).not.toBe(before);
     expect(before.error).toBeUndefined();
-    expect(after.error).toEqual({ direction: "Request", message: "boom" });
+    expect(after.error).toEqual({
+      kind: "generic",
+      direction: "Request",
+      message: "boom",
+    });
   });
 });
 
@@ -991,6 +1041,7 @@ describe("Error event after a completed exchange", () => {
 
     const ex = exchanges.get(1)!;
     expect(ex.error).toEqual({
+      kind: "generic",
       direction: "Response",
       message: "stream closed unexpectedly",
     });
