@@ -30,9 +30,9 @@ For subproject commands, see the subproject's CLAUDE.md.
 
 ### GitHub
 
-Use the GitHub CLI (`gh`). It is authenticated with a read-only token in the `cs` container. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — see `docs/agents/host-sandbox.md`.)
+Use the GitHub CLI (`gh`). In the `cs` container it is authenticated with a token that has **limited write privileges** — read access plus a few writes, notably marking a PR ready for review (`gh pr ready`). It is *not* strictly read-only: when you need a write operation, attempt it rather than assuming it's blocked. (On the host macOS sandbox, use the `~/bin/gh-ro` wrapper instead — it carries the same token despite the name; see `docs/agents/host-sandbox.md`.)
 
-**After any push that can trigger CI — a new branch, a new PR, or follow-up commits to an existing PR branch — watch that run to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). Do not poll the Checks API: the read-only token cannot read it. Query CI through the Actions API by commit SHA (`gh run list --commit <sha>`) instead — exactly what `ci-watch` does. `ci.md` has the details.
+**After any push that can trigger CI — a new branch, a new PR, or follow-up commits to an existing PR branch — watch that run to completion** with `scripts/agents/ci-watch` driven by the Monitor tool — see [`docs/agents/ci.md`](docs/agents/ci.md). **Never reach for the Checks API** (the `check-runs` / `check-suites` REST endpoints): it is available only to GitHub Apps, so no user token — read-only *or* write — can ever read it. It will never work; do not try it as a fallback. Query CI through the Actions API by commit SHA (`gh run list --commit <sha>`) instead — exactly what `ci-watch` does. `ci.md` has the details.
 
 ## Documentation
 

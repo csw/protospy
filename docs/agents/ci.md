@@ -19,6 +19,16 @@ actually triggers; don't copy `ui-ci` from the example above for a non-UI push.
 On the host macOS sandbox it needs `dangerouslyDisableSandbox: true` (see
 `docs/agents/host-sandbox.md`).
 
+### Don't reach for the Checks API
+
+`ci-watch` queries the **Actions API** (`gh run list --commit <sha>`)
+deliberately. The **Checks API** — the `check-runs` / `check-suites` REST
+endpoints, and anything layered on them — is available **only to GitHub Apps**;
+no user token, read-only or write, can ever read it, and that will not change.
+Don't try it as an alternative when watching *or* debugging CI: it will only
+ever return a permissions error. Use the Actions API (via `ci-watch`, or
+`gh run list` / `gh run view` directly) for every CI-status need.
+
 ### Exit behaviour
 
 - **Exit 0, "all runs completed"** — all matching workflow runs finished.

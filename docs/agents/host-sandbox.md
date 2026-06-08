@@ -10,9 +10,11 @@ For *why* each workaround is needed, see
 
 ## GitHub CLI
 
-Use the read-only `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`. It supplies a
-read-only token from a file, so it works inside the sandbox without keychain
-access.
+Use the `gh-ro` wrapper (`~/bin/gh-ro`) instead of `gh`. It supplies a token
+from a file, so it works inside the sandbox without keychain access. Despite the
+`-ro` name, this is the same **limited-write** token as the container's — read
+access plus a few writes such as `gh pr ready` — not strictly read-only. Attempt
+a write you need rather than assuming the wrapper blocks it.
 
 ## Linear CLI
 
