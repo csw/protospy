@@ -141,7 +141,7 @@ describe("flattenTree", () => {
       kind: "leaf",
       depth: 0,
       valueText: "42",
-      valueCls: "text-j-num",
+      valueCls: "text-json-number",
       hasComma: false,
     });
   });
@@ -154,7 +154,7 @@ describe("flattenTree", () => {
       kind: "leaf",
       depth: 0,
       valueText: "{}",
-      valueCls: "text-j-punct",
+      valueCls: "text-json-punct",
       hasComma: false,
     });
   });
@@ -167,7 +167,7 @@ describe("flattenTree", () => {
       kind: "leaf",
       depth: 0,
       valueText: "[]",
-      valueCls: "text-j-punct",
+      valueCls: "text-json-punct",
     });
   });
 
@@ -429,62 +429,68 @@ describe("formatPrimitive", () => {
   it("formats null", () => {
     expect(formatPrimitive(null)).toEqual({
       text: "null",
-      cls: "text-j-bool",
+      cls: "text-json-boolean",
     });
   });
 
   it("formats true", () => {
     expect(formatPrimitive(true)).toEqual({
       text: "true",
-      cls: "text-j-bool",
+      cls: "text-json-boolean",
     });
   });
 
   it("formats false", () => {
     expect(formatPrimitive(false)).toEqual({
       text: "false",
-      cls: "text-j-bool",
+      cls: "text-json-boolean",
     });
   });
 
   it("formats integers", () => {
-    expect(formatPrimitive(42)).toEqual({ text: "42", cls: "text-j-num" });
+    expect(formatPrimitive(42)).toEqual({
+      text: "42",
+      cls: "text-json-number",
+    });
   });
 
   it("formats negative floats", () => {
     expect(formatPrimitive(-3.14)).toEqual({
       text: "-3.14",
-      cls: "text-j-num",
+      cls: "text-json-number",
     });
   });
 
   it("formats strings with JSON encoding", () => {
     expect(formatPrimitive("hello")).toEqual({
       text: '"hello"',
-      cls: "text-j-str",
+      cls: "text-json-string",
     });
   });
 
   it("escapes special characters in strings", () => {
     expect(formatPrimitive("line1\nline2")).toEqual({
       text: '"line1\\nline2"',
-      cls: "text-j-str",
+      cls: "text-json-string",
     });
   });
 
   it("escapes quotes in strings", () => {
     expect(formatPrimitive('say "hi"')).toEqual({
       text: '"say \\"hi\\""',
-      cls: "text-j-str",
+      cls: "text-json-string",
     });
   });
 
   it("formats zero", () => {
-    expect(formatPrimitive(0)).toEqual({ text: "0", cls: "text-j-num" });
+    expect(formatPrimitive(0)).toEqual({ text: "0", cls: "text-json-number" });
   });
 
   it("formats empty string", () => {
-    expect(formatPrimitive("")).toEqual({ text: '""', cls: "text-j-str" });
+    expect(formatPrimitive("")).toEqual({
+      text: '""',
+      cls: "text-json-string",
+    });
   });
 });
 

@@ -115,11 +115,11 @@ describe("JsonViewer tree view", () => {
     const { container } = await renderAndSettle(<JsonViewer text={json} />);
 
     // Check that colored spans exist
-    expect(container.querySelector(".text-j-key")).toBeTruthy();
-    expect(container.querySelector(".text-j-str")).toBeTruthy();
-    expect(container.querySelector(".text-j-num")).toBeTruthy();
-    expect(container.querySelector(".text-j-bool")).toBeTruthy();
-    expect(container.querySelector(".text-j-punct")).toBeTruthy();
+    expect(container.querySelector(".text-json-key")).toBeTruthy();
+    expect(container.querySelector(".text-json-string")).toBeTruthy();
+    expect(container.querySelector(".text-json-number")).toBeTruthy();
+    expect(container.querySelector(".text-json-boolean")).toBeTruthy();
+    expect(container.querySelector(".text-json-punct")).toBeTruthy();
   });
 
   it("shows collapsed item count for arrays", async () => {
