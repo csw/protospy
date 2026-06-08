@@ -67,9 +67,12 @@ worktree.
 
 At this point, set the ticket to 'In Progress' in Linear.
 
-Before writing any code:
-- Read the relevant subproject's `CLAUDE.md` (e.g. `ui/CLAUDE.md` for UI work)
-- Consult `docs/agents/` files relevant to the type of work
+Before writing any code, consult the `docs/agents/` files relevant to the type
+of work. You do **not** need to read the subproject's `CLAUDE.md` manually — the
+harness auto-injects it the first time you `Read` any file under that
+subproject's tree (e.g. `ui/CLAUDE.md` on your first `ui/` file read), which
+always precedes your first edit. Reading it explicitly just duplicates ~6k
+tokens of identical content in context.
 
 **Scope.** Read the ticket description, then construe scope broadly — this is a
 requirement, not permission to decline. You **must** fix adjacent defects you
