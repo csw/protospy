@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { parseSSEBody, chunksToText } from "@ui/body/sse";
+import { parseSSEBody, chunksToText, classifyEvent } from "@ui/body/sse";
+import type { SSEEvent } from "@ui/body/sse";
 import type { BodyState } from "@ui/state/reducer";
+
+describe("classifyEvent", () => {
+  const ev = (type: string): SSEEvent => ({ type, data: "", index: 0 });
+
+  it("classifies any event as the generic kind (one variant today)", () => {
+    expect(classifyEvent(ev("message_start"))).toEqual({ kind: "generic" });
+    expect(classifyEvent(ev("content_block_delta"))).toEqual({
+      kind: "generic",
+    });
+    expect(classifyEvent(ev("ping"))).toEqual({ kind: "generic" });
+    expect(classifyEvent(ev("some_custom_event"))).toEqual({ kind: "generic" });
+  });
+});
 
 describe("parseSSEBody", () => {
   it("returns empty array for empty string", () => {

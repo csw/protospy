@@ -9,8 +9,8 @@ import { observeElementRect as defaultObserveRect } from "@tanstack/react-virtua
  * items so component tests can assert on them; in a real browser the rect always
  * has real dimensions, so the fallback never fires and behaviour is unchanged.
  *
- * Consumed by both the virtualized event stream (`EventsView`) and the exchange
- * table (`exchange-table`).
+ * Consumed by both the virtualized SSE event log (`protospy/event-log`) and the
+ * exchange table (`protospy/exchange-table`).
  */
 export const observeElementRectWithFallback: typeof defaultObserveRect = (
   instance,

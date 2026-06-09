@@ -310,22 +310,3 @@ export function sortHeadersByPin(headers: ProxyHeaders): ProxyHeaders {
   );
   return [...pinned, ...rest];
 }
-
-export function eventTypeBadgeClass(type: string): string {
-  switch (type) {
-    case "message_start":
-      return "text-purple-500 bg-purple-500/10";
-    case "content_block_start":
-    case "content_block_stop":
-    case "content_block_delta":
-      return "text-green bg-green-500/10";
-    case "message_delta":
-      return "text-primary bg-primary/10";
-    case "message_stop":
-      return "text-mid bg-bg-sub";
-    case "ping":
-      return "text-dim bg-bg-sub";
-    default:
-      return "text-ink-2 bg-bg-sub";
-  }
-}

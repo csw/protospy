@@ -72,11 +72,3 @@ export type StatusKind =
   | "server"
   | "pending"
   | "error";
-
-/** A single SSE event within a streaming exchange. */
-export interface StreamEvent {
-  seq: number;
-  offsetMs: number; // relative to stream start
-  type: string; // provider event name (message_start, content_block_delta, …)
-  data: unknown; // parsed `data:` payload
-}

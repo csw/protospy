@@ -33,7 +33,7 @@ const INDICATOR_CONFIG: Record<
   disconnected: { dot: "bg-red", text: "text-red", label: "disconnected" },
   complete: { dot: "bg-mid", text: "text-mid", label: "complete" },
   live: {
-    dot: "bg-green animate-pulse",
+    dot: "bg-green motion-safe:animate-pulse",
     text: "text-green",
     label: "live",
   },

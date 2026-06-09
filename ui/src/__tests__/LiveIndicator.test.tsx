@@ -48,7 +48,8 @@ describe("LiveIndicator", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-green");
-    expect(dot).toHaveClass("animate-pulse");
+    // Pulse is gated on prefers-reduced-motion via the motion-safe: variant.
+    expect(dot).toHaveClass("motion-safe:animate-pulse");
   });
 
   it("shows 'paused' with amber static dot", () => {

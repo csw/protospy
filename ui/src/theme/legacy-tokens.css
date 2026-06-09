@@ -58,15 +58,15 @@
   --color-accent-soft: #dbeafe;
   --color-accent-ink: #1d4ed8;
 
-  /* Semantic colors */
+  /* Semantic colors. The `-bg` soft fills and `--color-purple*` were drained in
+     PRO-361 (Slice 3) as unused stream/event vocabulary; `--color-red-bg` stays
+     (StreamErrorBanner). The base green/red/amber (+ --color-mid below) remain:
+     the four-state LiveIndicator — still used by the Anthropic ChatStreamView —
+     and other un-migrated badges consume them; they drain when those migrate. */
   --color-green: #047857;
-  --color-green-bg: #d1fae5;
   --color-red: #b91c1c;
   --color-red-bg: #fee2e2;
   --color-amber: #b45309;
-  --color-amber-bg: #fef3c7;
-  --color-purple: #6d28d9;
-  --color-purple-bg: #ede9fe;
 
   /* Focus border (distinct from the shadcn --ring globals owns) */
   --color-border-focus: #2563eb;
@@ -107,13 +107,9 @@
   --color-accent-ink: #93c5fd;
 
   --color-green: #34d399;
-  --color-green-bg: rgba(52, 211, 153, 0.14);
   --color-red: #f87171;
   --color-red-bg: rgba(248, 113, 113, 0.14);
   --color-amber: #fbbf24;
-  --color-amber-bg: rgba(251, 191, 36, 0.14);
-  --color-purple: #a78bfa;
-  --color-purple-bg: rgba(167, 139, 250, 0.14);
 
   --color-border-focus: #60a5fa;
   /* --color-m-* method tints drained in PRO-359 (see the light block above). */

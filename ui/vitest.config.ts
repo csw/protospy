@@ -37,11 +37,11 @@ export default defineConfig({
         // (PRO-345 integrates surface-by-surface). Excluded from coverage until an
         // integration slice imports and exercises them. PRO-359 (Slice 1) wired the
         // exchange table/row + method-badge/status-code and the lib helpers they
-        // consume (format/tokens/density), so those are now covered; the rest stay
-        // excluded until their slice lands.
+        // consume (format/tokens/density), so those are now covered; PRO-361
+        // (Slice 3) wired the SSE stream view + event log, so those are covered
+        // too; the rest stay excluded until their slice lands.
         "src/components/protospy/inspector.tsx",
         "src/components/protospy/msearch-view.tsx",
-        "src/components/protospy/stream-view.tsx",
         "src/components/protospy/trace-rail.tsx",
         "src/components/protospy/trace-tag.tsx",
         "src/lib/types.ts",
