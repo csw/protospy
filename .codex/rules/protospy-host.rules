@@ -1,0 +1,23 @@
+prefix_rule(
+    pattern = ["linear"],
+    decision = "allow",
+    justification = "Linear CLI uses a restricted token and needs host auth/keyring access outside the sandbox.",
+    match = [
+        "linear issue view PRO-356 --json",
+        "linear issue update PRO-356 --state In Progress",
+        "linear issue comment add PRO-356 --body-file /tmp/comment.md",
+        "linear issue pull-request PRO-356",
+    ],
+)
+
+prefix_rule(
+    pattern = ["playwright-cli"],
+    decision = "allow",
+    justification = "Playwright CLI drives local browser verification for protospy and needs host browser access.",
+    match = [
+        "playwright-cli open http://localhost:5173/",
+        "playwright-cli snapshot",
+        "playwright-cli console",
+        "playwright-cli close",
+    ],
+)

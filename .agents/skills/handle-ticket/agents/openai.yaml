@@ -1,0 +1,7 @@
+interface:
+  display_name: "Handle Ticket"
+  short_description: "Run the full protospy Linear-ticket implementation workflow."
+  default_prompt: "$handle-ticket PRO-NNN"
+
+policy:
+  allow_implicit_invocation: false

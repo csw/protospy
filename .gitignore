@@ -4,12 +4,25 @@
 .*_cache
 __pycache__/
 CLAUDE.local.md
+AGENTS.override.md
 lcov.info
 /tarpaulin-report.*
 node_modules/
 node_modules # will be a symlink in containers
 docker-compose.override.*
-/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/handle-ticket/
+!/.agents/skills/handle-ticket/**
+!/.agents/skills/linear-cli/
+!/.agents/skills/linear-cli/**
+!/.agents/skills/obsidian-cli/
+!/.agents/skills/obsidian-cli/**
+!/.agents/skills/playwright-cli/
+!/.agents/skills/playwright-cli/**
+!/.agents/skills/protospy-design-review/
+!/.agents/skills/protospy-design-review/**
 /.claude/skills/
 /.claude/worktrees/
 /skills-lock.json

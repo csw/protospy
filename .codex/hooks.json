@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -lc 'repo=$(git rev-parse --show-toplevel) && \"$repo/.codex/hooks/pre-tool-use.sh\"'",
+            "timeout": 10,
+            "statusMessage": "Checking git safety policy..."
+          }
+        ]
+      }
+    ]
+  }
+}

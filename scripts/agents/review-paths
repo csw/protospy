@@ -45,12 +45,19 @@
 #   synthesis=<abs path>
 #   screenshots=<abs ticket screenshots dir>
 #
-# The Reviews base defaults to the Obsidian vault but can be overridden with
-# OBSIDIAN_REVIEWS (useful for testing).
+# The Reviews base can be overridden directly with OBSIDIAN_REVIEWS. Otherwise,
+# set VAULT_BASE to the agent workspace in the Obsidian vault and reviews go
+# under $VAULT_BASE/Reviews.
 
 set -euo pipefail
 
-REVIEWS_BASE="${OBSIDIAN_REVIEWS:-$HOME/obsidian/protospy/Claude/Reviews}"
+if [ -n "${OBSIDIAN_REVIEWS:-}" ]; then
+	REVIEWS_BASE="$OBSIDIAN_REVIEWS"
+elif [ -n "${VAULT_BASE:-}" ]; then
+	REVIEWS_BASE="$VAULT_BASE/Reviews"
+else
+	REVIEWS_BASE="$HOME/obsidian/protospy/Claude/Reviews"
+fi
 
 die() {
 	echo "review-paths: $*" >&2
