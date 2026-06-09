@@ -109,6 +109,18 @@ describe("Inspector shell — context bar", () => {
     expect(onNextMatching).toHaveBeenCalledOnce();
   });
 
+  it("keeps the full query string when the URI contains a second '?'", () => {
+    // splitUri keeps everything after the FIRST "?"; a raw uri.split("?") would
+    // drop the "?cd" tail of the value here.
+    render(
+      <Inspector
+        exchange={makeExchange({ uri: "/search?token=ab?cd" })}
+        renderBodySplit={body}
+      />,
+    );
+    expect(screen.getByText("ab?cd")).toBeInTheDocument();
+  });
+
   it("wires the trace pill actions", () => {
     const onFilterTrace = vi.fn();
     const onCopyTrace = vi.fn();
@@ -184,6 +196,16 @@ describe("Inspector shell — Timing tab", () => {
     expect(screen.getByText("(gzip)")).toBeInTheDocument();
   });
 
+  it("shows a lifecycle 'awaiting' label (not 'pending') in the Status fact for an in-flight exchange", () => {
+    const inflight = makeExchange({ status: undefined, elapsedMs: undefined });
+    render(<Inspector exchange={inflight} renderBodySplit={body} />);
+    selectTab("Timing");
+    // The Status fact is the cell next to the "Status" label.
+    const statusCell = screen.getByText("Status").nextElementSibling;
+    expect(statusCell).toHaveTextContent("awaiting");
+    expect(statusCell).not.toHaveTextContent("pending");
+  });
+
   it("renders the error message (not the kind) in the Status fact", () => {
     const errored = makeExchange({
       status: undefined,
@@ -197,6 +219,33 @@ describe("Inspector shell — Timing tab", () => {
     selectTab("Timing");
     expect(screen.getByText("connection reset by peer")).toBeInTheDocument();
     expect(screen.queryByText("generic")).not.toBeInTheDocument();
+  });
+});
+
+describe("Inspector shell — credential reveal across navigation", () => {
+  it("re-masks a revealed Authorization header when the exchange changes", () => {
+    const exA = makeExchange({
+      id: 1,
+      requestHeaders: [{ name: "authorization", value: "Bearer secretA" }],
+    });
+    const exB = makeExchange({
+      id: 2,
+      requestHeaders: [{ name: "authorization", value: "Bearer secretB" }],
+    });
+    const { rerender } = render(
+      <Inspector exchange={exA} renderBodySplit={body} />,
+    );
+    selectTab("Headers");
+    // Reveal A's credential.
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    expect(screen.getByText("Bearer secretA")).toBeInTheDocument();
+    // Navigate to B (same row position): the reveal state must NOT carry over,
+    // or B's credential would render in cleartext without any user gesture.
+    rerender(<Inspector exchange={exB} renderBodySplit={body} />);
+    expect(screen.queryByText("Bearer secretB")).not.toBeInTheDocument();
+    expect(screen.getByText("Bearer **********")).toBeInTheDocument();
+    // Masked again → the control offers to reveal, not hide.
+    expect(screen.getByLabelText("Reveal value")).toBeInTheDocument();
   });
 });
 

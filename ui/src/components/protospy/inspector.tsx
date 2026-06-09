@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
-import { cn, formatAbsoluteTime } from "@ui/lib/utils";
+import { cn, formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
 import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { isSSEExchange } from "@ui/lib/exchange";
@@ -117,7 +117,14 @@ export function Inspector({
         </TabsContent>
 
         <TabsContent value="headers" className="min-h-0 flex-1 overflow-hidden">
-          <div className="grid h-full grid-cols-2 gap-px overflow-hidden bg-border">
+          {/* Key by exchange id so the panes remount on navigation: each
+              HeadersPane holds local reveal/filter state, and without a remount
+              a revealed Authorization credential would carry over to the next
+              exchange's same-row header and render in cleartext. */}
+          <div
+            key={x.id}
+            className="grid h-full grid-cols-2 gap-px overflow-hidden bg-border"
+          >
             <HeadersPane
               title="Request"
               headers={x.requestHeaders ?? []}
@@ -217,7 +224,11 @@ function PathDisplay({
   uri: string;
   onNextMatching?: () => void;
 }) {
-  const [path, query] = uri.split("?");
+  // splitUri keeps everything after the first "?" as the query (a raw split
+  // would drop a second "?" and silently truncate); strip the leading "?" since
+  // we render it as a literal below.
+  const { path, query: rawQuery } = splitUri(uri);
+  const query = rawQuery.startsWith("?") ? rawQuery.slice(1) : rawQuery;
   return (
     <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap font-mono text-[length:calc(var(--text-mono)+1px)] text-foreground">
       <span className="truncate">{path}</span>
@@ -229,7 +240,7 @@ function PathDisplay({
             return (
               <span key={i}>
                 {i > 0 && <span className="text-muted-foreground">&</span>}
-                <span className="text-primary">{k}</span>
+                <span className="text-foreground">{k}</span>
                 {v != null && (
                   <>
                     <span className="text-muted-foreground">=</span>
@@ -280,8 +291,10 @@ function bodyBytes(body: BodyState | undefined): React.ReactNode {
 // backend doesn't report a proxy breakdown, so inventing a 70/30 split would lie
 // (design-system hard rule 14).
 function TimingFacts({ x, tz }: { x: Exchange; tz: TimeZone }) {
+  // Lifecycle label, not an internal "pending" string (design-system rule 5):
+  // no status and no error means the response hasn't arrived yet.
   const status: React.ReactNode =
-    x.status ?? (x.error ? x.error.message : "pending");
+    x.status ?? (x.error ? x.error.message : "awaiting");
   const rows: [string, React.ReactNode][] = [
     ["Started", formatAbsoluteTime(x.timestamp, tz)],
     ["HTTP version", x.version ?? "—"],

@@ -37,13 +37,14 @@ function ErrorPanel({
 
 /**
  * A non-content body state — awaiting / streaming / no-body / undecodable. Wrapped
- * in an `aria-live` status region so the lifecycle transition is ANNOUNCED to
- * assistive tech, not conveyed by color alone (design-system hard rule 5; PRO-360
- * deliverable B). The distinct copy per state is the non-color signal.
+ * in a `role="status"` region (implicitly `aria-live="polite"`) so the lifecycle
+ * transition is ANNOUNCED to assistive tech, not conveyed by color alone
+ * (design-system hard rule 5; PRO-360 deliverable B). The distinct copy per state
+ * is the non-color signal.
  */
 function LifecycleState({ children }: { children: React.ReactNode }) {
   return (
-    <div role="status" aria-live="polite" className="h-full">
+    <div role="status" className="h-full">
       <EmptyState>{children}</EmptyState>
     </div>
   );

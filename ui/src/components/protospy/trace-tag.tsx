@@ -33,11 +33,14 @@ export function TraceTag({
         className,
       )}
     >
-      <button
-        type="button"
+      {/* The pill body is itself the filter trigger; use Button (for focus ring /
+          disabled / svg handling) but strip its box styling so it stays an inline
+          run of pill text. */}
+      <Button
+        variant="ghost"
         onClick={onFilter}
         aria-label="Filter by trace"
-        className="inline-flex items-center gap-1.5 hover:text-secondary-foreground"
+        className="inline-flex h-auto items-center gap-1.5 rounded-full px-0 py-0 font-mono text-xs text-muted-foreground hover:bg-transparent hover:text-secondary-foreground"
       >
         {/* dynamic per-trace color → inline var() is the right call here */}
         <span
@@ -46,7 +49,7 @@ export function TraceTag({
           aria-hidden
         />
         trace {shortTraceId(traceId)}
-      </button>
+      </Button>
       <Button
         variant="ghost"
         size="icon-xs"
