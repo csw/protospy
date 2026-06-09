@@ -65,6 +65,17 @@ export interface Exchange {
   bundleCount?: number;
 }
 
+/**
+ * One parsed event in an SSE/chat stream transcript. Feeds the v2.4
+ * `chat-stream-view` event list; `data` is the parsed `data:` payload.
+ */
+export interface StreamEvent {
+  seq: number;
+  offsetMs: number; // relative to stream start
+  type: string; // provider event name (message_start, content_block_delta, …)
+  data: unknown; // parsed `data:` payload
+}
+
 export type StatusKind =
   | "ok"
   | "redirect"

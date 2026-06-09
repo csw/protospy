@@ -79,6 +79,17 @@
   --error: #b91c1c;
   --error-bg: #fee2e2;
 
+  /* SSE connection state (drives every ConnectionDot). A dedicated contract so
+     "connecting" is first-class — not a borrowed redirect amber. Declared as
+     var() indirections so they track the status colors across light/dark with
+     no second definition in .dark. */
+  --conn-open: var(--ok);
+  --conn-open-bg: var(--ok-bg);
+  --conn-connecting: var(--redirect);
+  --conn-connecting-bg: var(--redirect-bg);
+  --conn-down: var(--server);
+  --conn-down-bg: var(--server-bg);
+
   /* HTTP method tints (fg / bg) — LIGHT */
   --method-get: #047857;
   --method-get-bg: #d1fae5;
@@ -289,6 +300,14 @@
   --color-error: var(--error);
   --color-error-bg: var(--error-bg);
 
+  /* connection state → bg-conn-open / bg-conn-connecting / bg-conn-down */
+  --color-conn-open: var(--conn-open);
+  --color-conn-open-bg: var(--conn-open-bg);
+  --color-conn-connecting: var(--conn-connecting);
+  --color-conn-connecting-bg: var(--conn-connecting-bg);
+  --color-conn-down: var(--conn-down);
+  --color-conn-down-bg: var(--conn-down-bg);
+
   /* methods */
   --color-method-get: var(--method-get);
   --color-method-get-bg: var(--method-get-bg);
@@ -374,6 +393,15 @@
   /* keyboard focus only (shadcn pattern) */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-0;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   keyframes — referenced by utilities (stream-view / chat-stream-view caret)
+---------------------------------------------------------------------------- */
+@keyframes caret {
+  50% {
+    opacity: 0;
   }
 }
 

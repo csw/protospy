@@ -138,3 +138,65 @@ export function StreamView({ exchange }: Props) {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v2.4 chrome ingest (PRO-363): additive exports consumed by the un-wired
+// `chat-stream-view` scaffold. The wired `StreamView` above keeps its own `LIVE`
+// record (text-ok/redirect/error); these mirror the scaffold's v2.4
+// connection-token vocabulary (`text-conn-*`) that the ChatStreamView wire slice
+// will reconcile `StreamView` onto. Imported by nothing live yet.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type StreamLiveState = "live" | "paused" | "disconnected" | "complete";
+export type StreamMode = "transcript" | "events";
+
+// Live-indicator states share the connection token contract (live=open green,
+// paused=connecting amber, disconnected=down red) so the stream's follow state
+// reads in the same vocabulary as the SSE connection.
+const STREAM_LIVE: Record<
+  StreamLiveState,
+  { text: string; dot: string; label: string }
+> = {
+  live: {
+    text: "text-conn-open",
+    dot: "bg-conn-open motion-safe:animate-pulse",
+    label: "live",
+  },
+  paused: {
+    text: "text-conn-connecting",
+    dot: "bg-conn-connecting",
+    label: "paused",
+  },
+  disconnected: {
+    text: "text-conn-down",
+    dot: "bg-conn-down",
+    label: "disconnected",
+  },
+  complete: {
+    text: "text-muted-foreground",
+    dot: "bg-muted-foreground",
+    label: "complete",
+  },
+};
+
+export function LiveIndicator({
+  state,
+  className,
+}: {
+  state: StreamLiveState;
+  className?: string;
+}) {
+  const s = STREAM_LIVE[state];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs font-medium",
+        s.text,
+        className,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", s.dot)} aria-hidden />
+      {s.label}
+    </span>
+  );
+}
