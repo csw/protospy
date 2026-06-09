@@ -467,7 +467,34 @@ test.describe("Inspector — Headers filter and pinning", () => {
     expect(copied).toBe("Bearer real-secret-token");
   });
 
-  test("8.6 Basic auth decode toggle shows and hides decoded credential", async ({
+  test("8.6 reveal toggle shows and re-hides the raw credential", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Bearer real-secret-token" },
+      ]),
+      makeResponse(1, "200 OK", undefined, undefined, []),
+    ]);
+    await openHeadersTab(page);
+
+    const panel = reqPanel(page);
+
+    // Masked by default; raw value hidden.
+    await expect(panel.getByText("Bearer **********")).toBeVisible();
+    await expect(panel.getByText("Bearer real-secret-token")).not.toBeVisible();
+
+    // Reveal → raw value shown, mask gone.
+    await panel.getByLabel("Reveal value").click();
+    await expect(panel.getByText("Bearer real-secret-token")).toBeVisible();
+    await expect(panel.getByText("Bearer **********")).not.toBeVisible();
+
+    // Hide → masked again.
+    await panel.getByLabel("Hide value").click();
+    await expect(panel.getByText("Bearer **********")).toBeVisible();
+  });
+
+  test("8.7 Basic auth decode toggle cycles raw and decoded credential", async ({
     page,
   }) => {
     // "user:pass" → base64 = "dXNlcjpwYXNz"
@@ -481,15 +508,18 @@ test.describe("Inspector — Headers filter and pinning", () => {
 
     const panel = reqPanel(page);
 
-    // Decoded string not visible initially
-    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    // No decode toggle until revealed.
+    await expect(panel.getByLabel("Decode value")).toHaveCount(0);
+    await panel.getByLabel("Reveal value").click();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).toBeVisible();
 
-    // Click decode
-    await panel.getByLabel("Show decoded Basic auth value").click();
+    // Decode → human-readable credential; raw gone.
+    await panel.getByLabel("Decode value").click();
     await expect(panel.getByText("user:pass")).toBeVisible();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).not.toBeVisible();
 
-    // Click hide
-    await panel.getByLabel("Hide decoded value").click();
-    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    // Back to raw.
+    await panel.getByLabel("Show raw value").click();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).toBeVisible();
   });
 });

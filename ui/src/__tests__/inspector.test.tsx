@@ -128,6 +128,20 @@ describe("Inspector shell — context bar", () => {
     expect(onCopyTrace).toHaveBeenCalledWith(traceId);
     expect(onNextInTrace).toHaveBeenCalledWith(traceId);
   });
+
+  it("omits the next-in-trace action when there is no next target", () => {
+    render(
+      <Inspector
+        exchange={makeExchange({ traceId: "abcdef0123456789abcdef0123456789" })}
+        renderBodySplit={body}
+        onFilterTrace={vi.fn()}
+        onCopyTrace={vi.fn()}
+        // onNextInTrace omitted — no forward trace member to jump to.
+      />,
+    );
+    expect(screen.getByLabelText("Copy trace id")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Next in trace")).not.toBeInTheDocument();
+  });
 });
 
 describe("Inspector shell — Headers tab", () => {

@@ -413,16 +413,16 @@ export const SCENES: Scene[] = [
 
   // ---- trace axis (traceparent grouping) ----------------------------------
   // Distributed-trace correlation: exchanges sharing a `traceparent` trace-id
-  // render a coloured trace bar + rail, the context bar gains "next in trace"
-  // navigation, and the trace-id surfaces in TimingView and (when filtered) the
-  // FilterBar chip. No single-axis scene set a traceId, so none of this was in
-  // the matrix (PRO-250).
+  // render a coloured trace bar + rail, the inspector's trace pill gains a "next
+  // in trace" jump, and the trace-id surfaces in the inspector's Timing facts and
+  // (when filtered) the FilterBar chip. No single-axis scene set a traceId, so
+  // none of this was in the matrix (PRO-250).
   {
     id: "trace-group",
     title: "Trace grouping",
     axis: "data",
     description:
-      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the context bar's 'next in trace' jump and TimingView's Trace ID row.",
+      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the inspector trace pill's 'next in trace' jump and the inspector Timing 'Trace ID' row.",
     messages: tracedTraffic(),
     // Newest-first order displays trace A as [5, 3, 1]; selecting id 5 (the
     // newest hop) guarantees a forward "next in trace" target (id 3).

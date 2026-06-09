@@ -176,11 +176,67 @@ describe("HeadersPane — copy button", () => {
   });
 });
 
-describe("HeadersPane — Basic auth decode toggle", () => {
+describe("HeadersPane — credential reveal toggle", () => {
+  const authHeaders = [{ name: "authorization", value: "Bearer real-secret" }];
+
+  it("shows a reveal toggle for masked Authorization headers", () => {
+    render(
+      <HeadersPane title="Request" headers={authHeaders} emptyMessage="none" />,
+    );
+    expect(screen.getByLabelText("Reveal value")).toBeInTheDocument();
+  });
+
+  it("shows no reveal toggle for non-sensitive headers", () => {
+    render(
+      <HeadersPane
+        title="Request"
+        headers={[{ name: "content-type", value: "application/json" }]}
+        emptyMessage="none"
+      />,
+    );
+    expect(screen.queryByLabelText("Reveal value")).not.toBeInTheDocument();
+  });
+
+  it("reveals and re-hides the raw value", () => {
+    render(
+      <HeadersPane title="Request" headers={authHeaders} emptyMessage="none" />,
+    );
+    expect(screen.getByText("Bearer **********")).toBeInTheDocument();
+    expect(screen.queryByText("Bearer real-secret")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    expect(screen.getByText("Bearer real-secret")).toBeInTheDocument();
+    expect(screen.queryByText("Bearer **********")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Hide value"));
+    expect(screen.getByText("Bearer **********")).toBeInTheDocument();
+  });
+
+  it("offers no decode toggle for a non-Basic (Bearer) credential", () => {
+    render(
+      <HeadersPane title="Request" headers={authHeaders} emptyMessage="none" />,
+    );
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    expect(screen.queryByLabelText("Decode value")).not.toBeInTheDocument();
+  });
+
+  it("copies the raw (base64) value when masked or revealed", () => {
+    render(
+      <HeadersPane title="Request" headers={authHeaders} emptyMessage="none" />,
+    );
+    // Masked → copies raw.
+    fireEvent.click(screen.getByLabelText("Copy authorization value"));
+    expect(mockWriteText).toHaveBeenCalledWith("Bearer real-secret");
+    // Revealed → still copies raw.
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    fireEvent.click(screen.getByLabelText("Copy authorization value"));
+    expect(mockWriteText).toHaveBeenLastCalledWith("Bearer real-secret");
+  });
+});
+
+describe("HeadersPane — Basic auth decode", () => {
   // "user:pass" → base64 = "dXNlcjpwYXNz"
   const basicHeaders = [{ name: "authorization", value: "Basic dXNlcjpwYXNz" }];
 
-  it("shows a decode button for Basic auth headers", () => {
+  it("exposes the decode toggle only after the value is revealed", () => {
     render(
       <HeadersPane
         title="Request"
@@ -188,12 +244,12 @@ describe("HeadersPane — Basic auth decode toggle", () => {
         emptyMessage="none"
       />,
     );
-    expect(
-      screen.getByLabelText("Show decoded Basic auth value"),
-    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Decode value")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    expect(screen.getByLabelText("Decode value")).toBeInTheDocument();
   });
 
-  it("reveals and hides the decoded credential", () => {
+  it("cycles masked → raw → decoded → raw", () => {
     render(
       <HeadersPane
         title="Request"
@@ -201,14 +257,17 @@ describe("HeadersPane — Basic auth decode toggle", () => {
         emptyMessage="none"
       />,
     );
-    expect(screen.queryByText("user:pass")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    expect(screen.getByText("Basic **********")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    expect(screen.getByText("Basic dXNlcjpwYXNz")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Decode value"));
     expect(screen.getByText("user:pass")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Hide decoded value"));
-    expect(screen.queryByText("user:pass")).not.toBeInTheDocument();
+    expect(screen.queryByText("Basic dXNlcjpwYXNz")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Show raw value"));
+    expect(screen.getByText("Basic dXNlcjpwYXNz")).toBeInTheDocument();
   });
 
-  it("copy still copies the real (unmasked) value while decoded is shown", () => {
+  it("hiding from the decoded state re-masks the value", () => {
     render(
       <HeadersPane
         title="Request"
@@ -216,8 +275,25 @@ describe("HeadersPane — Basic auth decode toggle", () => {
         emptyMessage="none"
       />,
     );
-    fireEvent.click(screen.getByLabelText("Show decoded Basic auth value"));
+    fireEvent.click(screen.getByLabelText("Reveal value"));
+    fireEvent.click(screen.getByLabelText("Decode value"));
+    fireEvent.click(screen.getByLabelText("Hide value"));
+    expect(screen.getByText("Basic **********")).toBeInTheDocument();
+  });
+
+  it("copies the decoded credential when decoded, raw otherwise", () => {
+    render(
+      <HeadersPane
+        title="Request"
+        headers={basicHeaders}
+        emptyMessage="none"
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Reveal value"));
     fireEvent.click(screen.getByLabelText("Copy authorization value"));
-    expect(mockWriteText).toHaveBeenCalledWith("Basic dXNlcjpwYXNz");
+    expect(mockWriteText).toHaveBeenLastCalledWith("Basic dXNlcjpwYXNz");
+    fireEvent.click(screen.getByLabelText("Decode value"));
+    fireEvent.click(screen.getByLabelText("Copy authorization value"));
+    expect(mockWriteText).toHaveBeenLastCalledWith("user:pass");
   });
 });

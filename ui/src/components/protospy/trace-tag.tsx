@@ -3,11 +3,10 @@
 // next-in-trace). Clicking the body filters the list to the trace. Root info and
 // the Jaeger URL are config-dependent and load async — pass jaegerHref when known.
 
-"use client";
-
 import { Copy, ExternalLink, ChevronRight } from "lucide-react";
 import { cn } from "@ui/lib/utils";
 import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
+import { Button } from "@ui/components/ui/button";
 
 export interface TraceTagProps {
   traceId: string;
@@ -48,14 +47,15 @@ export function TraceTag({
         />
         trace {shortTraceId(traceId)}
       </button>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-xs"
         onClick={onCopy}
-        className="text-muted-foreground hover:text-primary"
         aria-label="Copy trace id"
+        className="text-muted-foreground hover:text-primary"
       >
         <Copy className="size-3" />
-      </button>
+      </Button>
       {jaegerHref && (
         <a
           href={jaegerHref}
@@ -67,14 +67,17 @@ export function TraceTag({
           <ExternalLink className="size-3" />
         </a>
       )}
-      <button
-        type="button"
-        onClick={onNext}
-        className="text-muted-foreground hover:text-primary"
-        aria-label="Next in trace"
-      >
-        <ChevronRight className="size-3" />
-      </button>
+      {onNext && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onNext}
+          aria-label="Next in trace"
+          className="text-muted-foreground hover:text-primary"
+        >
+          <ChevronRight className="size-3" />
+        </Button>
+      )}
     </span>
   );
 }

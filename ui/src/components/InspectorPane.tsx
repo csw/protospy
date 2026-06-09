@@ -15,6 +15,42 @@ import { Inspector, type MsearchView } from "./protospy/inspector";
 import { BodySplit } from "./BodySplit";
 import { EmptyState } from "./ui/EmptyState";
 
+// Next exchange after `currentIdx` with the same method + path (ignoring the
+// query string). Pure scan — kept at module scope so it isn't reallocated per
+// render (PRO-360 review).
+function findNextMatching(
+  ordered: Exchange[],
+  currentIdx: number,
+  exchange: Exchange,
+): Exchange | null {
+  if (currentIdx < 0) return null;
+  const path = exchange.uri != null ? splitUri(exchange.uri).path : null;
+  for (let i = currentIdx + 1; i < ordered.length; i++) {
+    const ex = ordered[i];
+    if (
+      ex.method === exchange.method &&
+      ex.uri != null &&
+      splitUri(ex.uri).path === path
+    ) {
+      return ex;
+    }
+  }
+  return null;
+}
+
+// Next exchange after `currentIdx` sharing the given trace id.
+function findNextInTrace(
+  ordered: Exchange[],
+  currentIdx: number,
+  traceId: string,
+): Exchange | null {
+  if (currentIdx < 0) return null;
+  for (let i = currentIdx + 1; i < ordered.length; i++) {
+    if (ordered[i].traceId === traceId) return ordered[i];
+  }
+  return null;
+}
+
 export function InspectorPane() {
   const exchanges = useStore((s) => s.exchanges);
   const ids = useStore((s) => s.ids);
@@ -54,33 +90,13 @@ export function InspectorPane() {
       ? ordered[currentIdx + 1]
       : null;
 
-  // Next exchange with the same method + path (ignoring the query string).
-  function nextMatching(): Exchange | null {
-    if (currentIdx < 0 || exchange == null) return null;
-    const path = exchange.uri != null ? splitUri(exchange.uri).path : null;
-    for (let i = currentIdx + 1; i < ordered.length; i++) {
-      const ex = ordered[i];
-      if (
-        ex.method === exchange.method &&
-        ex.uri != null &&
-        splitUri(ex.uri).path === path
-      ) {
-        return ex;
-      }
-    }
-    return null;
-  }
-
-  // Next exchange sharing the selected trace id.
-  function nextInTrace(traceId: string): Exchange | null {
-    if (currentIdx < 0) return null;
-    for (let i = currentIdx + 1; i < ordered.length; i++) {
-      if (ordered[i].traceId === traceId) return ordered[i];
-    }
-    return null;
-  }
-
-  const matching = nextMatching();
+  const matching = findNextMatching(ordered, currentIdx, exchange);
+  // Resolve the next-in-trace target up front so the trace pill's "next" action
+  // only renders when there's somewhere to go (mirrors prev/next/next-matching).
+  const nextInTrace =
+    exchange.traceId != null
+      ? findNextInTrace(ordered, currentIdx, exchange.traceId)
+      : null;
   const isMsearch = showPairsTab(protocol, exchange.uri);
 
   return (
@@ -95,10 +111,9 @@ export function InspectorPane() {
       }
       onFilterTrace={(id) => setTraceFilter(id)}
       onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
-      onNextInTrace={(id) => {
-        const target = nextInTrace(id);
-        if (target != null) setSelectedId(target.id);
-      }}
+      onNextInTrace={
+        nextInTrace != null ? () => setSelectedId(nextInTrace.id) : undefined
+      }
       renderBodySplit={() => (
         <BodySplit exchange={exchange} protocol={protocol} />
       )}

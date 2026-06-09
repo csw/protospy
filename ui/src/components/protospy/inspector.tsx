@@ -12,8 +12,6 @@
 // stream pane since PRO-361), so this shell only chooses the tab label and the
 // msearch-vs-bodies content.
 
-"use client";
-
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 import { cn, formatAbsoluteTime } from "@ui/lib/utils";
@@ -204,7 +202,7 @@ function ContextBar({
           traceId={x.traceId}
           onFilter={() => onFilterTrace?.(x.traceId!)}
           onCopy={() => onCopyTrace?.(x.traceId!)}
-          onNext={() => onNextInTrace?.(x.traceId!)}
+          onNext={onNextInTrace ? () => onNextInTrace(x.traceId!) : undefined}
         />
       )}
     </div>
@@ -231,7 +229,7 @@ function PathDisplay({
             return (
               <span key={i}>
                 {i > 0 && <span className="text-muted-foreground">&</span>}
-                <span className="text-accent-foreground">{k}</span>
+                <span className="text-primary">{k}</span>
                 {v != null && (
                   <>
                     <span className="text-muted-foreground">=</span>

@@ -1,19 +1,19 @@
 // src/components/protospy/headers-pane.tsx
 // One side (request OR response) of the inspector Headers tab, in the v2.3 visual
 // language: subhead title + count, a filter Input, and a header table. Carries the
-// functional parity the legacy HeadersPane had — Authorization masking, substring
-// search, per-row copy of the RAW value, Basic-auth decode toggle, and pinned-header
-// ordering — but rebuilt on shadcn primitives (Input, Button) and semantic tokens so
-// it reads as part of the same design system as the rest of the scaffold (PRO-360).
+// functional parity the legacy HeadersPane had — Authorization credentials shown
+// masked → revealed (raw) → decoded (Basic only): an eye toggle for hide/show (the
+// conventional password-field pattern) plus a decode toggle once revealed —
+// substring search, per-row copy of whatever value is displayed, and pinned-header
+// ordering — but rebuilt on shadcn primitives (Input, Button) and semantic tokens
+// so it reads as part of the same design system as the rest of the scaffold (PRO-360).
 //
 // Design-system §10: one Headers tab, request + response side-by-side, header counts
 // in the pane subheads (not tab badges). This component is one pane; the inspector
 // renders two of them in a grid.
 
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Search, X } from "lucide-react";
+import { Braces, Check, Copy, Eye, EyeOff, Search, X } from "lucide-react";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 import {
   decodeBasicAuth,
@@ -23,6 +23,9 @@ import {
 } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
+
+/** The representation an Authorization value is currently shown in. */
+type HeaderView = "raw" | "decoded";
 
 export interface HeadersPaneProps {
   title: string;
@@ -66,9 +69,14 @@ export function HeadersPane({
   testId,
 }: HeadersPaneProps) {
   const [query, setQuery] = useState("");
-  // Track decoded state by ORIGINAL-array index so filter/pin-sort (which reorder
-  // the display) don't shift the decoded state onto the wrong row.
-  const [decodedRow, setDecodedRow] = useState<number | null>(null);
+  // Which row is unmasked, and in what representation. Tracked by ORIGINAL-array
+  // index so filter/pin-sort (which reorder the display) don't shift the state
+  // onto the wrong row. Only one row is unmasked at a time — revealing another
+  // re-masks the previous, so a secret is never left exposed in two places.
+  const [reveal, setReveal] = useState<{
+    row: number;
+    view: HeaderView;
+  } | null>(null);
   const { copiedRow, copyValue } = useCopyRow();
 
   // filterHeaders and sortHeadersByPin preserve object references from `headers`,
@@ -138,50 +146,95 @@ export function HeadersPane({
                 <tbody>
                   {displayHeaders.map((h) => {
                     const origIdx = headers.indexOf(h);
-                    const displayValue = maskHeaderValue(h.name, h.value);
-                    const decoded = decodeBasicAuth(h.value);
-                    const isDecoded = decodedRow === origIdx;
+                    const masked = maskHeaderValue(h.name, h.value);
+                    // The reveal/decode controls only apply where masking
+                    // actually hid something (i.e. Authorization).
+                    const isMaskable = masked !== h.value;
+                    const decoded = isMaskable
+                      ? decodeBasicAuth(h.value)
+                      : null;
+                    const view = reveal?.row === origIdx ? reveal.view : null;
+                    const isDecoded = view === "decoded" && decoded !== null;
+                    // masked (view null) → masked text; raw → wire value;
+                    // decoded → human-readable credential.
+                    const shown = !isMaskable
+                      ? h.value
+                      : isDecoded
+                        ? decoded
+                        : view === "raw"
+                          ? h.value
+                          : masked;
+                    // Copy follows the display: decoded credential when decoded,
+                    // otherwise the raw (base64) wire value.
+                    const copyTarget = isDecoded ? decoded : h.value;
                     return (
                       <tr
                         key={origIdx}
                         className="group border-b last:border-0"
                       >
-                        <td className="w-[30%] py-1 pr-3 align-top whitespace-nowrap text-accent-foreground">
+                        <td className="w-[30%] py-0.5 pr-3 align-middle whitespace-nowrap text-secondary-foreground">
                           {h.name}
                         </td>
-                        <td className="py-1 align-top text-foreground [overflow-wrap:anywhere]">
-                          <div className="flex items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                              <span className="[font-variant-ligatures:none]">
-                                {displayValue}
-                              </span>
-                              {decoded !== null && (
+                        <td className="py-0.5 align-middle text-foreground [overflow-wrap:anywhere]">
+                          <div className="flex items-center gap-1">
+                            <span className="min-w-0 flex-1 [font-variant-ligatures:none]">
+                              {shown}
+                            </span>
+                            {isMaskable && (
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() =>
+                                  setReveal(
+                                    view === null
+                                      ? { row: origIdx, view: "raw" }
+                                      : null,
+                                  )
+                                }
+                                aria-label={
+                                  view === null ? "Reveal value" : "Hide value"
+                                }
+                                className="shrink-0 text-muted-foreground"
+                              >
+                                {view === null ? (
+                                  <Eye className="size-3" />
+                                ) : (
+                                  <EyeOff className="size-3" />
+                                )}
+                              </Button>
+                            )}
+                            {/* Decode toggle: Basic credentials only, once revealed. */}
+                            {isMaskable &&
+                              decoded !== null &&
+                              view !== null && (
                                 <Button
-                                  variant="outline"
-                                  size="xs"
+                                  variant="ghost"
+                                  size="icon-xs"
                                   onClick={() =>
-                                    setDecodedRow(isDecoded ? null : origIdx)
+                                    setReveal({
+                                      row: origIdx,
+                                      view: isDecoded ? "raw" : "decoded",
+                                    })
                                   }
                                   aria-label={
                                     isDecoded
-                                      ? "Hide decoded value"
-                                      : "Show decoded Basic auth value"
+                                      ? "Show raw value"
+                                      : "Decode value"
                                   }
-                                  className="ml-2 h-auto px-1 py-px text-[10px] font-normal text-muted-foreground"
+                                  aria-pressed={isDecoded}
+                                  className={
+                                    isDecoded
+                                      ? "shrink-0 text-primary"
+                                      : "shrink-0 text-muted-foreground"
+                                  }
                                 >
-                                  {isDecoded ? "hide" : "decode"}
+                                  <Braces className="size-3" />
                                 </Button>
                               )}
-                              {isDecoded && decoded !== null && (
-                                <div className="mt-0.5 [overflow-wrap:anywhere] text-muted-foreground">
-                                  {decoded}
-                                </div>
-                              )}
-                            </div>
                             <Button
                               variant="ghost"
                               size="icon-xs"
-                              onClick={() => copyValue(origIdx, h.value)}
+                              onClick={() => copyValue(origIdx, copyTarget)}
                               aria-label={`Copy ${h.name} value`}
                               className="invisible shrink-0 text-muted-foreground group-hover:visible focus-visible:visible"
                             >
