@@ -6,7 +6,8 @@ import { cleanup } from "@testing-library/react";
 // ResizeObserver to track scroll-container dimensions. jsdom does not
 // provide ResizeObserver, so we polyfill a no-op stub. The actual
 // dimension fallback is handled by the custom observeElementRect wrapper
-// in EventsView.tsx — this stub just prevents a runtime error.
+// in lib/virtual.ts (observeElementRectWithFallback) — this stub just
+// prevents a runtime error.
 class ResizeObserverMock {
   observe() {}
   unobserve() {}

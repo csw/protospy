@@ -1,7 +1,7 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { Exchange } from "@ui/state/reducer";
 import { BodyPane } from "./BodyPane";
-import { StreamView } from "./StreamView";
+import { StreamView } from "./protospy/stream-view";
 import { ChatStreamView } from "./anthropic/ChatStreamView";
 
 interface Props {
@@ -33,10 +33,14 @@ export function BodySplit({ exchange, protocol }: Props) {
       <div className="w-px bg-border shrink-0" />
       <div className="flex-1 overflow-hidden">
         {isSSE(exchange) ? (
+          // Key on exchange.id so per-exchange view state — the stream's
+          // play/pause snapshot, ChatStreamView's mode — resets when the
+          // selected exchange changes (a paused snapshot must not leak onto a
+          // different stream).
           protocol === "Anthropic" ? (
-            <ChatStreamView exchange={exchange} />
+            <ChatStreamView key={exchange.id} exchange={exchange} />
           ) : (
-            <StreamView exchange={exchange} />
+            <StreamView key={exchange.id} exchange={exchange} />
           )
         ) : (
           <BodyPane

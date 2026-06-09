@@ -4,7 +4,7 @@ import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
-import { EventsView } from "@ui/components/EventsView";
+import { EventLog } from "@ui/components/protospy/event-log";
 import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
@@ -132,7 +132,7 @@ export function ChatStreamView({ exchange }: Props) {
           onScroll={handleScroll}
         >
           {mode === "events" ? (
-            <EventsView events={events} scrollRef={scrollRef} />
+            <EventLog events={events} scrollRef={scrollRef} />
           ) : (
             <TranscriptView events={events} isTerminal={isTerminal} />
           )}

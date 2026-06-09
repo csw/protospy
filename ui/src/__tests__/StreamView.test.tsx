@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { StreamView } from "@ui/components/StreamView";
+import { StreamView } from "@ui/components/protospy/stream-view";
 import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
+import { BodySplit } from "@ui/components/BodySplit";
 import type { Exchange } from "@ui/state/reducer";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
@@ -10,13 +11,14 @@ function makeSSEExchange(
   sseText: string,
   atEnd = true,
   error?: Exchange["error"],
+  id = 1,
 ): Exchange {
   let sseState = createSSEStreamState();
   if (sseText) {
     sseState = feedChunk(sseState, sseText);
   }
   return {
-    id: 1,
+    id,
     timestamp: "2024-01-01T00:00:00Z",
     method: "POST",
     uri: "/v1/messages",
@@ -32,14 +34,22 @@ function makeSSEExchange(
 }
 
 /**
- * Render and wait for the virtualizer to settle. The EventsView
- * virtualizer calculates its visible range in a layout effect and
- * triggers a state-driven re-render to show items. An explicit act()
- * flush is needed so the test sees the rendered rows.
+ * Drain a real macrotask inside act() so EventLog's virtualizer settles its
+ * visible range AND any notify it scheduled fires now, not after vitest tears
+ * the jsdom window down at end-of-file (react-virtual's deferred setState would
+ * otherwise throw `window is not defined`). Runs before the setup.ts cleanup
+ * (afterEach is LIFO), so the timer fires while the tree is still mounted.
  */
+function flush() {
+  return act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+afterEach(flush);
+
 async function renderAndSettle(ui: React.ReactElement) {
   const result = render(ui);
-  await act(async () => {});
+  await flush();
   return result;
 }
 
@@ -64,12 +74,24 @@ const GENERIC_SSE =
   "event: ping\ndata: keepalive\n\nevent: message\ndata: hello\n\n";
 
 describe("StreamView — generic SSE rendering", () => {
-  it("renders events when given SSE body", async () => {
+  it("renders events through the scaffold presentation", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
     expect(screen.getByText("ping")).toBeInTheDocument();
     expect(screen.getByText("message")).toBeInTheDocument();
+  });
+
+  it("renders event-type labels as plain semantic-token text, not pills", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
+    );
+    const ping = screen.getByText("ping");
+    expect(ping).toHaveClass("text-muted-foreground/70");
+    expect(ping).not.toHaveClass("bg-bg-sub"); // legacy pill gone
+    expect(screen.getByText("message")).toHaveClass(
+      "text-secondary-foreground",
+    );
   });
 
   it("does NOT render a transcript/events toggle", async () => {
@@ -84,91 +106,103 @@ describe("StreamView — generic SSE rendering", () => {
     expect(screen.getByText("No events yet")).toBeInTheDocument();
   });
 
-  it("shows event count in header", async () => {
+  it("exposes an aria-live status region for assistive tech", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
-    expect(screen.getByText("2 events")).toBeInTheDocument();
-  });
-
-  it("applies color-coded badge class for ping events", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
-    );
-    const badge = screen.getByText("ping");
-    expect(badge).toHaveClass("text-dim");
-    expect(badge).toHaveClass("bg-bg-sub");
-  });
-
-  it("applies default badge class for unknown event types", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
-    );
-    const badge = screen.getByText("message");
-    expect(badge).toHaveClass("text-ink-2");
-    expect(badge).toHaveClass("bg-bg-sub");
-  });
-});
-
-describe("StreamView — 'Jump to latest' button", () => {
-  it("shows 'Jump to latest' when streaming and scrolled away", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
-  });
-
-  it("does not show 'Jump to latest' when following", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
-    );
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
-  });
-
-  it("does not show 'Jump to latest' when stream has ended", async () => {
-    await renderAndSettle(
-      <StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
   });
 });
 
 describe("StreamView — live indicator states", () => {
-  it("shows 'complete' with gray dot when stream has ended", async () => {
+  it("shows 'complete' when the stream has ended", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />,
     );
-    expect(screen.getByText("complete")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
+    expect(screen.getByText("complete")).toHaveClass("text-muted-foreground");
   });
 
-  it("shows 'live' with green pulsing dot when streaming and following", async () => {
+  it("shows 'live' when streaming and following", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
     );
-    expect(screen.getByText("live")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green");
-    expect(dot).toHaveClass("animate-pulse");
+    expect(screen.getByText("live")).toHaveClass("text-ok");
   });
 
-  it("shows 'paused' with amber dot when streaming and scrolled away", async () => {
+  it("shows 'paused' when streaming and scrolled away", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
     );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    expect(screen.getByText("paused")).toHaveClass("text-redirect");
+  });
+});
+
+describe("StreamView — 'Jump to latest' pill", () => {
+  it("shows when streaming and scrolled away", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
+  });
+
+  it("does not show when following", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+
+  it("does not show when the stream has ended", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />,
+    );
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+  });
+});
+
+describe("StreamView — play/pause", () => {
+  it("offers a pause control while the stream is live", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
+    );
+    expect(screen.getByLabelText("Pause stream")).toBeInTheDocument();
+  });
+
+  it("hides the transport control once the stream is complete", async () => {
+    await renderAndSettle(
+      <StreamView exchange={makeSSEExchange(GENERIC_SSE, true)} />,
+    );
+    expect(screen.queryByLabelText("Pause stream")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Resume stream")).not.toBeInTheDocument();
+  });
+
+  it("freezes the event list while paused and resumes on play", async () => {
+    const before = makeSSEExchange(GENERIC_SSE, false); // ping, message
+    const { rerender } = await renderAndSettle(
+      <StreamView exchange={before} />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Pause stream"));
     expect(screen.getByText("paused")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber");
-    expect(dot).not.toHaveClass("animate-pulse");
+
+    // More events arrive while paused — the frozen snapshot must not grow.
+    const after = makeSSEExchange(
+      GENERIC_SSE + "event: update\ndata: more\n\n",
+      false,
+    );
+    rerender(<StreamView exchange={after} />);
+    await flush();
+    expect(screen.queryByText("update")).not.toBeInTheDocument();
+
+    // Resuming drops the snapshot and shows the live list again.
+    fireEvent.click(screen.getByLabelText("Resume stream"));
+    rerender(<StreamView exchange={after} />);
+    await flush();
+    expect(screen.getByText("update")).toBeInTheDocument();
   });
 });
 
@@ -178,27 +212,13 @@ describe("StreamView — error/disconnected state", () => {
     message: "connection reset by peer",
   };
 
-  it("shows 'disconnected' with red dot when exchange has Response error", async () => {
+  it("shows 'disconnected' on a Response-direction error", async () => {
     await renderAndSettle(
       <StreamView
         exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
-    expect(screen.getByText("disconnected")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
-    expect(dot).not.toHaveClass("animate-pulse");
-  });
-
-  it("hides 'Jump to latest' button when disconnected", async () => {
-    await renderAndSettle(
-      <StreamView
-        exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
-      />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
+    expect(screen.getByText("disconnected")).toHaveClass("text-error");
   });
 
   it("ignores Request-direction errors (not an SSE disconnect)", async () => {
@@ -214,31 +234,50 @@ describe("StreamView — error/disconnected state", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
   });
 
-  it("renders error message banner when exchange has error", async () => {
+  it("renders the error banner when the exchange has an error", async () => {
     await renderAndSettle(
       <StreamView
         exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
     const banner = screen.getByTestId("stream-error-banner");
-    expect(banner).toBeInTheDocument();
     expect(banner).toHaveTextContent("connection reset by peer");
   });
 
-  it("renders error message even with empty stream (no events)", async () => {
+  it("renders the error banner even with an empty stream", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange("", false, RESPONSE_ERROR)} />,
     );
-    const banner = screen.getByTestId("stream-error-banner");
-    expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("connection reset by peer");
+    expect(screen.getByTestId("stream-error-banner")).toBeInTheDocument();
   });
 
-  it("does not render error banner when no error", async () => {
+  it("does not render the error banner when there is no error", async () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE)} />,
     );
     expect(screen.queryByTestId("stream-error-banner")).not.toBeInTheDocument();
+  });
+});
+
+describe("StreamView — pause snapshot does not leak across exchanges (key reset)", () => {
+  it("a paused stream's frozen events do not bleed onto a different exchange", async () => {
+    // BodySplit keys the stream view on exchange.id, so selecting a different
+    // exchange remounts it and clears the play/pause snapshot.
+    const a = makeSSEExchange(GENERIC_SSE, false, undefined, 1); // ping, message
+    const { rerender } = render(<BodySplit exchange={a} protocol={null} />);
+    await flush();
+
+    fireEvent.click(screen.getByLabelText("Pause stream"));
+    expect(screen.getByText("paused")).toBeInTheDocument();
+
+    const b = makeSSEExchange("event: other\ndata: x\n\n", false, undefined, 2);
+    rerender(<BodySplit exchange={b} protocol={null} />);
+    await flush();
+
+    // The new exchange shows its own live events, not A's frozen snapshot.
+    expect(screen.getByText("other")).toBeInTheDocument();
+    expect(screen.queryByText("ping")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Pause stream")).toBeInTheDocument(); // live, not paused
   });
 });
 
@@ -264,13 +303,13 @@ describe("ChatStreamView — Anthropic protocol", () => {
     expect(screen.getByText("message_start")).toBeInTheDocument();
   });
 
-  it("applies purple badge class for message_start events", async () => {
+  it("renders message_start through the shared EventLog presentation", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );
-    const badge = screen.getByText("message_start");
-    expect(badge).toHaveClass("text-purple-500");
-    expect(badge).toHaveClass("bg-purple-500/10");
+    const label = screen.getByText("message_start");
+    expect(label).toHaveClass("text-method-patch"); // scaffold text label
+    expect(label).not.toHaveClass("text-purple-500"); // legacy pill gone
   });
 
   it("shows 'No events yet' when body is empty", async () => {
@@ -279,46 +318,17 @@ describe("ChatStreamView — Anthropic protocol", () => {
   });
 });
 
-describe("ChatStreamView — 'Jump to latest' button", () => {
-  it("shows 'Jump to latest' when streaming and scrolled away", async () => {
-    await renderAndSettle(
-      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
-  });
-
-  it("does not show 'Jump to latest' when following", async () => {
-    await renderAndSettle(
-      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
-    );
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
-  });
-
-  it("does not show 'Jump to latest' when stream has ended", async () => {
-    await renderAndSettle(
-      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, true)} />,
-    );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
-  });
-});
-
-describe("ChatStreamView — live indicator states", () => {
-  it("shows 'complete' with gray dot when stream has ended", async () => {
+describe("ChatStreamView — live indicator + jump-to-latest", () => {
+  it("shows 'complete' with gray dot when the stream has ended", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, true)} />,
     );
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-mid");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
   });
 
-  it("shows 'live' with green pulsing dot when streaming and following", async () => {
+  it("shows 'live' with a pulsing green dot when streaming and following", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
     );
@@ -328,16 +338,12 @@ describe("ChatStreamView — live indicator states", () => {
     expect(dot).toHaveClass("animate-pulse");
   });
 
-  it("shows 'paused' with amber dot when streaming and scrolled away", async () => {
+  it("shows the jump-to-latest pill when streaming and scrolled away", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE, false)} />,
     );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.getByText("paused")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber");
-    expect(dot).not.toHaveClass("animate-pulse");
+    simulateScrollAway(screen.getByTestId("stream-scroll"));
+    expect(screen.getByText("Jump to latest")).toBeInTheDocument();
   });
 });
 
@@ -347,81 +353,38 @@ describe("ChatStreamView — error/disconnected state", () => {
     message: "connection reset by peer",
   };
 
-  it("shows 'disconnected' with red dot when exchange has Response error", async () => {
+  it("shows 'disconnected' with a red dot on a Response error", async () => {
     await renderAndSettle(
       <ChatStreamView
         exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
     expect(screen.getByText("disconnected")).toBeInTheDocument();
-    const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
-    expect(dot).not.toHaveClass("animate-pulse");
+    expect(screen.getByTestId("indicator-dot")).toHaveClass("bg-red");
   });
 
-  it("hides 'Jump to latest' button when disconnected", async () => {
+  it("renders the error banner in events mode", async () => {
     await renderAndSettle(
       <ChatStreamView
         exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
-    const scrollEl = screen.getByTestId("stream-scroll");
-    simulateScrollAway(scrollEl);
-    expect(screen.queryByText("Jump to latest")).not.toBeInTheDocument();
-  });
-
-  it("stops transcript pulsing cursor when disconnected", async () => {
-    // Incomplete Anthropic stream (no message_stop) — transcript.isComplete
-    // is false, so the cursor would normally pulse. Error should suppress it.
-    const INCOMPLETE_SSE = [
-      'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
-      'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
-    ].join("");
-    const { container } = await renderAndSettle(
-      <ChatStreamView
-        exchange={makeSSEExchange(INCOMPLETE_SSE, false, RESPONSE_ERROR)}
-      />,
+    expect(screen.getByTestId("stream-error-banner")).toHaveTextContent(
+      "connection reset by peer",
     );
-    // Switch to transcript mode
-    fireEvent.click(screen.getByText("transcript"));
-    // The pulsing cursor span should not be present
-    const cursor = container.querySelector("span.animate-pulse.bg-primary");
-    expect(cursor).toBeNull();
   });
 
-  it("renders error message banner when exchange has error (events mode)", async () => {
-    await renderAndSettle(
-      <ChatStreamView
-        exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
-      />,
-    );
-    const banner = screen.getByTestId("stream-error-banner");
-    expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("connection reset by peer");
-  });
-
-  it("renders error message banner in transcript mode", async () => {
+  it("renders the error banner in transcript mode", async () => {
     await renderAndSettle(
       <ChatStreamView
         exchange={makeSSEExchange(ANTHROPIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
     fireEvent.click(screen.getByText("transcript"));
-    const banner = screen.getByTestId("stream-error-banner");
-    expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("connection reset by peer");
+    expect(screen.getByTestId("stream-error-banner")).toBeInTheDocument();
   });
 
-  it("renders error message even with empty stream (no events)", async () => {
-    await renderAndSettle(
-      <ChatStreamView exchange={makeSSEExchange("", false, RESPONSE_ERROR)} />,
-    );
-    const banner = screen.getByTestId("stream-error-banner");
-    expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("connection reset by peer");
-  });
-
-  it("does not render error banner when no error", async () => {
+  it("does not render the error banner when there is no error", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );

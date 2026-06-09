@@ -10,6 +10,25 @@ export interface SSEEvent {
 }
 
 /**
+ * Rendering classification of an SSE event — the O2 "thin classification seam"
+ * from `UI/v2.3/body-interface-design.md`. One variant today (`generic`); the
+ * discriminated shape is additively extensible (a future per-event-type class,
+ * or a PRO-152 `+Nms` offset class) without changing the live `SSEEvent`.
+ */
+export type EventClass = { kind: "generic" };
+
+export function classifyEvent(event: SSEEvent): EventClass {
+  // The discriminant is derived from the event; today every event maps to the
+  // single "generic" class. Additive variants (e.g. per-event-type rendering,
+  // or a PRO-152 `+Nms` offset class) branch here without changing the live
+  // SSEEvent shape or this signature.
+  switch (event.type) {
+    default:
+      return { kind: "generic" };
+  }
+}
+
+/**
  * Parse a single SSE block (text between blank-line delimiters) into an
  * SSEEvent. Returns null if the block has no data lines (e.g. comment-only).
  */

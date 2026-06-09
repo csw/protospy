@@ -36,7 +36,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `src/lib/` — `utils.ts` (`cn`, formatters incl. `formatAbsoluteTime`/`TimeZone`, matchers, trace colors, header helpers), `tickSource.ts`, `density.tsx` (store-derived `useDensity`, `ROW_PX`)
 - `src/app/` — `globals.css` (v2.3 token contract: `:root`/`.dark` raw tokens + `@theme inline` shadcn aliases + `@custom-variant dark`/`compact` + `@layer base` default border-color)
 - `src/theme/` — `theme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveDefaultTheme`), `legacy-tokens.css` (transitional v2.1 token quarantine, PRO-345 — `@import`'d by `globals.css`, deleted slice-by-slice as surfaces migrate)
-- `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `StreamView`, `EventsView`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); vendored shadcn primitives under `components/ui/`
+- `src/components/` — app components (`AppShell`, `TopBar`, `FilterBar`, `ExchangeList`, `Inspector`, `BodySplit`, `LiveIndicator`, `HeadersSplit`, `JsonViewer`, `TimingView`, `CommandPalette`, …); wired v2.3 scaffolds under `components/protospy/` (incl. `stream-view`, `event-log`); vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
 - `docs/fixture-matrix.md` — the injectable state matrix and how to reach each cell
