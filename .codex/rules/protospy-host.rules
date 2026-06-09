@@ -21,3 +21,88 @@ prefix_rule(
         "playwright-cli close",
     ],
 )
+
+prefix_rule(
+    pattern = ["just", "ui", "test-browser"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "just ui test-browser",
+    ],
+)
+
+prefix_rule(
+    pattern = ["pnpm", ["test:browser", "test:browser:headed"]],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "pnpm test:browser",
+        "pnpm test:browser --reporter=dot",
+        "pnpm test:browser:headed",
+    ],
+)
+
+prefix_rule(
+    pattern = ["pnpm", "exec", "playwright", "test"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "pnpm exec playwright test",
+        "pnpm exec playwright test --headed",
+        "pnpm exec playwright test browser/design-tokens.spec.ts",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "pnpm test:browser --reporter=dot"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'pnpm test:browser --reporter=dot'",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "pnpm test:browser"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'pnpm test:browser'",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "pnpm test:browser:headed"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'pnpm test:browser:headed'",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "cd ui && pnpm test:browser --reporter=dot"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'cd ui && pnpm test:browser --reporter=dot'",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "cd ui && pnpm test:browser"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'cd ui && pnpm test:browser'",
+    ],
+)
+
+prefix_rule(
+    pattern = ["/bin/zsh", "-lc", "just ui test-browser"],
+    decision = "allow",
+    justification = "Playwright browser tests must run outside the macOS sandbox because Chromium Mach-port registration is blocked.",
+    match = [
+        "/bin/zsh -lc 'just ui test-browser'",
+    ],
+)
