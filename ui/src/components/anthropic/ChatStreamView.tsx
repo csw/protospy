@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
-import { cn } from "@ui/lib/utils";
 import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { EventLog } from "@ui/components/protospy/event-log";
 import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
+import { Button } from "@ui/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 
 interface Props {
@@ -90,35 +91,19 @@ export function ChatStreamView({ exchange }: Props) {
   const state = deriveStreamState(atEnd, isFollowing, exchange.error);
   const isTerminal = state === "complete" || state === "disconnected";
 
-  const segmentBase =
-    "text-xs px-2 py-0.5 rounded cursor-pointer transition-colors";
-  const segmentActive = "bg-bg-hl text-ink font-medium";
-  const segmentInactive = "text-dim hover:text-ink";
-
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
         <LiveIndicator state={state} />
-        <div className="flex items-center gap-0.5 bg-bg-pane rounded px-0.5 py-0.5">
-          <button
-            className={cn(
-              segmentBase,
-              mode === "transcript" ? segmentActive : segmentInactive,
-            )}
-            onClick={() => setMode("transcript")}
-          >
-            transcript
-          </button>
-          <button
-            className={cn(
-              segmentBase,
-              mode === "events" ? segmentActive : segmentInactive,
-            )}
-            onClick={() => setMode("events")}
-          >
-            events
-          </button>
-        </div>
+        <ToggleGroup
+          type="single"
+          value={mode}
+          onValueChange={(v) => v && setMode(v as Mode)}
+          size="sm"
+        >
+          <ToggleGroupItem value="transcript">transcript</ToggleGroupItem>
+          <ToggleGroupItem value="events">events</ToggleGroupItem>
+        </ToggleGroup>
         <span className="ml-auto text-xs text-dim font-mono">
           {totalEventCount} events
         </span>
@@ -139,12 +124,13 @@ export function ChatStreamView({ exchange }: Props) {
         </div>
         {errorMessage != null && <StreamErrorBanner message={errorMessage} />}
         {state === "paused" && (
-          <button
+          <Button
+            size="sm"
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs rounded-full px-3 py-1 cursor-pointer shadow-md"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-md"
           >
             Jump to latest
-          </button>
+          </Button>
         )}
       </div>
     </div>

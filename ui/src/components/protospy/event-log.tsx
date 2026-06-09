@@ -96,14 +96,15 @@ export function EventLog({
 
   return (
     <div
-      className="font-mono text-sm"
+      className="font-mono text-mono"
       style={{ height: virtualizer.getTotalSize(), position: "relative" }}
     >
       {virtualizer.getVirtualItems().map((virtualItem) => {
         const event = events[virtualItem.index];
         // O2 classification seam — one variant ("generic") today; additively
-        // extensible without touching the live SSEEvent shape.
-        classifyEvent(event);
+        // extensible without touching the live SSEEvent shape. Surfaced as
+        // `data-kind` so future per-kind row rendering has a live hook.
+        const { kind } = classifyEvent(event);
         const selected = selectedIndex === event.index;
         return (
           <div
@@ -122,6 +123,7 @@ export function EventLog({
               type="button"
               onClick={() => onSelect?.(event.index)}
               data-selected={selected || undefined}
+              data-kind={kind}
               className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
             >
               <span

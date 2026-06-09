@@ -288,12 +288,31 @@ const ANTHROPIC_SSE = [
 ].join("");
 
 describe("ChatStreamView — Anthropic protocol", () => {
-  it("renders the transcript/events mode toggle", async () => {
+  it("renders the transcript/events mode toggle as a single-select ToggleGroup", async () => {
     await renderAndSettle(
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );
-    expect(screen.getByText("transcript")).toBeInTheDocument();
-    expect(screen.getByText("events")).toBeInTheDocument();
+    // Controlled value reflects the default mode ("events"); single-select
+    // means exactly one item is on. (Keyboard nav / radio semantics are covered
+    // at the primitive level in ToggleGroup.test.tsx.)
+    expect(screen.getByText("events")).toHaveAttribute("data-state", "on");
+    expect(screen.getByText("transcript")).toHaveAttribute("data-state", "off");
+  });
+
+  it("switches the rendered view when the mode toggle changes", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
+    );
+    // events mode (default) renders the event-type labels via EventLog.
+    expect(screen.getByText("message_start")).toBeInTheDocument();
+
+    // Selecting transcript swaps in the transcript view and the controlled
+    // selection follows — the prior segmented control's behavior, preserved.
+    fireEvent.click(screen.getByText("transcript"));
+    expect(screen.getByText("transcript")).toHaveAttribute("data-state", "on");
+    expect(screen.getByText("events")).toHaveAttribute("data-state", "off");
+    expect(screen.queryByText("message_start")).not.toBeInTheDocument();
+    expect(screen.getByText("Hello!")).toBeInTheDocument();
   });
 
   it("shows event types in events mode (default)", async () => {
@@ -335,7 +354,7 @@ describe("ChatStreamView — live indicator + jump-to-latest", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
     expect(dot).toHaveClass("bg-green");
-    expect(dot).toHaveClass("animate-pulse");
+    expect(dot).toHaveClass("motion-safe:animate-pulse");
   });
 
   it("shows the jump-to-latest pill when streaming and scrolled away", async () => {
