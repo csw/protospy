@@ -41,9 +41,25 @@ export default defineConfig({
         // (Slice 3) wired the SSE stream view + event log, so those are covered
         // too; PRO-360 (Slice 2) wired the inspector shell + trace-tag (now used by
         // the inspector context bar), so those are covered too; the rest stay
-        // excluded until their slice lands.
+        // excluded until their slice lands. PRO-363 ingested the v2.4 chrome +
+        // interactive scaffolds (app shell, chrome bars, command palette,
+        // shortcuts overlay, grouped trace list, chat stream view, and the
+        // empty/body-state/connection-dot atoms) as un-wired source — excluded
+        // until the per-surface wire slices import and exercise them.
         "src/components/protospy/msearch-view.tsx",
         "src/components/protospy/trace-rail.tsx",
+        "src/components/protospy/app-shell.tsx",
+        "src/components/protospy/top-bar.tsx",
+        "src/components/protospy/filter-bar.tsx",
+        "src/components/protospy/status-bar.tsx",
+        "src/components/protospy/list-toolbar.tsx",
+        "src/components/protospy/command-palette.tsx",
+        "src/components/protospy/shortcuts-overlay.tsx",
+        "src/components/protospy/trace-group.tsx",
+        "src/components/protospy/chat-stream-view.tsx",
+        "src/components/protospy/empty-state.tsx",
+        "src/components/protospy/body-state.tsx",
+        "src/components/protospy/connection-dot.tsx",
         "src/lib/types.ts",
       ],
       // Thresholds are read from coverage-thresholds.json and ratcheted

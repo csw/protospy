@@ -4,7 +4,9 @@ import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { TimeZone } from "@ui/lib/utils";
+import { matchesFilter } from "@ui/lib/utils";
 import { apply } from "./reducer";
+import type { Exchange } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
 
 interface PersistedPrefs {
@@ -31,6 +33,8 @@ export interface StoreState extends PersistedPrefs {
   traceFilter: string | null;
   hoverTraceId: string | null;
   cmdKOpen: boolean;
+  /** Keyboard-shortcuts (`?`) help overlay visibility. Session-only. */
+  helpOpen: boolean;
 
   // Core actions
   applyEvent: (msg: EventMessage) => void;
@@ -60,6 +64,7 @@ export interface StoreState extends PersistedPrefs {
   setDensity: (density: "regular" | "compact") => void;
   toggleTraceGroup: () => void;
   setCmdKOpen: (open: boolean) => void;
+  setHelpOpen: (open: boolean) => void;
   setTimeZone: (tz: TimeZone) => void;
 }
 
@@ -84,6 +89,7 @@ export const useStore = create<StoreState>()(
         density: "regular",
         traceGroupOn: false,
         cmdKOpen: false,
+        helpOpen: false,
         timeZone: "local",
 
         // Core actions
@@ -144,6 +150,8 @@ export const useStore = create<StoreState>()(
 
         setCmdKOpen: (open) => set({ cmdKOpen: open }),
 
+        setHelpOpen: (open) => set({ helpOpen: open }),
+
         setTimeZone: (tz) => set({ timeZone: tz }),
       }),
       {
@@ -197,6 +205,41 @@ useStore.subscribe((s) => s.density, applyDensityToDOM, {
  * into node-project unit tests).
  */
 export type AppStore = typeof useStore;
+
+// ---------------------------------------------------------------------------
+// Derived selectors. The v2.4 chrome scaffolds (`components/protospy/`) read
+// the visible/selected/trace-count slices through these named selectors rather
+// than re-deriving inline. `selectVisibleIds` mirrors `ExchangeList`'s
+// filtered+ordered derivation exactly (same `matchesFilter` + trace filter +
+// newest-first reverse); consolidating the still-inline list consumers
+// (`ExchangeList`, `InspectorPane`) onto a single derived selector is owned by
+// PRO-261 — these are defined once here to avoid a competing definition.
+// ---------------------------------------------------------------------------
+
+/** Visible exchange ids: filter + trace filter applied, ordered per `order`. */
+export const selectVisibleIds = (s: StoreState): number[] => {
+  const visible = s.ids
+    .map((id) => s.exchanges.get(id))
+    .filter((ex): ex is Exchange => ex != null)
+    .filter((ex) => matchesFilter(ex, s.filter))
+    .filter((ex) => s.traceFilter == null || ex.traceId === s.traceFilter);
+  const ordered = s.order === "newest" ? [...visible].reverse() : visible;
+  return ordered.map((ex) => ex.id);
+};
+
+/** The selected exchange, or null when nothing is selected / it's gone. */
+export const selectSelected = (s: StoreState): Exchange | null =>
+  s.selectedId == null ? null : (s.exchanges.get(s.selectedId) ?? null);
+
+/** Count of distinct trace ids across all exchanges. */
+export const selectTraceCount = (s: StoreState): number => {
+  const seen = new Set<string>();
+  for (const id of s.ids) {
+    const t = s.exchanges.get(id)?.traceId;
+    if (t) seen.add(t);
+  }
+  return seen.size;
+};
 
 // Expose the store for the Playwright harness (browser/helpers/inject.ts).
 // Available in dev, and in test-mode preview builds via the VITE_EXPOSE_TEST_HOOKS

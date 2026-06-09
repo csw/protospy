@@ -1,0 +1,216 @@
+// src/components/protospy/top-bar.tsx
+// App chrome row 1. Reads/writes the store directly (no prop drilling): the
+// service picker, group-by-trace, density and ⌘K opener all bind to store
+// fields/actions. THEME is the one exception — it lives in next-themes
+// (.dark on <html>), so the theme control uses useTheme(), not the store.
+//
+// Layout: wordmark · service picker · (spacer) · Jump-to ⌘K · group · density · theme.
+
+"use client";
+
+import { useTheme } from "next-themes";
+import {
+  Search,
+  Layers,
+  Sun,
+  Moon,
+  Monitor,
+  Rows3,
+  Rows2,
+  ChevronDown,
+  Check,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useStore } from "@ui/state/store";
+import type { ConnectionStatus } from "@/lib/types";
+import { ConnectionDot, connDotStatus } from "./connection-dot";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+
+/** Service metadata is app/config-owned (loaded async) — not in the store, which
+ *  only holds the selected `service` name. Pass the configured list in. */
+export interface ServiceInfo {
+  name: string;
+  upstream: string; // e.g. "localhost:9200"
+  port: number; // local proxy port
+  connection: ConnectionStatus;
+}
+
+export interface TopBarProps {
+  services?: ServiceInfo[];
+}
+
+export function TopBar({ services = [] }: TopBarProps) {
+  const service = useStore((s) => s.service);
+  const connection = connDotStatus(useStore((s) => s.connection));
+  const setService = useStore((s) => s.setService);
+  const traceGroupOn = useStore((s) => s.traceGroupOn);
+  const toggleTraceGroup = useStore((s) => s.toggleTraceGroup);
+  const density = useStore((s) => s.density);
+  const setDensity = useStore((s) => s.setDensity);
+  const setCmdKOpen = useStore((s) => s.setCmdKOpen);
+
+  return (
+    <header className="flex h-topbar shrink-0 items-center gap-3 border-b bg-card px-gutter-x">
+      <span className="select-none text-[14px] font-bold tracking-tight">
+        proto<span className="text-primary">spy</span>
+      </span>
+
+      {/* Service picker — single-select (multi-service is deferred; §7) */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full border bg-card px-2.5 py-1 text-sm text-secondary-foreground hover:border-border-strong"
+          >
+            <ConnectionDot status={connection} />
+            <span className="font-mono">{service ?? "no service"}</span>
+            <ChevronDown className="size-3 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          {services.map((svc) => (
+            <DropdownMenuItem
+              key={svc.name}
+              onSelect={() => setService(svc.name)}
+              className="gap-2.5"
+            >
+              <ConnectionDot status={svc.connection} />
+              <span className="flex min-w-0 flex-col">
+                <span className="font-mono text-sm">{svc.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {svc.upstream} → :{svc.port}
+                </span>
+              </span>
+              {svc.name === service && (
+                <Check className="ml-auto size-3.5 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
+          {services.length > 0 && <DropdownMenuSeparator />}
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+            {services.length} {services.length === 1 ? "service" : "services"}{" "}
+            configured
+          </DropdownMenuLabel>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <div className="ml-auto flex items-center gap-1">
+        {/* ⌘K opener */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCmdKOpen(true)}
+          className="gap-2 text-muted-foreground"
+        >
+          <Search className="size-3.5" />
+          Jump to…
+          <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
+            ⌘K
+          </kbd>
+        </Button>
+
+        {/* Group-by-trace */}
+        <IconToggle
+          active={traceGroupOn}
+          onClick={toggleTraceGroup}
+          label={
+            traceGroupOn
+              ? "Grouping by trace — click to flatten"
+              : "Group by trace"
+          }
+        >
+          <Layers className="size-4" />
+        </IconToggle>
+
+        {/* Density (regular ↔ compact) */}
+        <IconToggle
+          active={density === "compact"}
+          onClick={() =>
+            setDensity(density === "compact" ? "regular" : "compact")
+          }
+          label={
+            density === "compact"
+              ? "Compact density — click for regular"
+              : "Regular density — click for compact"
+          }
+        >
+          {density === "compact" ? (
+            <Rows2 className="size-4" />
+          ) : (
+            <Rows3 className="size-4" />
+          )}
+        </IconToggle>
+
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+        <ThemeControl />
+      </div>
+    </header>
+  );
+}
+
+/* Theme is next-themes, NOT the store. Three-state cycle: light → dark → system. */
+function ThemeControl() {
+  const { theme, setTheme } = useTheme();
+  const next: Record<string, string> = {
+    light: "dark",
+    dark: "system",
+    system: "light",
+  };
+  const current = theme ?? "system";
+  const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor;
+  return (
+    <IconToggle
+      onClick={() => setTheme(next[current] ?? "light")}
+      label={`Theme: ${current} — click to cycle`}
+    >
+      <Icon className="size-4" />
+    </IconToggle>
+  );
+}
+
+function IconToggle({
+  active,
+  onClick,
+  label,
+  children,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-pressed={active}
+          aria-label={label}
+          className={cn(
+            "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
+            active && "bg-accent text-accent-foreground hover:bg-accent",
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
