@@ -125,7 +125,10 @@ the per-ticket flow together.
 - `docs/frontend-dod.md` - frontend Definition of Done.
 
 Claude agent definitions live under `.claude/agents/`. Codex agent definitions
-live under `.codex/agents/`.
+under `.codex/agents/` are generated from the matching Claude implementer/review
+agents. When changing one of those agents, edit the `.claude/agents/*.md` source,
+then run `scripts/agents/sync-codex-agents`; pre-commit checks that the generated
+Codex TOML stays in sync.
 
 ## Agent Configuration
 

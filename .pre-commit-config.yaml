@@ -34,6 +34,13 @@ repos:
         stages: [post-checkout]
         always_run: true
         pass_filenames: false
+      - id: codex-agent-sync
+        name: keep Codex agents in sync
+        entry: scripts/agents/sync-codex-agents --check
+        language: system
+        files: ^(\.claude/agents/(convention-review|design-system-conformance-review|qa-explorer|review-synthesis|visual-review)\.md|\.codex/agents/.*\.toml|scripts/agents/sync-codex-agents)$
+        pass_filenames: false
+        fail_fast: true
       - id: ruff-flix
         name: ruff (flix)
         entry: bash -c 'cd flix && uv run ruff check --fix .'
