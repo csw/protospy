@@ -78,6 +78,15 @@ describe("EventLog", () => {
     expect(label).not.toHaveClass("bg-bg-sub");
   });
 
+  it("surfaces the classifyEvent kind on each row as data-kind", async () => {
+    await renderAndSettle(<Harness events={[ev(0, "ping", "x")]} />);
+    // The O2 classification seam is live — every variant is "generic" today.
+    expect(screen.getByText("ping").closest("button")).toHaveAttribute(
+      "data-kind",
+      "generic",
+    );
+  });
+
   it("shows 'No events yet' when empty", async () => {
     await renderAndSettle(<Harness events={[]} />);
     expect(screen.getByText("No events yet")).toBeInTheDocument();

@@ -293,8 +293,10 @@ describe("ChatStreamView — Anthropic protocol", () => {
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );
     // Controlled value reflects the default mode ("events"); single-select
-    // means exactly one item is on. (Keyboard nav / radio semantics are covered
-    // at the primitive level in ToggleGroup.test.tsx.)
+    // means exactly one item is on. (Radix radio semantics — data-state /
+    // aria-checked / single-select — are covered at the primitive level in
+    // ToggleGroup.test.tsx; arrow-key roving-tabindex and the focus-visible
+    // ring are Radix-native and not separately re-asserted here.)
     expect(screen.getByText("events")).toHaveAttribute("data-state", "on");
     expect(screen.getByText("transcript")).toHaveAttribute("data-state", "off");
   });

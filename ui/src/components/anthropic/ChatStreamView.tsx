@@ -44,7 +44,7 @@ function TranscriptView({
       <pre className="font-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
         {transcript.text}
         {!isTerminal && !transcript.isComplete && (
-          <span className="inline-block w-[2px] h-[14px] bg-primary animate-pulse align-middle ml-px" />
+          <span className="inline-block w-[2px] h-[14px] bg-primary motion-safe:animate-pulse align-middle ml-px" />
         )}
       </pre>
       {transcript.isComplete && (
