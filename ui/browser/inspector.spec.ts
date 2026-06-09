@@ -194,7 +194,9 @@ test.describe("Inspector — Headers tab", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Timing tab", () => {
-  test("4.1 Timing tab renders fact table and waterfall", async ({ page }) => {
+  test("4.1 Timing tab renders honest facts and no synthetic waterfall", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/timing", "200 OK", {
         elapsed: 55,
@@ -208,15 +210,18 @@ test.describe("Inspector — Timing tab", () => {
     await tab.click();
     await expect(tab).toHaveAttribute("data-state", "active");
 
-    // Fact table rows unique to TimingView
-    await expect(page.getByText("Request started")).toBeVisible();
-    await expect(page.getByText("Waterfall")).toBeVisible();
+    // v2.3 fact rows (bytes terminology); the synthetic waterfall is gone
+    // (design-system hard rule 14).
+    await expect(page.getByText("Started")).toBeVisible();
+    await expect(page.getByText("HTTP version")).toBeVisible();
+    await expect(page.getByText("Request bytes")).toBeVisible();
+    await expect(page.getByText("Waterfall")).toHaveCount(0);
 
-    // Elapsed appears in the timing fact table
+    // Elapsed appears in the timing fact table ("55 ms", spaced).
     const timingPanel = page
       .locator('[role="tabpanel"]')
-      .filter({ hasText: "Request started" });
-    await expect(timingPanel.getByText("55ms").first()).toBeVisible();
+      .filter({ hasText: "HTTP version" });
+    await expect(timingPanel.getByText("55 ms").first()).toBeVisible();
   });
 });
 
@@ -276,11 +281,13 @@ test.describe("Inspector — Stream tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Pairs tab
+// 6. msearch Paired ↔ Raw NDJSON toggle (replaces the legacy separate Pairs tab)
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — Pairs tab", () => {
-  test("6.1 Pairs tab appears for _msearch requests", async ({ page }) => {
+test.describe("Inspector — msearch toggle", () => {
+  test("6.1 in-Bodies Paired/Raw toggle appears for _msearch requests (no Pairs tab)", async ({
+    page,
+  }) => {
     await setStoreProtocol(page, "Elasticsearch");
     await injectExchanges(page, [
       makeMsearchRequest(1),
@@ -289,10 +296,12 @@ test.describe("Inspector — Pairs tab", () => {
 
     await page.getByText("/_msearch").first().click();
 
-    await expect(page.getByRole("tab", { name: "Pairs" })).toBeVisible();
+    // The kept deviation: msearch is an in-Bodies toggle, not a separate tab.
+    await expect(page.getByRole("tab", { name: "Pairs" })).toHaveCount(0);
+    await expect(page.getByText("Raw NDJSON", { exact: true })).toBeVisible();
   });
 
-  test("6.2 Pairs tab is not shown for regular requests", async ({ page }) => {
+  test("6.2 toggle is not shown for regular requests", async ({ page }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/regular"),
       makeResponse(1, "200 OK"),
@@ -300,7 +309,7 @@ test.describe("Inspector — Pairs tab", () => {
 
     await page.getByText("/api/regular").first().click();
 
-    await expect(page.getByRole("tab", { name: "Pairs" })).toHaveCount(0);
+    await expect(page.getByText("Raw NDJSON", { exact: true })).toHaveCount(0);
   });
 });
 
@@ -458,7 +467,34 @@ test.describe("Inspector — Headers filter and pinning", () => {
     expect(copied).toBe("Bearer real-secret-token");
   });
 
-  test("8.6 Basic auth decode toggle shows and hides decoded credential", async ({
+  test("8.6 reveal toggle shows and re-hides the raw credential", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "authorization", value: "Bearer real-secret-token" },
+      ]),
+      makeResponse(1, "200 OK", undefined, undefined, []),
+    ]);
+    await openHeadersTab(page);
+
+    const panel = reqPanel(page);
+
+    // Masked by default; raw value hidden.
+    await expect(panel.getByText("Bearer **********")).toBeVisible();
+    await expect(panel.getByText("Bearer real-secret-token")).not.toBeVisible();
+
+    // Reveal → raw value shown, mask gone.
+    await panel.getByLabel("Reveal value").click();
+    await expect(panel.getByText("Bearer real-secret-token")).toBeVisible();
+    await expect(panel.getByText("Bearer **********")).not.toBeVisible();
+
+    // Hide → masked again.
+    await panel.getByLabel("Hide value").click();
+    await expect(panel.getByText("Bearer **********")).toBeVisible();
+  });
+
+  test("8.7 Basic auth decode toggle cycles raw and decoded credential", async ({
     page,
   }) => {
     // "user:pass" → base64 = "dXNlcjpwYXNz"
@@ -472,15 +508,18 @@ test.describe("Inspector — Headers filter and pinning", () => {
 
     const panel = reqPanel(page);
 
-    // Decoded string not visible initially
-    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    // No decode toggle until revealed.
+    await expect(panel.getByLabel("Decode value")).toHaveCount(0);
+    await panel.getByLabel("Reveal value").click();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).toBeVisible();
 
-    // Click decode
-    await panel.getByLabel("Show decoded Basic auth value").click();
+    // Decode → human-readable credential; raw gone.
+    await panel.getByLabel("Decode value").click();
     await expect(panel.getByText("user:pass")).toBeVisible();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).not.toBeVisible();
 
-    // Click hide
-    await panel.getByLabel("Hide decoded value").click();
-    await expect(panel.getByText("user:pass")).not.toBeVisible();
+    // Back to raw.
+    await panel.getByLabel("Show raw value").click();
+    await expect(panel.getByText("Basic dXNlcjpwYXNz")).toBeVisible();
   });
 });

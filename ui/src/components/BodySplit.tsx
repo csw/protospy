@@ -21,6 +21,14 @@ export function BodySplit({ exchange, protocol }: Props) {
   // should surface the error instead of showing blank.
   const responseError = exchange.error?.message;
 
+  // The response has not begun yet: no body, no status, no error. Distinct from a
+  // body-less 200/204 (status arrived, no body) — drives "Awaiting response…" vs
+  // "No body" in the response pane (PRO-360 deliverable B).
+  const awaitingResponse =
+    exchange.responseBody == null &&
+    exchange.status == null &&
+    exchange.error == null;
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -47,6 +55,7 @@ export function BodySplit({ exchange, protocol }: Props) {
             title="Response"
             body={exchange.responseBody}
             errorMessage={responseError}
+            awaiting={awaitingResponse}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
           />
         )}

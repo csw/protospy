@@ -83,7 +83,8 @@
   --text-ui-xs: 10.5px; /* design --text-xs: toolbar labels, table headers */
   --text-ui-sm: 11.5px; /* design --text-sm: status codes, mono list text  */
   --text-ui-mono: 12.5px; /* design --text-mono: mono body text */
-  --text-ctx-path: 13.5px; /* design inspector path size (mono + 1px) */
+  /* --text-ctx-path drained in PRO-360 (Slice 2): the v2.3 scaffold inspector's
+     path display sizes off the canonical --text-mono (+1px) in globals.css. */
 }
 
 /* ── v2.1 token vocabulary — DARK (next-themes `.dark`, not [data-theme=dark]) ── */

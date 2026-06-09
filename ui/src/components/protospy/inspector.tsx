@@ -1,91 +1,110 @@
 // src/components/protospy/inspector.tsx
-// Composition of the detail panel. One shared tab strip (Bodies · Headers · Timing)
-// spans both panes. msearch is an in-Bodies Paired ↔ Raw NDJSON toggle that lives
-// on the right of the tab strip — NOT a separate tab. Headers is ONE tab showing
-// request + response side-by-side with counts in the pane subheads.
-
-"use client";
+// Composition of the detail panel (the v2.3 scaffold shell, wired to live data —
+// PRO-360 Slice 2). One shared tab strip (Bodies · Headers · Timing) spans the pane.
+// msearch is an in-Bodies Paired ↔ Raw NDJSON toggle on the right of the tab strip —
+// NOT a separate tab. Headers is ONE tab showing request + response side-by-side with
+// counts in the pane subheads.
+//
+// This is a PRESENTATIONAL shell: it takes the selected live `Exchange` plus render-slot
+// callbacks for the heavy body content (`renderBodySplit` / `renderMsearch`, which sibling
+// slices own) and keyboard/trace callbacks the container fills from the store. The
+// SSE/entity split lives inside `renderBodySplit` (the live BodySplit, which owns the
+// stream pane since PRO-361), so this shell only chooses the tab label and the
+// msearch-vs-bodies content.
 
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { fmtBytes, fmtMs } from "@/lib/format";
-import type { Exchange, Header } from "@/lib/types";
+import { cn, formatAbsoluteTime, splitUri } from "@ui/lib/utils";
+import type { TimeZone } from "@ui/lib/utils";
+import { fmtBytes, fmtMs } from "@ui/lib/format";
+import { isSSEExchange } from "@ui/lib/exchange";
+import type { BodyState, Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { TraceTag } from "./trace-tag";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-// PRO-341: the v2.3 scaffold imported Tooltip/TooltipContent/TooltipTrigger but
-// never used them; dropped to satisfy noUnusedLocals. PRO-345 can reintroduce if
-// the inspector grows tooltips when wired.
+import { HeadersPane } from "./headers-pane";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@ui/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
+import { Button } from "@ui/components/ui/button";
 
 type BodyTab = "bodies" | "headers" | "timing";
-type MsearchView = "paired" | "raw";
+export type MsearchView = "paired" | "raw";
 
 export interface InspectorProps {
   exchange: Exchange;
-  tz?: "local" | "utc";
+  tz?: TimeZone;
+  /** Whether to surface the msearch Paired ↔ Raw toggle + view (protocol-gated). */
+  isMsearch?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
   onNextMatching?: () => void;
   onFilterTrace?: (id: string) => void;
+  onCopyTrace?: (id: string) => void;
+  onNextInTrace?: (id: string) => void;
   /** Slots for the heavy content, kept out of this composition shell. */
   renderBodySplit: () => React.ReactNode;
   renderMsearch?: (view: MsearchView) => React.ReactNode;
-  renderStream?: () => React.ReactNode;
-  renderBody: (text: string) => React.ReactNode;
 }
 
 export function Inspector({
   exchange: x,
   tz = "local",
+  isMsearch = false,
   onPrev,
   onNext,
   onNextMatching,
   onFilterTrace,
+  onCopyTrace,
+  onNextInTrace,
   renderBodySplit,
   renderMsearch,
-  renderStream,
-  renderBody,
 }: InspectorProps) {
   const [tab, setTab] = useState<BodyTab>("bodies");
   const [msView, setMsView] = useState<MsearchView>("paired");
-  const reqCount = x.request.headers.length;
-  const resCount = x.response?.headers.length ?? 0;
+  const showMsearch = isMsearch && renderMsearch != null;
 
   return (
-    <div className="flex min-w-0 flex-col bg-background">
+    <div className="flex h-full min-w-0 flex-col bg-background">
       <ContextBar
         x={x}
-        tz={tz}
         onPrev={onPrev}
         onNext={onNext}
         onNextMatching={onNextMatching}
         onFilterTrace={onFilterTrace}
+        onCopyTrace={onCopyTrace}
+        onNextInTrace={onNextInTrace}
       />
 
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as BodyTab)}
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="flex items-center border-b px-gutter-x">
-          <TabsList className="h-tab gap-0.5 bg-transparent p-0">
+          <TabsList
+            data-testid="inspector-tab-list"
+            className="h-tab gap-0.5 bg-transparent p-0"
+          >
             <UnderlineTab value="bodies">
-              {x.protocol === "sse" ? "Stream" : "Bodies"}
+              {isSSEExchange(x) ? "Stream" : "Bodies"}
             </UnderlineTab>
             <UnderlineTab value="headers">Headers</UnderlineTab>
             <UnderlineTab value="timing">Timing</UnderlineTab>
           </TabsList>
           {/* Paired ↔ Raw NDJSON toggle — only for msearch, only on the Bodies tab */}
-          {x.protocol === "msearch" && tab === "bodies" && (
+          {showMsearch && tab === "bodies" && (
             <ToggleGroup
               type="single"
               value={msView}
               onValueChange={(v) => v && setMsView(v as MsearchView)}
               size="sm"
               className="ml-auto"
+              aria-label="msearch body view"
             >
               <ToggleGroupItem value="paired">Paired</ToggleGroupItem>
               <ToggleGroupItem value="raw">Raw NDJSON</ToggleGroupItem>
@@ -94,36 +113,36 @@ export function Inspector({
         </div>
 
         <TabsContent value="bodies" className="min-h-0 flex-1 overflow-hidden">
-          {x.protocol === "msearch" && renderMsearch ? (
-            renderMsearch(msView)
-          ) : x.protocol === "sse" && renderStream ? (
-            <StreamSplit
-              x={x}
-              renderBody={renderBody}
-              renderStream={renderStream}
-            />
-          ) : (
-            renderBodySplit()
-          )}
+          {showMsearch ? renderMsearch!(msView) : renderBodySplit()}
         </TabsContent>
 
-        <TabsContent value="headers" className="min-h-0 flex-1 overflow-auto">
-          <div className="grid grid-cols-2 gap-px bg-border">
+        <TabsContent value="headers" className="min-h-0 flex-1 overflow-hidden">
+          {/* Key each pane by exchange id so it remounts on navigation: a
+              HeadersPane holds local reveal/filter state, and without a remount
+              a revealed Authorization credential would carry over to the next
+              exchange's same-row header and render in cleartext. The key lives on
+              the stateful components (not a wrapper) so the invariant survives any
+              future refactor of this grid. */}
+          <div className="grid h-full grid-cols-2 gap-px overflow-hidden bg-border">
             <HeadersPane
+              key={`${x.id}-req`}
               title="Request"
-              count={reqCount}
-              headers={x.request.headers}
+              headers={x.requestHeaders ?? []}
+              emptyMessage="No request headers captured"
+              testId="headers-panel-request"
             />
             <HeadersPane
+              key={`${x.id}-res`}
               title="Response"
-              count={resCount}
-              headers={x.response?.headers ?? []}
+              headers={x.responseHeaders ?? []}
+              emptyMessage="No response headers captured"
+              testId="headers-panel-response"
             />
           </div>
         </TabsContent>
 
         <TabsContent value="timing" className="min-h-0 flex-1 overflow-auto">
-          <TimingFacts x={x} />
+          <TimingFacts x={x} tz={tz} />
         </TabsContent>
       </Tabs>
     </div>
@@ -131,42 +150,55 @@ export function Inspector({
 }
 
 /* ── context bar ── */
-// PRO-341: `tz` stays in the prop contract (the caller threads it) but is not yet
-// destructured/used — the clock rendering that consumes it is wired in PRO-345.
 function ContextBar({
   x,
   onPrev,
   onNext,
   onNextMatching,
   onFilterTrace,
+  onCopyTrace,
+  onNextInTrace,
 }: {
   x: Exchange;
-  tz: "local" | "utc";
   onPrev?: () => void;
   onNext?: () => void;
   onNextMatching?: () => void;
   onFilterTrace?: (id: string) => void;
+  onCopyTrace?: (id: string) => void;
+  onNextInTrace?: (id: string) => void;
 }) {
   const hasError = x.error != null;
   return (
     <div className="flex h-ctxbar items-center gap-2.5 border-b bg-card px-gutter-x">
       <div className="flex shrink-0 gap-0.5">
-        <IconBtn onClick={onPrev} aria-label="Previous request">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onPrev}
+          disabled={onPrev == null}
+          aria-label="Previous request"
+          className="text-muted-foreground"
+        >
           <ChevronUp className="size-4" />
-        </IconBtn>
-        <IconBtn onClick={onNext} aria-label="Next request">
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onNext}
+          disabled={onNext == null}
+          aria-label="Next request"
+          className="text-muted-foreground"
+        >
           <ChevronDown className="size-4" />
-        </IconBtn>
+        </Button>
       </div>
       <MethodBadge method={x.method} size="md" />
-      <PathDisplay uri={x.uri} onNextMatching={onNextMatching} />
+      <PathDisplay uri={x.uri ?? "/"} onNextMatching={onNextMatching} />
       <StatusCode
         className="ml-auto shrink-0"
-        // PRO-359 converged StatusCode onto the live string `status`; this scaffold
-        // inspector is still on the scaffold's numeric Exchange. Stringify to keep
-        // it compiling until the inspector slice (Slice 2) wires it to live data.
-        status={x.status != null ? String(x.status) : undefined}
+        status={x.status}
         hasError={hasError}
+        title={x.error?.message}
       />
       {x.elapsedMs != null && (
         <span className="shrink-0 rounded-full border bg-secondary px-2 py-0.5 font-mono text-xs text-muted-foreground">
@@ -177,6 +209,8 @@ function ContextBar({
         <TraceTag
           traceId={x.traceId}
           onFilter={() => onFilterTrace?.(x.traceId!)}
+          onCopy={() => onCopyTrace?.(x.traceId!)}
+          onNext={onNextInTrace ? () => onNextInTrace(x.traceId!) : undefined}
         />
       )}
     </div>
@@ -191,7 +225,11 @@ function PathDisplay({
   uri: string;
   onNextMatching?: () => void;
 }) {
-  const [path, query] = uri.split("?");
+  // splitUri keeps everything after the first "?" as the query (a raw split
+  // would drop a second "?" and silently truncate); strip the leading "?" since
+  // we render it as a literal below.
+  const { path, query: rawQuery } = splitUri(uri);
+  const query = rawQuery.startsWith("?") ? rawQuery.slice(1) : rawQuery;
   return (
     <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap font-mono text-[length:calc(var(--text-mono)+1px)] text-foreground">
       <span className="truncate">{path}</span>
@@ -203,7 +241,7 @@ function PathDisplay({
             return (
               <span key={i}>
                 {i > 0 && <span className="text-muted-foreground">&</span>}
-                <span className="text-accent-foreground">{k}</span>
+                <span className="text-foreground">{k}</span>
                 {v != null && (
                   <>
                     <span className="text-muted-foreground">=</span>
@@ -216,67 +254,56 @@ function PathDisplay({
         </span>
       )}
       {onNextMatching && (
-        <IconBtn
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={onNextMatching}
           aria-label="Next request with same method + path"
+          className="text-muted-foreground"
         >
           <ChevronRight className="size-3.5" />
-        </IconBtn>
+        </Button>
       )}
     </span>
   );
 }
 
-function HeadersPane({
-  title,
-  count,
-  headers,
-}: {
-  title: string;
-  count: number;
-  headers: Header[];
-}) {
+/**
+ * Render one side's body size as `wire / decoded (encoding)` when the body is
+ * compressed and the decode pipeline has cached `decodedBytes`, `wire (encoding)`
+ * when it hasn't, or plain `wire` when uncompressed. Em dash when there's no body.
+ * Chrome-DevTools slash convention; kept deviation §3 (dual wire/decoded size).
+ */
+function bodyBytes(body: BodyState | undefined): React.ReactNode {
+  if (body == null) return "—";
+  const { wireBytes: wire, decodedBytes: decoded, contentEncoding: enc } = body;
+  const dual = enc && decoded != null && decoded !== wire;
   return (
-    <div className="bg-card">
-      <div className="flex h-[30px] items-center gap-2 border-b px-3 text-xs text-muted-foreground">
-        <span className="font-semibold text-secondary-foreground">{title}</span>
-        <span className="font-mono">{count} headers</span>
-      </div>
-      <table className="w-full border-collapse font-mono text-sm">
-        <tbody>
-          {headers.map((h) => (
-            <tr key={h.name} className="border-b">
-              <td className="w-[30%] whitespace-nowrap px-3 py-1 align-top text-accent-foreground">
-                {h.name}
-              </td>
-              <td className="px-3 py-1 align-top text-foreground [overflow-wrap:anywhere]">
-                {h.value}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <span className="inline-flex items-baseline gap-1.5">
+      <span>
+        {dual ? `${fmtBytes(wire)} / ${fmtBytes(decoded)}` : fmtBytes(wire)}
+      </span>
+      {enc && <span className="text-muted-foreground">({enc})</span>}
+    </span>
   );
 }
 
-// Facts only — standardized on "bytes". No synthetic upstream/proxy waterfall
-// (the backend doesn't report a proxy breakdown — handoff).
-function TimingFacts({ x }: { x: Exchange }) {
-  const rows: [string, string][] = [
-    ["HTTP version", "HTTP/1.1"],
-    ["Method", x.method],
-    [
-      "Status",
-      x.status != null
-        ? String(x.status)
-        : x.error
-          ? `Error · ${x.error.kind}`
-          : "pending",
-    ],
-    ["Elapsed", fmtMs(x.elapsedMs)],
-    ["Request bytes", fmtBytes(x.request.wireBytes)],
-    ["Response bytes", x.response ? fmtBytes(x.response.wireBytes) : "—"],
+// Facts only — standardized on "bytes". No synthetic upstream/proxy waterfall: the
+// backend doesn't report a proxy breakdown, so inventing a 70/30 split would lie
+// (design-system hard rule 14).
+function TimingFacts({ x, tz }: { x: Exchange; tz: TimeZone }) {
+  // Lifecycle label, not an internal "pending" string (design-system rule 5):
+  // no status and no error means the response hasn't arrived yet.
+  const status: React.ReactNode =
+    x.status ?? (x.error ? x.error.message : "awaiting");
+  const rows: [string, React.ReactNode][] = [
+    ["Started", formatAbsoluteTime(x.timestamp, tz)],
+    ["HTTP version", x.version ?? "—"],
+    ["Method", x.method ?? "—"],
+    ["Status", status],
+    ["Elapsed", fmtMs(x.elapsedMs ?? null)],
+    ["Request bytes", bodyBytes(x.requestBody)],
+    ["Response bytes", bodyBytes(x.responseBody)],
     ["Trace ID", x.traceId ?? "—"],
   ];
   return (
@@ -290,27 +317,6 @@ function TimingFacts({ x }: { x: Exchange }) {
         ))}
       </tbody>
     </table>
-  );
-}
-
-function StreamSplit({
-  x,
-  renderBody,
-  renderStream,
-}: {
-  x: Exchange;
-  renderBody: (t: string) => React.ReactNode;
-  renderStream: () => React.ReactNode;
-}) {
-  return (
-    <div className="grid h-full grid-cols-2 gap-px bg-border">
-      <div className="overflow-auto bg-card">
-        {x.request.body.phase === "complete"
-          ? renderBody(x.request.body.text)
-          : null}
-      </div>
-      {renderStream()}
-    </div>
   );
 }
 
@@ -331,20 +337,5 @@ function UnderlineTab({
     >
       {children}
     </TabsTrigger>
-  );
-}
-
-function IconBtn({
-  children,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="inline-flex size-[26px] items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground disabled:opacity-40"
-    >
-      {children}
-    </button>
   );
 }

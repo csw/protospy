@@ -3,11 +3,10 @@
 // next-in-trace). Clicking the body filters the list to the trace. Root info and
 // the Jaeger URL are config-dependent and load async — pass jaegerHref when known.
 
-"use client";
-
 import { Copy, ExternalLink, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { traceColorVar, shortTraceId } from "@/lib/tokens";
+import { cn } from "@ui/lib/utils";
+import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
+import { Button } from "@ui/components/ui/button";
 
 export interface TraceTagProps {
   traceId: string;
@@ -34,10 +33,14 @@ export function TraceTag({
         className,
       )}
     >
-      <button
-        type="button"
+      {/* The pill body is itself the filter trigger; use Button (for focus ring /
+          disabled / svg handling) but strip its box styling so it stays an inline
+          run of pill text. */}
+      <Button
+        variant="ghost"
         onClick={onFilter}
-        className="inline-flex items-center gap-1.5 hover:text-secondary-foreground"
+        aria-label="Filter by trace"
+        className="inline-flex h-auto items-center gap-1.5 rounded-full px-0 py-0 font-mono text-xs text-muted-foreground hover:bg-transparent hover:text-secondary-foreground"
       >
         {/* dynamic per-trace color → inline var() is the right call here */}
         <span
@@ -46,15 +49,16 @@ export function TraceTag({
           aria-hidden
         />
         trace {shortTraceId(traceId)}
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
         onClick={onCopy}
-        className="text-muted-foreground hover:text-primary"
         aria-label="Copy trace id"
+        className="text-muted-foreground hover:text-primary"
       >
         <Copy className="size-3" />
-      </button>
+      </Button>
       {jaegerHref && (
         <a
           href={jaegerHref}
@@ -66,14 +70,17 @@ export function TraceTag({
           <ExternalLink className="size-3" />
         </a>
       )}
-      <button
-        type="button"
-        onClick={onNext}
-        className="text-muted-foreground hover:text-primary"
-        aria-label="Next in trace"
-      >
-        <ChevronRight className="size-3" />
-      </button>
+      {onNext && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onNext}
+          aria-label="Next in trace"
+          className="text-muted-foreground hover:text-primary"
+        >
+          <ChevronRight className="size-3" />
+        </Button>
+      )}
     </span>
   );
 }

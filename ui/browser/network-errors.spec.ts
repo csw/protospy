@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
 // The context bar sits above the inspector; locate it via the Prev button.
 function contextBar(page: import("@playwright/test").Page) {
   return page
-    .getByRole("button", { name: "Previous exchange" })
+    .getByRole("button", { name: "Previous request" })
     .locator("../..");
 }
 
@@ -62,10 +62,12 @@ test.describe("Network error rendering — proxy-level failures", () => {
 
     await page.getByText("/api/connect-refused").first().click();
 
-    // Context bar shows "Error" label (message is tooltip-only, not inline)
-    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
-    await expect(contextBar(page).getByTestId("error-indicator")).toHaveText(
+    // Context bar status shows "Error" (message is tooltip-only, not inline)
+    await expect(contextBar(page).getByTestId("status-code")).toHaveText(
       "Error",
+    );
+    await expect(contextBar(page).getByTestId("status-code")).toHaveAttribute(
+      "data-error",
     );
 
     // Body pane shows the error message instead of blank. Scope to the
@@ -111,11 +113,9 @@ test.describe("Network error rendering — proxy-level failures", () => {
       page.locator('[data-testid="status-code"][data-error]').first(),
     ).toBeVisible();
     await page.getByText("/api/timeout").first().click();
-    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
-
-    // No status code badge in context bar (status is undefined for a
-    // failed-to-connect exchange)
-    await expect(contextBar(page).getByText("200 OK")).toHaveCount(0);
+    await expect(contextBar(page).getByTestId("status-code")).toHaveText(
+      "Error",
+    );
   });
 
   test("mid-stream disconnect: shows both status and Error badge", async ({
@@ -136,15 +136,11 @@ test.describe("Network error rendering — proxy-level failures", () => {
 
     await page.getByText("/api/mid-stream").first().click();
 
-    // Status is rendered (200 OK) — the response started successfully.
-    await expect(contextBar(page).getByText("200 OK")).toBeVisible();
-
-    // The Error indicator is also visible (mid-stream interruption).
-    // Message is tooltip-only, not inline in the indicator.
-    await expect(contextBar(page).getByTestId("error-indicator")).toBeVisible();
-    await expect(contextBar(page).getByTestId("error-indicator")).toHaveText(
-      "Error",
-    );
+    // The arrived status and the mid-stream error are combined in one status
+    // treatment: "200 ✕" (the status code that arrived + an error mark).
+    const status = contextBar(page).getByTestId("status-code");
+    await expect(status).toHaveText("200 ✕");
+    await expect(status).toHaveAttribute("data-error");
 
     // The list row shows both status and error badge
     await expect(
