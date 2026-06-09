@@ -7,6 +7,7 @@
 // Mirrors ExchangeList's container pattern (PRO-359): the store wiring + ordered
 // derivation live here; the scaffold component stays presentational.
 
+import { useCallback } from "react";
 import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import { matchesFilter, splitUri } from "@ui/lib/utils";
@@ -36,6 +37,12 @@ function findNextMatching(
     }
   }
   return null;
+}
+
+// Copy a trace id to the clipboard. Module scope: no closure deps, so it stays a
+// stable reference across renders (matters once `Inspector` is memoized).
+function copyTraceId(id: string) {
+  void navigator.clipboard.writeText(id);
 }
 
 // Next exchange after `currentIdx` sharing the given trace id.
@@ -75,6 +82,25 @@ export function InspectorPane() {
     .filter((ex) => traceFilter == null || ex.traceId === traceFilter);
   const ordered = order === "newest" ? [...filtered].reverse() : filtered;
 
+  // Stable render-prop identities: only change when the selected exchange or
+  // protocol does, not on every unrelated store update. (`exchange` is non-null
+  // wherever these run — they're invoked only past the guard below.)
+  const renderBodySplit = useCallback(
+    () => <BodySplit exchange={exchange!} protocol={protocol} />,
+    [exchange, protocol],
+  );
+  const renderMsearch = useCallback(
+    (view: MsearchView) =>
+      view === "raw" ? (
+        <BodySplit exchange={exchange!} protocol={protocol} />
+      ) : (
+        <EmptyState textSize="sm">
+          Paired request view is not yet available
+        </EmptyState>
+      ),
+    [exchange, protocol],
+  );
+
   if (exchange == null) {
     return (
       <div className="h-full overflow-hidden bg-background">
@@ -109,23 +135,13 @@ export function InspectorPane() {
       onNextMatching={
         matching != null ? () => setSelectedId(matching.id) : undefined
       }
-      onFilterTrace={(id) => setTraceFilter(id)}
-      onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
+      onFilterTrace={setTraceFilter}
+      onCopyTrace={copyTraceId}
       onNextInTrace={
         nextInTrace != null ? () => setSelectedId(nextInTrace.id) : undefined
       }
-      renderBodySplit={() => (
-        <BodySplit exchange={exchange} protocol={protocol} />
-      )}
-      renderMsearch={(view: MsearchView) =>
-        view === "raw" ? (
-          <BodySplit exchange={exchange} protocol={protocol} />
-        ) : (
-          <EmptyState textSize="sm">
-            Paired request view is not yet available
-          </EmptyState>
-        )
-      }
+      renderBodySplit={renderBodySplit}
+      renderMsearch={renderMsearch}
     />
   );
 }

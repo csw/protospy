@@ -117,21 +117,22 @@ export function Inspector({
         </TabsContent>
 
         <TabsContent value="headers" className="min-h-0 flex-1 overflow-hidden">
-          {/* Key by exchange id so the panes remount on navigation: each
+          {/* Key each pane by exchange id so it remounts on navigation: a
               HeadersPane holds local reveal/filter state, and without a remount
               a revealed Authorization credential would carry over to the next
-              exchange's same-row header and render in cleartext. */}
-          <div
-            key={x.id}
-            className="grid h-full grid-cols-2 gap-px overflow-hidden bg-border"
-          >
+              exchange's same-row header and render in cleartext. The key lives on
+              the stateful components (not a wrapper) so the invariant survives any
+              future refactor of this grid. */}
+          <div className="grid h-full grid-cols-2 gap-px overflow-hidden bg-border">
             <HeadersPane
+              key={`${x.id}-req`}
               title="Request"
               headers={x.requestHeaders ?? []}
               emptyMessage="No request headers captured"
               testId="headers-panel-request"
             />
             <HeadersPane
+              key={`${x.id}-res`}
               title="Response"
               headers={x.responseHeaders ?? []}
               emptyMessage="No response headers captured"
