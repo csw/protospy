@@ -39,11 +39,11 @@ export default defineConfig({
         // exchange table/row + method-badge/status-code and the lib helpers they
         // consume (format/tokens/density), so those are now covered; PRO-361
         // (Slice 3) wired the SSE stream view + event log, so those are covered
-        // too; the rest stay excluded until their slice lands.
-        "src/components/protospy/inspector.tsx",
+        // too; PRO-360 (Slice 2) wired the inspector shell + trace-tag (now used by
+        // the inspector context bar), so those are covered too; the rest stay
+        // excluded until their slice lands.
         "src/components/protospy/msearch-view.tsx",
         "src/components/protospy/trace-rail.tsx",
-        "src/components/protospy/trace-tag.tsx",
         "src/lib/types.ts",
       ],
       // Thresholds are read from coverage-thresholds.json and ratcheted

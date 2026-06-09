@@ -19,7 +19,10 @@ function ErrorPanel({
   detail?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center">
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center"
+    >
       <AlertTriangle size={20} className="text-red/60" />
       <span className="font-ui text-sm font-medium text-red">{panelTitle}</span>
       <span className="font-mono text-xs text-mid max-w-md leading-relaxed">
@@ -28,6 +31,20 @@ function ErrorPanel({
       {detail != null && (
         <span className="font-mono text-xs text-dim">{detail}</span>
       )}
+    </div>
+  );
+}
+
+/**
+ * A non-content body state — awaiting / streaming / no-body / undecodable. Wrapped
+ * in an `aria-live` status region so the lifecycle transition is ANNOUNCED to
+ * assistive tech, not conveyed by color alone (design-system hard rule 5; PRO-360
+ * deliverable B). The distinct copy per state is the non-color signal.
+ */
+function LifecycleState({ children }: { children: React.ReactNode }) {
+  return (
+    <div role="status" aria-live="polite" className="h-full">
+      <EmptyState>{children}</EmptyState>
     </div>
   );
 }
@@ -42,6 +59,15 @@ interface Props {
    */
   errorMessage?: string;
   /**
+   * True when this side has no body *because the response has not begun yet*
+   * (status null, no error, no body) — distinct from a genuinely body-less
+   * response (GET / 204). Drives the "Awaiting response…" vs "No body" copy so
+   * the two lifecycle states render distinctly (design-system hard rule 5;
+   * PRO-360 deliverable B). The request side never sets this (a request always
+   * exists).
+   */
+  awaiting?: boolean;
+  /**
    * If provided, the decoded byte count from the decode pipeline is cached
    * back onto `BodyState.decodedBytes` so other surfaces (timing view,
    * exchange list) can show a dual wire/decoded size without re-running
@@ -50,7 +76,17 @@ interface Props {
   cacheTo?: { exchangeId: number; direction: "request" | "response" };
 }
 
-export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
+export function BodyPane({
+  title,
+  body,
+  errorMessage,
+  awaiting,
+  cacheTo,
+}: Props) {
+  // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
+  // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
+  // decoded view only then, keyed on body identity. A separate `useDecodedEntity`
+  // wrapper would be Option C (a view-side shim) — cut per the shim-vs-seam bar.
   const { loading, result } = useDecodeBody(body, cacheTo);
 
   return (
@@ -91,12 +127,12 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-bg-pane">
-        {loading && <EmptyState>Decoding…</EmptyState>}
+        {loading && <LifecycleState>Decoding…</LifecycleState>}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
-          <EmptyState>
+          <LifecycleState>
             Streaming… ({formatSize(body.wireBytes)} received)
-          </EmptyState>
+          </LifecycleState>
         )}
 
         {!loading && body != null && !body.atEnd && errorMessage != null && (
@@ -111,12 +147,16 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
           <ErrorPanel title="Error" message={errorMessage} />
         )}
 
+        {/* No body yet: distinguish "the response hasn't begun" (awaiting) from a
+            genuinely body-less response (GET / 204) — not a flat "pending". */}
         {!loading && body == null && errorMessage == null && (
-          <EmptyState>No body</EmptyState>
+          <LifecycleState>
+            {awaiting ? "Awaiting response…" : "No body"}
+          </LifecycleState>
         )}
 
         {!loading && body != null && body.atEnd && result == null && (
-          <EmptyState>Could not decode body</EmptyState>
+          <LifecycleState>Could not decode body</LifecycleState>
         )}
 
         {!loading &&
@@ -140,7 +180,9 @@ export function BodyPane({ title, body, errorMessage, cacheTo }: Props) {
           )}
 
         {!loading && result != null && result.kind === "binary" && (
-          <EmptyState>Binary data · {formatSize(result.wireBytes)}</EmptyState>
+          <LifecycleState>
+            Binary data · {formatSize(result.wireBytes)}
+          </LifecycleState>
         )}
 
         {/* Mid-stream error: body completed but the exchange has an error.

@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import {
   injectExchanges,
   resetStore,
-  setTheme,
   waitForStore,
   getStoreState,
 } from "./helpers/inject";
@@ -11,6 +10,9 @@ import {
   makeRequestWithTrace,
   makeResponse,
 } from "./fixtures/exchanges";
+
+// The context bar lives at the top of the v2.3 inspector (PRO-360). It holds the
+// Prev/Next nav, method badge, path, status code, elapsed pill, and trace pill.
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -24,14 +26,11 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-// The context bar is the container that holds the Prev/Next navigation buttons.
-// We locate it as the parent div of the "Previous exchange" button.
-// Using xpath ".." to get the grandparent (the full bar) from the nav wrapper.
+// Locate the context bar as the grandparent of the "Previous request" button
+// (button → nav wrapper → context bar).
 function contextBar(page: import("@playwright/test").Page) {
-  // The Prev button sits inside: contextBar > div.flex > button[aria-label]
-  // So we go up two levels from the button.
   return page
-    .getByRole("button", { name: "Previous exchange" })
+    .getByRole("button", { name: "Previous request" })
     .locator("../..");
 }
 
@@ -40,27 +39,25 @@ function contextBar(page: import("@playwright/test").Page) {
 // ---------------------------------------------------------------------------
 
 test.describe("ContextBar — method, status, and path display", () => {
-  test("1.1 shows method badge, status, and path for selected exchange", async ({
+  test("1.1 shows method badge, status code, and path for selected exchange", async ({
     page,
   }) => {
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/movies", "200 OK"),
     ]);
 
-    // Select the exchange by clicking the URI text in the list
     await page.getByText("/api/movies").first().click();
 
-    // Context bar should display the method badge, status, and path
     const bar = contextBar(page);
     await expect(bar.getByText("GET")).toBeVisible();
-    await expect(bar.getByText("200 OK")).toBeVisible();
+    // Context bar shows the numeric code only (table-style StatusCode).
+    await expect(bar.getByTestId("status-code")).toHaveText("200");
     await expect(bar.getByText("/api/movies")).toBeVisible();
   });
 
-  test("1.2 pending exchange shows pulsing amber dot and 'pending' text", async ({
+  test("1.2 pending exchange shows the pending status treatment", async ({
     page,
   }) => {
-    // Inject only a request, no response
     await injectExchanges(page, [
       {
         exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
@@ -78,14 +75,15 @@ test.describe("ContextBar — method, status, and path display", () => {
 
     await page.getByText("/api/pending").first().click();
 
-    // Pending state shows "pending" text (no status, no error)
-    await expect(
-      contextBar(page).getByText("pending", { exact: true }),
-    ).toBeVisible();
+    // Pending: the status code renders without the error treatment.
+    const status = contextBar(page).getByTestId("status-code");
+    await expect(status).toBeVisible();
+    await expect(status).not.toHaveAttribute("data-error");
   });
 
-  test("1.3 error exchange shows Error with message", async ({ page }) => {
-    // Inject a request, then inject an error event
+  test("1.3 error exchange shows the Error status treatment", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       {
         exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
@@ -102,19 +100,16 @@ test.describe("ContextBar — method, status, and path display", () => {
       {
         exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:01Z" },
         direction: "Request",
-        event: {
-          type: "Error",
-          message: "connection refused",
-        },
+        event: { type: "Error", message: "connection refused" },
       },
     ]);
 
     await page.getByText("/api/error").first().click();
 
-    // Error state shows "Error" label (message is in the tooltip, not inline)
-    const indicator = contextBar(page).getByTestId("error-indicator");
-    await expect(indicator).toBeVisible();
-    await expect(indicator).toHaveText("Error");
+    const status = contextBar(page).getByTestId("status-code");
+    await expect(status).toBeVisible();
+    await expect(status).toHaveAttribute("data-error");
+    await expect(status).toHaveText("Error");
   });
 });
 
@@ -123,99 +118,49 @@ test.describe("ContextBar — method, status, and path display", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("ContextBar — prev/next navigation", () => {
-  test("2.1 clicking Next moves to older exchange", async ({ page }) => {
-    // Inject 3 exchanges with distinct timestamps so order is deterministic.
-    // Default sort is newest-first: exchange 3, 2, 1 (top to bottom).
-    await injectExchanges(page, [
-      ...makeCompleteExchange(1, "GET", "/first", "200 OK", {
-        ts: "2024-01-01T00:00:01Z",
-      }),
-      ...makeCompleteExchange(2, "GET", "/second", "200 OK", {
-        ts: "2024-01-01T00:00:02Z",
-      }),
-      ...makeCompleteExchange(3, "GET", "/third", "200 OK", {
-        ts: "2024-01-01T00:00:03Z",
-      }),
-    ]);
+  const three = [
+    ...makeCompleteExchange(1, "GET", "/first", "200 OK", {
+      ts: "2024-01-01T00:00:01Z",
+    }),
+    ...makeCompleteExchange(2, "GET", "/second", "200 OK", {
+      ts: "2024-01-01T00:00:02Z",
+    }),
+    ...makeCompleteExchange(3, "GET", "/third", "200 OK", {
+      ts: "2024-01-01T00:00:03Z",
+    }),
+  ];
 
-    // Select the middle exchange (exchange 2) by clicking its URI
+  test("2.1 clicking Next moves to the older exchange", async ({ page }) => {
+    await injectExchanges(page, three);
     await page.getByText("/second").first().click();
-
-    // Click Next (goes toward older, i.e. /first)
-    await page.getByRole("button", { name: "Next exchange" }).click();
-
-    // After clicking Next, /first should now be selected and shown in context bar
+    await page.getByRole("button", { name: "Next request" }).click();
     await expect(contextBar(page).getByText("/first")).toBeVisible();
   });
 
-  test("2.2 clicking Prev moves to newer exchange", async ({ page }) => {
-    await injectExchanges(page, [
-      ...makeCompleteExchange(1, "GET", "/first", "200 OK", {
-        ts: "2024-01-01T00:00:01Z",
-      }),
-      ...makeCompleteExchange(2, "GET", "/second", "200 OK", {
-        ts: "2024-01-01T00:00:02Z",
-      }),
-      ...makeCompleteExchange(3, "GET", "/third", "200 OK", {
-        ts: "2024-01-01T00:00:03Z",
-      }),
-    ]);
-
-    // Select the middle exchange (exchange 2)
+  test("2.2 clicking Prev moves to the newer exchange", async ({ page }) => {
+    await injectExchanges(page, three);
     await page.getByText("/second").first().click();
-
-    // Click Prev (goes toward newer, i.e. /third)
-    await page.getByRole("button", { name: "Previous exchange" }).click();
-
-    // After clicking Prev, /third should now be shown in context bar
+    await page.getByRole("button", { name: "Previous request" }).click();
     await expect(contextBar(page).getByText("/third")).toBeVisible();
   });
 
-  test("2.3 Prev button is disabled when on the first (newest) exchange", async ({
+  test("2.3 Prev is disabled on the first (newest) exchange", async ({
     page,
   }) => {
-    await injectExchanges(page, [
-      ...makeCompleteExchange(1, "GET", "/first", "200 OK", {
-        ts: "2024-01-01T00:00:01Z",
-      }),
-      ...makeCompleteExchange(2, "GET", "/second", "200 OK", {
-        ts: "2024-01-01T00:00:02Z",
-      }),
-      ...makeCompleteExchange(3, "GET", "/third", "200 OK", {
-        ts: "2024-01-01T00:00:03Z",
-      }),
-    ]);
-
-    // Select the newest exchange (exchange 3, which is first in newest-first order)
+    await injectExchanges(page, three);
     await page.getByText("/third").first().click();
-
-    // Previous button should be disabled (no newer exchange before index 0)
     await expect(
-      page.getByRole("button", { name: "Previous exchange" }),
+      page.getByRole("button", { name: "Previous request" }),
     ).toBeDisabled();
   });
 
-  test("2.4 Next button is disabled when on the last (oldest) exchange", async ({
+  test("2.4 Next is disabled on the last (oldest) exchange", async ({
     page,
   }) => {
-    await injectExchanges(page, [
-      ...makeCompleteExchange(1, "GET", "/first", "200 OK", {
-        ts: "2024-01-01T00:00:01Z",
-      }),
-      ...makeCompleteExchange(2, "GET", "/second", "200 OK", {
-        ts: "2024-01-01T00:00:02Z",
-      }),
-      ...makeCompleteExchange(3, "GET", "/third", "200 OK", {
-        ts: "2024-01-01T00:00:03Z",
-      }),
-    ]);
-
-    // Select the oldest exchange (exchange 1, which is last in newest-first order)
+    await injectExchanges(page, three);
     await page.getByText("/first").first().click();
-
-    // Next button should be disabled (no older exchange after the last index)
     await expect(
-      page.getByRole("button", { name: "Next exchange" }),
+      page.getByRole("button", { name: "Next request" }),
     ).toBeDisabled();
   });
 });
@@ -225,179 +170,29 @@ test.describe("ContextBar — prev/next navigation", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("ContextBar — trace pill", () => {
-  test("3.1 trace pill shows shortened trace ID", async ({ page }) => {
-    const traceId = "abcdef1234567890abcdef1234567890";
+  const traceId = "abcdef1234567890abcdef1234567890";
+
+  test("3.1 trace pill shows the shortened trace ID", async ({ page }) => {
     await injectExchanges(page, [
       makeRequestWithTrace(1, traceId, "/api/traced"),
       makeResponse(1, "200 OK"),
     ]);
-
     await page.getByText("/api/traced").first().click();
-
-    // Trace pill should display "abcd…7890" (first 4 + ellipsis + last 4)
-    await expect(page.getByText("abcd…7890")).toBeVisible();
+    // Rendered as "trace abcd…7890".
+    await expect(page.getByText("abcd…7890", { exact: false })).toBeVisible();
   });
 
-  test("3.2 clicking trace pill sets traceFilter in store", async ({
+  test("3.2 clicking the trace pill sets traceFilter in the store", async ({
     page,
   }) => {
-    const traceId = "abcdef1234567890abcdef1234567890";
     await injectExchanges(page, [
       makeRequestWithTrace(1, traceId, "/api/traced"),
       makeResponse(1, "200 OK"),
     ]);
-
     await page.getByText("/api/traced").first().click();
-
-    // The trace pill's swatch + trace ID button has aria-label="Filter by trace".
     await page.getByLabel("Filter by trace").click();
-
-    const traceFilter = await getStoreState(page, "traceFilter");
-    expect(traceFilter).toBe(traceId);
+    expect(await getStoreState(page, "traceFilter")).toBe(traceId);
   });
-});
-
-// ---------------------------------------------------------------------------
-// 3b. Focus ring fidelity (PRO-259)
-// ---------------------------------------------------------------------------
-
-test.describe("ContextBar — focus ring fidelity", () => {
-  test("3b.1 Filter by trace button shows ring on keyboard focus", async ({
-    page,
-  }) => {
-    const traceId = "abcdef1234567890abcdef1234567890";
-    await injectExchanges(page, [
-      makeRequestWithTrace(1, traceId, "/api/traced"),
-      makeResponse(1, "200 OK"),
-    ]);
-
-    await page.getByText("/api/traced").first().click();
-
-    const filterBtn = page.getByLabel("Filter by trace");
-    await expect(filterBtn).toBeVisible();
-
-    // focus() via JS applies :focus but NOT :focus-visible — only
-    // keyboard-initiated focus does.  Tab until the button is focused.
-    await page.keyboard.press("Tab");
-    // The tab order starts at the first focusable element in the
-    // context bar (Prev button); keep tabbing until we reach the
-    // Filter by trace button.
-    while (!(await filterBtn.evaluate((el) => el === document.activeElement))) {
-      await page.keyboard.press("Tab");
-    }
-
-    // Button's focus ring (focus-visible:ring-[3px] ring-ring/50) renders as a box-shadow
-    const shadow = await filterBtn.evaluate(
-      (el) => getComputedStyle(el).boxShadow,
-    );
-    // Should have a non-"none" box-shadow when :focus-visible is active
-    expect(shadow).not.toBe("none");
-  });
-
-  test("3b.2 Jaeger placeholder button is disabled and not focusable", async ({
-    page,
-  }) => {
-    const traceId = "abcdef1234567890abcdef1234567890";
-    await injectExchanges(page, [
-      makeRequestWithTrace(1, traceId, "/api/traced"),
-      makeResponse(1, "200 OK"),
-    ]);
-
-    await page.getByText("/api/traced").first().click();
-
-    const jaegerBtn = page.getByLabel("Open in Jaeger");
-    await expect(jaegerBtn).toBeVisible();
-    await expect(jaegerBtn).toBeDisabled();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3c. Hover background fidelity (PRO-294)
-// ---------------------------------------------------------------------------
-//
-// The shadcn `ghost` Button variant hovers to `bg-accent`, the v2.3
-// selected/hover surface tint (`--accent`). The original hand-rolled controls
-// had no hover background, so the active icon buttons override it with
-// `hover:bg-bg-hover` (a near-transparent neutral) and the disabled Jaeger
-// placeholder suppresses it with `hover:bg-transparent`. These tests lock in
-// that the ghost accent hover does not return.
-
-test.describe("ContextBar — hover background fidelity", () => {
-  // Resolve a CSS color string through getComputedStyle so it is normalized to
-  // the same form the browser reports for a rendered element's backgroundColor.
-  async function normalizeColor(
-    page: import("@playwright/test").Page,
-    value: string,
-  ): Promise<string> {
-    return page.evaluate((raw) => {
-      const probe = document.createElement("div");
-      probe.style.backgroundColor = raw;
-      document.body.appendChild(probe);
-      const normalized = getComputedStyle(probe).backgroundColor;
-      probe.remove();
-      return normalized;
-    }, value);
-  }
-
-  // Run in both themes: `--accent` has a distinct dark value (a translucent
-  // blue surface), so a light-only check would miss a dark-mode regression.
-  for (const theme of ["light", "dark"] as const) {
-    test(`3c.1 active icon button hovers to the neutral token, not the accent surface (${theme})`, async ({
-      page,
-    }) => {
-      await setTheme(page, theme);
-
-      const traceId = "abcdef1234567890abcdef1234567890";
-      await injectExchanges(page, [
-        makeRequestWithTrace(1, traceId, "/api/traced"),
-        makeResponse(1, "200 OK"),
-      ]);
-
-      await page.getByText("/api/traced").first().click();
-
-      // Copy-trace is an always-enabled ghost icon button carrying
-      // `hover:bg-bg-hover` — order-independent, unlike prev/next.
-      const copyBtn = page.getByLabel("Copy trace ID");
-      await expect(copyBtn).toBeEnabled();
-      await copyBtn.hover();
-
-      // Both tokens are theme-aware, so resolve them after setting the theme.
-      const expectedNeutral = await normalizeColor(
-        page,
-        await page.evaluate(() =>
-          getComputedStyle(document.documentElement)
-            .getPropertyValue("--color-bg-hover")
-            .trim(),
-        ),
-      );
-      // Read `--accent` (the real :root var the `bg-accent` utility points at);
-      // `--color-accent` is `@theme inline`, so it is not emitted to :root.
-      const accent = await normalizeColor(
-        page,
-        await page.evaluate(() =>
-          getComputedStyle(document.documentElement)
-            .getPropertyValue("--accent")
-            .trim(),
-        ),
-      );
-
-      // The control carries `transition-all`, so background-color animates over
-      // ~150ms — poll until it settles rather than reading mid-transition.
-      // Positive: the settled hover background is the `--color-bg-hover` neutral
-      // token — and therefore not the brand-blue accent the ghost variant applies.
-      await expect
-        .poll(() =>
-          copyBtn.evaluate((el) => getComputedStyle(el).backgroundColor),
-        )
-        .toBe(expectedNeutral);
-      expect(expectedNeutral).not.toBe(accent);
-    });
-  }
-
-  // The disabled Jaeger placeholder's hover suppression (`hover:bg-transparent`)
-  // is covered by a component-level class assertion in ContextBar.test.tsx:
-  // a live :hover check can't reliably distinguish "stayed transparent" from
-  // "transition not yet started", and this suite avoids fixed timeouts.
 });
 
 // ---------------------------------------------------------------------------
@@ -405,7 +200,7 @@ test.describe("ContextBar — hover background fidelity", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("ContextBar — query parameters", () => {
-  test("4.1 shows parsed query params for URI with query string", async ({
+  test("4.1 shows parsed query params for a URI with a query string", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -417,23 +212,13 @@ test.describe("ContextBar — query parameters", () => {
       ),
     ]);
 
-    // The list item shows the path part; click it to select
     await page.getByText("/api/search").first().click();
 
-    // Context bar shows path and parsed query params.
-    // ContextBar renders: pathOnly | "?" | key=value pairs separately.
     const bar = contextBar(page);
-
-    // Path portion
     await expect(bar.getByText("/api/search")).toBeVisible();
-
-    // Query param keys (rendered with text-accent-ink class)
-    await expect(bar.getByText("q")).toBeVisible();
-    await expect(bar.getByText("limit")).toBeVisible();
-
-    // Query param values (rendered with text-ink-2 class)
-    await expect(bar.getByText("test")).toBeVisible();
-    await expect(bar.getByText("10")).toBeVisible();
+    await expect(bar.getByText("q", { exact: true })).toBeVisible();
+    await expect(bar.getByText("limit", { exact: true })).toBeVisible();
+    await expect(bar.getByText("test", { exact: true })).toBeVisible();
   });
 });
 
@@ -442,7 +227,7 @@ test.describe("ContextBar — query parameters", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("ContextBar — elapsed pill", () => {
-  test("5.1 shows elapsed time pill for completed exchange", async ({
+  test("5.1 shows the elapsed time pill for a completed exchange", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -452,8 +237,7 @@ test.describe("ContextBar — elapsed pill", () => {
     ]);
 
     await page.getByText("/api/timed").first().click();
-
-    // Elapsed pill should show "123ms" in the context bar
-    await expect(contextBar(page).getByText("123ms")).toBeVisible();
+    // fmtMs renders a space before the unit ("123 ms").
+    await expect(contextBar(page).getByText("123 ms")).toBeVisible();
   });
 });

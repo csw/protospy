@@ -93,6 +93,18 @@ describe("BodyPane error display (PRO-220)", () => {
     expect(screen.getByText("No body")).toBeInTheDocument();
   });
 
+  it("renders 'Awaiting response…' (not 'No body') when the response has not begun", () => {
+    render(<BodyPane title="Response" body={undefined} awaiting />);
+    expect(screen.getByText("Awaiting response…")).toBeInTheDocument();
+    expect(screen.queryByText("No body")).not.toBeInTheDocument();
+  });
+
+  it("announces lifecycle placeholders via an aria-live status region", () => {
+    render(<BodyPane title="Response" body={undefined} awaiting />);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("Awaiting response…");
+  });
+
   it("renders mid-stream error banner when body exists and errorMessage is set", async () => {
     const result: DecodeResult = {
       kind: "text",

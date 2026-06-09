@@ -14,7 +14,7 @@ import { subscribeToEvents } from "@ui/api/sse";
 import { TopBar } from "./TopBar";
 import { FilterBar } from "./FilterBar";
 import { ExchangeList } from "./ExchangeList";
-import { Inspector } from "./Inspector";
+import { InspectorPane } from "./InspectorPane";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import {
@@ -156,7 +156,7 @@ export function AppShell() {
           }}
         />
         <Panel minSize={INSPECTOR_MIN_WIDTH}>
-          <Inspector />
+          <InspectorPane />
         </Panel>
       </Group>
       <StatusBar />

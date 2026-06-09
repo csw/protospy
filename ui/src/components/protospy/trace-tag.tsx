@@ -6,8 +6,8 @@
 "use client";
 
 import { Copy, ExternalLink, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { traceColorVar, shortTraceId } from "@/lib/tokens";
+import { cn } from "@ui/lib/utils";
+import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
 
 export interface TraceTagProps {
   traceId: string;
@@ -37,6 +37,7 @@ export function TraceTag({
       <button
         type="button"
         onClick={onFilter}
+        aria-label="Filter by trace"
         className="inline-flex items-center gap-1.5 hover:text-secondary-foreground"
       >
         {/* dynamic per-trace color → inline var() is the right call here */}
