@@ -17,8 +17,6 @@
 // prop wiring follows the adapted live components (PRO-359/360/361). The shell
 // wire slice will mount it and own the live behaviour.
 
-"use client";
-
 import { useEffect, useRef, type ReactNode } from "react";
 import { useStore, selectVisibleIds, selectSelected } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
@@ -195,36 +193,6 @@ function InspectorPanel({
   const setSelectedId = useStore((s) => s.setSelectedId);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
 
-  if (!selected) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        Select a request to inspect
-      </div>
-    );
-  }
-
-  const isMsearch = showPairsTab(protocol, selected.uri);
-
-  return (
-    <div className="h-full overflow-hidden">
-      <Inspector
-        exchange={selected}
-        tz={tz}
-        isMsearch={isMsearch}
-        onPrev={() => stepSelection(-1)}
-        onNext={() => stepSelection(1)}
-        onNextMatching={() => stepMatching(selected)}
-        onFilterTrace={(id) => setTraceFilter(id)}
-        onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
-        onNextInTrace={(id) => stepInTrace(selected, id)}
-        renderBodySplit={() => renderBodySplit(selected)}
-        renderMsearch={
-          renderMsearch ? (view) => renderMsearch(selected, view) : undefined
-        }
-      />
-    </div>
-  );
-
   // helpers close over store via getState (no extra subscriptions)
   function stepSelection(delta: number) {
     const s = useStore.getState();
@@ -261,6 +229,36 @@ function InspectorPanel({
       }
     }
   }
+
+  if (!selected) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
+        Select a request to inspect
+      </div>
+    );
+  }
+
+  const isMsearch = showPairsTab(protocol, selected.uri);
+
+  return (
+    <div className="h-full overflow-hidden">
+      <Inspector
+        exchange={selected}
+        tz={tz}
+        isMsearch={isMsearch}
+        onPrev={() => stepSelection(-1)}
+        onNext={() => stepSelection(1)}
+        onNextMatching={() => stepMatching(selected)}
+        onFilterTrace={(id) => setTraceFilter(id)}
+        onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
+        onNextInTrace={(id) => stepInTrace(selected, id)}
+        renderBodySplit={() => renderBodySplit(selected)}
+        renderMsearch={
+          renderMsearch ? (view) => renderMsearch(selected, view) : undefined
+        }
+      />
+    </div>
+  );
 }
 
 /* ── keyboard map ── */

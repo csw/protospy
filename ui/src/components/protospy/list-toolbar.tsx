@@ -4,8 +4,6 @@
 // rendered (it's absolute either way). Order defaults to newest-first. Table is
 // the default list mode.
 
-"use client";
-
 import {
   Rows3,
   Table2,

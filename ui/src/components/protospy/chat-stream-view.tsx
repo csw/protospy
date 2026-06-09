@@ -15,8 +15,6 @@
 // parser-owned (Anthropic content_block_delta.text_delta) — passed in, not done
 // here — so the view is prop-driven like the other content components.
 
-"use client";
-
 import { Pause, Play, CornerDownRight, CircleCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";

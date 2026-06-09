@@ -5,8 +5,6 @@
 // single-member traces stay flat at their chronological position. Prop-driven
 // like the other list views; app-shell feeds it the already filtered+ordered set.
 
-"use client";
-
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,9 +77,7 @@ export function TraceGroup({
           · {members.length} requests
         </span>
         <span>· {fmtMs(total)} total</span>
-        {members[0] && (
-          <span className="ml-auto">{members.length} in trace</span>
-        )}
+        <span className="ml-auto">{members.length} in trace</span>
       </div>
 
       {open && (

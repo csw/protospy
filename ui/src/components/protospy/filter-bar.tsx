@@ -4,8 +4,6 @@
 // count derives from the visible vs. total ids. Surface noun is always
 // "requests" — never "exchanges".
 
-"use client";
-
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { traceColorVar, shortTraceId } from "@/lib/tokens";

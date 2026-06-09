@@ -5,8 +5,6 @@
 // reads as a verb against the current state. "Jump to trace" is the one data-fed
 // group: it enumerates the live traces and filters+selects on pick.
 
-"use client";
-
 import { useMemo } from "react";
 import { useTheme } from "next-themes";
 import {

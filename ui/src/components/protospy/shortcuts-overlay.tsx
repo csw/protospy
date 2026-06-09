@@ -4,8 +4,6 @@
 // command palette's "Show keyboard shortcuts" command; dismissed by Esc (Dialog
 // handles it) or clicking outside. Pure reference — it triggers no actions.
 
-"use client";
-
 import { useStore } from "@ui/state/store";
 import {
   Dialog,

@@ -27,8 +27,8 @@ export const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
  * Map the live SSE connection model (`@ui/api/sse`: open / connecting /
  * reconnecting) onto this atom's design vocabulary (open / connecting / down).
  * The live feed has no terminal "down" state yet — it reconnects — so a
- * reconnecting socket reads as "connecting". The shell wire slice (PRO-363) owns
- * any future terminal/down mapping. v2.4 ingest: un-wired.
+ * reconnecting socket reads as "connecting". Any future terminal/down mapping is
+ * owned by the surface wire slice. v2.4 ingest: un-wired.
  */
 export function connDotStatus(s: SSEConnectionStatus): ConnectionStatus {
   return s === "reconnecting" ? "connecting" : s;

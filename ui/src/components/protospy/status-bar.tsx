@@ -3,8 +3,6 @@
 // store. The upstream URL is config-owned (the store holds the service *name*,
 // not its address), so it's passed in. Shortcuts hint opens the help overlay.
 
-"use client";
-
 import { useStore, selectTraceCount } from "@ui/state/store";
 import {
   ConnectionDot,

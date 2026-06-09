@@ -6,8 +6,6 @@
 //
 // Layout: wordmark · service picker · (spacer) · Jump-to ⌘K · group · density · theme.
 
-"use client";
-
 import { useTheme } from "next-themes";
 import {
   Search,
