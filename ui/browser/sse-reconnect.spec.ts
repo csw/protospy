@@ -108,7 +108,19 @@ test.describe("SSE reconnection", () => {
     await expect
       .poll(async () => (await getLog()).at(-1), { timeout: 5000 })
       .toBe("reconnecting");
-    await expect(page.getByText("reconnecting")).toBeVisible();
+    // Scope to the status pill specifically: the connection-lost toast text
+    // ("Connection lost — reconnecting…") also contains "reconnecting", so a
+    // page-wide getByText would match two elements (PRO-366).
+    await expect(page.getByTestId("connection-status")).toHaveText(
+      "reconnecting",
+    );
+
+    // The open → reconnecting transition fires the connection-lost toast
+    // through the real `sonner` host (PRO-366). First connect is silent, so
+    // this is the first toast to appear.
+    await expect(
+      page.getByText("Connection lost — reconnecting…"),
+    ).toBeVisible();
 
     // Release the parked second connection — onopen will fire briefly
     // before the body closes again.
@@ -127,6 +139,15 @@ test.describe("SSE reconnection", () => {
       )
       .toBeGreaterThanOrEqual(2);
 
+    // The recovery toast ("Reconnected") is deliberately NOT asserted here: it
+    // shares a stable sonner id with the connection-lost toast (so a flapping
+    // link updates one toast in place rather than stacking, PRO-366), and this
+    // harness cannot hold the second connection open — `route.fulfill` is
+    // atomic, so it closes again in the same tick the recovery toast fires,
+    // which immediately replaces "Reconnected" with "Connection lost" again.
+    // The recovery emission (reconnecting → open ⇒ success) is unit-covered in
+    // `src/__tests__/lib.toast.test.tsx`; the real-path toast wiring is proven
+    // by the "Connection lost" assertion above.
     const transitions = await getLog();
 
     // Sequence: starts at "connecting", reaches "open", drops to

@@ -11,6 +11,8 @@ import { useStore } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
 import type { Info } from "@ui/api/info";
 import { subscribeToEvents } from "@ui/api/sse";
+import type { ConnectionStatus } from "@ui/api/sse";
+import { notifyConnection } from "@ui/lib/toast";
 import { TopBar } from "./TopBar";
 import { FilterBar } from "./FilterBar";
 import { ExchangeList } from "./ExchangeList";
@@ -49,6 +51,11 @@ export function AppShell() {
   // mode-dependent panel sizing. See decision doc for rationale.
   const interacting = useRef(false);
   const listPanelRef = usePanelRef();
+
+  // Previous connection status, to decide which transitions warrant a toast.
+  // A ref (not state) because it feeds the toast decision without driving a
+  // re-render. Survives Effect B's re-subscribe on service switch.
+  const prevConnection = useRef<ConnectionStatus | null>(null);
 
   const handleListPanelResize = useCallback(
     (size: PanelSize) => {
@@ -98,7 +105,11 @@ export function AppShell() {
     const cleanup = subscribeToEvents(
       service,
       (msg) => applyEvent(msg),
-      (status) => setConnection(status),
+      (status) => {
+        notifyConnection(prevConnection.current, status);
+        prevConnection.current = status;
+        setConnection(status);
+      },
     );
 
     return cleanup;
