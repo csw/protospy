@@ -315,7 +315,7 @@ describe("ChatStreamView — Anthropic protocol", () => {
     expect(screen.getByText("transcript")).toHaveAttribute("data-state", "on");
     expect(screen.getByText("events")).toHaveAttribute("data-state", "off");
     expect(screen.queryByText("message_start")).not.toBeInTheDocument();
-    expect(screen.getByText("Hello!")).toBeInTheDocument();
+    expect(screen.getByText("Hello!")).toHaveClass("text-mono");
   });
 
   it("shows event types in events mode (default)", async () => {

@@ -38,7 +38,7 @@ function TranscriptView({
           )}
         </div>
       )}
-      <pre className="flex-1 whitespace-pre-wrap p-3 font-mono text-sm text-foreground">
+      <pre className="flex-1 whitespace-pre-wrap p-3 font-mono text-mono text-foreground">
         {transcript.text}
         {!isTerminal && !transcript.isComplete && (
           <span className="inline-block w-[2px] h-[14px] bg-primary motion-safe:animate-pulse align-middle ml-px" />
