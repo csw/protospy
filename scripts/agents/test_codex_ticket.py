@@ -74,11 +74,32 @@ class BranchNameTests(unittest.TestCase):
     def test_instructions_are_combined_before_positional_directions(self) -> None:
         self.assertEqual(
             codex_ticket.build_directions(
+                ["wrapper note"],
                 ["skip the visual review", "  "],
                 ["follow", "comment", "2"],
             ),
-            ["skip the visual review", "follow", "comment", "2"],
+            ["wrapper note", "skip the visual review", "follow", "comment", "2"],
         )
+
+    def test_wrapper_directions_pin_branch_and_version(self) -> None:
+        args = codex_ticket.parse_args(["PRO-136", "-v", "3"])
+        directions = codex_ticket.build_wrapper_directions(
+            "feature/pro-136-example-3",
+            Path("/tmp/pro-136-example-3"),
+            args,
+        )
+        joined = " ".join(directions)
+        self.assertIn("feature/pro-136-example-3", joined)
+        self.assertIn("authoritative", joined)
+        self.assertIn("existing PR handling to this branch only", joined)
+        self.assertIn("do not inspect or use", joined)
+        self.assertIn("ticket-linked PRs from other branches", joined)
+        self.assertIn("If the user says to start fresh", joined)
+        self.assertIn("ignoring prior branches and PRs", joined)
+        self.assertNotIn("background context", joined)
+        self.assertIn("intentional alternate branch/worktree run", joined)
+        self.assertIn("Do not drop the version suffix", joined)
+        self.assertIn("Do not continue or repair PRs from older", joined)
 
     def test_effort_after_ticket_expands_to_codex_config(self) -> None:
         args = codex_ticket.parse_args(["PRO-136", "--effort", "xhigh"])

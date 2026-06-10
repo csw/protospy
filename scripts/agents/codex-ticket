@@ -251,15 +251,56 @@ def build_prompt(ticket: str, directions: list[str]) -> str:
     return f"$handle-ticket-inner {ticket}"
 
 
+def build_wrapper_directions(
+    branch: str,
+    worktree_path: Path,
+    args: argparse.Namespace,
+) -> list[str]:
+    direction = (
+        "Codex wrapper selected branch "
+        f"{branch!r} in worktree {str(worktree_path)!r}; treat this branch and "
+        "worktree as authoritative. Do not switch to, reset to, repair, push "
+        "to, or create a PR from any other ticket branch unless the user "
+        "instructions after this wrapper note explicitly say otherwise. Scope "
+        "existing PR handling to this branch only; do not inspect or use "
+        "ticket-linked PRs from other branches unless the user explicitly "
+        "names that branch or PR. If the user says to start fresh, interpret "
+        "that as ignoring prior branches and PRs for the ticket and doing an "
+        "independent run on this selected branch/worktree."
+    )
+    directions = [direction]
+    if args.branch_version:
+        directions.append(
+            "The -v/--version option was used, so this is an intentional "
+            "alternate branch/worktree run. Do not drop the version suffix or "
+            "fall back to Linear's unsuffixed branch name. Do not continue or "
+            "repair PRs from older versioned or unsuffixed branches unless the "
+            "user explicitly names that branch."
+        )
+    if args.branch:
+        directions.append(
+            "The --branch option was used, so preserve the exact branch name "
+            "chosen by the wrapper."
+        )
+    if args.worktree:
+        directions.append(
+            "The --worktree option was used, so preserve the exact worktree "
+            "chosen by the wrapper."
+        )
+    return directions
+
+
 def build_directions(
+    wrapper_directions: list[str],
     instructions: list[str],
     positional_directions: list[str],
 ) -> list[str]:
-    directions = [
+    directions = list(wrapper_directions)
+    directions.extend(
         instruction.strip()
         for instruction in instructions
         if instruction.strip()
-    ]
+    )
     directions.extend(positional_directions)
     return directions
 
@@ -449,7 +490,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         worktree_path = ensure_worktree(root, branch, args.base, worktree_path)
         ensure_ui_dependencies(worktree_path)
-    prompt = build_prompt(ticket, build_directions(args.instructions, args.directions))
+    prompt = build_prompt(
+        ticket,
+        build_directions(
+            build_wrapper_directions(branch, worktree_path, args),
+            args.instructions,
+            args.directions,
+        ),
+    )
     codex_cmd = [args.codex_bin, *codex_args(args), "-C", str(worktree_path), prompt]
 
     print(f"ticket: {ticket}", file=sys.stderr)

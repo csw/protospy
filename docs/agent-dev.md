@@ -50,6 +50,12 @@ The `just` recipe invokes `scripts/agents/codex-ticket`. That wrapper reads
 Linear, creates or reuses `.worktrees/<branch-slug>` on the ticket branch, then
 starts Codex in that worktree with `handle-ticket-inner`.
 
+The Codex `handle-ticket-inner` skill is generated from the Claude skill source
+with Codex-specific worktree/branch substitutions. For shared workflow changes,
+edit `.claude/skills/handle-ticket-inner/SKILL.md` and run
+`scripts/agents/sync-handle-ticket-inner-skill`; do not edit
+`.agents/skills/handle-ticket-inner/SKILL.md` directly.
+
 For alternative Codex branches or explicit worktree resumption, use the wrapper
 options:
 
@@ -59,6 +65,15 @@ just codex-ticket PRO-123 --version 2
 just codex-ticket PRO-123 --branch codex/pro-123-manual-alt
 just codex-ticket PRO-123 --worktree .worktrees/pro-123-manual-alt
 ```
+
+When `-v/--version`, `--branch`, or `--worktree` is used, that selected
+branch/worktree is authoritative for the run. The inner ticket workflow must not
+fall back to another branch or continue a PR from another branch unless the
+operator explicitly asks for that.
+If the operator says to start fresh, that means ignore prior branches and PRs
+for the ticket and proceed independently on the selected branch/worktree. Do not
+inspect or use other ticket-linked branches or PRs unless the operator
+explicitly names that branch or PR.
 
 Everything after the ticket that is not a wrapper option is passed to
 `handle-ticket-inner` as run-specific instructions. Use `-i/--instructions` for

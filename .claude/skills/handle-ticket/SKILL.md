@@ -43,5 +43,5 @@ GitHub integration links the PR. Do not pass `name` and do not run
 `.worktrees/<branch-name>` path is still accepted and normalized to the canonical
 location, but prefer `.claude/worktrees/`.
 
-After entering the worktree, continue in the same thread by following
+After entering the worktree, continue in the same thread by invoking
 `$handle-ticket-inner $ARGUMENTS`.

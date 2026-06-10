@@ -142,6 +142,13 @@ agents. When changing one of those agents, edit the `.claude/agents/*.md` source
 then run `scripts/agents/sync-codex-agents`; pre-commit checks that the generated
 Codex TOML stays in sync.
 
+The Codex `handle-ticket-inner` skill is generated from the Claude skill source
+plus Codex-specific worktree/branch fragments. Edit
+`.claude/skills/handle-ticket-inner/SKILL.md` for shared workflow changes, then
+run `scripts/agents/sync-handle-ticket-inner-skill`. Edit Codex-only dispatch
+behavior in `scripts/agents/codex-ticket` or the sync script, not directly in
+`.agents/skills/handle-ticket-inner/SKILL.md`.
+
 ## Agent Configuration
 
 Project-shared skills live under `.agents/skills/`; local/generated skills stay

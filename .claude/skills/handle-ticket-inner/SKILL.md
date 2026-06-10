@@ -3,7 +3,6 @@ name: handle-ticket-inner
 description: Internal execution workflow for handle-ticket. Use only after handle-ticket has entered the Claude Code ticket worktree; do not invoke directly from the main checkout.
 argument-hint: PRO-NNN [directions…]
 arguments: [ticket]
-disable-model-invocation: true
 ---
 
 Handle Linear ticket **$ticket** end-to-end from an already-entered Claude Code

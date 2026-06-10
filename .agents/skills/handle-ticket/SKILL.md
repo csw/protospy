@@ -90,6 +90,15 @@ just codex-ticket PRO-123 -v 2
 just codex-ticket PRO-123 --version 2
 ```
 
+When `-v/--version`, `--branch`, or `--worktree` selects a branch/worktree, that
+selection is authoritative for the run. The inner workflow must stay on that
+branch and must not continue, repair, push to, or create a PR from another
+ticket branch unless the user explicitly asks for that branch.
+If the user says to start fresh, that means ignore prior branches and PRs for
+the ticket and proceed independently on the selected branch/worktree. Do not
+inspect or use other ticket-linked branches or PRs unless the user explicitly
+names that branch or PR.
+
 To resume or create a manually named branch, pass it exactly:
 
 ```bash
