@@ -72,6 +72,9 @@ See the READMEs of the supporting components for their own specifics:
 - [conformance/README.md](conformance/README.md)
 - [ui/README.md](ui/README.md)
 
+Agent-assisted development workflows are documented in
+[docs/agent-dev.md](docs/agent-dev.md).
+
 ### Dependencies
 
 - Rust

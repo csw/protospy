@@ -66,10 +66,43 @@ the user:
 just codex-ticket $ARGUMENTS
 ```
 
-The wrapper `scripts/agents/codex-ticket` owns the Codex CLI dispatch: it reads
+The public entry point is `just codex-ticket`. It invokes the repo wrapper
+`scripts/agents/codex-ticket`, which owns the Codex CLI dispatch: it reads
 Linear, truncates Linear's branch name to 50 characters on a word boundary,
 creates or reuses `.worktrees/<branch-slug>` on that branch, then starts
 `codex -C <worktree> '$handle-ticket-inner $ARGUMENTS'`.
+
+Everything after the ticket that is not a wrapper option is passed through to
+`handle-ticket-inner` as run-specific directions. For longer or shell-sensitive
+directions, use `-i/--instructions` (repeatable):
+
+```bash
+just codex-ticket PRO-123 but skip the visual review
+just codex-ticket PRO-123 -i "skip the visual review"
+```
+
+To create or resume an alternative branch/worktree derived from Linear's branch,
+use `-v/--version`. This appends the version to the ticket branch while preserving
+the `PRO-NNN` prefix and 50-character branch limit:
+
+```bash
+just codex-ticket PRO-123 -v 2
+just codex-ticket PRO-123 --version 2
+```
+
+To resume or create a manually named branch, pass it exactly:
+
+```bash
+just codex-ticket PRO-123 --branch codex/pro-123-manual-alt
+```
+
+To enter a specific existing worktree path, pass `--worktree`. If the path
+already exists and no branch/version option is supplied, the wrapper uses that
+worktree's current branch:
+
+```bash
+just codex-ticket PRO-123 --worktree .worktrees/pro-123-manual-alt
+```
 
 Pass Codex launch options through the wrapper when needed. Use `--effort` for
 the common reasoning-effort case, or put raw Codex CLI args after `--`:
