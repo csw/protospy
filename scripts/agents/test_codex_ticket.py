@@ -86,6 +86,9 @@ class BranchNameTests(unittest.TestCase):
         self.assertEqual(args.directions, ["use", "comment", "2"])
         self.assertEqual(codex_ticket.codex_args(args), ["-c", "xyz=123"])
 
+    def test_ui_install_command_uses_root_just_recipe(self) -> None:
+        self.assertEqual(codex_ticket.ui_install_command(), ["just", "ui::install"])
+
 
 if __name__ == "__main__":
     unittest.main()

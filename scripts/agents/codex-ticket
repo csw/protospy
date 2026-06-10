@@ -158,6 +158,14 @@ def worktree_add_command(root: Path, branch: str, base: str, worktree_path: Path
     return ["git", "worktree", "add", "-b", branch, str(worktree_path), base]
 
 
+def ui_install_command() -> list[str]:
+    return ["just", "ui::install"]
+
+
+def ensure_ui_dependencies(worktree_path: Path) -> None:
+    run(ui_install_command(), cwd=worktree_path)
+
+
 def shell_join(argv: list[str]) -> str:
     return " ".join(shlex.quote(arg) for arg in argv)
 
@@ -292,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     worktree_path = resolve_worktree_path(root, branch, args.worktree_root)
     if not args.dry_run:
         worktree_path = ensure_worktree(root, branch, args.base, args.worktree_root)
+        ensure_ui_dependencies(worktree_path)
     prompt = build_prompt(ticket, args.directions)
     codex_cmd = [args.codex_bin, *codex_args(args), "-C", str(worktree_path), prompt]
 
@@ -302,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         git_cmd = worktree_add_command(root, branch, args.base, worktree_path)
         print(f"git: {shell_join(git_cmd)}", file=sys.stderr)
+        print(
+            f"ui install: (cd {shlex.quote(str(worktree_path))} && "
+            f"{shell_join(ui_install_command())})",
+            file=sys.stderr,
+        )
     print(f"codex: {shell_join(codex_cmd)}", file=sys.stderr)
 
     if args.dry_run:

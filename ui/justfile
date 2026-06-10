@@ -5,7 +5,7 @@ default: run
 
 # Ensure dependencies are installed (fast no-op when node_modules is current)
 install:
-    pnpm install --frozen-lockfile
+    pnpm install --frozen-lockfile --config.confirm-modules-purge=false
 
 # Run the UI dev server
 run: install

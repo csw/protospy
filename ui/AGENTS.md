@@ -73,6 +73,13 @@ costs more than getting it right the first time.
 
 ## Commands
 
+Before making any edit under `ui/` — source, tests, config, `package.json`,
+`pnpm-lock.yaml`, or docs — install dependencies for that checkout. From the
+repo root run `just ui::install`; equivalently, from `ui/` run `just install`.
+This is a required first step in fresh worktrees so TypeScript, Vitest, ESLint,
+Vite, and Playwright commands resolve the local dependency tree before you rely
+on them.
+
 ```bash
 pnpm dev             # start dev server
 pnpm build           # production build (output: dist/)
