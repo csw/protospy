@@ -7,5 +7,7 @@
 !/agents/visual-review.md
 /commands
 /settings.local.json
-/skills
+/skills/*
+!/skills/handle-ticket-inner/
+!/skills/handle-ticket-inner/**
 /scheduled_tasks.lock
