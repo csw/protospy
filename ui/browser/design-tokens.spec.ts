@@ -7,7 +7,7 @@
  * the v2 design comparison.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   injectExchanges,
   resetStore,
@@ -15,6 +15,7 @@ import {
   waitForStore,
 } from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
+import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -42,6 +43,42 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("design token fidelity", () => {
+  async function expectIndicatorToken(
+    page: Page,
+    label: string,
+    token: "--conn-open" | "--conn-connecting" | "--conn-down",
+  ) {
+    const labelEl = page.getByText(label, { exact: true }).first();
+    await expect(labelEl).toBeVisible();
+
+    const styles = await page
+      .locator('[data-testid="indicator-dot"]')
+      .first()
+      .evaluate((dot, tokenName) => {
+        const probe = document.createElement("div");
+        document.body.appendChild(probe);
+
+        probe.style.backgroundColor = `var(${tokenName})`;
+        const expectedBackground = getComputedStyle(probe).backgroundColor;
+        const actualBackground = getComputedStyle(dot).backgroundColor;
+
+        probe.style.color = `var(${tokenName})`;
+        const expectedText = getComputedStyle(probe).color;
+        const actualText = getComputedStyle(dot.parentElement!).color;
+
+        probe.remove();
+        return {
+          actualBackground,
+          actualText,
+          expectedBackground,
+          expectedText,
+        };
+      }, token);
+
+    expect(styles.actualBackground).toBe(styles.expectedBackground);
+    expect(styles.actualText).toBe(styles.expectedText);
+  }
+
   test("method badge uses mono font at correct weight and border-radius", async ({
     page,
   }) => {
@@ -129,6 +166,21 @@ test.describe("design token fidelity", () => {
       (el) => getComputedStyle(el).borderRadius,
     );
     expect(borderRadius).toBe("4px");
+  });
+
+  test("stream live indicators resolve connection tokens in browser CSS", async ({
+    page,
+  }) => {
+    await waitForSceneHarness(page);
+
+    await applyScene(page, "stream-live");
+    await expectIndicatorToken(page, "live", "--conn-open");
+
+    await page.getByLabel("Pause stream").click();
+    await expectIndicatorToken(page, "paused", "--conn-connecting");
+
+    await applyScene(page, "stream-anthropic-error");
+    await expectIndicatorToken(page, "disconnected", "--conn-down");
   });
 });
 
