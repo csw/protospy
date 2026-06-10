@@ -30,7 +30,10 @@ export function StatusBar() {
     <div className="flex items-center h-[24px] bg-bg-sub border-t border-border px-2 gap-2 shrink-0">
       {/* Connection dot + text */}
       {connectionDot(connection)}
-      <span className="font-mono text-xs text-dim">
+      <span
+        data-testid="connection-status"
+        className="font-mono text-xs text-dim"
+      >
         {connectionText(connection)}
       </span>
 
