@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""Start a Codex CLI ticket run in an isolated Git worktree."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import unicodedata
+from pathlib import Path
+
+
+MAX_BRANCH_LEN = 50
+DEFAULT_WORKTREE_ROOT = ".worktrees"
+
+
+def run(
+    argv: list[str],
+    *,
+    cwd: Path | None = None,
+    capture: bool = False,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        argv,
+        cwd=cwd,
+        check=check,
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.PIPE if capture else None,
+    )
+
+
+def repo_root() -> Path:
+    result = run(["git", "rev-parse", "--show-toplevel"], capture=True)
+    return Path(result.stdout.strip())
+
+
+def fetch_issue(ticket: str) -> dict:
+    result = run(["linear", "issue", "view", ticket, "--json"], capture=True)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"linear returned invalid JSON: {exc}") from exc
+
+
+def slugify(text: str) -> str:
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.decode().lower())
+    return slug.strip("-") or "ticket"
+
+
+def fallback_branch_name(ticket: str, title: str) -> str:
+    return f"codex/{ticket.lower()}-{slugify(title)}"
+
+
+def truncate_branch_name(
+    branch: str,
+    ticket: str,
+    *,
+    max_len: int = MAX_BRANCH_LEN,
+) -> str:
+    if len(branch) <= max_len:
+        return branch
+
+    marker = f"{ticket.lower()}-"
+    marker_index = branch.lower().find(marker)
+    if marker_index == -1:
+        return truncate_at_word_boundary(branch, max_len)
+
+    prefix_end = marker_index + len(marker)
+    prefix = branch[:prefix_end]
+    slug = branch[prefix_end:]
+    if len(prefix) >= max_len:
+        raise ValueError(
+            f"branch prefix {prefix!r} is already {len(prefix)} characters; "
+            f"cannot keep it intact under {max_len}"
+        )
+
+    available = max_len - len(prefix)
+    truncated_slug = truncate_at_word_boundary(slug, available)
+    if not truncated_slug:
+        return prefix.rstrip("-")
+    return prefix + truncated_slug
+
+
+def truncate_at_word_boundary(text: str, max_len: int) -> str:
+    text = text.strip("-")
+    if len(text) <= max_len:
+        return text
+
+    raw_candidate = text[:max_len]
+    candidate = raw_candidate.rstrip("-")
+    if raw_candidate.endswith("-") or text[max_len] == "-":
+        return candidate
+    if "-" not in candidate:
+        return ""
+    return candidate.rsplit("-", 1)[0].rstrip("-")
+
+
+def path_slug(branch: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-")
+
+
+def local_branch_exists(root: Path, branch: str) -> bool:
+    result = run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        cwd=root,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def resolve_worktree_path(root: Path, branch: str, worktree_root: str) -> Path:
+    worktree_base = Path(worktree_root)
+    if not worktree_base.is_absolute():
+        worktree_base = root / worktree_base
+    return worktree_base / path_slug(branch)
+
+
+def current_branch(path: Path) -> str:
+    result = run(["git", "branch", "--show-current"], cwd=path, capture=True)
+    return result.stdout.strip()
+
+
+def ensure_worktree(root: Path, branch: str, base: str, worktree_root: str) -> Path:
+    worktree_path = resolve_worktree_path(root, branch, worktree_root)
+
+    if worktree_path.exists():
+        if not worktree_path.is_dir():
+            raise SystemExit(f"worktree path exists but is not a directory: {worktree_path}")
+        actual_branch = current_branch(worktree_path)
+        if actual_branch != branch:
+            raise SystemExit(
+                f"worktree path already exists on branch {actual_branch!r}, "
+                f"not {branch!r}: {worktree_path}"
+            )
+        return worktree_path
+
+    worktree_path.parent.mkdir(parents=True, exist_ok=True)
+    if local_branch_exists(root, branch):
+        run(["git", "worktree", "add", str(worktree_path), branch], cwd=root)
+    else:
+        run(["git", "worktree", "add", "-b", branch, str(worktree_path), base], cwd=root)
+    return worktree_path
+
+
+def worktree_add_command(root: Path, branch: str, base: str, worktree_path: Path) -> list[str]:
+    if worktree_path.exists():
+        return ["git", "-C", str(worktree_path), "status", "--short"]
+    if local_branch_exists(root, branch):
+        return ["git", "worktree", "add", str(worktree_path), branch]
+    return ["git", "worktree", "add", "-b", branch, str(worktree_path), base]
+
+
+def shell_join(argv: list[str]) -> str:
+    return " ".join(shlex.quote(arg) for arg in argv)
+
+
+def build_prompt(ticket: str, directions: list[str]) -> str:
+    suffix = " ".join(directions).strip()
+    if suffix:
+        return f"$handle-ticket-inner {ticket} {suffix}"
+    return f"$handle-ticket-inner {ticket}"
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Fetch a Linear issue, create or reuse an isolated Git worktree on "
+            "Linear's branch name, then launch Codex CLI in that worktree."
+        )
+    )
+    parser.add_argument("--base", default="HEAD", help="base ref for new branches")
+    parser.add_argument(
+        "--worktree-root",
+        default=DEFAULT_WORKTREE_ROOT,
+        help="directory for Git worktrees, relative to the repo root by default",
+    )
+    parser.add_argument(
+        "--codex-bin",
+        default=os.environ.get("CODEX_BIN", "codex"),
+        help="Codex executable to launch",
+    )
+    parser.add_argument(
+        "--codex-arg",
+        action="append",
+        default=[],
+        help="extra argument passed to Codex before -C; repeat for multiple args",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the worktree and Codex command without launching Codex",
+    )
+    parser.add_argument("ticket", help="Linear issue identifier, e.g. PRO-123")
+    parser.add_argument(
+        "directions",
+        nargs=argparse.REMAINDER,
+        help="optional extra directions appended to the handle-ticket-inner prompt",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    ticket = args.ticket.upper()
+    root = repo_root()
+    issue = fetch_issue(ticket)
+
+    title = str(issue.get("title") or ticket)
+    raw_branch = str(issue.get("branchName") or "").strip()
+    branch = raw_branch or fallback_branch_name(ticket, title)
+    branch = truncate_branch_name(branch, ticket)
+
+    worktree_path = resolve_worktree_path(root, branch, args.worktree_root)
+    if not args.dry_run:
+        worktree_path = ensure_worktree(root, branch, args.base, args.worktree_root)
+    prompt = build_prompt(ticket, args.directions)
+    codex_cmd = [args.codex_bin, *args.codex_arg, "-C", str(worktree_path), prompt]
+
+    print(f"ticket: {ticket}", file=sys.stderr)
+    print(f"title: {title}", file=sys.stderr)
+    print(f"branch: {branch}", file=sys.stderr)
+    print(f"worktree: {worktree_path}", file=sys.stderr)
+    if args.dry_run:
+        git_cmd = worktree_add_command(root, branch, args.base, worktree_path)
+        print(f"git: {shell_join(git_cmd)}", file=sys.stderr)
+    print(f"codex: {shell_join(codex_cmd)}", file=sys.stderr)
+
+    if args.dry_run:
+        return 0
+
+    os.execvp(args.codex_bin, codex_cmd)
+    return 127
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

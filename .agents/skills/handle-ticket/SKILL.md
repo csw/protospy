@@ -11,6 +11,11 @@ thread, then run `$handle-ticket-inner $ARGUMENTS` there. This public skill owns
 placement and harness setup. The inner skill owns implementation, verification,
 commit, PR, review, and close-out.
 
+In Codex CLI, the preferred public entry point is
+`just codex-ticket $ARGUMENTS`. That wrapper creates the Git worktree and starts
+a fresh Codex CLI session inside it. If this skill is invoked directly from the
+main checkout, stop with that command instead of implementing in place.
+
 Read `docs/agents/prompt-authoring.md` only if you modify this skill. For normal
 ticket execution, the implementation guide is read by `handle-ticket-inner`.
 
@@ -32,39 +37,41 @@ Linear does not return a usable branch name, use
 
 ## 2 — Dispatch by harness
 
-### Codex
+### Codex CLI
 
-Ticket implementation must run in a Codex app worktree-backed thread.
+Ticket implementation must run in a linked Git worktree on the ticket branch.
 
-If this thread is already running in a Codex app worktree, continue in this
-thread by following `$handle-ticket-inner $ARGUMENTS`. If the app UI does not
-make the environment obvious, use Git's worktree metadata to distinguish a
-linked worktree from the main/local checkout.
+If this session is already running in a linked Git worktree, continue in this
+session by following `$handle-ticket-inner $ARGUMENTS`. Use Git's worktree
+metadata to distinguish a linked worktree from the main/local checkout:
 
-If this thread is not running in a Codex app worktree, create a worktree-backed
-thread and continue there:
+```bash
+git rev-parse --show-toplevel
+git rev-parse --git-dir
+git rev-parse --git-common-dir
+git worktree list --porcelain
+```
 
-- If `create_thread`, `fork_thread`, or `send_message_to_thread` is needed but
-  not currently callable, use `tool_search` to expose the thread tool first.
-- Prefer `create_thread` when the current Codex project id is available: create
-  a project thread with `target.environment.type = "worktree"`,
-  `startingState = { type: "working-tree" }`, and prompt it to run
-  `$handle-ticket-inner $ARGUMENTS`.
-- Otherwise use `fork_thread` with `environment: { type: "worktree",
-  startingState: { type: "working-tree" } }`.
-- Do not use the ticket branch as the worktree `startingState` unless that
-  branch already exists and the directions say to reuse it. The inner skill
-  creates or checks out the ticket branch inside the worktree.
-- If `fork_thread` returns a child `threadId`, immediately call
-  `send_message_to_thread` with a prompt to run `$handle-ticket-inner
-  $ARGUMENTS`.
-- If worktree setup is pending and no child `threadId` is available yet, stop
-  work in this thread and tell the user to continue in the created
-  worktree-backed thread with `$handle-ticket-inner $ARGUMENTS`.
+In a linked worktree, `git rev-parse --git-dir` differs from
+`git rev-parse --git-common-dir`.
 
-Do not fall back to implementing in the main/local checkout. Do not assume a
-fixed filesystem path such as `.Codex/worktrees/`, and do not run
-`git worktree add` yourself.
+If this session is in the main/local checkout, do not create a worktree from
+inside the active Codex turn and do not launch a nested Codex TUI. Stop and tell
+the user:
+
+- the ticket title, URL, and branch name you fetched;
+- to run this from a normal shell:
+
+```bash
+just codex-ticket $ARGUMENTS
+```
+
+The wrapper `scripts/agents/codex-ticket` owns the Codex CLI dispatch: it reads
+Linear, truncates Linear's branch name to 50 characters on a word boundary,
+creates or reuses `.worktrees/<branch-slug>` on that branch, then starts
+`codex -C <worktree> '$handle-ticket-inner $ARGUMENTS'`.
+
+Do not fall back to implementing in the main/local checkout.
 
 ### Claude Code
 

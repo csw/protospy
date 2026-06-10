@@ -66,6 +66,10 @@ coverage:
 audit:
     cargo audit
 
+# Start Codex CLI on a Linear ticket branch in an isolated Git worktree
+codex-ticket +args:
+    @scripts/agents/codex-ticket {{args}}
+
 # Dry-run: build UI, package crate, but don't upload
 publish-dry-run: ui::build
     cargo publish --dry-run
