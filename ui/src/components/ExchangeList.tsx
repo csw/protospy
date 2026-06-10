@@ -13,6 +13,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { cn, matchesFilter } from "@ui/lib/utils";
 import { ExchangeTable } from "./protospy/exchange-table";
 import { ExchangeRow } from "./protospy/exchange-row";
+import { GroupedExchangeList } from "./protospy/trace-group";
 import { ListEmptyState } from "./ListEmptyState";
 
 export function ExchangeList() {
@@ -22,6 +23,8 @@ export function ExchangeList() {
   const setSelectedId = useStore((s) => s.setSelectedId);
   const filter = useStore((s) => s.filter);
   const traceFilter = useStore((s) => s.traceFilter);
+  const setTraceFilter = useStore((s) => s.setTraceFilter);
+  const setHoverTraceId = useStore((s) => s.setHoverTraceId);
   const order = useStore((s) => s.order);
   const setOrder = useStore((s) => s.setOrder);
   const density = useStore((s) => s.density);
@@ -229,7 +232,25 @@ export function ExchangeList() {
           column headers stay visible (matching the prior table behaviour); the
           empty-state message renders inside it. Rows mode shows the empty state
           in place of the list. */}
-      {listMode === "table" ? (
+      {traceGroupOn ? (
+        /* Grouped-by-trace display mode — its own presentation, independent of
+           rows/table. Multi-member traces collapse into TraceGroup cards;
+           singletons stay flat at their position. Fed the same filtered+ordered
+           list off the existing traceId/visible-id selectors (no parallel
+           grouping path). */
+        ordered.length === 0 ? (
+          <ListEmptyState filtered={!!(filter || traceFilter)} />
+        ) : (
+          <GroupedExchangeList
+            exchanges={ordered}
+            selectedId={selectedId}
+            tz={timeZone}
+            onSelect={setSelectedId}
+            onHoverTrace={setHoverTraceId}
+            onFilterTrace={setTraceFilter}
+          />
+        )
+      ) : listMode === "table" ? (
         <ExchangeTable
           exchanges={ordered}
           selectedId={selectedId}

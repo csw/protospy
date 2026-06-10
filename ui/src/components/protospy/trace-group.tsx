@@ -69,6 +69,7 @@ export function TraceGroup({
         <button
           type="button"
           onClick={() => onFilterTrace?.(traceId)}
+          aria-label={`Filter to trace ${shortTraceId(traceId)}`}
           className="hover:text-foreground"
         >
           trace {shortTraceId(traceId)}
@@ -77,7 +78,6 @@ export function TraceGroup({
           · {members.length} requests
         </span>
         <span>· {fmtMs(total)} total</span>
-        <span className="ml-auto">{members.length} in trace</span>
       </div>
 
       {open && (
@@ -117,12 +117,19 @@ export function GroupedExchangeList({
   onHoverTrace,
   onFilterTrace,
 }: GroupedExchangeListProps) {
-  const counts = new Map<string, number>();
-  for (const x of exchanges)
-    if (x.traceId) counts.set(x.traceId, (counts.get(x.traceId) ?? 0) + 1);
+  // Single O(n) pass collecting each trace's members in list order. Reused for
+  // both the multi-member test and the per-card member list, so no trace is
+  // re-scanned with a nested filter.
+  const byTrace = new Map<string, Exchange[]>();
+  for (const x of exchanges) {
+    if (x.traceId == null) continue;
+    const arr = byTrace.get(x.traceId);
+    if (arr) arr.push(x);
+    else byTrace.set(x.traceId, [x]);
+  }
 
   const isGrouped = (x: Exchange) =>
-    x.traceId != null && (counts.get(x.traceId) ?? 0) > 1;
+    x.traceId != null && (byTrace.get(x.traceId)?.length ?? 0) > 1;
   const seen = new Set<string>();
 
   return (
@@ -134,7 +141,7 @@ export function GroupedExchangeList({
         if (isGrouped(x)) {
           if (seen.has(x.traceId!)) return null; // members rendered inside the card
           seen.add(x.traceId!);
-          const members = exchanges.filter((m) => m.traceId === x.traceId);
+          const members = byTrace.get(x.traceId!)!;
           return (
             <TraceGroup
               key={`g-${x.traceId}`}
