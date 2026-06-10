@@ -6,6 +6,7 @@ import {
   usePanelRef,
   type PanelSize,
 } from "react-resizable-panels";
+import { toast } from "sonner";
 
 import { useStore } from "@ui/state/store";
 import { fetchInfo } from "@ui/api/info";
@@ -98,7 +99,14 @@ export function AppShell() {
     const cleanup = subscribeToEvents(
       service,
       (msg) => applyEvent(msg),
-      (status) => setConnection(status),
+      (status) => {
+        setConnection(status);
+        if (status === "open") {
+          toast.success(`Connected to ${service}`);
+        } else if (status === "reconnecting") {
+          toast.error(`Connection lost. Retrying ${service}...`);
+        }
+      },
     );
 
     return cleanup;

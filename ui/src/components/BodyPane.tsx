@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import type { BodyState } from "@ui/state/reducer";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import { formatSize } from "@ui/lib/utils";
-import { CopyButton } from "./CopyButton";
+import { CopyButton } from "./ui/copy-button";
 import { StreamErrorBanner } from "./StreamErrorBanner";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
 import { EmptyState } from "./ui/EmptyState";

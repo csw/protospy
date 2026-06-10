@@ -1,14 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { CopyButton } from "@ui/components/CopyButton";
+import { toast } from "sonner";
+import { CopyButton } from "@ui/components/ui/copy-button";
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 describe("CopyButton", () => {
   let mockWriteText: ReturnType<typeof vi.fn>;
+
+  async function flushClipboard() {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
 
   beforeEach(() => {
     mockWriteText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText: mockWriteText } });
     vi.useFakeTimers();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
   });
 
   afterEach(() => {
@@ -33,63 +49,68 @@ describe("CopyButton", () => {
     expect(mockWriteText).toHaveBeenCalledWith("hello world");
   });
 
-  it("shows 'Copied!' immediately after click", () => {
+  it("shows copied feedback and emits a success toast after copy succeeds", async () => {
     render(<CopyButton text="hello" />);
     fireEvent.click(screen.getByRole("button"));
-    expect(screen.getByRole("button").textContent).toBe("Copied!");
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(toast.success).toHaveBeenCalledWith("Copied to clipboard");
   });
 
   it("reverts to 'Copy' after 2 seconds", async () => {
     render(<CopyButton text="hello" />);
     fireEvent.click(screen.getByRole("button"));
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
     await act(async () => {
       vi.advanceTimersByTime(2000);
     });
-    expect(screen.getByRole("button").textContent).toBe("Copy");
+    expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
   });
 
   it("rapid double-click collapses into one 'Copied!' cycle", async () => {
     render(<CopyButton text="hello" />);
     const btn = screen.getByRole("button");
     fireEvent.click(btn);
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
     // First click sets the state and a timer; advance partway through it.
     await act(async () => {
       vi.advanceTimersByTime(500);
     });
-    expect(btn.textContent).toBe("Copied!");
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
     // Second click should clear the previous timer and start a new one.
     fireEvent.click(btn);
-    expect(btn.textContent).toBe("Copied!");
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
     expect(mockWriteText).toHaveBeenCalledTimes(2);
     // Only one timer is pending — advancing by 2000ms reverts to "Copy".
     await act(async () => {
       vi.advanceTimersByTime(1999);
     });
-    expect(btn.textContent).toBe("Copied!");
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
     await act(async () => {
       vi.advanceTimersByTime(1);
     });
-    expect(btn.textContent).toBe("Copy");
+    expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
   });
 
-  it("reverts to 'Copy' when clipboard.writeText rejects", async () => {
+  it("reverts to 'Copy' and emits an error toast when clipboard.writeText rejects", async () => {
     mockWriteText.mockRejectedValueOnce(new Error("denied"));
     render(<CopyButton text="hello" />);
     const btn = screen.getByRole("button");
     fireEvent.click(btn);
-    // Optimistically flips to "Copied!" synchronously.
-    expect(btn.textContent).toBe("Copied!");
-    // After the rejection microtask flushes, state reverts to "Copy".
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(btn.textContent).toBe("Copy");
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeVisible();
+    expect(toast.error).toHaveBeenCalledWith("Could not copy to clipboard");
   });
 
   it("cleans up timer on unmount without warnings or errors", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { unmount } = render(<CopyButton text="hello" />);
     fireEvent.click(screen.getByRole("button"));
+    await flushClipboard();
+    expect(toast.success).toHaveBeenCalled();
     unmount();
     // Advancing timers after unmount should not trigger any callbacks
     // that touch unmounted component state.
@@ -100,7 +121,7 @@ describe("CopyButton", () => {
     errorSpy.mockRestore();
   });
 
-  it("triggers copy flow on keyboard activation (Enter)", () => {
+  it("triggers copy flow on keyboard activation (Enter)", async () => {
     render(<CopyButton text="keyboard" />);
     const btn = screen.getByRole("button") as HTMLButtonElement;
     btn.focus();
@@ -108,10 +129,11 @@ describe("CopyButton", () => {
     fireEvent.keyDown(btn, { key: "Enter", code: "Enter" });
     fireEvent.click(btn);
     expect(mockWriteText).toHaveBeenCalledWith("keyboard");
-    expect(btn.textContent).toBe("Copied!");
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
   });
 
-  it("triggers copy flow on keyboard activation (Space)", () => {
+  it("triggers copy flow on keyboard activation (Space)", async () => {
     render(<CopyButton text="space" />);
     const btn = screen.getByRole("button") as HTMLButtonElement;
     btn.focus();
@@ -120,6 +142,7 @@ describe("CopyButton", () => {
     fireEvent.keyUp(btn, { key: " ", code: "Space" });
     fireEvent.click(btn);
     expect(mockWriteText).toHaveBeenCalledWith("space");
-    expect(btn.textContent).toBe("Copied!");
+    await flushClipboard();
+    expect(screen.getByRole("button", { name: "Copied" })).toBeVisible();
   });
 });
