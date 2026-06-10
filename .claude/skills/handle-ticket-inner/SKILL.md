@@ -234,6 +234,22 @@ Up to three reviews can run here. The code review always runs; the convention
 review and the design-system-conformance review each run when the diff touches
 UI styling/component source — they share one trigger (step 7b's diff check).
 
+### Subagent startup failures
+
+Every review whose trigger fires is required for the round. If a required
+typed reviewer fails to start, crashes, or returns empty output, first retry
+once after correcting any obvious spawn parameter problem. If the typed reviewer
+still fails for a tool-level reason, try once to spawn a general-purpose
+subagent with the same review prompt and explicit instructions to follow the
+matching agent definition under `.claude/agents/<name>.md`.
+
+If no real review output exists after that fallback, **stop the workflow before
+step 8** and present the blocker in-session with the exact error and which
+required review is missing. Do not write partial review reports, synthesize,
+post the review-triage Linear comment, move to step 10, or mark the PR ready
+until all required review outputs for the round exist or the user explicitly
+changes the workflow.
+
 ### Maintainer review instructions (relay if present)
 
 Before spawning the reviews, check the ticket description (fetched in step 1)
@@ -332,9 +348,9 @@ to the visual sweep. See `.claude/agents/design-system-conformance-review.md`.
 Skip 7c on the **same condition** as 7b — when the diff matches none of those
 paths, there is no UI styling/component surface to check against the spec.
 
-Wait for all (two or three) subagents to finish. Capture each one's complete
-output. If a subagent fails or returns empty, note it and continue — the other
-reviews still stand.
+Wait for all required subagents to finish. Capture each one's complete output.
+Apply the startup-failure rule above to any failed or empty result; partial
+review coverage is a blocker, not a successful round.
 
 ---
 
@@ -432,6 +448,10 @@ It reads this round's review reports written to Obsidian in step 8 and returns
 a single merged triage: deduplicated, with same-root-cause findings linked
 ("one fix resolves both"), conflicts surfaced, and everything re-ranked
 blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
+If synthesis fails or returns empty, retry once after correcting any obvious
+spawn parameter problem. If it still fails, stop and present the synthesis
+blocker in-session; do not hand-roll a replacement synthesis or proceed to step
+9b unless the user explicitly changes the workflow.
 
 **Persist the synthesis.** The subagent is read-only, so write its returned
 triage **verbatim** to this round's `synthesis` path (from the step-8
@@ -465,15 +485,19 @@ close-out summary comment in step 10: that one records what shipped; this one re
 the review findings and the decision still to be made.
 
 Then invite the user to discuss: which findings to act on, which to push back
-on, what to do next. Continue the conversation as long as the user wants.
+on, what to do next. **Stop here and wait for the user's explicit direction.**
+Posting the Linear comment is not approval to continue. Do not enter step 10,
+edit files, push fixes, mark the PR ready, close out, or run another review
+round until the user says what to do with the presented findings.
 
 ---
 
 ## 10 — Address findings, then loop or close out
 
-Make any changes the user wants to address from the review. You are still in
-the worktree, so changes go directly on the branch. Commit and push each batch
-of fixes; the open PR picks them up automatically.
+Start this step only after the user has responded to the step-9 triage with
+explicit direction. Make any changes the user wants to address from the review.
+You are still in the worktree, so changes go directly on the branch. Commit and
+push each batch of fixes; the open PR picks them up automatically.
 
 This is the **revise half of the review cycle**. After pushing fixes there are
 two ways forward:

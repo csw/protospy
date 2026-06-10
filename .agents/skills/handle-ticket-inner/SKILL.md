@@ -113,11 +113,12 @@ Use `/pm:capture` for genuinely separate discoveries.
 
 **Getting unstuck.** If you have made two unsuccessful attempts at the same
 problem, or repeated the same approach without new information, stop and spawn a
-`general-purpose` subagent (Opus model, high effort) via the Agent tool for a
-fresh perspective. Brief it on what you've tried and what's not working. A
-count-based trigger fires reliably — don't wait to "feel stuck." A second set of
-eyes on a stuck problem is almost always faster than continuing to iterate in
-the same direction.
+`general-purpose` subagent via the Agent tool for a fresh perspective. Use the
+stronger harness-native setting for this diagnostic pass: Claude Code should use
+Opus/high effort; Codex should use `gpt-5.5` with high or xhigh reasoning.
+Brief it on what you've tried and what's not working. A count-based trigger
+fires reliably — don't wait to "feel stuck." A second set of eyes on a stuck
+problem is almost always faster than continuing to iterate in the same direction.
 
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
@@ -149,17 +150,20 @@ through the Playwright CLI and report back whether the change holds together.
 doesn't collide with anything the user is running, and note the URL. Run it in
 the background (e.g. `pnpm dev --port <port>` from `ui/`).
 
-**Spawn a `general-purpose` subagent on Sonnet** (`model: sonnet`). Tell it to
+**Spawn a `general-purpose` subagent on the lighter harness-native model.** In
+Claude Code, use Sonnet (`model: sonnet`). In Codex, do **not** pass Claude model
+names; use a lighter Codex override such as `model: gpt-5.4-mini` with medium
+reasoning, or omit the model override if the tool cannot accept one. Tell it to
 drive the browser via the `playwright-cli` skill (it invokes the skill itself);
 the prompt below is self-contained, so it needs no UI-specific preloading beyond
-`ui/AGENTS.md`, which it loads on reading any `ui/` file. Use Sonnet, not Opus:
-eyeballing a rendered
-change is not Opus-grade reasoning, and screenshots are token-heavy (~1.5k each),
-so the cheaper model keeps this check inexpensive — the same reason the
-`visual-review` agent is pinned to Sonnet. This is still the *lightweight* path:
-a quick interactive eyeball, deliberately *not* the heavyweight `visual-review`
-agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
-components/views your change touched and the dev-server URL:
+`ui/AGENTS.md`, which it loads on reading any `ui/` file. Eyeballing a rendered
+change is not frontier-model reasoning, and screenshots are token-heavy (~1.5k
+each), so the cheaper model keeps this check inexpensive — the same reason the
+`visual-review` agent is pinned to Sonnet in Claude. This is still the
+*lightweight* path: a quick interactive eyeball, deliberately *not* the
+heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a prompt
+of this shape, naming the components/views your change touched and the
+dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the
@@ -240,6 +244,31 @@ that `N`.
 Up to three reviews can run here. The code review always runs; the convention
 review and the design-system-conformance review each run when the diff touches
 UI styling/component source — they share one trigger (step 7b's diff check).
+
+### Subagent model selection and startup failures
+
+Use harness-native model names only. Claude Code agent definitions may pin
+review agents to Sonnet; that is Claude-specific. In Codex, never pass
+`sonnet`, `opus`, or any Claude model name as a `model` override. Omit `model`
+to inherit the current Codex model, or use a Codex model override such as
+`gpt-5.4-mini` for lightweight read-only UI checks when the tool accepts one.
+
+Every review whose trigger fires is required for the round. If a required
+typed reviewer fails to start, crashes, or returns empty output, first retry
+once after correcting any obvious spawn parameter problem: remove Claude-only
+model names in Codex, and prefer omitting both `model` and `service_tier` if an
+explicit supported Codex model still fails. If the typed reviewer still fails
+for a tool-level reason, try once to spawn a default/general-purpose subagent
+with the same review prompt and explicit instructions to follow the matching
+agent definition (`.codex/agents/<name>.toml` in Codex,
+`.claude/agents/<name>.md` in Claude).
+
+If no real review output exists after that fallback, **stop the workflow before
+step 8** and present the blocker in-session with the exact error and which
+required review is missing. Do not write partial review reports, synthesize,
+post the review-triage Linear comment, move to step 10, or mark the PR ready
+until all required review outputs for the round exist or the user explicitly
+changes the workflow.
 
 ### Maintainer review instructions (relay if present)
 
@@ -339,9 +368,9 @@ to the visual sweep. See `.codex/agents/design-system-conformance-review.toml`.
 Skip 7c on the **same condition** as 7b — when the diff matches none of those
 paths, there is no UI styling/component surface to check against the spec.
 
-Wait for all (two or three) subagents to finish. Capture each one's complete
-output. If a subagent fails or returns empty, note it and continue — the other
-reviews still stand.
+Wait for all required subagents to finish. Capture each one's complete output.
+Apply the startup-failure rule above to any failed or empty result; partial
+review coverage is a blocker, not a successful round.
 
 ---
 
@@ -439,6 +468,10 @@ It reads this round's review reports written to Obsidian in step 8 and returns
 a single merged triage: deduplicated, with same-root-cause findings linked
 ("one fix resolves both"), conflicts surfaced, and everything re-ranked
 blocking vs. advisory on one scale. See `.codex/agents/review-synthesis.toml`.
+If synthesis fails or returns empty, retry once after correcting any obvious
+spawn parameter problem. If it still fails, stop and present the synthesis
+blocker in-session; do not hand-roll a replacement synthesis or proceed to step
+9b unless the user explicitly changes the workflow.
 
 **Persist the synthesis.** The subagent is read-only, so write its returned
 triage **verbatim** to this round's `synthesis` path (from the step-8
@@ -470,15 +503,19 @@ in addition to the close-out summary comment in step 10: that one records what
 shipped; this one records the review findings and the decision still to be made.
 
 Then invite the user to discuss: which findings to act on, which to push back
-on, what to do next. Continue the conversation as long as the user wants.
+on, what to do next. **Stop here and wait for the user's explicit direction.**
+Posting the Linear comment is not approval to continue. Do not enter step 10,
+edit files, push fixes, mark the PR ready, close out, or run another review
+round until the user says what to do with the presented findings.
 
 ---
 
 ## 10 — Address findings, then loop or close out
 
-Make any changes the user wants to address from the review. You are still in
-the worktree, so changes go directly on the branch. Commit and push each batch
-of fixes; the open PR picks them up automatically.
+Start this step only after the user has responded to the step-9 triage with
+explicit direction. Make any changes the user wants to address from the review.
+You are still in the worktree, so changes go directly on the branch. Commit and
+push each batch of fixes; the open PR picks them up automatically.
 
 This is the **revise half of the review cycle**. After pushing fixes there are
 two ways forward:
