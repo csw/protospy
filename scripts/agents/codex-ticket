@@ -16,6 +16,7 @@ from pathlib import Path
 
 MAX_BRANCH_LEN = 50
 DEFAULT_WORKTREE_ROOT = ".worktrees"
+EFFORT_LEVELS = ("minimal", "low", "medium", "high", "xhigh")
 
 
 def run(
@@ -161,6 +162,17 @@ def shell_join(argv: list[str]) -> str:
     return " ".join(shlex.quote(arg) for arg in argv)
 
 
+def codex_args(args: argparse.Namespace) -> list[str]:
+    result: list[str] = []
+    if args.model:
+        result.extend(["--model", args.model])
+    if args.effort:
+        result.extend(["-c", f'model_reasoning_effort="{args.effort}"'])
+    result.extend(args.codex_arg)
+    result.extend(args.codex_passthrough)
+    return result
+
+
 def build_prompt(ticket: str, directions: list[str]) -> str:
     suffix = " ".join(directions).strip()
     if suffix:
@@ -173,7 +185,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description=(
             "Fetch a Linear issue, create or reuse an isolated Git worktree on "
             "Linear's branch name, then launch Codex CLI in that worktree."
-        )
+        ),
+        add_help=False,
     )
     parser.add_argument("--base", default="HEAD", help="base ref for new branches")
     parser.add_argument(
@@ -187,6 +200,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Codex executable to launch",
     )
     parser.add_argument(
+        "--model",
+        help="Codex model to pass through as --model",
+    )
+    parser.add_argument(
+        "-e",
+        "--effort",
+        choices=EFFORT_LEVELS,
+        help="Codex reasoning effort; expands to -c model_reasoning_effort",
+    )
+    parser.add_argument(
         "--codex-arg",
         action="append",
         default=[],
@@ -197,13 +220,62 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="print the worktree and Codex command without launching Codex",
     )
-    parser.add_argument("ticket", help="Linear issue identifier, e.g. PRO-123")
-    parser.add_argument(
-        "directions",
-        nargs=argparse.REMAINDER,
-        help="optional extra directions appended to the handle-ticket-inner prompt",
-    )
-    return parser.parse_args(argv)
+    parser.add_argument("-h", "--help", action="store_true", help="show this help message")
+
+    recognized_with_values = {
+        "--base",
+        "--worktree-root",
+        "--codex-bin",
+        "--model",
+        "-e",
+        "--effort",
+        "--codex-arg",
+    }
+    recognized_flags = {"--dry-run", "-h", "--help"}
+
+    if "--" in argv:
+        delimiter_index = argv.index("--")
+        argv, codex_passthrough = argv[:delimiter_index], argv[delimiter_index + 1 :]
+    else:
+        codex_passthrough = []
+
+    option_args: list[str] = []
+    positional: list[str] = []
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+
+        if arg in recognized_flags:
+            option_args.append(arg)
+            index += 1
+            continue
+
+        if arg in recognized_with_values:
+            if index + 1 >= len(argv):
+                parser.error(f"argument {arg}: expected one argument")
+            option_args.extend([arg, argv[index + 1]])
+            index += 2
+            continue
+
+        if any(arg.startswith(f"{option}=") for option in recognized_with_values):
+            option_args.append(arg)
+            index += 1
+            continue
+
+        positional.append(arg)
+        index += 1
+
+    args = parser.parse_args(option_args)
+    if args.help:
+        parser.print_help()
+        raise SystemExit(0)
+    if not positional:
+        parser.error("missing Linear issue identifier, e.g. PRO-123")
+
+    args.ticket = positional[0]
+    args.directions = positional[1:]
+    args.codex_passthrough = codex_passthrough
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -221,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         worktree_path = ensure_worktree(root, branch, args.base, args.worktree_root)
     prompt = build_prompt(ticket, args.directions)
-    codex_cmd = [args.codex_bin, *args.codex_arg, "-C", str(worktree_path), prompt]
+    codex_cmd = [args.codex_bin, *codex_args(args), "-C", str(worktree_path), prompt]
 
     print(f"ticket: {ticket}", file=sys.stderr)
     print(f"title: {title}", file=sys.stderr)

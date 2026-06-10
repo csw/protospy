@@ -60,6 +60,32 @@ class BranchNameTests(unittest.TestCase):
             "$handle-ticket-inner PRO-136 follow comment 2",
         )
 
+    def test_effort_after_ticket_expands_to_codex_config(self) -> None:
+        args = codex_ticket.parse_args(["PRO-136", "--effort", "xhigh"])
+        self.assertEqual(args.ticket, "PRO-136")
+        self.assertEqual(args.directions, [])
+        self.assertEqual(
+            codex_ticket.codex_args(args),
+            ["-c", 'model_reasoning_effort="xhigh"'],
+        )
+
+    def test_short_effort_after_ticket_expands_to_codex_config(self) -> None:
+        args = codex_ticket.parse_args(["PRO-136", "-e", "high"])
+        self.assertEqual(args.ticket, "PRO-136")
+        self.assertEqual(args.directions, [])
+        self.assertEqual(
+            codex_ticket.codex_args(args),
+            ["-c", 'model_reasoning_effort="high"'],
+        )
+
+    def test_delimiter_passes_remaining_args_to_codex(self) -> None:
+        args = codex_ticket.parse_args(
+            ["PRO-136", "use", "comment", "2", "--", "-c", "xyz=123"]
+        )
+        self.assertEqual(args.ticket, "PRO-136")
+        self.assertEqual(args.directions, ["use", "comment", "2"])
+        self.assertEqual(codex_ticket.codex_args(args), ["-c", "xyz=123"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -71,6 +71,14 @@ Linear, truncates Linear's branch name to 50 characters on a word boundary,
 creates or reuses `.worktrees/<branch-slug>` on that branch, then starts
 `codex -C <worktree> '$handle-ticket-inner $ARGUMENTS'`.
 
+Pass Codex launch options through the wrapper when needed. Use `--effort` for
+the common reasoning-effort case, or put raw Codex CLI args after `--`:
+
+```bash
+just codex-ticket PRO-123 -e xhigh
+just codex-ticket PRO-123 -- -c model_reasoning_effort=\"xhigh\"
+```
+
 Do not fall back to implementing in the main/local checkout.
 
 ### Claude Code
