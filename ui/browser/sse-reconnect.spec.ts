@@ -115,6 +115,13 @@ test.describe("SSE reconnection", () => {
       "reconnecting",
     );
 
+    // The open → reconnecting transition fires the connection-lost toast
+    // through the real `sonner` host (PRO-366). First connect is silent, so
+    // this is the first toast to appear.
+    await expect(
+      page.getByText("Connection lost — reconnecting…"),
+    ).toBeVisible();
+
     // Release the parked second connection — onopen will fire briefly
     // before the body closes again.
     releaseSecond!();
@@ -131,6 +138,9 @@ test.describe("SSE reconnection", () => {
         { timeout: 5000 },
       )
       .toBeGreaterThanOrEqual(2);
+
+    // The reconnecting → open transition fires the recovery toast (PRO-366).
+    await expect(page.getByText("Reconnected")).toBeVisible();
 
     const transitions = await getLog();
 

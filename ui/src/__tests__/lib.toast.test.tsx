@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { toast } from "sonner";
 import {
-  connectionToast,
   notifyConnection,
   notifyCopied,
   notifyCopyFailed,
@@ -11,51 +10,23 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-describe("connectionToast (pure decision)", () => {
-  it("is silent on first connect (connecting → open, no prior reconnecting)", () => {
-    expect(connectionToast(null, "connecting")).toBeNull();
-    expect(connectionToast("connecting", "open")).toBeNull();
-  });
-
-  it("fires one error toast when the stream is lost", () => {
-    expect(connectionToast("open", "reconnecting")).toEqual({
-      kind: "error",
-      message: "Connection lost — reconnecting…",
-    });
-  });
-
-  it("does not re-toast on repeated reconnecting events", () => {
-    expect(connectionToast("reconnecting", "reconnecting")).toBeNull();
-  });
-
-  it("fires a success toast on recovery (reconnecting → open)", () => {
-    expect(connectionToast("reconnecting", "open")).toEqual({
-      kind: "success",
-      message: "Reconnected",
-    });
-  });
-
-  it("treats reconnecting from a null prior as a loss", () => {
-    expect(connectionToast(null, "reconnecting")).toEqual({
-      kind: "error",
-      message: "Connection lost — reconnecting…",
-    });
-  });
-});
-
 describe("toast emission wrappers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("notifyCopied fires a success toast", () => {
+  it("notifyCopied fires a success toast under the shared copy id", () => {
     notifyCopied();
-    expect(toast.success).toHaveBeenCalledWith("Copied to clipboard");
+    expect(toast.success).toHaveBeenCalledWith("Copied to clipboard", {
+      id: "copy-feedback",
+    });
   });
 
-  it("notifyCopyFailed fires an error toast", () => {
+  it("notifyCopyFailed fires an error toast under the shared copy id", () => {
     notifyCopyFailed();
-    expect(toast.error).toHaveBeenCalledWith("Couldn't copy to clipboard");
+    expect(toast.error).toHaveBeenCalledWith("Couldn't copy to clipboard", {
+      id: "copy-feedback",
+    });
   });
 
   it("notifyConnection emits the decided toast on a transition", () => {
