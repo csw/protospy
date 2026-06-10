@@ -59,6 +59,18 @@ Context7 or web search - both for how to use any tool, library, or API and for
 the conventional approach to common problems. Before proposing any approach that
 uses a well-known library for a well-known task, look it up first.
 
+## Prefer Off-the-Shelf Solutions
+
+For a commodity need - a copy-button, a rich-text editor, an XML parser, a date
+library, a virtualized list - adopt a standard, widely-used off-the-shelf
+component or library rather than building one. "It isn't in the framework core"
+(no shadcn/Radix primitive, no stdlib type) is not a reason to hand-roll: the
+wider ecosystem has almost certainly solved it, so the question is which proven
+option to adopt, not whether to build. Search for an existing component or
+library first (per Documentation above); reach for a bespoke implementation only
+when a real gap in what is available justifies it, and say so explicitly. Vet any
+adopted dependency per `docs/agents/dependencies.md`.
+
 ## Linear Tickets
 
 When your task references a Linear ticket (`PRO-NNN`), read that ticket and its
