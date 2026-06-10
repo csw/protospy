@@ -39,7 +39,7 @@ describe("LiveIndicator", () => {
     render(<LiveIndicator state="complete" />);
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
+    expect(dot).toHaveClass("bg-muted-foreground");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 
@@ -47,26 +47,26 @@ describe("LiveIndicator", () => {
     render(<LiveIndicator state="live" />);
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green");
+    expect(dot).toHaveClass("bg-conn-open");
     // Pulse is gated on prefers-reduced-motion via the motion-safe: variant.
     expect(dot).toHaveClass("motion-safe:animate-pulse");
   });
 
-  it("shows 'paused' with amber static dot", () => {
+  it("shows 'paused' with the connection-token static dot", () => {
     render(<LiveIndicator state="paused" />);
     expect(screen.getByText("paused")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-amber");
+    expect(dot).toHaveClass("bg-conn-connecting");
     expect(dot).not.toHaveClass("animate-pulse");
   });
 
-  it("shows 'disconnected' with red static dot", () => {
+  it("shows 'disconnected' with the connection-token static dot", () => {
     render(<LiveIndicator state="disconnected" />);
     expect(screen.getByText("disconnected")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-red");
+    expect(dot).toHaveClass("bg-conn-down");
     expect(dot).not.toHaveClass("animate-pulse");
-    expect(dot).not.toHaveClass("bg-green");
-    expect(dot).not.toHaveClass("bg-amber");
+    expect(dot).not.toHaveClass("bg-conn-open");
+    expect(dot).not.toHaveClass("bg-conn-connecting");
   });
 });

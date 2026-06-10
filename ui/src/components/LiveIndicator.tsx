@@ -30,14 +30,26 @@ const INDICATOR_CONFIG: Record<
   StreamState,
   { dot: string; text: string; label: string }
 > = {
-  disconnected: { dot: "bg-red", text: "text-red", label: "disconnected" },
-  complete: { dot: "bg-mid", text: "text-mid", label: "complete" },
+  disconnected: {
+    dot: "bg-conn-down",
+    text: "text-conn-down",
+    label: "disconnected",
+  },
+  complete: {
+    dot: "bg-muted-foreground",
+    text: "text-muted-foreground",
+    label: "complete",
+  },
   live: {
-    dot: "bg-green motion-safe:animate-pulse",
-    text: "text-green",
+    dot: "bg-conn-open motion-safe:animate-pulse",
+    text: "text-conn-open",
     label: "live",
   },
-  paused: { dot: "bg-amber", text: "text-amber", label: "paused" },
+  paused: {
+    dot: "bg-conn-connecting",
+    text: "text-conn-connecting",
+    label: "paused",
+  },
 };
 
 interface Props {
@@ -52,12 +64,18 @@ export function LiveIndicator({ state }: Props) {
   const { dot, text, label } = INDICATOR_CONFIG[state];
 
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 text-xs font-medium",
+        text,
+      )}
+    >
       <span
         data-testid="indicator-dot"
-        className={cn("inline-block w-[7px] h-[7px] rounded-full", dot)}
+        className={cn("size-1.5 rounded-full", dot)}
+        aria-hidden
       />
-      <span className={cn("text-xs", text)}>{label}</span>
+      {label}
     </div>
   );
 }

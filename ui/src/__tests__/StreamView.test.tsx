@@ -127,7 +127,7 @@ describe("StreamView — live indicator states", () => {
     await renderAndSettle(
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
     );
-    expect(screen.getByText("live")).toHaveClass("text-ok");
+    expect(screen.getByText("live")).toHaveClass("text-conn-open");
   });
 
   it("shows 'paused' when streaming and scrolled away", async () => {
@@ -135,7 +135,7 @@ describe("StreamView — live indicator states", () => {
       <StreamView exchange={makeSSEExchange(GENERIC_SSE, false)} />,
     );
     simulateScrollAway(screen.getByTestId("stream-scroll"));
-    expect(screen.getByText("paused")).toHaveClass("text-redirect");
+    expect(screen.getByText("paused")).toHaveClass("text-conn-connecting");
   });
 });
 
@@ -218,7 +218,7 @@ describe("StreamView — error/disconnected state", () => {
         exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
       />,
     );
-    expect(screen.getByText("disconnected")).toHaveClass("text-error");
+    expect(screen.getByText("disconnected")).toHaveClass("text-conn-down");
   });
 
   it("ignores Request-direction errors (not an SSE disconnect)", async () => {
@@ -284,6 +284,7 @@ describe("StreamView — pause snapshot does not leak across exchanges (key rese
 const ANTHROPIC_SSE = [
   'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01","model":"claude-3-5-sonnet-20241022"}}\n\n',
   'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello!"}}\n\n',
+  'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":25,"output_tokens":12}}\n\n',
   'event: message_stop\ndata: {"type":"message_stop"}\n\n',
 ].join("");
 
@@ -322,6 +323,18 @@ describe("ChatStreamView — Anthropic protocol", () => {
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );
     expect(screen.getByText("message_start")).toBeInTheDocument();
+    expect(screen.queryByText("4 events")).not.toBeInTheDocument();
+  });
+
+  it("keeps the model/message header and stop_reason/usage footer in transcript mode", async () => {
+    await renderAndSettle(
+      <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
+    );
+    fireEvent.click(screen.getByText("transcript"));
+    expect(screen.getByText("claude-3-5-sonnet-20241022")).toBeInTheDocument();
+    expect(screen.getByText("msg msg_01…")).toBeInTheDocument();
+    expect(screen.getByText("stop_reason: end_turn")).toBeInTheDocument();
+    expect(screen.getByText("usage: 25 in / 12 out")).toBeInTheDocument();
   });
 
   it("renders message_start through the shared EventLog presentation", async () => {
@@ -346,7 +359,7 @@ describe("ChatStreamView — live indicator + jump-to-latest", () => {
     );
     expect(screen.getByText("complete")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-mid");
+    expect(dot).toHaveClass("bg-muted-foreground");
   });
 
   it("shows 'live' with a pulsing green dot when streaming and following", async () => {
@@ -355,7 +368,7 @@ describe("ChatStreamView — live indicator + jump-to-latest", () => {
     );
     expect(screen.getByText("live")).toBeInTheDocument();
     const dot = screen.getByTestId("indicator-dot");
-    expect(dot).toHaveClass("bg-green");
+    expect(dot).toHaveClass("bg-conn-open");
     expect(dot).toHaveClass("motion-safe:animate-pulse");
   });
 
@@ -381,7 +394,7 @@ describe("ChatStreamView — error/disconnected state", () => {
       />,
     );
     expect(screen.getByText("disconnected")).toBeInTheDocument();
-    expect(screen.getByTestId("indicator-dot")).toHaveClass("bg-red");
+    expect(screen.getByTestId("indicator-dot")).toHaveClass("bg-conn-down");
   });
 
   it("renders the error banner in events mode", async () => {
