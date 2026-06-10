@@ -130,6 +130,7 @@ describe("ExchangeTable", () => {
     });
     expect(railBar).toHaveClass(
       "focus-visible:outline-2",
+      "focus-visible:outline-solid",
       "focus-visible:outline-offset-2",
       "focus-visible:outline-ring",
     );
@@ -149,9 +150,12 @@ describe("ExchangeTable", () => {
       left: `${traceRailWidth(1)}px`,
       width: `calc(100% - ${traceRailWidth(1)}px)`,
     });
-    expect(
-      container.querySelector('[role="listbox"] > .relative'),
-    ).toContainElement(railBar);
+    const listbox = screen.getByRole("listbox", { name: "Requests" });
+    expect(listbox).not.toContainElement(railBar);
+    expect(listbox.parentElement).toContainElement(railBar);
+    expect(container.querySelector('[role="listbox"]')).toContainElement(
+      rows[0],
+    );
   });
 
   it("keeps single-member traces on the row border without a rail bar", () => {

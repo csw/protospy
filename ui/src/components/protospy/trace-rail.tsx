@@ -115,7 +115,7 @@ export function TraceRail({
             className={cn(
               "absolute rounded-[1.5px] transition-[opacity,transform] duration-100",
               "hover:scale-x-[1.6] focus-visible:scale-x-[1.6]",
-              "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:ring-0",
+              "outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:ring-0",
               dimmed && "opacity-20",
             )}
             style={{

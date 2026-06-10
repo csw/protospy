@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import {
+  getStoreState,
+  injectExchanges,
+  resetStore,
+  waitForStore,
+} from "./helpers/inject";
 import {
   makeGetRequest,
   makeResponse,
@@ -331,11 +336,63 @@ test.describe("Exchange list — table mode", () => {
     expect(Math.abs(before - after - scrollDelta)).toBeLessThanOrEqual(2);
   });
 
+  test("2.9 trace rail button is keyboard-focusable and filters in the browser", async ({
+    page,
+  }) => {
+    const traceId = "abcdef1234567890abcdef1234567890";
+    await injectExchanges(page, [
+      makeRequestWithTrace(1, traceId, "/api/traced/1"),
+      makeResponse(1, "200 OK"),
+      ...makeCompleteExchange(2, "GET", "/api/other/2", "200 OK"),
+      makeRequestWithTrace(3, traceId, "/api/traced/3"),
+      makeResponse(3, "200 OK"),
+      ...makeCompleteExchange(4, "GET", "/api/other/4", "200 OK"),
+      makeRequestWithTrace(5, traceId, "/api/traced/5"),
+      makeResponse(5, "200 OK"),
+    ]);
+
+    const railBar = page.getByRole("button", {
+      name: `Filter to trace ${traceId}`,
+    });
+    await expect(railBar).toBeVisible();
+
+    await page
+      .getByTestId("exchange-table-header")
+      .locator("button")
+      .last()
+      .focus();
+    await page.keyboard.press("Tab");
+    await expect(railBar).toBeFocused();
+
+    const focusStyle = await railBar.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        outlineColor: cs.outlineColor,
+        outlineOffset: cs.outlineOffset,
+        outlineStyle: cs.outlineStyle,
+        outlineWidth: cs.outlineWidth,
+      };
+    });
+    expect(focusStyle.outlineWidth).toBe("2px");
+    expect(focusStyle.outlineOffset).toBe("2px");
+    expect(focusStyle.outlineStyle).not.toBe("none");
+    expect(focusStyle.outlineColor).not.toBe("rgba(0, 0, 0, 0)");
+
+    await railBar.click();
+    await expect.poll(() => getStoreState(page, "traceFilter")).toBe(traceId);
+    await expect(page.locator("button[role='option']")).toHaveCount(3);
+    await expect(page.getByText("/api/traced/1")).toBeVisible();
+    await expect(page.getByText("/api/traced/3")).toBeVisible();
+    await expect(page.getByText("/api/traced/5")).toBeVisible();
+    await expect(page.getByText("/api/other/2")).not.toBeVisible();
+    await expect(page.getByText("/api/other/4")).not.toBeVisible();
+  });
+
   // Regression (PRO-286): the ELAPSED (duration) and TIME (absolute timestamp)
   // columns must never truncate their values, even for a large multi-digit
   // elapsed time, at every supported width. The timestamp previously clipped
   // because its track left ~0px slack at the data width.
-  test("2.9 ELAPSED and TIME columns never truncate their values", async ({
+  test("2.10 ELAPSED and TIME columns never truncate their values", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -391,7 +448,7 @@ test.describe("Exchange list — table mode", () => {
   // track. It now shows a single bounded value + a compression marker icon,
   // with the breakdown in the tooltip — and must never truncate, even for a
   // large size.
-  test("2.10 SIZE column shows a bounded value + marker and never truncates", async ({
+  test("2.11 SIZE column shows a bounded value + marker and never truncates", async ({
     page,
   }) => {
     await injectExchanges(page, [

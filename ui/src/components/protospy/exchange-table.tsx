@@ -245,30 +245,31 @@ export function ExchangeTable({
           ))}
         </div>
 
-        {/* The listbox wraps a total-height spacer (matching rows mode), so the
-            sticky header stays outside the option group and tooling that reads
-            the virtual container height finds it as the listbox's first child. */}
-        <div role="listbox" aria-label="Requests">
-          {exchanges.length === 0 ? (
-            <ListEmptyState filtered={filtered} />
-          ) : (
+        {exchanges.length === 0 ? (
+          <ListEmptyState filtered={filtered} />
+        ) : (
+          <div
+            className="relative"
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {hasTraces && (
+              <TraceRail
+                traceIds={traceIds}
+                rowTop={(index) => rowOffsetByIndex.get(index)?.top ?? 0}
+                rowBottom={(index) =>
+                  rowOffsetByIndex.get(index)?.bottom ?? rowPx.table
+                }
+                activeTraceId={activeTraceId}
+                onHoverTrace={onHoverTrace}
+                onSelectTrace={onSelectTrace}
+                className="absolute inset-y-0 left-0 z-[1]"
+              />
+            )}
             <div
-              className="relative"
-              style={{ height: virtualizer.getTotalSize() }}
+              role="listbox"
+              aria-label="Requests"
+              className="absolute inset-0"
             >
-              {hasTraces && (
-                <TraceRail
-                  traceIds={traceIds}
-                  rowTop={(index) => rowOffsetByIndex.get(index)?.top ?? 0}
-                  rowBottom={(index) =>
-                    rowOffsetByIndex.get(index)?.bottom ?? rowPx.table
-                  }
-                  activeTraceId={activeTraceId}
-                  onHoverTrace={onHoverTrace}
-                  onSelectTrace={onSelectTrace}
-                  className="absolute inset-y-0 left-0 z-[1]"
-                />
-              )}
               {virtualizer.getVirtualItems().map((vi) => {
                 const x = rows[vi.index].original;
                 const selected = x.id === selectedId;
@@ -314,8 +315,8 @@ export function ExchangeTable({
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
