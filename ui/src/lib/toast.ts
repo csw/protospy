@@ -13,6 +13,11 @@ import { connectionToast } from "@ui/lib/connection-toast";
 // success following a failure) collapse to a single visible toast.
 const COPY_TOAST_ID = "copy-feedback";
 
+// Same idea for connection feedback: a flapping link (loss → recover → loss …)
+// replaces one toast in place instead of stacking a column of them, so the
+// "Reconnected" success visually supersedes the "Connection lost" error.
+const CONNECTION_TOAST_ID = "connection-feedback";
+
 /** Copy-to-clipboard succeeded. */
 export function notifyCopied(): void {
   toast.success("Copied to clipboard", { id: COPY_TOAST_ID });
@@ -29,5 +34,5 @@ export function notifyConnection(
   next: ConnectionStatus,
 ): void {
   const t = connectionToast(prev, next);
-  if (t) toast[t.kind](t.message);
+  if (t) toast[t.kind](t.message, { id: CONNECTION_TOAST_ID });
 }

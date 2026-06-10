@@ -29,11 +29,18 @@ describe("toast emission wrappers", () => {
     });
   });
 
-  it("notifyConnection emits the decided toast on a transition", () => {
+  it("notifyConnection emits the decided toast under the shared connection id", () => {
     notifyConnection("open", "reconnecting");
-    expect(toast.error).toHaveBeenCalledWith("Connection lost — reconnecting…");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Connection lost — reconnecting…",
+      {
+        id: "connection-feedback",
+      },
+    );
     notifyConnection("reconnecting", "open");
-    expect(toast.success).toHaveBeenCalledWith("Reconnected");
+    expect(toast.success).toHaveBeenCalledWith("Reconnected", {
+      id: "connection-feedback",
+    });
   });
 
   it("notifyConnection stays silent when no toast is warranted", () => {

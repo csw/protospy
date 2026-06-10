@@ -40,6 +40,11 @@ interface CopyButtonProps {
 export function CopyButton({ value, className }: CopyButtonProps) {
   const [hasCopied, setHasCopied] = React.useState(false);
 
+  // Revert the copied state after 2s. Kept as an effect — the reui upstream
+  // pattern — rather than a hand-managed timer ref: it's functionally correct,
+  // and the single extra render when the timer flips `hasCopied` back is
+  // negligible for a click-driven control. Preserving the adopted component's
+  // shape is worth more than shaving one render (PRO-366 review round 2).
   React.useEffect(() => {
     if (hasCopied) {
       const timer = setTimeout(() => setHasCopied(false), 2000);
@@ -47,7 +52,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
     }
   }, [hasCopied]);
 
-  async function handleCopy() {
+  const handleCopy = React.useCallback(async () => {
     if (value == null) return;
     try {
       await navigator.clipboard.writeText(value);
@@ -56,7 +61,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
     } catch {
       notifyCopyFailed();
     }
-  }
+  }, [value]);
 
   return (
     <Tooltip>
@@ -73,7 +78,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
           {hasCopied ? <Check /> : <Copy />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
+      <TooltipContent sideOffset={4}>
         {hasCopied ? "Copied" : "Copy to clipboard"}
       </TooltipContent>
     </Tooltip>
