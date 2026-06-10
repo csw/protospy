@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { screen, fireEvent, within } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { ExchangeList } from "@ui/components/ExchangeList";
 import { useStore } from "@ui/state/store";
@@ -55,8 +55,10 @@ describe("ExchangeList — grouped-by-trace mode", () => {
     ]);
     render(<ExchangeList />);
 
-    // Group header: shows request count for the multi-member trace.
+    // Group header: shows request count for the multi-member trace, once —
+    // the redundant "N in trace" label was dropped.
     expect(screen.getByText(/2 requests/)).toBeInTheDocument();
+    expect(screen.queryByText(/in trace/i)).not.toBeInTheDocument();
     // Both grouped members render inside the (default-open) card.
     expect(screen.getByText("/a")).toBeInTheDocument();
     expect(screen.getByText("/b")).toBeInTheDocument();
@@ -98,8 +100,7 @@ describe("ExchangeList — grouped-by-trace mode", () => {
     ]);
     render(<ExchangeList />);
 
-    const header = screen.getByText(/2 requests/).closest("div")!;
-    fireEvent.click(within(header).getByText(/^trace /));
+    fireEvent.click(screen.getByRole("button", { name: /filter to trace/i }));
     expect(useStore.getState().traceFilter).toBe("t1");
   });
 });
