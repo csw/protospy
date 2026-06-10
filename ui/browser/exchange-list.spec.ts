@@ -250,16 +250,17 @@ test.describe("Exchange list — table mode", () => {
     }
   });
 
-  // Regression (PRO-286): header and rows share one grid template. The sticky
-  // header and the virtualized rows both live inside the table's scroll
-  // container (the trace-rail gutter sits outside it), so their grid tracks must
-  // line up. Header cells are sortable <button>s; row cells are <span>s.
-  test("2.7 header columns align with row columns when trace rail present", async ({
+  // Regression (PRO-286): header and rows share one grid template. When the
+  // lane-packed trace rail is present, both header and row tracks reserve the
+  // same gutter width so their columns still line up.
+  test("2.7 header columns align with row columns when trace rail is present", async ({
     page,
   }) => {
     await injectExchanges(page, [
       makeRequestWithTrace(1, "a".repeat(32), "/api/traced"),
       makeResponse(1, "200 OK"),
+      makeRequestWithTrace(2, "a".repeat(32), "/api/traced/again"),
+      makeResponse(2, "200 OK"),
     ]);
 
     // Scope to direct children: ":scope > button" pins to the six header sort
@@ -289,11 +290,52 @@ test.describe("Exchange list — table mode", () => {
     });
   });
 
+  test("2.8 trace rail bars scroll with the table rows", async ({ page }) => {
+    const traceId = "abcdef1234567890abcdef1234567890";
+    const messages = [];
+    for (let id = 1; id <= 40; id += 1) {
+      messages.push(
+        makeRequestWithTrace(id, traceId, `/api/traced/${id}`),
+        makeResponse(id, "200 OK"),
+      );
+    }
+    await injectExchanges(page, messages);
+
+    const railBar = page.getByRole("button", {
+      name: `Filter to trace ${traceId}`,
+    });
+    await expect(railBar).toBeVisible();
+
+    const before = await railBar.evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+    const scrollDelta = await railBar.evaluate((el) => {
+      let cur = el.parentElement;
+      while (cur) {
+        const style = getComputedStyle(cur);
+        if (/(auto|scroll)/.test(style.overflowY)) {
+          cur.scrollTop = 300;
+          return cur.scrollTop;
+        }
+        cur = cur.parentElement;
+      }
+      return 0;
+    });
+    await expect
+      .poll(() => railBar.evaluate((el) => el.getBoundingClientRect().top))
+      .toBeLessThan(before);
+    const after = await railBar.evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+
+    expect(Math.abs(before - after - scrollDelta)).toBeLessThanOrEqual(2);
+  });
+
   // Regression (PRO-286): the ELAPSED (duration) and TIME (absolute timestamp)
   // columns must never truncate their values, even for a large multi-digit
   // elapsed time, at every supported width. The timestamp previously clipped
   // because its track left ~0px slack at the data width.
-  test("2.8 ELAPSED and TIME columns never truncate their values", async ({
+  test("2.9 ELAPSED and TIME columns never truncate their values", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -349,7 +391,7 @@ test.describe("Exchange list — table mode", () => {
   // track. It now shows a single bounded value + a compression marker icon,
   // with the breakdown in the tooltip — and must never truncate, even for a
   // large size.
-  test("2.9 SIZE column shows a bounded value + marker and never truncates", async ({
+  test("2.10 SIZE column shows a bounded value + marker and never truncates", async ({
     page,
   }) => {
     await injectExchanges(page, [

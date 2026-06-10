@@ -12,8 +12,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { traceColorVar } from "@/lib/tokens";
+import { cn } from "@ui/lib/utils";
+import { traceColorVar } from "@ui/lib/tokens";
 
 interface TraceInterval {
   traceId: string;
@@ -61,6 +61,12 @@ const LANE_GAP = 3;
 const PAD_L = 5;
 const PAD_R = 4;
 
+export function traceRailWidth(laneCount: number): number {
+  return (
+    PAD_L + PAD_R + laneCount * LANE_W + Math.max(0, laneCount - 1) * LANE_GAP
+  );
+}
+
 export interface TraceRailProps {
   /** Full ordered list of trace ids, one per visible-or-not list row. */
   traceIds: readonly (string | null)[];
@@ -86,8 +92,7 @@ export function TraceRail({
     () => packLanes(traceIds),
     [traceIds],
   );
-  const width =
-    PAD_L + PAD_R + laneCount * LANE_W + Math.max(0, laneCount - 1) * LANE_GAP;
+  const width = traceRailWidth(laneCount);
 
   return (
     <div
@@ -110,6 +115,7 @@ export function TraceRail({
             className={cn(
               "absolute rounded-[1.5px] transition-[opacity,transform] duration-100",
               "hover:scale-x-[1.6] focus-visible:scale-x-[1.6]",
+              "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:ring-0",
               dimmed && "opacity-20",
             )}
             style={{

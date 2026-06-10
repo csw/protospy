@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { ExchangeTable } from "@ui/components/protospy/exchange-table";
+import { traceRailWidth } from "@ui/components/protospy/trace-rail";
 import type { BodyState, Exchange } from "@ui/state/reducer";
 
 function body(partial: Partial<BodyState>): BodyState {
@@ -109,22 +110,61 @@ describe("ExchangeTable", () => {
     expect(onSelect).toHaveBeenCalledWith(7);
   });
 
-  it("reserves a trace-rail gutter when any exchange carries a trace", () => {
+  it("renders a lane-packed trace rail inside the virtual row spacer", () => {
+    const onHoverTrace = vi.fn();
+    const onSelectTrace = vi.fn();
     const { container } = render(
+      <ExchangeTable
+        exchanges={[
+          makeExchange({ id: 1, uri: "/a", traceId: "abcd1234" }),
+          makeExchange({ id: 2, uri: "/b", traceId: "other" }),
+          makeExchange({ id: 3, uri: "/c", traceId: "abcd1234" }),
+        ]}
+        selectedId={null}
+        onHoverTrace={onHoverTrace}
+        onSelectTrace={onSelectTrace}
+      />,
+    );
+    const railBar = screen.getByRole("button", {
+      name: "Filter to trace abcd1234",
+    });
+    expect(railBar).toHaveClass(
+      "focus-visible:outline-2",
+      "focus-visible:outline-offset-2",
+      "focus-visible:outline-ring",
+    );
+    expect(railBar).toHaveStyle({
+      top: "4px",
+      height: "82px",
+      width: "3px",
+    });
+    fireEvent.mouseEnter(railBar);
+    expect(onHoverTrace).toHaveBeenCalledWith("abcd1234");
+    fireEvent.click(railBar);
+    expect(onSelectTrace).toHaveBeenCalledWith("abcd1234");
+
+    const rows = screen.getAllByRole("option");
+    expect(rows[0]).toHaveAttribute("data-trace");
+    expect(rows[0]).toHaveStyle({
+      left: `${traceRailWidth(1)}px`,
+      width: `calc(100% - ${traceRailWidth(1)}px)`,
+    });
+    expect(
+      container.querySelector('[role="listbox"] > .relative'),
+    ).toContainElement(railBar);
+  });
+
+  it("keeps single-member traces on the row border without a rail bar", () => {
+    render(
       <ExchangeTable
         exchanges={[makeExchange({ traceId: "abcd1234" })]}
         selectedId={null}
       />,
     );
-    expect(container.querySelector("[aria-hidden]")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /filter to trace/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("option")).toHaveAttribute("data-trace");
-  });
-
-  it("does not reserve a trace gutter when no exchange has a trace", () => {
-    const { container } = render(
-      <ExchangeTable exchanges={[makeExchange()]} selectedId={null} />,
-    );
-    expect(container.querySelector("[aria-hidden]")).not.toBeInTheDocument();
   });
 
   it("marks the selected row", () => {
