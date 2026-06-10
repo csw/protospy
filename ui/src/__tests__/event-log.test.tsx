@@ -49,7 +49,7 @@ describe("eventTypeClass", () => {
   it("maps known SSE event types to semantic token text colors", () => {
     expect(eventTypeClass("message_start")).toBe("text-method-patch");
     expect(eventTypeClass("content_block_delta")).toBe("text-ok");
-    expect(eventTypeClass("message_delta")).toBe("text-accent-foreground");
+    expect(eventTypeClass("message_delta")).toBe("text-secondary-foreground");
     expect(eventTypeClass("message_stop")).toBe("text-muted-foreground");
     expect(eventTypeClass("ping")).toBe("text-muted-foreground/70");
   });

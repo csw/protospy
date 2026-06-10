@@ -28,43 +28,37 @@ function TranscriptView({
   return (
     <div className="flex-1 overflow-auto flex flex-col">
       {(transcript.model != null || transcript.messageId != null) && (
-        <div className="flex gap-3 px-3 py-1.5 border-b border-border shrink-0">
-          {transcript.messageId != null && (
-            <span className="font-mono text-xs text-dim">
-              {transcript.messageId}
-            </span>
+        <div className="flex shrink-0 gap-1.5 border-b px-3 py-1.5 font-mono text-xs text-muted-foreground">
+          {transcript.model != null && <span>{transcript.model}</span>}
+          {transcript.model != null && transcript.messageId != null && (
+            <span>·</span>
           )}
-          {transcript.model != null && (
-            <span className="font-mono text-xs text-dim">
-              {transcript.model}
-            </span>
+          {transcript.messageId != null && (
+            <span>msg {transcript.messageId.slice(0, 14)}…</span>
           )}
         </div>
       )}
-      <pre className="font-mono text-sm text-ink whitespace-pre-wrap p-3 flex-1">
+      <pre className="flex-1 whitespace-pre-wrap p-3 font-mono text-mono text-foreground">
         {transcript.text}
         {!isTerminal && !transcript.isComplete && (
           <span className="inline-block w-[2px] h-[14px] bg-primary motion-safe:animate-pulse align-middle ml-px" />
         )}
       </pre>
       {transcript.isComplete && (
-        <div className="flex gap-4 px-3 py-2 border-t border-border shrink-0">
-          <span className="text-dim text-xs">
-            Completed
-            {transcript.stopReason != null ? ` · ${transcript.stopReason}` : ""}
-          </span>
+        <div className="flex shrink-0 gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span>stop_reason: {transcript.stopReason ?? "—"}</span>
           {transcript.usage != null && (
-            <span className="text-dim text-xs">
+            <span>
               {[
                 transcript.usage.input_tokens != null
-                  ? `Input: ${transcript.usage.input_tokens}`
+                  ? `usage: ${transcript.usage.input_tokens} in`
                   : null,
                 transcript.usage.output_tokens != null
-                  ? `Output: ${transcript.usage.output_tokens}`
+                  ? `${transcript.usage.output_tokens} out`
                   : null,
               ]
                 .filter(Boolean)
-                .join(" · ")}
+                .join(" / ")}
             </span>
           )}
         </div>
@@ -81,7 +75,6 @@ export function ChatStreamView({ exchange }: Props) {
   const body = exchange.responseBody;
   const atEnd = body?.atEnd ?? true;
   const events = body?.sseState?.events ?? [];
-  const totalEventCount = body?.sseState?.totalEventCount ?? events.length;
 
   const { isFollowing, scrollRef, handleScroll, jumpToLatest } =
     useStreamFollow([events.length]);
@@ -92,8 +85,8 @@ export function ChatStreamView({ exchange }: Props) {
   const isTerminal = state === "complete" || state === "disconnected";
 
   return (
-    <div className="flex flex-col border border-border h-full overflow-hidden">
-      <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
+    <div className="flex h-full flex-col overflow-hidden bg-card">
+      <div className="flex shrink-0 items-center gap-2.5 border-b px-gutter-x py-2">
         <LiveIndicator state={state} />
         <ToggleGroup
           type="single"
@@ -104,9 +97,6 @@ export function ChatStreamView({ exchange }: Props) {
           <ToggleGroupItem value="transcript">transcript</ToggleGroupItem>
           <ToggleGroupItem value="events">events</ToggleGroupItem>
         </ToggleGroup>
-        <span className="ml-auto text-xs text-dim font-mono">
-          {totalEventCount} events
-        </span>
       </div>
 
       <div className="relative flex flex-col flex-1 overflow-hidden">

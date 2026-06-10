@@ -29,7 +29,7 @@ export function eventTypeClass(type: string): string {
     case "content_block_delta":
       return "text-ok";
     case "message_delta":
-      return "text-accent-foreground";
+      return "text-secondary-foreground";
     case "message_stop":
       return "text-muted-foreground";
     case "ping":

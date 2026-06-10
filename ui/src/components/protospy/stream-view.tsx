@@ -18,29 +18,13 @@ import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import type { Exchange } from "@ui/state/reducer";
 import type { SSEEvent } from "@ui/body/sse";
-import { cn } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
-import { deriveStreamState } from "@ui/components/LiveIndicator";
+import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
 import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 import { EventLog } from "./event-log";
 
 type LiveState = "live" | "paused" | "disconnected" | "complete";
-
-const LIVE: Record<LiveState, { text: string; dot: string; label: string }> = {
-  live: {
-    text: "text-ok",
-    dot: "bg-ok motion-safe:animate-pulse",
-    label: "live",
-  },
-  paused: { text: "text-redirect", dot: "bg-redirect", label: "paused" },
-  disconnected: { text: "text-error", dot: "bg-error", label: "disconnected" },
-  complete: {
-    text: "text-muted-foreground",
-    dot: "bg-muted-foreground",
-    label: "complete",
-  },
-};
 
 interface Props {
   exchange: Exchange;
@@ -75,7 +59,6 @@ export function StreamView({ exchange }: Props) {
   // the scroll-derived "paused" indicator — scrolling away must not flip the
   // button to "Resume" while the stream is still playing.
   const playing = frozen == null;
-  const live = LIVE[liveState];
 
   // Jump-to-latest applies only when scrolled away from a still-live stream —
   // not when play-paused (the list is frozen) or terminal.
@@ -86,15 +69,7 @@ export function StreamView({ exchange }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-2.5 border-b px-gutter-x py-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 text-xs font-medium",
-            live.text,
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", live.dot)} aria-hidden />
-          {live.label}
-        </span>
+        <LiveIndicator state={liveState} />
         {!terminal && (
           <Button
             variant="ghost"
@@ -132,7 +107,7 @@ export function StreamView({ exchange }: Props) {
 
         {/* a11y: announce stream state + event-count changes to assistive tech */}
         <div className="sr-only" role="status" aria-live="polite">
-          {live.label}, {shownEvents.length} events
+          {liveState}, {shownEvents.length} events
         </div>
       </div>
     </div>
@@ -140,63 +115,11 @@ export function StreamView({ exchange }: Props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v2.4 chrome ingest (PRO-363): additive exports consumed by the un-wired
-// `chat-stream-view` scaffold. The wired `StreamView` above keeps its own `LIVE`
-// record (text-ok/redirect/error); these mirror the scaffold's v2.4
-// connection-token vocabulary (`text-conn-*`) that the ChatStreamView wire slice
-// will reconcile `StreamView` onto. Imported by nothing live yet.
+// v2.4 chrome ingest (PRO-363): compatibility exports consumed by the un-wired
+// `chat-stream-view` scaffold. The wired stream surfaces use the shared
+// `@ui/components/LiveIndicator` above.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StreamLiveState = "live" | "paused" | "disconnected" | "complete";
 export type StreamMode = "transcript" | "events";
-
-// Live-indicator states share the connection token contract (live=open green,
-// paused=connecting amber, disconnected=down red) so the stream's follow state
-// reads in the same vocabulary as the SSE connection.
-const STREAM_LIVE: Record<
-  StreamLiveState,
-  { text: string; dot: string; label: string }
-> = {
-  live: {
-    text: "text-conn-open",
-    dot: "bg-conn-open motion-safe:animate-pulse",
-    label: "live",
-  },
-  paused: {
-    text: "text-conn-connecting",
-    dot: "bg-conn-connecting",
-    label: "paused",
-  },
-  disconnected: {
-    text: "text-conn-down",
-    dot: "bg-conn-down",
-    label: "disconnected",
-  },
-  complete: {
-    text: "text-muted-foreground",
-    dot: "bg-muted-foreground",
-    label: "complete",
-  },
-};
-
-export function LiveIndicator({
-  state,
-  className,
-}: {
-  state: StreamLiveState;
-  className?: string;
-}) {
-  const s = STREAM_LIVE[state];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 text-xs font-medium",
-        s.text,
-        className,
-      )}
-    >
-      <span className={cn("size-1.5 rounded-full", s.dot)} aria-hidden />
-      {s.label}
-    </span>
-  );
-}
+export { LiveIndicator };
