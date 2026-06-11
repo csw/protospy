@@ -104,7 +104,7 @@ export function ChatStreamView({
           aria-label={playing ? "Pause stream" : "Resume stream"}
           className="ml-auto text-muted-foreground"
         >
-          {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+          {playing ? <Pause /> : <Play />}
         </Button>
       </div>
 

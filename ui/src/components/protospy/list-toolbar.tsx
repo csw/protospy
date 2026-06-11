@@ -10,7 +10,6 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
 } from "lucide-react";
-import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
 import { Button } from "@ui/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
@@ -82,17 +81,13 @@ export function ListToolbar() {
           onValueChange={(v) => v && setListMode(v as "rows" | "table")}
           aria-label="List view mode"
         >
-          <ToggleGroupItem
-            value="rows"
-            aria-label="Rows view"
-            className={cn("px-2")}
-          >
+          <ToggleGroupItem value="rows" aria-label="Rows view" className="px-2">
             <Rows3 className="size-3.5" />
           </ToggleGroupItem>
           <ToggleGroupItem
             value="table"
             aria-label="Table view"
-            className={cn("px-2")}
+            className="px-2"
           >
             <Table2 className="size-3.5" />
           </ToggleGroupItem>

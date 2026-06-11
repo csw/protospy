@@ -30,7 +30,7 @@ function ToggleGroup({
       data-size={size}
       className={cn(
         "group/toggle-group flex w-fit items-center rounded-md bg-secondary",
-        (bordered || size === "sm") && "border border-border overflow-hidden",
+        (bordered || size === "sm") && "border border-border",
         className,
       )}
       {...props}

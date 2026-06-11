@@ -3,14 +3,21 @@ import { render } from "@testing-library/react";
 import { Button } from "@ui/components/ui/button";
 
 describe("Button", () => {
-  it("sm size renders with 26px height class (catalog density target)", () => {
+  it("sm size renders at stock 32px height (h-8)", () => {
     const { container } = render(<Button size="sm">Label</Button>);
+    const btn = container.querySelector('[data-slot="button"]');
+    expect(btn).toHaveClass("h-8");
+    expect(btn).not.toHaveClass("h-[26px]");
+  });
+
+  it("sm-dense size renders with 26px height class (catalog density target)", () => {
+    const { container } = render(<Button size="sm-dense">Label</Button>);
     const btn = container.querySelector('[data-slot="button"]');
     expect(btn).toHaveClass("h-[26px]");
   });
 
-  it("sm size renders with text-xs class (catalog density target)", () => {
-    const { container } = render(<Button size="sm">Label</Button>);
+  it("sm-dense size renders with text-xs class (catalog density target)", () => {
+    const { container } = render(<Button size="sm-dense">Label</Button>);
     const btn = container.querySelector('[data-slot="button"]');
     expect(btn).toHaveClass("text-xs");
   });

@@ -84,7 +84,7 @@ describe("primitive design-system conformance (PRO-321)", () => {
       "group-data-[orientation=horizontal]/tabs:after:h-0.5",
     );
     expect(trigger.className).toContain(
-      "group-data-[orientation=horizontal]/tabs:after:bottom-0",
+      "group-data-[orientation=horizontal]/tabs:after:bottom-[-5px]",
     );
     expect(trigger.className).not.toContain("after:bg-accent");
     expect(trigger.className).not.toContain("after:bg-foreground");

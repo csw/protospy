@@ -438,3 +438,53 @@ test.describe("shadcn semantic tokens", () => {
     expect(borderColor).toBe("rgb(28, 34, 43)");
   });
 });
+
+test.describe("line-variant tabs and standalone Toggle (PRO-378)", () => {
+  test("line-variant active tab has transparent background (no card fill)", async ({
+    page,
+  }) => {
+    // Select an exchange so the inspector renders with the line-variant tab strip.
+    await page.locator("button[role='option']").first().click();
+
+    const tabList = page.locator('[data-testid="inspector-tab-list"]');
+    await expect(tabList).toBeVisible();
+
+    // The active tab must have no background fill — the ::after underline bar
+    // is the only active-state visual for the line variant.  This guards the
+    // group-data compound selector chain that jsdom class-string tests can't
+    // prove resolves correctly in browser CSS.
+    const activeTab = tabList
+      .locator('[data-slot="tabs-trigger"][data-state="active"]')
+      .first();
+    await expect(activeTab).toBeVisible();
+
+    await expect(activeTab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  });
+
+  test("standalone Toggle pressed state applies non-transparent background (PRO-378)", async ({
+    page,
+  }) => {
+    // The density icon toggle (top bar) is a standalone Toggle with the default
+    // variant.  In unpressed state its background must be transparent; in pressed
+    // state the aria-pressed:bg-primary/10 selector must fire and produce a
+    // visible fill.  This guards the class-string-only coverage in Toggle.test.tsx.
+    const densityBtn = page.getByLabel("Regular density — click for compact");
+    await expect(densityBtn).toBeVisible();
+    await expect(densityBtn).toHaveAttribute("aria-pressed", "false");
+
+    // Unpressed: transparent ghost background.
+    await expect(densityBtn).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+
+    // Activate compact density.
+    await densityBtn.click();
+    const pressedBtn = page.getByLabel("Compact density — click for regular");
+    await expect(pressedBtn).toHaveAttribute("aria-pressed", "true");
+
+    // Pressed: aria-pressed:bg-primary/10 must have fired — background is no
+    // longer transparent.  toHaveCSS retries through the transition animation.
+    const pressedBg = await pressedBtn.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect(pressedBg).not.toBe("rgba(0, 0, 0, 0)");
+  });
+});

@@ -18,11 +18,11 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
 import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
 import { Button } from "@ui/components/ui/button";
+import { Toggle } from "@ui/components/ui/toggle";
 import { Separator } from "@ui/components/ui/separator";
 import {
   Tooltip,
@@ -111,7 +111,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
         {/* ⌘K opener */}
         <Button
           variant="outline"
-          size="sm"
+          size="sm-dense"
           onClick={() => setCmdKOpen(true)}
           className="shrink-0 gap-2 text-muted-foreground"
         >
@@ -173,12 +173,20 @@ function ThemeControl() {
   const current = theme ?? "system";
   const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor;
   return (
-    <IconToggle
-      onClick={() => setTheme(next[current] ?? "light")}
-      label={`Theme: ${current} — click to cycle`}
-    >
-      <Icon className="size-4" />
-    </IconToggle>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-chrome"
+          onClick={() => setTheme(next[current] ?? "light")}
+          aria-label={`Theme: ${current} — click to cycle`}
+          className="shrink-0 text-muted-foreground"
+        >
+          <Icon className="size-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{`Theme: ${current} — click to cycle`}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -188,7 +196,7 @@ function IconToggle({
   label,
   children,
 }: {
-  active?: boolean;
+  active: boolean;
   onClick?: () => void;
   label: string;
   children: React.ReactNode;
@@ -196,19 +204,15 @@ function IconToggle({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-chrome"
-          onClick={onClick}
-          aria-pressed={active}
+        <Toggle
+          pressed={active}
+          onPressedChange={() => onClick?.()}
           aria-label={label}
-          className={cn(
-            "shrink-0 text-muted-foreground",
-            active && "bg-accent text-accent-foreground hover:bg-accent",
-          )}
+          size="icon-chrome"
+          className="shrink-0 text-muted-foreground"
         >
           {children}
-        </Button>
+        </Toggle>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
