@@ -30,7 +30,7 @@ export function BodySplit({ exchange, protocol }: Props) {
     exchange.error == null;
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-full min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
         <BodyPane
           title="Request"

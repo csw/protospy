@@ -11,17 +11,9 @@
 //
 // v2.4 shell wire-up (PRO-357): App.tsx mounts this shell as the live outer
 // layer. It keeps the app-owned reducer/SSE/body plumbing but adopts the
-// scaffold chrome, keyboard map, and percentage-based panel behavior.
+// scaffold chrome, keyboard map, and pixel-based panel behavior.
 
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { usePanelRef } from "react-resizable-panels";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useShallow } from "zustand/react/shallow";
 import type { Protocol } from "@bindings/Protocol";
@@ -55,6 +47,11 @@ import {
   ResizableHandle,
 } from "@ui/components/ui/resizable";
 
+const RESIZE_HANDLE_WIDTH_PX = 1;
+const MAX_INITIAL_LIST_SHARE = 0.5;
+const LIST_MIN_WIDTH_PX = 26;
+const INSPECTOR_MIN_WIDTH_PX = 30;
+
 export interface AppShellProps {
   /** Configured services for the picker (app/config-owned). */
   services?: ServiceInfo[];
@@ -86,9 +83,8 @@ function ShellInner({
   renderMsearch,
 }: AppShellProps) {
   const filterRef = useRef<HTMLInputElement>(null);
-  const listPanelRef = usePanelRef();
+  const resizing = useRef(false);
   const prevConnection = useRef<ApiConnectionStatus | null>(null);
-  const appliedInitialPanelSize = useRef<string | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
 
   const applyEvent = useStore((s) => s.applyEvent);
@@ -101,11 +97,14 @@ function ShellInner({
   const setListWidth = useStore((s) => s.setListWidth);
   const listWidth = useStore((s) => s.listWidth);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
-  const currentListWidth = listWidth[listMode];
+  const initialPanelSizes = useMemo(
+    () => getInitialPanelSizes(listWidth[listMode]),
+    [listMode, listWidth],
+  );
 
   useGlobalKeys(filterRef);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     fetchInfo()
@@ -150,15 +149,6 @@ function ShellInner({
     return cleanup;
   }, [service, applyEvent, setConnection]);
 
-  useLayoutEffect(() => {
-    appliedInitialPanelSize.current = null;
-    const frame = requestAnimationFrame(() => {
-      listPanelRef.current?.resize(`${currentListWidth}%`);
-      appliedInitialPanelSize.current = listMode;
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [currentListWidth, listMode, listPanelRef]);
-
   const selectedService = info?.services.find((svc) => svc.name === service);
   const services =
     info == null
@@ -172,7 +162,7 @@ function ShellInner({
   const upstream = selectedService?.target ?? fallbackUpstream;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
       <TopBar services={services} onSwitchService={setService} />
       <FilterBar inputRef={filterRef} />
 
@@ -184,15 +174,12 @@ function ShellInner({
           className="h-full"
         >
           <ResizablePanel
-            defaultSize={`${listWidth[listMode]}%`}
-            minSize="26%"
+            defaultSize={initialPanelSizes.list}
+            groupResizeBehavior="preserve-pixel-size"
+            minSize={LIST_MIN_WIDTH_PX}
             onResize={(size) => {
-              if (appliedInitialPanelSize.current !== listMode) return;
-              const savedWidth = useStore.getState().listWidth[listMode];
-              if (Math.abs(savedWidth - size.asPercentage) < 0.05) return;
-              setListWidth(listMode, size.asPercentage);
+              if (resizing.current) setListWidth(listMode, size.inPixels);
             }}
-            panelRef={listPanelRef}
             className="flex min-w-0 flex-col"
           >
             <ListToolbar />
@@ -201,16 +188,33 @@ function ShellInner({
 
           <ResizableHandle
             withHandle
-            onDoubleClick={() => {
-              const defaultWidth = DEFAULT_LIST_WIDTH_PERCENT[listMode];
-              listPanelRef.current?.resize(`${defaultWidth}%`);
-              setListWidth(listMode, defaultWidth);
+            onPointerDown={() => {
+              resizing.current = true;
+            }}
+            onPointerUp={() => {
+              resizing.current = false;
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === "ArrowLeft" ||
+                event.key === "ArrowRight" ||
+                event.key === "Home" ||
+                event.key === "End"
+              ) {
+                resizing.current = true;
+              }
+            }}
+            onKeyUp={() => {
+              resizing.current = false;
+            }}
+            onBlur={() => {
+              resizing.current = false;
             }}
           />
 
           <ResizablePanel
-            defaultSize={`${100 - listWidth[listMode]}%`}
-            minSize="30%"
+            defaultSize={initialPanelSizes.inspector}
+            minSize={INSPECTOR_MIN_WIDTH_PX}
             className="min-w-0"
           >
             <InspectorPanel
@@ -228,7 +232,34 @@ function ShellInner({
   );
 }
 
-const DEFAULT_LIST_WIDTH_PERCENT = { rows: 38, table: 46 } as const;
+function getInitialPanelSizes(listWidth: number): {
+  list: number;
+  inspector: number | undefined;
+} {
+  const viewportWidth =
+    typeof window === "undefined"
+      ? undefined
+      : (window.visualViewport?.width ?? window.innerWidth);
+
+  if (viewportWidth == null || !Number.isFinite(viewportWidth)) {
+    return { list: listWidth, inspector: undefined };
+  }
+
+  const available = Math.max(0, viewportWidth - RESIZE_HANDLE_WIDTH_PX);
+  const maxListWidth = Math.max(
+    LIST_MIN_WIDTH_PX,
+    Math.min(
+      Math.floor(viewportWidth * MAX_INITIAL_LIST_SHARE),
+      available - INSPECTOR_MIN_WIDTH_PX,
+    ),
+  );
+  const list = Math.max(LIST_MIN_WIDTH_PX, Math.min(listWidth, maxListWidth));
+
+  return {
+    list,
+    inspector: Math.max(INSPECTOR_MIN_WIDTH_PX, available - list),
+  };
+}
 
 /* ── list panel: feeds the prop-driven list components from store slices ── */
 function ListPanel() {
@@ -392,7 +423,6 @@ function InspectorPanel({
   ) => ReactNode;
 }) {
   const selected = useStore(selectSelected);
-  const visibleIds = useStore(useShallow(selectVisibleIds));
   const tz = useStore((s) => s.timeZone);
   const protocol = useStore((s) => s.protocol);
   const setSelectedId = useStore((s) => s.setSelectedId);
@@ -444,19 +474,14 @@ function InspectorPanel({
   }
 
   const isMsearch = showPairsTab(protocol, selected.uri);
-  const selectedIndex = visibleIds.indexOf(selected.id);
-  const canStepPrev = selectedIndex > 0;
-  const canStepNext =
-    selectedIndex >= 0 && selectedIndex < visibleIds.length - 1;
-
   return (
     <div className="h-full overflow-hidden">
       <Inspector
         exchange={selected}
         tz={tz}
         isMsearch={isMsearch}
-        onPrev={canStepPrev ? () => stepSelection(-1) : undefined}
-        onNext={canStepNext ? () => stepSelection(1) : undefined}
+        onPrev={() => stepSelection(-1)}
+        onNext={() => stepSelection(1)}
         onNextMatching={() => stepMatching(selected)}
         onFilterTrace={(id) => setTraceFilter(id)}
         onCopyTrace={(id) => void navigator.clipboard.writeText(id)}

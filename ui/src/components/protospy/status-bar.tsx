@@ -37,7 +37,7 @@ export function StatusBar({ upstream, onShowHelp }: StatusBarProps) {
         </>
       )}
 
-      <span className="ml-auto inline-flex items-center gap-3">
+      <span className="ml-auto inline-flex shrink-0 items-center gap-3">
         <span>
           {total} {total === 1 ? "request" : "requests"}
         </span>

@@ -100,20 +100,20 @@ test.describe("localStorage persistence", () => {
     await page.goto("/");
     await waitForStore(page);
 
-    // Set percentage width and verify both store and localStorage are updated.
+    // Set pixel width and verify both store and localStorage are updated.
     const result = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const store = (window as any).__test_store;
-      store.getState().setListWidth("rows", 41);
+      store.getState().setListWidth("rows", 360);
       return {
         storeValue: store.getState().listWidth,
         lsValue: localStorage.getItem("protospy-ui-prefs"),
       };
     });
 
-    expect(result.storeValue.rows).toBe(41);
+    expect(result.storeValue.rows).toBe(360);
     const lsParsed = JSON.parse(result.lsValue!);
-    expect(lsParsed.state.listWidth.rows).toBe(41);
+    expect(lsParsed.state.listWidth.rows).toBe(360);
   });
 
   test("all preferences survive a reload", async ({ page }) => {
@@ -126,8 +126,8 @@ test.describe("localStorage persistence", () => {
       s.setDensity("compact");
       s.setOrder("oldest");
       s.setListMode("table");
-      s.setListWidth("rows", 38);
-      s.setListWidth("table", 55);
+      s.setListWidth("rows", 340);
+      s.setListWidth("table", 760);
       s.toggleTraceGroup();
     });
     // Theme lives outside the store now (next-themes), so it persists under its
@@ -145,8 +145,8 @@ test.describe("localStorage persistence", () => {
       rows: number;
       table: number;
     };
-    expect(listWidth.rows).toBe(38);
-    expect(listWidth.table).toBeCloseTo(55, 0);
+    expect(listWidth.rows).toBe(340);
+    expect(listWidth.table).toBeCloseTo(760, 0);
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
     expect(await getThemePreference(page)).toBe("light");
     expect(await getResolvedTheme(page)).toBe("light");

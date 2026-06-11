@@ -9,7 +9,8 @@ import {
   waitForSceneHarness,
 } from "./helpers/scenes";
 
-const LIST_MIN_PERCENT = 26;
+const LIST_MIN_PX = 26;
+const INSPECTOR_MIN_PX = 30;
 
 // Console/page-error noise we don't care about (e.g. missing favicon on the
 // stubbed dev page). Everything else is treated as a regression.
@@ -112,18 +113,19 @@ test.describe("Fixture matrix", () => {
     const minWidth = await dragListPaneTo(page, "min");
     const wideWidth = await dragListPaneTo(page, "wide");
 
-    // The v2.4 scaffold uses percentage panel sizing. Dragging narrow clamps at
-    // the 26% list floor; dragging wide grows until the inspector's 30% floor
+    // The v2.4 scaffold uses pixel panel sizing. Dragging narrow clamps at the
+    // list pixel floor; dragging wide grows until the inspector's pixel floor
     // takes over.
     const groupBox = await page
       .locator('[data-slot="resizable-panel-group"]')
       .boundingBox();
     expect(groupBox).not.toBeNull();
-    const expectedMin = (groupBox!.width * LIST_MIN_PERCENT) / 100;
-    expect(minWidth).toBeGreaterThanOrEqual(expectedMin - 10);
-    expect(minWidth).toBeLessThan(expectedMin + 20);
+    expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_PX - 5);
+    expect(minWidth).toBeLessThan(LIST_MIN_PX + 20);
     expect(wideWidth).toBeGreaterThan(minWidth + 200);
-    expect(wideWidth).toBeLessThanOrEqual(groupBox!.width * 0.7 + 15);
+    expect(wideWidth).toBeLessThanOrEqual(
+      groupBox!.width - INSPECTOR_MIN_PX + 15,
+    );
 
     expectNoErrors("list-pane-resize");
   });

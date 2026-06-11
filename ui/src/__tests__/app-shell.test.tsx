@@ -9,7 +9,6 @@ import { AppShell } from "@ui/components/protospy/app-shell";
 const mocks = vi.hoisted(() => ({
   fetchInfo: vi.fn(),
   subscribeToEvents: vi.fn(),
-  resize: vi.fn(),
 }));
 
 vi.mock("@ui/api/info", () => ({
@@ -18,10 +17,6 @@ vi.mock("@ui/api/info", () => ({
 
 vi.mock("@ui/api/sse", () => ({
   subscribeToEvents: mocks.subscribeToEvents,
-}));
-
-vi.mock("react-resizable-panels", () => ({
-  usePanelRef: () => ({ current: { resize: mocks.resize } }),
 }));
 
 vi.mock("@ui/components/ui/resizable", () => ({
@@ -36,11 +31,13 @@ vi.mock("@ui/components/ui/resizable", () => ({
   ResizablePanel: ({
     children,
     defaultSize,
+    groupResizeBehavior,
     minSize,
     ...props
   }: React.HTMLAttributes<HTMLDivElement> & {
-    defaultSize?: string;
-    minSize?: string;
+    defaultSize?: number | string;
+    groupResizeBehavior?: "preserve-relative-size" | "preserve-pixel-size";
+    minSize?: number | string;
     panelRef?: unknown;
   }) => {
     const { panelRef, ...domProps } = props;
@@ -49,6 +46,7 @@ vi.mock("@ui/components/ui/resizable", () => ({
       <div
         data-panel
         data-default-size={defaultSize}
+        data-group-resize-behavior={groupResizeBehavior}
         data-min-size={minSize}
         {...domProps}
       >
@@ -56,12 +54,8 @@ vi.mock("@ui/components/ui/resizable", () => ({
       </div>
     );
   },
-  ResizableHandle: ({
-    onDoubleClick,
-  }: {
-    onDoubleClick?: React.MouseEventHandler<HTMLButtonElement>;
-  }) => (
-    <button type="button" role="separator" onDoubleClick={onDoubleClick}>
+  ResizableHandle: () => (
+    <button type="button" role="separator">
       resize
     </button>
   ),
@@ -81,9 +75,9 @@ function applyMessages(...messages: Record<string, unknown>[]) {
 describe("AppShell", () => {
   beforeEach(() => {
     resetStore();
+    vi.stubGlobal("visualViewport", { width: 1440 });
     mocks.fetchInfo.mockReset();
     mocks.subscribeToEvents.mockReset();
-    mocks.resize.mockReset();
     mocks.subscribeToEvents.mockReturnValue(vi.fn());
     mocks.fetchInfo.mockResolvedValue({
       started_at: "2026-06-11T00:00:00Z",
@@ -99,7 +93,7 @@ describe("AppShell", () => {
     });
   });
 
-  it("wires backend discovery, scaffold panel percentages, slots, and keyboard shortcuts", async () => {
+  it("wires backend discovery, scaffold panel sizing, slots, and keyboard shortcuts", async () => {
     applyMessages(makeGetRequest(1, "/api/users"), makeResponse(1, "200 OK"));
     useStore.getState().setSelectedId(1);
 
@@ -124,14 +118,15 @@ describe("AppShell", () => {
     const panels = screen
       .getAllByTestId("panel-group")[0]
       .querySelectorAll("[data-panel]");
-    expect(panels[0]).toHaveAttribute("data-default-size", "46%");
-    expect(panels[0]).toHaveAttribute("data-min-size", "26%");
-    expect(panels[1]).toHaveAttribute("data-default-size", "54%");
-    expect(panels[1]).toHaveAttribute("data-min-size", "30%");
+    expect(panels[0]).toHaveAttribute("data-default-size", "720");
+    expect(panels[0]).toHaveAttribute(
+      "data-group-resize-behavior",
+      "preserve-pixel-size",
+    );
+    expect(panels[0]).toHaveAttribute("data-min-size", "26");
+    expect(panels[1]).toHaveAttribute("data-default-size", "719");
+    expect(panels[1]).toHaveAttribute("data-min-size", "30");
     expect(screen.getByText("body 1 Elasticsearch")).toBeInTheDocument();
-
-    fireEvent.doubleClick(screen.getByRole("separator"));
-    expect(mocks.resize).toHaveBeenCalledWith("46%");
 
     fireEvent.keyDown(window, { key: "/" });
     expect(screen.getByLabelText("Filter requests")).toHaveFocus();

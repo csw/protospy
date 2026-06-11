@@ -146,24 +146,24 @@ test.describe("ContextBar — prev/next navigation", () => {
     await expect(contextBar(page).getByText("/third")).toBeVisible();
   });
 
-  test("2.3 Prev is disabled on the first (newest) exchange", async ({
+  test("2.3 Prev remains enabled and clamps on the first newest exchange", async ({
     page,
   }) => {
     await injectExchanges(page, three);
     await page.getByText("/third").first().click();
-    await expect(
-      page.getByRole("button", { name: "Previous request" }),
-    ).toBeDisabled();
+    await page.getByRole("button", { name: "Previous request" }).click();
+    await expect(contextBar(page).getByText("/third")).toBeVisible();
   });
 
-  test("2.4 Next is disabled on the last (oldest) exchange", async ({
+  test("2.4 Next remains enabled and clamps on the last oldest exchange", async ({
     page,
   }) => {
     await injectExchanges(page, three);
     await page.getByText("/first").first().click();
-    await expect(
-      page.getByRole("button", { name: "Next request", exact: true }),
-    ).toBeDisabled();
+    await page
+      .getByRole("button", { name: "Next request", exact: true })
+      .click();
+    await expect(contextBar(page).getByText("/first")).toBeVisible();
   });
 });
 

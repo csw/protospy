@@ -375,9 +375,12 @@
   body,
   #root {
     height: 100%;
+    width: 100%;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    overflow: hidden;
     font-size: var(--text-ui);
     line-height: 1.4;
     font-feature-settings: "ss01", "cv11";

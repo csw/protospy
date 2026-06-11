@@ -22,9 +22,7 @@ import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
 import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
-import { Button } from "@ui/components/ui/button";
 import { Separator } from "@ui/components/ui/separator";
-import { Toggle } from "@ui/components/ui/toggle";
 import {
   Tooltip,
   TooltipContent,
@@ -65,7 +63,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
 
   return (
     <header className="flex h-topbar shrink-0 items-center gap-3 border-b bg-card px-gutter-x">
-      <span className="select-none text-[14px] font-bold tracking-tight">
+      <span className="shrink-0 select-none text-[14px] font-bold tracking-tight">
         proto<span className="text-primary">spy</span>
       </span>
 
@@ -74,7 +72,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border bg-card px-2.5 py-1 text-sm text-secondary-foreground hover:border-border-strong"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border bg-card px-2.5 py-1 text-sm text-secondary-foreground hover:border-border-strong"
           >
             <ConnectionDot status={connection} />
             <span className="font-mono">{service ?? "no service"}</span>
@@ -108,20 +106,19 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* ⌘K opener */}
-        <Button
-          variant="outline"
-          size="sm"
+        <button
+          type="button"
           onClick={() => setCmdKOpen(true)}
-          className="gap-2 text-muted-foreground"
+          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
-          <Search data-icon="inline-start" />
+          <Search className="size-3.5" />
           Jump to…
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
             ⌘K
           </kbd>
-        </Button>
+        </button>
 
         {/* Group-by-trace */}
         <IconToggle
@@ -133,7 +130,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Group by trace"
           }
         >
-          <Layers />
+          <Layers className="size-4" />
         </IconToggle>
 
         {/* Density (regular ↔ compact) */}
@@ -148,7 +145,11 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Regular density — click for compact"
           }
         >
-          {density === "compact" ? <Rows2 /> : <Rows3 />}
+          {density === "compact" ? (
+            <Rows2 className="size-4" />
+          ) : (
+            <Rows3 className="size-4" />
+          )}
         </IconToggle>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -174,7 +175,7 @@ function ThemeControl() {
       onClick={() => setTheme(next[current] ?? "light")}
       label={`Theme: ${current} — click to cycle`}
     >
-      <Icon />
+      <Icon className="size-4" />
     </IconToggle>
   );
 }
@@ -193,32 +194,18 @@ function IconToggle({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        {active === undefined ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClick}
-            aria-label={label}
-            className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
-          >
-            {children}
-          </Button>
-        ) : (
-          <Toggle
-            type="button"
-            size="sm"
-            pressed={active}
-            onPressedChange={() => onClick?.()}
-            aria-label={label}
-            className={cn(
-              "size-7 text-muted-foreground hover:bg-hover hover:text-foreground",
-              active && "bg-accent text-accent-foreground hover:bg-accent",
-            )}
-          >
-            {children}
-          </Toggle>
-        )}
+        <button
+          type="button"
+          onClick={onClick}
+          aria-pressed={active}
+          aria-label={label}
+          className={cn(
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
+            active && "bg-accent text-accent-foreground hover:bg-accent",
+          )}
+        >
+          {children}
+        </button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
