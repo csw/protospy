@@ -22,6 +22,7 @@ import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
 import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
+import { Button } from "@ui/components/ui/button";
 import { Separator } from "@ui/components/ui/separator";
 import {
   Tooltip,
@@ -108,17 +109,18 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* ⌘K opener */}
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setCmdKOpen(true)}
-          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="shrink-0 gap-2 text-muted-foreground"
         >
           <Search className="size-3.5" />
           Jump to…
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
             ⌘K
           </kbd>
-        </button>
+        </Button>
 
         {/* Group-by-trace */}
         <IconToggle
@@ -194,18 +196,19 @@ function IconToggle({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-chrome"
           onClick={onClick}
           aria-pressed={active}
           aria-label={label}
           className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
+            "shrink-0 text-muted-foreground",
             active && "bg-accent text-accent-foreground hover:bg-accent",
           )}
         >
           {children}
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

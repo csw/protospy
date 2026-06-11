@@ -17,6 +17,7 @@
 
 import { Pause, Play, CornerDownRight, CircleCheck } from "lucide-react";
 import { cn } from "@ui/lib/utils";
+import { Button } from "@ui/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import type { StreamEvent } from "@ui/lib/types";
 import {
@@ -96,14 +97,15 @@ export function ChatStreamView({
           <ToggleGroupItem value="transcript">transcript</ToggleGroupItem>
           <ToggleGroupItem value="events">events</ToggleGroupItem>
         </ToggleGroup>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-chrome"
           onClick={onTogglePlay}
-          className="ml-auto inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
           aria-label={playing ? "Pause stream" : "Resume stream"}
+          className="ml-auto text-muted-foreground"
         >
           {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-        </button>
+        </Button>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto">

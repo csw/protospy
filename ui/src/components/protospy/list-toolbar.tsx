@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
+import { Button } from "@ui/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import {
   Tooltip,
@@ -51,22 +52,23 @@ export function ListToolbar() {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-chrome"
               onClick={() => setOrder(order === "newest" ? "oldest" : "newest")}
               aria-label={
                 order === "newest"
                   ? "Newest first — click for oldest"
                   : "Oldest first — click for newest"
               }
-              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
+              className="text-muted-foreground"
             >
               {order === "newest" ? (
                 <ArrowDownWideNarrow className="size-4" />
               ) : (
                 <ArrowUpWideNarrow className="size-4" />
               )}
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent>
             {order === "newest" ? "Newest first" : "Oldest first"}
