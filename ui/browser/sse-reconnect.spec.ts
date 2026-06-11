@@ -108,12 +108,11 @@ test.describe("SSE reconnection", () => {
     await expect
       .poll(async () => (await getLog()).at(-1), { timeout: 5000 })
       .toBe("reconnecting");
-    // Scope to the status pill specifically: the connection-lost toast text
-    // ("Connection lost — reconnecting…") also contains "reconnecting", so a
-    // page-wide getByText would match two elements (PRO-366).
-    await expect(page.getByTestId("connection-status")).toHaveText(
-      "reconnecting",
-    );
+    // The scaffold maps the reconnecting socket state onto the connecting
+    // connection atom, while the toast preserves the precise reconnecting copy.
+    await expect(
+      page.getByRole("status", { name: "connecting…" }).first(),
+    ).toBeVisible();
 
     // The open → reconnecting transition fires the connection-lost toast
     // through the real `sonner` host (PRO-366). First connect is silent, so

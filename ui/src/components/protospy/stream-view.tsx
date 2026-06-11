@@ -115,9 +115,8 @@ export function StreamView({ exchange }: Props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v2.4 chrome ingest (PRO-363): compatibility exports consumed by the un-wired
-// `chat-stream-view` scaffold. The wired stream surfaces use the shared
-// `@ui/components/LiveIndicator` above.
+// Compatibility exports consumed by `chat-stream-view`. The wired stream
+// surfaces use the shared `@ui/components/LiveIndicator` above.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StreamLiveState = "live" | "paused" | "disconnected" | "complete";

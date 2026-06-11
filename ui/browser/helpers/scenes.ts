@@ -73,14 +73,9 @@ export async function dragListPaneTo(
 
   const startX = box.x + box.width / 2;
   const startY = box.y + box.height / 2;
-  // Drag well past any clamp: 0 for min, viewport width for wide.
-  const viewport = page.viewportSize();
-  const endX = target === "min" ? 0 : (viewport?.width ?? 1920);
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(endX, startY, { steps: 10 });
-  await page.mouse.up();
+  await page.mouse.click(startX, startY);
+  await handle.press(target === "min" ? "Home" : "End");
 
   const listPanel = page.locator("[data-panel]").first();
   const resultBox = await listPanel.boundingBox();

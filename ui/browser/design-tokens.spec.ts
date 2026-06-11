@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
       json: { services: [{ name: "test-backend" }] },
     }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({
       contentType: "text/event-stream",
       body: "",
@@ -83,7 +83,7 @@ test.describe("design token fidelity", () => {
     page,
   }) => {
     // Method badge is a rows-mode element; switch from default table mode.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
     const badge = page.locator('[data-testid="method-badge"]').first();
     await expect(badge).toBeVisible();
 
@@ -104,11 +104,11 @@ test.describe("design token fidelity", () => {
     expect(styles.borderRadius).toBe("3px");
   });
 
-  test("status code uses design font size (text-ui-sm = 11.5px)", async ({
+  test("status code uses design font size (text-sm = 11.5px)", async ({
     page,
   }) => {
     // status-code testid is a rows-mode element; switch from default table mode.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
     const status = page.locator('[data-testid="status-code"]').first();
     await expect(status).toBeVisible();
 
@@ -119,7 +119,7 @@ test.describe("design token fidelity", () => {
   });
 
   test("table header is sticky", async ({ page }) => {
-    await page.getByLabel("Table mode").click();
+    await page.getByLabel("Table view").click();
 
     const header = page.locator('[data-testid="exchange-table-header"]');
     await expect(header).toBeVisible();
@@ -141,31 +141,38 @@ test.describe("design token fidelity", () => {
     expect(height).toBe("32px");
   });
 
-  test("filter input wrapper shows focus border color when input is focused", async ({
+  test("filter input uses the scaffold's transparent chrome treatment", async ({
     page,
   }) => {
-    const wrapper = page.locator('[data-testid="filter-input-wrapper"]');
-    const input = wrapper.locator("input");
+    const input = page.getByLabel("Filter requests");
     await expect(input).toBeVisible();
 
-    // Focus the input
-    await input.focus();
-
-    // border-border-focus is #2563eb in light = rgb(37, 99, 235)
-    const borderColor = await wrapper.evaluate(
-      (el) => getComputedStyle(el).borderColor,
-    );
-    expect(borderColor).toBe("rgb(37, 99, 235)");
+    const styles = await input.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        backgroundColor: cs.backgroundColor,
+        borderTopWidth: cs.borderTopWidth,
+        height: cs.height,
+      };
+    });
+    expect(styles.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(styles.borderTopWidth).toBe("0px");
+    expect(styles.height).toBe("28px");
   });
 
-  test("filter input wrapper has 4px border-radius", async ({ page }) => {
-    const wrapper = page.locator('[data-testid="filter-input-wrapper"]');
-    await expect(wrapper).toBeVisible();
+  test("filter input keeps the scaffold mono text size", async ({ page }) => {
+    const input = page.getByLabel("Filter requests");
+    await expect(input).toBeVisible();
 
-    const borderRadius = await wrapper.evaluate(
-      (el) => getComputedStyle(el).borderRadius,
-    );
-    expect(borderRadius).toBe("4px");
+    const styles = await input.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        fontFamily: cs.fontFamily,
+        fontSize: cs.fontSize,
+      };
+    });
+    expect(styles.fontFamily).toContain("JetBrains Mono");
+    expect(styles.fontSize).toBe("11.5px");
   });
 
   test("stream live indicators resolve connection tokens in browser CSS", async ({
@@ -191,12 +198,12 @@ test.describe("primitive on-state surfaces (PRO-321)", () => {
     // The rows/table switch is a ToggleGroup type="single" rendered as a
     // segmented control. Its on-state must render via data-[state=on] (not
     // aria-pressed, which Radix strips for type="single"). Switch to rows mode
-    // so the "Rows mode" segment is the active one.
-    await page.getByLabel("Rows mode").click();
+    // so the "Rows view" segment is the active one.
+    await page.getByLabel("Rows view").click();
 
     const track = page.locator('[data-slot="toggle-group"]').first();
-    const active = page.getByLabel("Rows mode");
-    const inactive = page.getByLabel("Table mode");
+    const active = page.getByLabel("Rows view");
+    const inactive = page.getByLabel("Table view");
 
     await expect(track).toBeVisible();
     // toHaveCSS auto-retries, so it settles past the `transition-colors`
@@ -216,24 +223,23 @@ test.describe("primitive on-state surfaces (PRO-321)", () => {
 });
 
 test.describe("command palette tokens (PRO-326)", () => {
-  test("command item label uses text-ui (13px)", async ({ page }) => {
-    // First rendered-path consumer of --text-ui (13px): the command-palette
-    // item labels. Guards the base UI/chrome body size against drift.
+  test("command item label uses text-sm (11.5px)", async ({ page }) => {
+    // Command items use the shadcn CommandItem text-sm size in the v2.4 chrome.
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    const label = page.getByText("Toggle density", { exact: true });
+    const label = page.getByText("Compact density", { exact: true });
     await expect(label).toBeVisible();
 
     const fontSize = await label.evaluate(
       (el) => getComputedStyle(el).fontSize,
     );
-    expect(fontSize).toBe("13px");
+    expect(fontSize).toBe("11.5px");
   });
 
-  test("selected command item uses the bg-hl surface", async ({ page }) => {
-    // The selected row inherits bg-bg-hl + text-ink from the CommandItem
-    // primitive (T2/P8); the palette no longer overrides it to bg-bg-active.
+  test("selected command item uses the accent surface", async ({ page }) => {
+    // The selected row inherits bg-accent + text-foreground from the CommandItem
+    // primitive; the palette does not override the primitive's selected state.
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
 
@@ -245,7 +251,7 @@ test.describe("command palette tokens (PRO-326)", () => {
     // the assertion holds in both themes without hard-coding rgba strings.
     const { actual, expected } = await selected.evaluate((el) => {
       const probe = document.createElement("div");
-      probe.style.backgroundColor = "var(--color-bg-hl)";
+      probe.style.backgroundColor = "var(--color-accent)";
       document.body.appendChild(probe);
       const expected = getComputedStyle(probe).backgroundColor;
       probe.remove();
@@ -254,26 +260,25 @@ test.describe("command palette tokens (PRO-326)", () => {
     expect(actual).toBe(expected);
   });
 
-  test("empty-state copy uses the text-ui-xs token (10.5px)", async ({
+  test("empty-state copy uses the command text-sm token (11.5px)", async ({
     page,
   }) => {
     // The palette's no-results copy shares the empty-state treatment via the
     // CommandEmpty children (not a nested EmptyState wrapper). Its size must be
-    // the 10.5px text-ui-xs token, matching every other EmptyState — guards the
-    // A6.1c/A6.1d token fix against a regression to a bare Tailwind default.
+    // the 11.5px text-sm command primitive size, not a browser default.
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    const input = page.getByPlaceholder("Search commands…");
+    const input = page.getByPlaceholder("Run a command…");
     await input.fill("zzzznomatch");
 
-    const empty = page.getByText("No results found.");
+    const empty = page.getByText("No matching command.");
     await expect(empty).toBeVisible();
 
     const fontSize = await empty.evaluate(
       (el) => getComputedStyle(el).fontSize,
     );
-    expect(fontSize).toBe("10.5px");
+    expect(fontSize).toBe("11.5px");
   });
 });
 
@@ -354,7 +359,7 @@ test.describe("shadcn semantic tokens", () => {
       return resolved;
     });
 
-    // In light mode, --color-border is #e3e6ec = rgb(227, 230, 236)
+    // In Light, --color-border is #e3e6ec = rgb(227, 230, 236)
     expect(borderColor).toBe("rgb(227, 230, 236)");
   });
 
@@ -372,7 +377,7 @@ test.describe("shadcn semantic tokens", () => {
       return resolved;
     });
 
-    // In dark mode, --color-border is #1c222b = rgb(28, 34, 43)
+    // In Dark, --color-border is #1c222b = rgb(28, 34, 43)
     expect(borderColor).toBe("rgb(28, 34, 43)");
   });
 });

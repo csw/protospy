@@ -10,14 +10,14 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@ui/components/ui/tooltip";
 
 export function ListToolbar() {
   const timeZone = useStore((s) => s.timeZone);
@@ -28,12 +28,12 @@ export function ListToolbar() {
   const setListMode = useStore((s) => s.setListMode);
 
   return (
-    <div className="flex h-[30px] shrink-0 items-center gap-2 border-b bg-card pl-gutter-x pr-2">
-      <span className="text-xs font-semibold tracking-wide text-muted-foreground">
+    <div className="grid h-[30px] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-card pl-gutter-x pr-2">
+      <span className="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground">
         Requests
       </span>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="col-start-3 flex shrink-0 items-center gap-1.5 justify-self-end">
         <ToggleGroup
           type="single"
           size="sm"

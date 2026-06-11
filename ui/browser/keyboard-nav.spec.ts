@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -188,7 +188,7 @@ test.describe("Keyboard navigation", () => {
     ]);
 
     // Type "/api" into the filter input — only /api/gamma and /api/alpha remain
-    const filterInput = page.getByPlaceholder("Filter requests…");
+    const filterInput = page.getByLabel("Filter requests");
     await filterInput.fill("/api");
 
     // Blur the filter input so j/k are not swallowed
@@ -231,7 +231,7 @@ test.describe("Keyboard navigation", () => {
     await page.getByText("/api/other").first().click();
 
     // Focus the filter input
-    const filterInput = page.getByPlaceholder("Filter requests…");
+    const filterInput = page.getByLabel("Filter requests");
     await filterInput.click();
 
     // Press j — should type "j" into the input, not move selection
@@ -248,6 +248,6 @@ test.describe("Keyboard navigation", () => {
     await page.keyboard.press("Meta+k");
 
     // The command palette input should become visible
-    await expect(page.getByPlaceholder("Search commands…")).toBeVisible();
+    await expect(page.getByPlaceholder("Run a command…")).toBeVisible();
   });
 });

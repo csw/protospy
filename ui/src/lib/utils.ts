@@ -5,9 +5,8 @@ import { fmtBytes, fmtClock } from "./format";
 
 /**
  * Configured tailwind-merge instance that knows about the custom font-size
- * and font-family tokens defined in `app/globals.css` (and the transitional
- * `theme/legacy-tokens.css`). Without this,
- * `twMerge` treats e.g. `text-ui-xs` (font-size) and `text-m-get` (color)
+ * and font-family tokens defined in `app/globals.css`. Without this,
+ * `twMerge` treats e.g. `text-xs` (font-size) and `text-m-get` (color)
  * as the same `text-*` group and strips the font-size class.
  *
  * The tokens are registered via the v4-idiomatic `theme` namespaces (mirroring
@@ -105,23 +104,23 @@ export function methodBadgeClass(method: string): string {
 
 export function statusTextClass(
   status: string,
-): "text-green" | "text-amber" | "text-red" {
+): "text-ok" | "text-redirect" | "text-error" {
   const code = parseInt(status, 10);
-  if (code >= 200 && code < 300) return "text-green";
-  if (code >= 300 && code < 400) return "text-amber";
-  return "text-red";
+  if (code >= 200 && code < 300) return "text-ok";
+  if (code >= 300 && code < 400) return "text-redirect";
+  return "text-error";
 }
 
 export function statusChipClass(
   status: string,
 ):
-  | "border-green text-green"
-  | "border-amber text-amber"
-  | "border-red text-red" {
+  | "border-ok text-ok"
+  | "border-redirect text-redirect"
+  | "border-error text-error" {
   const code = parseInt(status, 10);
-  if (code >= 200 && code < 300) return "border-green text-green";
-  if (code >= 300 && code < 400) return "border-amber text-amber";
-  return "border-red text-red";
+  if (code >= 200 && code < 300) return "border-ok text-ok";
+  if (code >= 300 && code < 400) return "border-redirect text-redirect";
+  return "border-error text-error";
 }
 
 const TRACE_PALETTE = [

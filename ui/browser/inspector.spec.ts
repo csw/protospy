@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -30,12 +30,10 @@ test.beforeEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — empty state", () => {
-  test("1.1 shows 'Select a request to inspect it' when no exchange is selected", async ({
+  test("1.1 shows 'Select a request to inspect' when no exchange is selected", async ({
     page,
   }) => {
-    await expect(
-      page.getByText("Select a request to inspect it"),
-    ).toBeVisible();
+    await expect(page.getByText("Select a request to inspect")).toBeVisible();
   });
 
   test("1.2 empty state clears when an exchange is selected", async ({
@@ -46,12 +44,10 @@ test.describe("Inspector — empty state", () => {
       makeResponse(1, "200 OK"),
     ]);
 
-    await expect(
-      page.getByText("Select a request to inspect it"),
-    ).toBeVisible();
+    await expect(page.getByText("Select a request to inspect")).toBeVisible();
     await page.getByText("/api/test").first().click();
     await expect(
-      page.getByText("Select a request to inspect it"),
+      page.getByText("Select a request to inspect"),
     ).not.toBeVisible();
   });
 });

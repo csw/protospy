@@ -35,4 +35,10 @@ if (typeof globalThis.matchMedia === "undefined") {
   })) as unknown as typeof globalThis.matchMedia;
 }
 
+// cmdk keeps the selected item in view via scrollIntoView; jsdom does not
+// implement layout scrolling, so component tests only need a no-op.
+if (typeof Element.prototype.scrollIntoView === "undefined") {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 afterEach(cleanup);

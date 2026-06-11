@@ -12,7 +12,6 @@ export default defineConfig({
     alias: {
       "@bindings": path.resolve(__dirname, "../bindings"),
       "@ui": path.resolve(__dirname, "src"),
-      "@": path.resolve(__dirname, "src"),
     },
   },
   server: {

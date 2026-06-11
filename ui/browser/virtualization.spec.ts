@@ -19,16 +19,9 @@ function makeLargeDataset(count: number) {
   return messages;
 }
 
-async function getVirtualContainerHeight(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const listbox = document.querySelector('[role="listbox"]');
-    const parent = listbox?.parentElement as HTMLElement | null;
-    const container =
-      parent?.style.height !== ""
-        ? parent
-        : (listbox?.firstElementChild as HTMLElement | null);
-    return container?.style.height ?? "";
-  });
+async function getFirstRowHeight(page: Page): Promise<number> {
+  const box = await page.locator("button[role='option']").first().boundingBox();
+  return box?.height ?? 0;
 }
 
 async function setListMode(page: Page, mode: "rows" | "table") {
@@ -49,19 +42,13 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
   await waitForStore(page);
   await resetStore(page);
 });
-
-/** Parse the virtualizer container's height style to a number. */
-async function getContainerHeightPx(page: Page): Promise<number> {
-  const raw = await getVirtualContainerHeight(page);
-  return parseFloat(raw);
-}
 
 test.describe("Virtualization", () => {
   test("DOM node count stays bounded with 200 exchanges in rows mode", async ({
@@ -109,23 +96,23 @@ test.describe("Virtualization", () => {
     await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(N));
 
-    // Wait for initial render and capture rows-mode height
+    // Wait for initial render and capture rows-mode row height.
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeGreaterThan(0);
-    const rowsHeight = await getContainerHeightPx(page);
+    const rowsHeight = await getFirstRowHeight(page);
 
-    // Table rows are shorter — total height should decrease
+    // Table rows are shorter.
     await setListMode(page, "table");
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeLessThan(rowsHeight);
-    const tableHeight = await getContainerHeightPx(page);
+    const tableHeight = await getFirstRowHeight(page);
 
-    // Switching back to rows should restore the taller height
+    // Switching back to rows should restore the taller row height.
     await setListMode(page, "rows");
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeGreaterThan(tableHeight);
   });
 
@@ -139,28 +126,28 @@ test.describe("Virtualization", () => {
 
     // rows + regular
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeGreaterThan(0);
-    const rowsRegular = await getContainerHeightPx(page);
+    const rowsRegular = await getFirstRowHeight(page);
 
     // rows + compact → shorter
     await setDensity(page, "compact");
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeLessThan(rowsRegular);
-    const rowsCompact = await getContainerHeightPx(page);
+    const rowsCompact = await getFirstRowHeight(page);
 
     // table + compact → even shorter (table rows are shorter than rows-mode rows)
     await setListMode(page, "table");
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeLessThan(rowsCompact);
-    const tableCompact = await getContainerHeightPx(page);
+    const tableCompact = await getFirstRowHeight(page);
 
     // table + regular → taller than table compact
     await setDensity(page, "regular");
     await expect
-      .poll(() => getContainerHeightPx(page), { timeout: 5000 })
+      .poll(() => getFirstRowHeight(page), { timeout: 5000 })
       .toBeGreaterThan(tableCompact);
   });
 
@@ -202,7 +189,6 @@ test.describe("Virtualization", () => {
       (window as any).__test_store.getState().setSelectedId(1);
     });
 
-    // The selected row should be scrolled into view
     const selected = page.locator(
       "button[role='option'][aria-selected='true']",
     );

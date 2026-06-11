@@ -5,8 +5,8 @@
 // request/response panes; the `complete` phase renders the real JsonViewer, not
 // this. Maps a BodyState phase to the right copy + treatment.
 
-import { cn } from "@/lib/utils";
-import type { BodyState as BodyStatePhase } from "@/lib/types";
+import { cn } from "@ui/lib/utils";
+import type { BodyState as BodyStatePhase } from "@ui/lib/types";
 
 const COPY: Record<Exclude<BodyStatePhase["phase"], "complete">, string> = {
   awaiting: "Awaiting response…",

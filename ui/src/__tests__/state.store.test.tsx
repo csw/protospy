@@ -101,17 +101,17 @@ describe("state/store", () => {
   describe("setListWidth", () => {
     it('updates only "rows", leaves "table" untouched', () => {
       const before = useStore.getState().listWidth;
-      useStore.getState().setListWidth("rows", 500);
+      useStore.getState().setListWidth("rows", 360);
       const after = useStore.getState().listWidth;
-      expect(after.rows).toBe(500);
+      expect(after.rows).toBe(360);
       expect(after.table).toBe(before.table);
     });
 
     it('updates only "table", leaves "rows" untouched', () => {
       const before = useStore.getState().listWidth;
-      useStore.getState().setListWidth("table", 900);
+      useStore.getState().setListWidth("table", 760);
       const after = useStore.getState().listWidth;
-      expect(after.table).toBe(900);
+      expect(after.table).toBe(760);
       expect(after.rows).toBe(before.rows);
     });
   });
@@ -282,7 +282,7 @@ describe("state/store", () => {
       useStore.getState().setOrder("oldest");
       useStore.getState().setListMode("table");
       useStore.getState().toggleTraceGroup();
-      useStore.getState().setListWidth("rows", 500);
+      useStore.getState().setListWidth("rows", 360);
 
       const stored = JSON.parse(
         localStorage.getItem("protospy-ui-prefs") ?? "{}",
@@ -292,7 +292,7 @@ describe("state/store", () => {
         order: "oldest",
         listMode: "table",
         traceGroupOn: true,
-        listWidth: { rows: 500, table: 720 },
+        listWidth: { rows: 360, table: 720 },
       });
     });
 
@@ -320,7 +320,7 @@ describe("state/store", () => {
             density: "compact",
             order: "oldest",
             listMode: "table",
-            listWidth: { rows: 340, table: 999 },
+            listWidth: { rows: 340, table: 760 },
             traceGroupOn: true,
           },
           version: 1,
@@ -339,7 +339,7 @@ describe("state/store", () => {
       expect(state.density).toBe("compact");
       expect(state.order).toBe("oldest");
       expect(state.listMode).toBe("table");
-      expect(state.listWidth.table).toBe(999);
+      expect(state.listWidth.table).toBe(760);
       expect(state.traceGroupOn).toBe(true);
     });
   });

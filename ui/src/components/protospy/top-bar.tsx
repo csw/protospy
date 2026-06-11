@@ -18,17 +18,16 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
-import type { ConnectionStatus } from "@/lib/types";
+import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@ui/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@ui/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -36,22 +35,23 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
+} from "@ui/components/ui/dropdown-menu";
 
 /** Service metadata is app/config-owned (loaded async) — not in the store, which
  *  only holds the selected `service` name. Pass the configured list in. */
 export interface ServiceInfo {
   name: string;
-  upstream: string; // e.g. "localhost:9200"
-  port: number; // local proxy port
+  upstream: string;
+  addr: string;
   connection: ConnectionStatus;
 }
 
 export interface TopBarProps {
   services?: ServiceInfo[];
+  onSwitchService?: (name: string) => void;
 }
 
-export function TopBar({ services = [] }: TopBarProps) {
+export function TopBar({ services = [], onSwitchService }: TopBarProps) {
   const service = useStore((s) => s.service);
   const connection = connDotStatus(useStore((s) => s.connection));
   const setService = useStore((s) => s.setService);
@@ -63,7 +63,7 @@ export function TopBar({ services = [] }: TopBarProps) {
 
   return (
     <header className="flex h-topbar shrink-0 items-center gap-3 border-b bg-card px-gutter-x">
-      <span className="select-none text-[14px] font-bold tracking-tight">
+      <span className="shrink-0 select-none text-[14px] font-bold tracking-tight">
         proto<span className="text-primary">spy</span>
       </span>
 
@@ -72,7 +72,7 @@ export function TopBar({ services = [] }: TopBarProps) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border bg-card px-2.5 py-1 text-sm text-secondary-foreground hover:border-border-strong"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border bg-card px-2.5 py-1 text-sm text-secondary-foreground hover:border-border-strong"
           >
             <ConnectionDot status={connection} />
             <span className="font-mono">{service ?? "no service"}</span>
@@ -83,14 +83,14 @@ export function TopBar({ services = [] }: TopBarProps) {
           {services.map((svc) => (
             <DropdownMenuItem
               key={svc.name}
-              onSelect={() => setService(svc.name)}
+              onSelect={() => (onSwitchService ?? setService)(svc.name)}
               className="gap-2.5"
             >
               <ConnectionDot status={svc.connection} />
               <span className="flex min-w-0 flex-col">
                 <span className="font-mono text-sm">{svc.name}</span>
                 <span className="font-mono text-xs text-muted-foreground">
-                  {svc.upstream} → :{svc.port}
+                  {svc.upstream} -&gt; {svc.addr}
                 </span>
               </span>
               {svc.name === service && (
@@ -106,20 +106,19 @@ export function TopBar({ services = [] }: TopBarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* ⌘K opener */}
-        <Button
-          variant="outline"
-          size="sm"
+        <button
+          type="button"
           onClick={() => setCmdKOpen(true)}
-          className="gap-2 text-muted-foreground"
+          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Search className="size-3.5" />
           Jump to…
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
             ⌘K
           </kbd>
-        </Button>
+        </button>
 
         {/* Group-by-trace */}
         <IconToggle
@@ -201,7 +200,7 @@ function IconToggle({
           aria-pressed={active}
           aria-label={label}
           className={cn(
-            "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
             active && "bg-accent text-accent-foreground hover:bg-accent",
           )}
         >

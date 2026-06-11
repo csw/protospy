@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -38,8 +38,8 @@ test.describe("Compression display", () => {
   test("is visible in rows mode for a gzip-compressed response", async ({
     page,
   }) => {
-    // Rows mode renders the encoding inline as "(gzip)" after the size.
-    await page.getByLabel("Rows mode").click();
+    // Rows view renders the encoding inline as "(gzip)" after the size.
+    await page.getByLabel("Rows view").click();
 
     await injectExchanges(page, [
       makeGetRequest(1, "/api/compressed"),
@@ -56,7 +56,7 @@ test.describe("Compression display", () => {
   test("shows a compression marker + tooltip in table mode (not inline tag)", async ({
     page,
   }) => {
-    // Table mode is the default. Unlike rows mode, the fixed-width SIZE column
+    // Table view is the default. Unlike rows mode, the fixed-width SIZE column
     // shows a compression icon with the encoding in the tooltip — no inline
     // "(gzip)" text, which would overflow the narrow track (PRO-286).
     await injectExchanges(page, [

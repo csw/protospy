@@ -16,9 +16,9 @@
 // here — so the view is prop-driven like the other content components.
 
 import { Pause, Play, CornerDownRight, CircleCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { StreamEvent } from "@/lib/types";
+import { cn } from "@ui/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
+import type { StreamEvent } from "@ui/lib/types";
 import {
   LiveIndicator,
   type StreamLiveState,

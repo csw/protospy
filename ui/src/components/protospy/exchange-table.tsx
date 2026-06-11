@@ -35,7 +35,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { packLanes, TraceRail, traceRailWidth } from "./trace-rail";
-import { ListEmptyState } from "../ListEmptyState";
+import { EmptyState } from "./empty-state";
 import { SimpleTooltip } from "@ui/components/ui/SimpleTooltip";
 
 const col = createColumnHelper<Exchange>();
@@ -246,9 +246,10 @@ export function ExchangeTable({
         </div>
 
         {exchanges.length === 0 ? (
-          <ListEmptyState filtered={filtered} />
+          <EmptyState kind={filtered ? "filtered" : "first-run"} />
         ) : (
           <div
+            data-testid="requests-virtualizer"
             className="relative"
             style={{ height: virtualizer.getTotalSize() }}
           >

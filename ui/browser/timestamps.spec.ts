@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
       json: { services: [{ name: "test-backend" }] },
     }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({
       contentType: "text/event-stream",
       body: "",
@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Absolute timestamps (rows mode)", () => {
   test.beforeEach(async ({ page }) => {
     // Default is now table mode; switch to rows.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
   });
 
   // PRO-359 (kept deviation §3): rows-mode timestamps are absolute
@@ -61,7 +61,7 @@ test.describe("Absolute timestamps (rows mode)", () => {
 });
 
 test.describe("Absolute timestamps (table mode)", () => {
-  // Table mode is the default — no mode switch needed.
+  // Table view is the default — no mode switch needed.
 
   test("shows absolute HH:MM:SS.mmm timestamp", async ({ page }) => {
     const ts = new Date(FIXED_TIME).toISOString();
@@ -92,8 +92,7 @@ test.describe("Absolute timestamps (table mode)", () => {
     // Initially shows local time (HH:MM:SS.mmm format)
     await expect(lastSpan).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
 
-    // Click the UTC toggle in the toolbar
-    await page.getByLabel(/Time zone/).click();
+    await page.getByRole("radio", { name: "UTC" }).click();
 
     // Should now show UTC time: 14:30:45.123
     await expect(lastSpan).toHaveText("14:30:45.123");
@@ -135,17 +134,16 @@ test.describe("Absolute timestamps (table mode)", () => {
   });
 
   test("UTC toggle persists across reloads", async ({ page }) => {
-    // Switch to UTC
-    await page.getByLabel(/Time zone/).click();
+    await page.getByRole("radio", { name: "UTC" }).click();
 
     // Verify UTC label is active
-    await expect(page.getByText("UTC")).toBeVisible();
+    await expect(page.getByRole("radio", { name: "UTC" })).toBeChecked();
 
     // Reload the page
     await page.goto("/");
     await waitForStore(page);
 
     // UTC should still be active after reload
-    await expect(page.getByText("UTC")).toBeVisible();
+    await expect(page.getByRole("radio", { name: "UTC" })).toBeChecked();
   });
 });
