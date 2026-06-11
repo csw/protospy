@@ -13,8 +13,6 @@
 // The component is intentionally not yet mounted — the in-Bodies Paired view renders
 // a placeholder; wiring app-computed `SubExchange[]` pairing into it is PRO-56.
 
-"use client";
-
 // PRO-341: dropped unused `useState` import from the v2.3 scaffold (the
 // Collapsible primitives manage their own open state) to satisfy noUnusedLocals.
 import { ChevronRight } from "lucide-react";
