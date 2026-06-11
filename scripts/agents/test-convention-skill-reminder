@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# scripts/agents/test-convention-skill-reminder
+#
+# Payload-simulation test for the PRO-377 point-of-action reminder hooks
+# (.claude/hooks/remind-convention-skills.sh and the .codex/ counterpart). Pipes
+# representative PreToolUse payloads into each hook and asserts the reminder
+# fires only for edits under ui/src/, resolves cwd-relative paths (the cd-into-ui
+# case), covers brand-new files, and fires at most once per session.
+#
+# Run from anywhere: ./scripts/agents/test-convention-skill-reminder
+set -uo pipefail
+
+REPO=$(git rev-parse --show-toplevel)
+CLAUDE_HOOK="$REPO/.claude/hooks/remind-convention-skills.sh"
+CODEX_HOOK="$REPO/.codex/hooks/remind-convention-skills.sh"
+
+pass=0
+fail=0
+
+# Clean any markers from a prior run so once-per-session cases are deterministic.
+rm -f "${TMPDIR:-/tmp}"/protospy-convskill-cstest-* 2>/dev/null || true
+
+# fires <hook> <payload-json> -> stdout of the hook
+fires() { printf '%s' "$2" | "$1"; }
+
+# assert_present <name> <hook> <payload>
+assert_present() {
+  local name=$1 hook=$2 payload=$3 out ctx
+  out=$(fires "$hook" "$payload")
+  ctx=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null)
+  if [[ -n "$ctx" && "$ctx" == *shadcn* ]]; then
+    echo "PASS  $name"
+    pass=$((pass + 1))
+  else
+    echo "FAIL  $name -- expected reminder, got: ${out:-<empty>}"
+    fail=$((fail + 1))
+  fi
+}
+
+# assert_silent <name> <hook> <payload>
+assert_silent() {
+  local name=$1 hook=$2 payload=$3 out
+  out=$(fires "$hook" "$payload")
+  if [[ -z "$out" ]]; then
+    echo "PASS  $name"
+    pass=$((pass + 1))
+  else
+    echo "FAIL  $name -- expected silence, got: $out"
+    fail=$((fail + 1))
+  fi
+}
+
+# Build a Claude Edit/Write payload.
+claude_payload() { # <session_id> <cwd> <tool_name> <file_path>
+  jq -cn --arg sid "$1" --arg cwd "$2" --arg tool "$3" --arg fp "$4" \
+    '{session_id:$sid, cwd:$cwd, hook_event_name:"PreToolUse", tool_name:$tool,
+      tool_input:{file_path:$fp}}'
+}
+
+# Build a Codex apply_patch payload whose command carries the patch body.
+codex_payload() { # <session_id> <cwd> <marker-path>
+  local body="*** Begin Patch
+*** Update File: $3
+@@
+-old
++new
+*** End Patch"
+  jq -cn --arg sid "$1" --arg cwd "$2" --arg cmd "apply_patch <<'EOF'
+$body
+EOF" '{session_id:$sid, cwd:$cwd, hook_event_name:"PreToolUse",
+       tool_name:"apply_patch", tool_input:{command:$cmd}}'
+}
+
+echo "== Claude hook =="
+assert_present "Edit, absolute ui/src path" "$CLAUDE_HOOK" \
+  "$(claude_payload cstest-1 "$REPO" Edit "$REPO/ui/src/components/Bar.tsx")"
+
+assert_present "Edit, cd-into-ui relative path" "$CLAUDE_HOOK" \
+  "$(claude_payload cstest-2 "$REPO/ui" Edit "src/components/Foo.tsx")"
+
+assert_present "Write, new ui/src file (never read)" "$CLAUDE_HOOK" \
+  "$(claude_payload cstest-3 "$REPO" Write "$REPO/ui/src/components/New.tsx")"
+
+assert_silent "Edit, path outside ui/src" "$CLAUDE_HOOK" \
+  "$(claude_payload cstest-4 "$REPO" Edit "$REPO/conformance/x.py")"
+
+# Once-per-session: same session_id twice -> first fires, second silent.
+once_payload=$(claude_payload cstest-5 "$REPO" Edit "$REPO/ui/src/state/store.ts")
+assert_present "Once-per-session, first edit"  "$CLAUDE_HOOK" "$once_payload"
+assert_silent  "Once-per-session, second edit" "$CLAUDE_HOOK" "$once_payload"
+
+echo "== Codex hook =="
+assert_present "apply_patch, cd-into-ui relative path" "$CODEX_HOOK" \
+  "$(codex_payload cstest-6 "$REPO/ui" "src/components/Foo.tsx")"
+
+assert_present "apply_patch, absolute ui/src path" "$CODEX_HOOK" \
+  "$(codex_payload cstest-7 "$REPO" "$REPO/ui/src/body/decode.ts")"
+
+assert_silent "apply_patch, path outside ui/src" "$CODEX_HOOK" \
+  "$(codex_payload cstest-8 "$REPO" "conformance/x.py")"
+
+rm -f "${TMPDIR:-/tmp}"/protospy-convskill-cstest-* 2>/dev/null || true
+
+echo
+echo "$pass passed, $fail failed"
+[[ "$fail" -eq 0 ]]
