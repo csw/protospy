@@ -341,9 +341,9 @@ code review so they run in parallel. Give it this prompt shape:
 
 > Run a React/Tailwind/shadcn convention review for $ticket ("<title>").
 > Linear URL: <url>. Scope from the diff against `main` (branch
-> `<branch-name>`). Apply the frontend:react-patterns, frontend:shadcn-ui,
-> and frontend:tailwind-theme-builder skills to the changed UI source and
-> return your prioritized convention-findings report.
+> `<branch-name>`). Apply the vercel-react-best-practices,
+> vercel-composition-patterns, shadcn, and tailwind-4-docs skills to the
+> changed UI source and return your prioritized convention-findings report.
 
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,

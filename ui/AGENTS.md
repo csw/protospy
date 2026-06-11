@@ -57,16 +57,18 @@ before). If a primitive's default sizing or spacing doesn't fit, override the
 specific dimensions via `className` (e.g. `className="size-4"`) — don't drop to raw
 elements just to get the size you want.
 
-**Invoke the convention skills — nothing preloads them.** Three skills are the
+**Invoke the convention skills — nothing preloads them.** Four skills are the
 convention checklists for this UI. You must invoke them yourself via the Skill tool
 rather than waiting for a discovery-tuned trigger to fire:
 
-- `frontend:shadcn-ui` — the component inventory. Invoke before writing any new
+- `shadcn` — the component inventory. Invoke before writing any new
   element from scratch, to confirm one doesn't already exist.
-- `frontend:react-patterns` — performance and composition rules. Apply whenever you
+- `vercel-react-best-practices` — performance and composition rules. Apply whenever you
   write or change a component.
-- `frontend:tailwind-theme-builder` — semantic tokens, `@theme inline`, no no-op or
-  undefined token classes. Follow whenever you touch styling.
+- `vercel-composition-patterns` — composition patterns (compound components,
+  boolean-prop explosions, React 19 no-forwardRef). Apply when structuring components.
+- `tailwind-4-docs` — semantic tokens, `@theme inline`, no no-op or
+  undefined token classes, v4 migration gotchas. Follow whenever you touch styling.
 
 The `convention-review` subagent backstops these on a PR, but fixing drift there
 costs more than getting it right the first time.
