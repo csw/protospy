@@ -296,7 +296,8 @@ round exist or the user explicitly changes the workflow.
 
 Before spawning the reviews, check the ticket description for a
 `## Reviewer instructions` section — the step-2 brief reproduces it verbatim if
-present (re-fetch with `linear issue view $ticket --json` if you need to confirm). If it exists, its body is
+present (re-fetch with `linear issue view $ticket --json` if you need to
+confirm). If it exists, its body is
 maintainer-authored guidance written for **this PR's** reviewers — relay it
 **verbatim** into the 7a, 7b, and 7c prompts, appended as the block below. It
 carries what a diff-scoped review can't infer on its own: a mechanism the PR
