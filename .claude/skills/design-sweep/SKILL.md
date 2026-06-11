@@ -1,24 +1,48 @@
 ---
 name: design-sweep
 description: >-
-  Run a full visual-review sweep of the protospy UI across the entire fixture
-  matrix, triage findings by severity, write a report to Obsidian, and drop a
-  PM inbox note for ticket creation. Does not create tickets directly.
+  Run a visual-review sweep of the protospy UI across the fixture matrix,
+  triage findings by severity, write a report to Obsidian, and drop a PM
+  inbox note for ticket creation. Supports full sweeps and scoped runs
+  (by scene, width, or rubric). Does not create tickets directly.
   Triggers: 'design sweep', 'full visual sweep', 'run the sweep',
-  'visual sweep', 'run PRO-242', 'sweep the UI'.
+  'visual sweep', 'sweep the UI', 'sweep scene X', 'sweep at 1024'.
 compatibility: claude-code-only
 ---
 
-# Full Design Sweep — protospy UI
+# Design Sweep — protospy UI
 
-Run the `visual-review` agent across the **entire** fixture matrix (all scenes
-x all widths x both themes) and produce a triaged findings report. This is the
-full-surface quality pass — the visual-review agent's "full sweep" mode,
-orchestrated end-to-end.
+Run the `visual-review` agent across the fixture matrix and produce a triaged
+findings report. Supports full sweeps and scoped runs.
 
 **This skill does not create Linear tickets.** It writes a findings report to
 Obsidian and drops a PM inbox note for the senior-pm to triage into
 properly-shaped tickets.
+
+## Scope from arguments
+
+Parse `$ARGUMENTS` (everything after `/design-sweep`) to determine scope.
+When no arguments are given, run a **full sweep** (all scenes x all widths x
+both themes). Arguments narrow the scope:
+
+- **Scene names**: `selected`, `long-error`, `stream-anthropic`, etc. — run
+  only those scenes. Multiple scenes can be space-separated.
+- **Widths**: `1024`, `1280`, `1440`, `1920` — run only at those widths.
+  When no width is specified, use the standard set (1280/1440/1920).
+- **Rubric focus**: `layout`, `contrast`, `typography`, `responsive`, etc. —
+  emphasize those rubric categories.
+- **`full`**: explicit full sweep (the default when no args are given).
+
+Examples:
+
+- `/design-sweep` — full sweep, all scenes, all standard widths, both themes
+- `/design-sweep selected long-error 1024` — two scenes at 1024px
+- `/design-sweep stream-anthropic contrast` — one scene, contrast emphasis
+- `/design-sweep 1024 1280` — full scene set at two widths
+- `/design-sweep light` — full sweep, light theme only
+
+Combine freely. The skill builds a prompt for the visual-review agent from
+whatever is specified.
 
 ## Procedure
 
@@ -49,43 +73,62 @@ playwright-cli eval "typeof window.__test_scenes !== 'undefined'"
 If `__test_scenes` is not available, stop and report — the sweep cannot run
 without the fixture harness.
 
-### 2 — Run the visual-review agent (full sweep)
+### 2 — Build the visual-review prompt
 
-Spawn the `visual-review` agent for a full sweep. Use `name: "visual-review"`
-so it stays addressable for follow-ups.
+From the parsed arguments, construct the spawn prompt for the visual-review
+agent:
 
-The screenshots directory for the sweep is date-stamped:
+**Full sweep** (no scene/width args):
+
+> Full sweep. Check all scenes at all widths against the full rubric in both
+> themes.
+
+**Scoped run** (scenes and/or widths specified):
+
+> Check scenes: [scene list]. Widths: [width list]. Themes: [both / light /
+> > dark]. Rubric emphasis: [categories, or "full rubric"].
+
+Always include the screenshots directory path (see step 3).
+
+### 3 — Run the visual-review agent
+
+Create the screenshots directory:
 
 ```bash
 mkdir -p ~/obsidian/protospy/Claude/Reviews/screenshots/sweep-$(date +%Y-%m-%d)
 ```
 
-Spawn prompt:
+Spawn the `visual-review` agent with `name: "visual-review"` so it stays
+addressable for follow-ups. Append the screenshots directory to the prompt:
 
-> Full sweep. Check all scenes at all 3 widths (1280, 1440, 1920) against the
-> full rubric in both themes.
->
 > Screenshots directory:
 > `~/obsidian/protospy/Claude/Reviews/screenshots/sweep-YYYY-MM-DD/`
-> (substitute today's date).
 
-The agent returns a complete findings report as its final text.
+The agent returns a findings report as its final text.
 
-### 3 — Write the report to Obsidian
+### 4 — Write the report to Obsidian
 
-Save the agent's findings report to:
+For a **full sweep**, save to:
 
 ```
 ~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md
 ```
 
-If a file already exists at that path (a previous sweep the same day), append
-a sequence number: `design-review-YYYY-MM-DD-2.md`.
+For a **scoped run**, include the scope in the filename:
 
-### 4 — Write a PM inbox note
+```
+~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD-<scope-slug>.md
+```
 
-Create a triage note at `~/obsidian/protospy/PM/Inbox/sweep-triage-YYYY-MM-DD.md`
-summarizing the findings for the senior-pm to process into tickets:
+Where `<scope-slug>` is a short kebab-case summary of what was scoped (e.g.
+`selected-1024`, `stream-scenes`, `light-mode`).
+
+If a file already exists at that path, append a sequence number.
+
+### 5 — Write a PM inbox note
+
+Create a triage note at
+`~/obsidian/protospy/PM/Inbox/sweep-triage-YYYY-MM-DD.md`:
 
 ```markdown
 ---
@@ -97,8 +140,8 @@ updated: YYYY-MM-DD
 
 # Visual sweep triage — YYYY-MM-DD
 
-Full fixture-matrix sweep completed. Report:
-[[Claude/Reviews/design-review-YYYY-MM-DD]]
+<"Full fixture-matrix sweep" or "Scoped sweep: [description]"> completed.
+Report: [[Claude/Reviews/design-review-YYYY-MM-DD]]
 
 ## Summary
 
@@ -116,7 +159,11 @@ summary, and suggested priority. Lows can be batched.>
 gaps encountered, things that looked good.>
 ```
 
-### 5 — Report
+For small scoped runs (one or two scenes, few findings), the inbox note can
+be proportionally brief — don't pad a two-finding scoped check to match the
+full-sweep template.
+
+### 6 — Report
 
 Tell the user:
 
@@ -124,3 +171,5 @@ Tell the user:
 - The finding counts by severity
 - That a PM inbox note was created for ticket triage
 - Any coverage gaps (scenes that couldn't be tested, fixture limitations)
+- That the visual-review agent is still addressable for follow-ups
+  (`SendMessage` to `"visual-review"`)
