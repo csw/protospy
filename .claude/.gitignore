@@ -10,4 +10,8 @@
 /skills/*
 !/skills/handle-ticket-inner/
 !/skills/handle-ticket-inner/**
+!/skills/shadcn
+!/skills/vercel-react-best-practices
+!/skills/vercel-composition-patterns
+!/skills/tailwind-4-docs
 /scheduled_tasks.lock

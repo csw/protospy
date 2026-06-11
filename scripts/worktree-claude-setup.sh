@@ -112,3 +112,27 @@ done < <(find "$main_root" -name "CLAUDE.local.md" \
     -print0)
 
 echo "Claude config setup complete." >&2
+
+# tailwind-4-docs snapshot — initialize once per worktree; ~5 MB, ~10 s.
+# Skips if already initialized today or if the skill isn't present.
+tailwind_skill="$worktree_root/.agents/skills/tailwind-4-docs"
+tailwind_sync="$tailwind_skill/scripts/sync_tailwind_docs.py"
+tailwind_src="$tailwind_skill/references/docs-source.txt"
+
+if [[ -f "$tailwind_sync" ]]; then
+    today="$(date +%Y-%m-%d)"
+    current_date=""
+    if [[ -f "$tailwind_src" ]]; then
+        current_date="$(grep '^Snapshot-Date:' "$tailwind_src" | awk '{print $2}')"
+    fi
+    if [[ "$current_date" == "$today" ]]; then
+        echo "tailwind-4-docs snapshot is current ($today), skipping." >&2
+    else
+        echo "Initializing tailwind-4-docs snapshot..." >&2
+        if python "$tailwind_sync" --accept-docs-license 2>&1; then
+            echo "tailwind-4-docs snapshot initialized." >&2
+        else
+            echo "Warning: tailwind-4-docs snapshot failed (no network?); skill will fall back to gotchas.md." >&2
+        fi
+    fi
+fi
