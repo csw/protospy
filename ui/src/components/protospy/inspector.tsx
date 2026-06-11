@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
-import { cn, formatAbsoluteTime, splitUri } from "@ui/lib/utils";
+import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
 import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { isSSEExchange } from "@ui/lib/exchange";
@@ -88,7 +88,8 @@ export function Inspector({
         <div className="flex items-center border-b px-gutter-x">
           <TabsList
             data-testid="inspector-tab-list"
-            className="h-tab gap-0.5 bg-transparent p-0"
+            variant="line"
+            className="h-tab gap-0.5 p-0"
           >
             <UnderlineTab value="bodies">
               {isSSEExchange(x) ? "Stream" : "Bodies"}
@@ -328,13 +329,7 @@ function UnderlineTab({
   children: React.ReactNode;
 }) {
   return (
-    <TabsTrigger
-      value={value}
-      className={cn(
-        "h-tab rounded-none border-b-2 border-transparent bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none",
-        "data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none",
-      )}
-    >
+    <TabsTrigger value={value} className="h-tab px-3">
       {children}
     </TabsTrigger>
   );

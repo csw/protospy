@@ -12,11 +12,8 @@ const toggleVariants = cva(
         // Binary toolbar toggle / chip: soft primary active surface.
         // Standalone Toggle is tooltip-wrapped, so its on-state is keyed off
         // aria-pressed (which Radix Tooltip's data-state would clobber).
-        // NOTE: this on-state is class-guarded only (no consumer yet). The
-        // first component to render a standalone Toggle must add a
-        // computed-style check to browser/design-tokens.spec.ts — a
-        // class-guard can't prove the aria-pressed selector actually matches
-        // at runtime.
+        // Computed-style guard in browser/design-tokens.spec.ts covers the
+        // CSS evaluation that class-string tests can't prove.
         default:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary",
         // Segmented item (inside ToggleGroup): raised card fill on a secondary
@@ -29,8 +26,9 @@ const toggleVariants = cva(
       },
       size: {
         default: "h-9 min-w-9 px-2",
-        sm: "h-[22px] min-w-[22px] px-0",
+        sm: "h-[27px] min-w-[27px] px-0",
         lg: "h-10 min-w-10 px-2.5",
+        "icon-chrome": "size-7 rounded-md [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {

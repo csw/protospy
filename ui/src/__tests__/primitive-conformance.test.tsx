@@ -68,7 +68,7 @@ describe("primitive design-system conformance (PRO-321)", () => {
     expect(el.className).not.toContain("hover:bg-accent");
   });
 
-  it("Tabs line variant carries the accent underline (call sites need not override)", () => {
+  it("Tabs line variant carries the primary underline (call sites need not override)", () => {
     render(
       <Tabs value="a">
         <TabsList variant="line">
@@ -77,12 +77,16 @@ describe("primitive design-system conformance (PRO-321)", () => {
       </Tabs>,
     );
     const trigger = screen.getByRole("tab", { name: "A" });
-    // Accent underline carried by the `line` variant's ::after bar, 2px tall
-    // (h-0.5) in the horizontal orientation.
-    expect(trigger).toHaveClass("after:bg-accent");
+    // Primary (brand blue) underline carried by the `line` variant's ::after bar,
+    // 2px tall (h-0.5) in the horizontal orientation, positioned at bottom-0.
+    expect(trigger).toHaveClass("after:bg-primary");
     expect(trigger.className).toContain(
       "group-data-[orientation=horizontal]/tabs:after:h-0.5",
     );
+    expect(trigger.className).toContain(
+      "group-data-[orientation=horizontal]/tabs:after:bottom-[-5px]",
+    );
+    expect(trigger.className).not.toContain("after:bg-accent");
     expect(trigger.className).not.toContain("after:bg-foreground");
   });
 

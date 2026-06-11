@@ -18,10 +18,11 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
 import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
+import { Button } from "@ui/components/ui/button";
+import { Toggle } from "@ui/components/ui/toggle";
 import { Separator } from "@ui/components/ui/separator";
 import {
   Tooltip,
@@ -108,17 +109,18 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* ⌘K opener */}
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm-dense"
           onClick={() => setCmdKOpen(true)}
-          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="shrink-0 gap-2 text-muted-foreground"
         >
           <Search className="size-3.5" />
           Jump to…
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
             ⌘K
           </kbd>
-        </button>
+        </Button>
 
         {/* Group-by-trace */}
         <IconToggle
@@ -130,7 +132,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Group by trace"
           }
         >
-          <Layers className="size-4" />
+          <Layers />
         </IconToggle>
 
         {/* Density (regular ↔ compact) */}
@@ -145,11 +147,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Regular density — click for compact"
           }
         >
-          {density === "compact" ? (
-            <Rows2 className="size-4" />
-          ) : (
-            <Rows3 className="size-4" />
-          )}
+          {density === "compact" ? <Rows2 /> : <Rows3 />}
         </IconToggle>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -170,13 +168,22 @@ function ThemeControl() {
   };
   const current = theme ?? "system";
   const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor;
+  const label = `Theme: ${current} — click to cycle`;
   return (
-    <IconToggle
-      onClick={() => setTheme(next[current] ?? "light")}
-      label={`Theme: ${current} — click to cycle`}
-    >
-      <Icon className="size-4" />
-    </IconToggle>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-chrome"
+          onClick={() => setTheme(next[current] ?? "light")}
+          aria-label={label}
+          className="shrink-0 text-muted-foreground"
+        >
+          <Icon />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -186,7 +193,7 @@ function IconToggle({
   label,
   children,
 }: {
-  active?: boolean;
+  active: boolean;
   onClick?: () => void;
   label: string;
   children: React.ReactNode;
@@ -194,18 +201,15 @@ function IconToggle({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-pressed={active}
+        <Toggle
+          pressed={active}
+          onPressedChange={() => onClick?.()}
           aria-label={label}
-          className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
-            active && "bg-accent text-accent-foreground hover:bg-accent",
-          )}
+          size="icon-chrome"
+          className="shrink-0 text-muted-foreground"
         >
           {children}
-        </button>
+        </Toggle>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

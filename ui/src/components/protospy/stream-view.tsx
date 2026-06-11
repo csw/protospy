@@ -73,7 +73,7 @@ export function StreamView({ exchange }: Props) {
         {!terminal && (
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon-chrome"
             onClick={togglePlay}
             className="ml-auto text-muted-foreground"
             aria-label={playing ? "Pause stream" : "Resume stream"}
