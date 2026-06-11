@@ -352,7 +352,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default="codex",
         help="harness CLI to launch in the worktree (default: codex)",
     )
-    parser.add_argument("--base", default="HEAD", help="base ref for new branches")
+    parser.add_argument(
+        "--base",
+        default="origin/main",
+        help="base ref for new branches (default: origin/main)",
+    )
     parser.add_argument(
         "--worktree-root",
         default=DEFAULT_WORKTREE_ROOT,
@@ -555,6 +559,8 @@ def main(argv: list[str] | None = None) -> int:
         worktree_path = resolve_worktree_path(root, branch, args.worktree_root)
 
     if not args.dry_run:
+        print("fetching origin…", file=sys.stderr)
+        run(["git", "fetch", "origin"], cwd=root)
         worktree_path = ensure_worktree(root, branch, args.base, worktree_path)
         ensure_ui_dependencies(worktree_path)
     prompt = build_prompt(
@@ -574,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"branch: {branch}", file=sys.stderr)
     print(f"worktree: {worktree_path}", file=sys.stderr)
     if args.dry_run:
+        print("fetch: git fetch origin", file=sys.stderr)
         git_cmd = worktree_add_command(root, branch, args.base, worktree_path)
         print(f"git: {shell_join(git_cmd)}", file=sys.stderr)
         print(
