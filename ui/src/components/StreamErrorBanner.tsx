@@ -14,10 +14,10 @@ export function StreamErrorBanner({ message }: Props) {
   return (
     <div
       data-testid="stream-error-banner"
-      className="flex items-center gap-2 px-3 py-2 border-t border-border bg-red-bg shrink-0"
+      className="flex items-center gap-2 px-3 py-2 border-t border-border bg-error-bg shrink-0"
     >
-      <AlertTriangle size={14} className="text-red/60 shrink-0" />
-      <span className="font-mono text-xs text-red">{message}</span>
+      <AlertTriangle size={14} className="text-error/60 shrink-0" />
+      <span className="font-mono text-xs text-error">{message}</span>
     </div>
   );
 }

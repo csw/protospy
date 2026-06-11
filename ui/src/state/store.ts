@@ -84,7 +84,7 @@ export const useStore = create<StoreState>()(
         traceFilter: null,
         hoverTraceId: null,
         listMode: "table",
-        listWidth: { rows: 340, table: 720 },
+        listWidth: { rows: 38, table: 46 },
         order: "newest",
         density: "regular",
         traceGroupOn: false,

@@ -9,7 +9,7 @@ import {
   CONNECTION_LABEL,
   connDotStatus,
 } from "./connection-dot";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@ui/components/ui/separator";
 
 export interface StatusBarProps {
   /** Full upstream URL for the selected service, e.g. "http://localhost:9200". Config-owned. */

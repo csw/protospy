@@ -29,7 +29,7 @@ test.describe("Accessibility smoke (advisory)", () => {
     await page.route("**/info", (route) =>
       route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
     );
-    await page.route("**/service/test-backend", (route) =>
+    await page.route("**/service/test-backend/events", (route) =>
       route.fulfill({ contentType: "text/event-stream", body: "" }),
     );
     await page.goto("/");

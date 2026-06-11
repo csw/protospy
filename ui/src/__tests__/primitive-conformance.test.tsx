@@ -36,7 +36,7 @@ describe("primitive design-system conformance (PRO-321)", () => {
     }
   });
 
-  it("Toggle default variant: accent-soft on-state, no cursor-pointer, rounded", () => {
+  it("Toggle default variant: primary-soft on-state, no cursor-pointer, rounded", () => {
     render(
       <Toggle aria-label="trace" pressed>
         x
@@ -45,26 +45,26 @@ describe("primitive design-system conformance (PRO-321)", () => {
     const el = screen.getByLabelText("trace");
     // On-state keyed off aria-pressed (standalone Toggle is tooltip-wrapped).
     expect(el).toHaveClass(
-      "aria-pressed:bg-accent-soft",
-      "aria-pressed:text-accent-ink",
+      "aria-pressed:bg-primary/10",
+      "aria-pressed:text-primary",
     );
     expect(el).toHaveClass("rounded");
     // §2.5 cursor: default cursor, never cursor-pointer.
     expect(el.className).not.toContain("cursor-pointer");
     // No longer keyed off data-[state=on] for the default variant.
-    expect(el.className).not.toContain("data-[state=on]:bg-bg-pane");
+    expect(el.className).not.toContain("data-[state=on]:bg-card");
   });
 
-  it("Button ghost/outline hover is neutral bg-bg-hover, not brand accent", () => {
+  it("Button ghost/outline hover is neutral bg-hover, not brand accent", () => {
     const { rerender } = render(<Button variant="ghost">ghost</Button>);
     let el = screen.getByRole("button", { name: "ghost" });
-    expect(el).toHaveClass("hover:bg-bg-hover", "hover:text-ink");
+    expect(el).toHaveClass("hover:bg-hover", "hover:text-foreground");
     expect(el.className).not.toContain("hover:bg-accent");
     expect(el.className).not.toContain("hover:text-accent-foreground");
 
     rerender(<Button variant="outline">outline</Button>);
     el = screen.getByRole("button", { name: "outline" });
-    expect(el).toHaveClass("hover:bg-bg-hover", "hover:text-ink");
+    expect(el).toHaveClass("hover:bg-hover", "hover:text-foreground");
     expect(el.className).not.toContain("hover:bg-accent");
   });
 
@@ -86,7 +86,7 @@ describe("primitive design-system conformance (PRO-321)", () => {
     expect(trigger.className).not.toContain("after:bg-foreground");
   });
 
-  it("DropdownMenu item focus surface is neutral bg-bg-hl, not brand accent", () => {
+  it("DropdownMenu item focus surface uses the selected surface token", () => {
     render(
       <DropdownMenu defaultOpen>
         <DropdownMenuTrigger>menu</DropdownMenuTrigger>
@@ -96,12 +96,11 @@ describe("primitive design-system conformance (PRO-321)", () => {
       </DropdownMenu>,
     );
     const item = screen.getByRole("menuitem", { name: "Item" });
-    expect(item).toHaveClass("focus:bg-bg-hl", "focus:text-ink");
-    expect(item.className).not.toContain("focus:bg-accent");
+    expect(item).toHaveClass("focus:bg-accent", "focus:text-foreground");
     expect(item.className).not.toContain("focus:text-accent-foreground");
   });
 
-  it("CommandItem selected surface is neutral bg-bg-hl, not brand accent", () => {
+  it("CommandItem selected surface uses the selected surface token", () => {
     render(
       <Command>
         <CommandList>
@@ -111,16 +110,15 @@ describe("primitive design-system conformance (PRO-321)", () => {
     );
     const item = screen.getByText("Run").closest('[data-slot="command-item"]');
     expect(item).toHaveClass(
-      "data-[selected=true]:bg-bg-hl",
-      "data-[selected=true]:text-ink",
+      "data-[selected=true]:bg-accent",
+      "data-[selected=true]:text-foreground",
     );
-    expect(item?.className).not.toContain("data-[selected=true]:bg-accent");
     expect(item?.className).not.toContain(
       "data-[selected=true]:text-accent-foreground",
     );
   });
 
-  it("Dialog close button open-state surface is neutral bg-bg-hl, not brand accent", () => {
+  it("Dialog close button open-state surface uses the selected surface token", () => {
     render(
       <Dialog defaultOpen>
         <DialogContent>
@@ -130,7 +128,6 @@ describe("primitive design-system conformance (PRO-321)", () => {
       </Dialog>,
     );
     const close = screen.getByRole("button", { name: "Close" });
-    expect(close).toHaveClass("data-[state=open]:bg-bg-hl");
-    expect(close.className).not.toContain("data-[state=open]:bg-accent");
+    expect(close).toHaveClass("data-[state=open]:bg-accent");
   });
 });

@@ -8,7 +8,7 @@ interface Props {
 export function MethodBadge({ method, size = "sm" }: Props) {
   const [textSize, padding, minWidth] =
     size === "sm"
-      ? (["text-ui-xs", "px-[6px] py-[2px]", "min-w-[44px]"] as const)
+      ? (["text-xs", "px-[6px] py-[2px]", "min-w-[44px]"] as const)
       : (["text-[12px]", "px-2 py-[3px]", "min-w-[56px]"] as const);
   return (
     <span

@@ -5,8 +5,8 @@
 // borrowed redirect amber. Pulses only while connecting, and respects
 // prefers-reduced-motion.
 
-import { cn } from "@/lib/utils";
-import type { ConnectionStatus } from "@/lib/types";
+import { cn } from "@ui/lib/utils";
+import type { ConnectionStatus } from "@ui/lib/types";
 import type { ConnectionStatus as SSEConnectionStatus } from "@ui/api/sse";
 
 const DOT: Record<ConnectionStatus, string> = {
@@ -27,8 +27,8 @@ export const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
  * Map the live SSE connection model (`@ui/api/sse`: open / connecting /
  * reconnecting) onto this atom's design vocabulary (open / connecting / down).
  * The live feed has no terminal "down" state yet — it reconnects — so a
- * reconnecting socket reads as "connecting". Any future terminal/down mapping is
- * owned by the surface wire slice. v2.4 ingest: un-wired.
+ * reconnecting socket reads as "connecting". Any future terminal/down mapping
+ * should be added where the backend exposes that state.
  */
 export function connDotStatus(s: SSEConnectionStatus): ConnectionStatus {
   return s === "reconnecting" ? "connecting" : s;

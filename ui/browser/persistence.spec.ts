@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
 });
@@ -44,7 +44,7 @@ test.describe("localStorage persistence", () => {
 
     // Now switch to dark via command palette
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /dark mode/i }).click();
+    await page.getByRole("option", { name: /Dark/i }).click();
     await expect(page.locator("html")).toHaveClass(/\bdark\b/);
 
     await page.reload();
@@ -57,7 +57,7 @@ test.describe("localStorage persistence", () => {
     await waitForStore(page);
 
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle density/i }).click();
+    await page.getByRole("option", { name: /Compact density/i }).click();
     expect(await getStoreState(page, "density")).toBe("compact");
 
     await page.reload();
@@ -100,20 +100,20 @@ test.describe("localStorage persistence", () => {
     await page.goto("/");
     await waitForStore(page);
 
-    // Set width and verify both store and localStorage are updated
+    // Set percentage width and verify both store and localStorage are updated.
     const result = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const store = (window as any).__test_store;
-      store.getState().setListWidth("rows", 450);
+      store.getState().setListWidth("rows", 41);
       return {
         storeValue: store.getState().listWidth,
         lsValue: localStorage.getItem("protospy-ui-prefs"),
       };
     });
 
-    expect(result.storeValue.rows).toBe(450);
+    expect(result.storeValue.rows).toBe(41);
     const lsParsed = JSON.parse(result.lsValue!);
-    expect(lsParsed.state.listWidth.rows).toBe(450);
+    expect(lsParsed.state.listWidth.rows).toBe(41);
   });
 
   test("all preferences survive a reload", async ({ page }) => {
@@ -126,8 +126,8 @@ test.describe("localStorage persistence", () => {
       s.setDensity("compact");
       s.setOrder("oldest");
       s.setListMode("table");
-      s.setListWidth("rows", 400);
-      s.setListWidth("table", 500);
+      s.setListWidth("rows", 38);
+      s.setListWidth("table", 55);
       s.toggleTraceGroup();
     });
     // Theme lives outside the store now (next-themes), so it persists under its
@@ -141,10 +141,14 @@ test.describe("localStorage persistence", () => {
     expect(await getStoreState(page, "density")).toBe("compact");
     expect(await getStoreState(page, "order")).toBe("oldest");
     expect(await getStoreState(page, "listMode")).toBe("table");
-    expect(await getStoreState(page, "listWidth")).toEqual({
-      rows: 400,
-      table: 500,
-    });
+    const listWidth = (await getStoreState(page, "listWidth")) as {
+      rows: number;
+      table: number;
+    };
+    expect(listWidth.rows).toBe(38);
+    // The mounted resizable panel owns the active table width; after reload it
+    // reports its scaffold percentage including the 1px separator.
+    expect(listWidth.table).toBeCloseTo(46, 0);
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
     expect(await getThemePreference(page)).toBe("light");
     expect(await getResolvedTheme(page)).toBe("light");

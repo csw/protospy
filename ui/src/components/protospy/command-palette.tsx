@@ -23,7 +23,7 @@ import {
   Waypoints,
 } from "lucide-react";
 import { useStore } from "@ui/state/store";
-import { traceColorVar, shortTraceId } from "@/lib/tokens";
+import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
 import {
   CommandDialog,
   CommandInput,
@@ -33,7 +33,7 @@ import {
   CommandItem,
   CommandSeparator,
   CommandShortcut,
-} from "@/components/ui/command";
+} from "@ui/components/ui/command";
 
 export interface CommandPaletteProps {
   /** app-shell owns the filter input ref, so focusing it is a passed action. */

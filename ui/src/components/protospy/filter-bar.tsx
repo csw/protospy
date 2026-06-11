@@ -5,10 +5,10 @@
 // "requests" — never "exchanges".
 
 import { Search, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { traceColorVar, shortTraceId } from "@/lib/tokens";
+import { cn } from "@ui/lib/utils";
+import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
 import { useStore, selectVisibleIds } from "@ui/state/store";
-import { Input } from "@/components/ui/input";
+import { Input } from "@ui/components/ui/input";
 
 export interface FilterBarProps {
   /** app-shell passes a ref so `/` can focus the field; optional. */

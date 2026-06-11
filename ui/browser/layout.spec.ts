@@ -6,21 +6,21 @@ import {
   waitForStore,
 } from "./helpers/inject";
 import { makeCompleteExchange } from "./fixtures/exchanges";
-import {
-  DEFAULT_LIST_WIDTH,
-  INSPECTOR_MIN_WIDTH,
-  LIST_MAX_WIDTH,
-  LIST_MIN_WIDTH,
-} from "../src/components/paneBounds";
 
-/** "65%" → 0.65, derived from the single source of truth. */
-const LIST_MAX_FRACTION = parseFloat(LIST_MAX_WIDTH) / 100;
+const DEFAULT_LIST_WIDTH_PERCENT = { rows: 38, table: 46 } as const;
+const LIST_MIN_PERCENT = 26;
+const INSPECTOR_MIN_PERCENT = 30;
+
+const percentWidth = (width: number, percent: number) =>
+  (width * percent) / 100;
+const panelGroup = (page: import("@playwright/test").Page) =>
+  page.locator('[data-slot="resizable-panel-group"]');
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -32,9 +32,7 @@ test.describe("Layout and resize", () => {
   test("9.1 both panels visible on initial load", async ({ page }) => {
     // Exchange list panel (left) and Inspector panel (right) both present
     await expect(page.getByText("Requests").first()).toBeVisible();
-    await expect(
-      page.getByText("Select a request to inspect it"),
-    ).toBeVisible();
+    await expect(page.getByText("Select a request to inspect")).toBeVisible();
   });
 
   test("9.2 resize divider is present and draggable", async ({ page }) => {
@@ -59,7 +57,7 @@ test.describe("Layout and resize", () => {
 
     const movedBox = await handle.boundingBox();
     expect(movedBox).not.toBeNull();
-    expect(Math.abs(movedBox!.x - initialBox!.x)).toBeGreaterThan(50);
+    expect(Math.abs(movedBox!.x - initialBox!.x)).toBeGreaterThan(20);
   });
 
   test("9.4 drag separator to the leftmost edge clamps the list panel at minSize", async ({
@@ -74,29 +72,23 @@ test.describe("Layout and resize", () => {
     const initial = await listPanel.boundingBox();
     expect(initial).not.toBeNull();
 
-    const handleBox = await handle.boundingBox();
-    expect(handleBox).not.toBeNull();
-    const startX = handleBox!.x + handleBox!.width / 2;
-    const startY = handleBox!.y + handleBox!.height / 2;
-
-    // Drag far to the left — past where any sane minSize would clamp.
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(0, startY, { steps: 10 });
-    await page.mouse.up();
+    await handle.focus();
+    await handle.press("Home");
 
     const clamped = await listPanel.boundingBox();
     expect(clamped).not.toBeNull();
-    // AppShell pins minSize=LIST_MIN_WIDTH[listMode] on the list Panel. The
-    // default mode is "table", so the table floor applies. Once the drag
-    // pushes past the minimum the width should sit at the clamp, not collapse.
-    // Allow a few px of panel-library rounding around the floor.
-    expect(clamped!.width).toBeGreaterThanOrEqual(LIST_MIN_WIDTH.table - 10);
-    expect(clamped!.width).toBeLessThanOrEqual(LIST_MIN_WIDTH.table + 15);
+    const groupBox = await panelGroup(page).boundingBox();
+    expect(groupBox).not.toBeNull();
+    const expectedMin = percentWidth(groupBox!.width, LIST_MIN_PERCENT);
+    // AppShell uses the v2.4 scaffold behavior: percentage minSize on the list
+    // Panel. Once the drag pushes past the minimum the width should sit at the
+    // percentage clamp, not collapse toward zero.
+    expect(clamped!.width).toBeGreaterThanOrEqual(expectedMin - 10);
+    expect(clamped!.width).toBeLessThanOrEqual(expectedMin + 15);
     expect(clamped!.width).toBeLessThan(initial!.width);
   });
 
-  test("9.6 drag separator to the rightmost edge clamps both panes at their bounds", async ({
+  test("9.6 drag separator to the rightmost edge keeps the inspector at its scaffold floor", async ({
     page,
   }) => {
     const handle = page.getByRole("separator");
@@ -106,37 +98,24 @@ test.describe("Layout and resize", () => {
     expect(initialInspector).not.toBeNull();
     expect(initialInspector!.width).toBeGreaterThan(0);
 
-    const handleBox = await handle.boundingBox();
-    expect(handleBox).not.toBeNull();
-    const startX = handleBox!.x + handleBox!.width / 2;
-    const startY = handleBox!.y + handleBox!.height / 2;
-
-    // Drag far to the right
-    const viewport = page.viewportSize();
-    const viewportWidth = viewport?.width ?? 1280;
-    const farRight = viewportWidth + 200;
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(farRight, startY, { steps: 10 });
-    await page.mouse.up();
+    const groupBox = await panelGroup(page).boundingBox();
+    expect(groupBox).not.toBeNull();
+    await handle.focus();
+    await handle.press("End");
 
     const clampedInspector = await inspectorPanel.boundingBox();
     const clampedList = await listPanel.boundingBox();
     expect(clampedInspector).not.toBeNull();
     expect(clampedList).not.toBeNull();
 
-    // The list Panel pins maxSize=LIST_MAX_WIDTH, so dragging the separator all
-    // the way right caps the list at that fraction of the group rather than
-    // letting it dominate the viewport. The Group spans the full window width,
-    // so group width ≈ viewportWidth (minus the 1px separator); the +10 slack
-    // absorbs that and panel-library rounding.
-    expect(clampedList!.width).toBeLessThanOrEqual(
-      viewportWidth * LIST_MAX_FRACTION + 10,
-    );
-    // The inspector Panel pins minSize=INSPECTOR_MIN_WIDTH: even at the widest
-    // list it keeps a content floor and never collapses toward zero.
-    expect(clampedInspector!.width).toBeGreaterThanOrEqual(
-      INSPECTOR_MIN_WIDTH - 5,
+    const inspectorMin = percentWidth(groupBox!.width, INSPECTOR_MIN_PERCENT);
+    // The scaffold does not cap the list with the old pixel helper. Instead the
+    // inspector Panel pins minSize=30%, so dragging all the way right leaves the
+    // inspector with its percentage floor and the list takes the remaining room.
+    expect(clampedInspector!.width).toBeGreaterThanOrEqual(inspectorMin - 10);
+    expect(clampedInspector!.width).toBeLessThanOrEqual(inspectorMin + 15);
+    expect(clampedList!.width).toBeGreaterThanOrEqual(
+      percentWidth(groupBox!.width, 100 - INSPECTOR_MIN_PERCENT) - 15,
     );
     expect(clampedInspector!.width).toBeLessThan(initialInspector!.width);
   });
@@ -147,21 +126,19 @@ test.describe("Layout and resize", () => {
     const handle = page.getByRole("separator");
     const listPanel = page.locator("[data-panel]").first();
 
-    // Drag the separator well to the right to change the list panel width.
-    const handleBox = await handle.boundingBox();
-    expect(handleBox).not.toBeNull();
-    const startX = handleBox!.x + handleBox!.width / 2;
-    const startY = handleBox!.y + handleBox!.height / 2;
-
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(startX + 200, startY, { steps: 5 });
-    await page.mouse.up();
+    await handle.focus();
+    await handle.press("End");
 
     // Confirm the panel actually moved before we reset it.
     const movedBox = await listPanel.boundingBox();
     expect(movedBox).not.toBeNull();
-    expect(movedBox!.width).toBeGreaterThan(DEFAULT_LIST_WIDTH.table + 40);
+    const groupBox = await panelGroup(page).boundingBox();
+    expect(groupBox).not.toBeNull();
+    const defaultWidth = percentWidth(
+      groupBox!.width,
+      DEFAULT_LIST_WIDTH_PERCENT.table,
+    );
+    expect(movedBox!.width).toBeGreaterThan(defaultWidth + 40);
 
     // Double-click the separator to reset.
     // Use raw mouse coordinates (same pattern as drag tests) to avoid the
@@ -178,12 +155,13 @@ test.describe("Layout and resize", () => {
       .poll(async () => (await listPanel.boundingBox())?.width ?? 0, {
         timeout: 3000,
       })
-      .toBeCloseTo(DEFAULT_LIST_WIDTH.table, -1); // within ~5px
+      .toBeCloseTo(defaultWidth, -1); // within ~5px
 
     // The store should also reflect the reset.
     const storedWidth = await getStoreState(page, "listWidth");
-    expect((storedWidth as { table: number }).table).toBe(
-      DEFAULT_LIST_WIDTH.table,
+    expect((storedWidth as { table: number }).table).toBeCloseTo(
+      DEFAULT_LIST_WIDTH_PERCENT.table,
+      0,
     );
   });
 

@@ -18,17 +18,18 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@ui/lib/utils";
 import { useStore } from "@ui/state/store";
-import type { ConnectionStatus } from "@/lib/types";
+import type { ConnectionStatus } from "@ui/lib/types";
 import { ConnectionDot, connDotStatus } from "./connection-dot";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@ui/components/ui/button";
+import { Separator } from "@ui/components/ui/separator";
+import { Toggle } from "@ui/components/ui/toggle";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@ui/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -36,22 +37,23 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
+} from "@ui/components/ui/dropdown-menu";
 
 /** Service metadata is app/config-owned (loaded async) — not in the store, which
  *  only holds the selected `service` name. Pass the configured list in. */
 export interface ServiceInfo {
   name: string;
-  upstream: string; // e.g. "localhost:9200"
-  port: number; // local proxy port
+  upstream: string;
+  addr: string;
   connection: ConnectionStatus;
 }
 
 export interface TopBarProps {
   services?: ServiceInfo[];
+  onSwitchService?: (name: string) => void;
 }
 
-export function TopBar({ services = [] }: TopBarProps) {
+export function TopBar({ services = [], onSwitchService }: TopBarProps) {
   const service = useStore((s) => s.service);
   const connection = connDotStatus(useStore((s) => s.connection));
   const setService = useStore((s) => s.setService);
@@ -83,14 +85,14 @@ export function TopBar({ services = [] }: TopBarProps) {
           {services.map((svc) => (
             <DropdownMenuItem
               key={svc.name}
-              onSelect={() => setService(svc.name)}
+              onSelect={() => (onSwitchService ?? setService)(svc.name)}
               className="gap-2.5"
             >
               <ConnectionDot status={svc.connection} />
               <span className="flex min-w-0 flex-col">
                 <span className="font-mono text-sm">{svc.name}</span>
                 <span className="font-mono text-xs text-muted-foreground">
-                  {svc.upstream} → :{svc.port}
+                  {svc.upstream} -&gt; {svc.addr}
                 </span>
               </span>
               {svc.name === service && (
@@ -114,7 +116,7 @@ export function TopBar({ services = [] }: TopBarProps) {
           onClick={() => setCmdKOpen(true)}
           className="gap-2 text-muted-foreground"
         >
-          <Search className="size-3.5" />
+          <Search data-icon="inline-start" />
           Jump to…
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
             ⌘K
@@ -131,7 +133,7 @@ export function TopBar({ services = [] }: TopBarProps) {
               : "Group by trace"
           }
         >
-          <Layers className="size-4" />
+          <Layers />
         </IconToggle>
 
         {/* Density (regular ↔ compact) */}
@@ -146,11 +148,7 @@ export function TopBar({ services = [] }: TopBarProps) {
               : "Regular density — click for compact"
           }
         >
-          {density === "compact" ? (
-            <Rows2 className="size-4" />
-          ) : (
-            <Rows3 className="size-4" />
-          )}
+          {density === "compact" ? <Rows2 /> : <Rows3 />}
         </IconToggle>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -176,7 +174,7 @@ function ThemeControl() {
       onClick={() => setTheme(next[current] ?? "light")}
       label={`Theme: ${current} — click to cycle`}
     >
-      <Icon className="size-4" />
+      <Icon />
     </IconToggle>
   );
 }
@@ -195,18 +193,32 @@ function IconToggle({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-pressed={active}
-          aria-label={label}
-          className={cn(
-            "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground",
-            active && "bg-accent text-accent-foreground hover:bg-accent",
-          )}
-        >
-          {children}
-        </button>
+        {active === undefined ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            aria-label={label}
+            className="size-7 text-muted-foreground hover:bg-hover hover:text-foreground"
+          >
+            {children}
+          </Button>
+        ) : (
+          <Toggle
+            type="button"
+            size="sm"
+            pressed={active}
+            onPressedChange={() => onClick?.()}
+            aria-label={label}
+            className={cn(
+              "size-7 text-muted-foreground hover:bg-hover hover:text-foreground",
+              active && "bg-accent text-accent-foreground hover:bg-accent",
+            )}
+          >
+            {children}
+          </Toggle>
+        )}
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

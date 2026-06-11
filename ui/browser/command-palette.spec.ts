@@ -4,13 +4,15 @@ import {
   waitForStore,
   getStoreState,
   getThemePreference,
+  injectExchanges,
 } from "./helpers/inject";
+import { makeCompleteExchange } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -28,7 +30,7 @@ test.describe("Command palette — open/close", () => {
   }) => {
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByPlaceholder("Search commands…")).toBeVisible();
+    await expect(page.getByPlaceholder("Run a command…")).toBeVisible();
   });
 
   test("1.2 closes with Escape", async ({ page }) => {
@@ -49,7 +51,7 @@ test.describe("Command palette — commands", () => {
     page,
   }) => {
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /light mode/i }).click();
+    await page.getByRole("option", { name: /Light/i }).click();
 
     // Palette closes after selection
     await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -62,7 +64,7 @@ test.describe("Command palette — commands", () => {
     expect(before).toBe("regular");
 
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle density/i }).click();
+    await page.getByRole("option", { name: /Compact density/i }).click();
 
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
@@ -73,6 +75,10 @@ test.describe("Command palette — commands", () => {
   test("2.3 switch to rows view then back to table via palette", async ({
     page,
   }) => {
+    await injectExchanges(page, [
+      ...makeCompleteExchange(1, "GET", "/api/table", "200 OK"),
+    ]);
+
     // Default is table mode; switch to rows, then verify switching back
     // to table via the palette restores table headers.
     await page.keyboard.press("Meta+k");
@@ -93,14 +99,14 @@ test.describe("Command palette — commands", () => {
     await expect(page.getByText("Path")).toBeVisible();
   });
 
-  test("2.4 toggle trace grouping changes store traceGroupOn state", async ({
+  test("2.4 Group by trace changes store traceGroupOn state", async ({
     page,
   }) => {
     const before = await getStoreState(page, "traceGroupOn");
     expect(before).toBe(false);
 
     await page.keyboard.press("Meta+k");
-    await page.getByRole("option", { name: /toggle trace grouping/i }).click();
+    await page.getByRole("option", { name: /Group by trace/i }).click();
 
     await expect(page.getByRole("dialog")).not.toBeVisible();
 

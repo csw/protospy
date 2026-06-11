@@ -204,53 +204,53 @@ describe("methodBadgeClass", () => {
 
 describe("statusTextClass", () => {
   it("classifies 200 as green (2xx boundary)", () => {
-    expect(statusTextClass("200")).toBe("text-green");
+    expect(statusTextClass("200")).toBe("text-ok");
   });
 
   it("classifies 299 as green", () => {
-    expect(statusTextClass("299")).toBe("text-green");
+    expect(statusTextClass("299")).toBe("text-ok");
   });
 
   it("classifies 300 as amber (3xx boundary)", () => {
-    expect(statusTextClass("300")).toBe("text-amber");
+    expect(statusTextClass("300")).toBe("text-redirect");
   });
 
   it("classifies 399 as amber", () => {
-    expect(statusTextClass("399")).toBe("text-amber");
+    expect(statusTextClass("399")).toBe("text-redirect");
   });
 
   it("classifies 400 as red (4xx boundary)", () => {
-    expect(statusTextClass("400")).toBe("text-red");
+    expect(statusTextClass("400")).toBe("text-error");
   });
 
   it("classifies 500 as red", () => {
-    expect(statusTextClass("500")).toBe("text-red");
+    expect(statusTextClass("500")).toBe("text-error");
   });
 });
 
 describe("statusChipClass", () => {
   it("classifies 200 as green border+text (2xx boundary)", () => {
-    expect(statusChipClass("200")).toBe("border-green text-green");
+    expect(statusChipClass("200")).toBe("border-ok text-ok");
   });
 
   it("classifies 299 as green border+text", () => {
-    expect(statusChipClass("299")).toBe("border-green text-green");
+    expect(statusChipClass("299")).toBe("border-ok text-ok");
   });
 
   it("classifies 300 as amber border+text (3xx boundary)", () => {
-    expect(statusChipClass("300")).toBe("border-amber text-amber");
+    expect(statusChipClass("300")).toBe("border-redirect text-redirect");
   });
 
   it("classifies 399 as amber border+text", () => {
-    expect(statusChipClass("399")).toBe("border-amber text-amber");
+    expect(statusChipClass("399")).toBe("border-redirect text-redirect");
   });
 
   it("classifies 400 as red border+text (4xx boundary)", () => {
-    expect(statusChipClass("400")).toBe("border-red text-red");
+    expect(statusChipClass("400")).toBe("border-error text-error");
   });
 
   it("classifies 500 as red border+text", () => {
-    expect(statusChipClass("500")).toBe("border-red text-red");
+    expect(statusChipClass("500")).toBe("border-error text-error");
   });
 });
 
@@ -721,36 +721,36 @@ describe("cn", () => {
     expect(cn("text-ui", "text-method-get")).toBe("text-ui text-method-get");
   });
 
-  it("preserves custom font-size text-ui-xs alongside text-color", () => {
-    // text-ui-xs is a custom font-size token; text-method-get is a color.
+  it("preserves custom font-size text-xs alongside text-color", () => {
+    // text-xs is a custom font-size token; text-method-get is a color.
     // Without extendTailwindMerge config, twMerge strips the font-size.
-    expect(cn("text-ui-xs", "text-method-get")).toBe(
-      "text-ui-xs text-method-get",
-    );
+    expect(cn("text-xs", "text-method-get")).toBe("text-xs text-method-get");
   });
 
-  it("preserves custom font-size text-ui-sm alongside text-color", () => {
-    expect(cn("text-ui-sm", "text-green")).toBe("text-ui-sm text-green");
+  it("preserves custom font-size text-sm alongside text-color", () => {
+    expect(cn("text-sm", "text-ok")).toBe("text-sm text-ok");
   });
 
   it("preserves text-ctx-path alongside text-color", () => {
-    expect(cn("text-ctx-path", "text-ink")).toBe("text-ctx-path text-ink");
+    expect(cn("text-ctx-path", "text-foreground")).toBe(
+      "text-ctx-path text-foreground",
+    );
   });
 
   it("still deduplicates conflicting custom font sizes", () => {
-    expect(cn("text-ui-xs", "text-ui-sm")).toBe("text-ui-sm");
-    expect(cn("text-ui", "text-ui-sm")).toBe("text-ui-sm");
+    expect(cn("text-xs", "text-sm")).toBe("text-sm");
+    expect(cn("text-ui", "text-sm")).toBe("text-sm");
   });
 
   it("deduplicates conflicting custom font families", () => {
-    // font-mono should win over font-ui when both are passed.
-    expect(cn("font-ui", "font-mono")).toBe("font-mono");
+    // font-mono should win over font-sans when both are passed.
+    expect(cn("font-sans", "font-mono")).toBe("font-mono");
   });
 
   it("preserves font-family alongside font-size and text-color", () => {
     // All three groups are independent and should coexist.
-    expect(cn("font-mono", "text-ui-xs", "text-dim")).toBe(
-      "font-mono text-ui-xs text-dim",
+    expect(cn("font-mono", "text-xs", "text-muted-foreground")).toBe(
+      "font-mono text-xs text-muted-foreground",
     );
   });
 });

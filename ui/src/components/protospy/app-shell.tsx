@@ -9,15 +9,32 @@
 // Owns: the resizable list↔inspector split (width persists per list-mode) and
 // the global keyboard map (j/k/↑/↓ select, ⌘K palette, / filter, ? help).
 //
-// v2.4 ingest (PRO-363): un-wired. Imported by nothing live yet — App.tsx still
-// renders the legacy `components/AppShell`. This shell is reconciled against the
-// LIVE store/sibling contracts so it type-checks in the tree: density is
-// store-backed (no DensityProvider), the content `Exchange` is the reducer model
-// (`@ui/state/reducer`, not the scaffold `lib/types`), and the list/inspector
-// prop wiring follows the adapted live components (PRO-359/360/361). The shell
-// wire slice will mount it and own the live behaviour.
+// v2.4 shell wire-up (PRO-357): App.tsx mounts this shell as the live outer
+// layer. It keeps the app-owned reducer/SSE/body plumbing but adopts the
+// scaffold chrome, keyboard map, and percentage-based panel behavior.
 
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { usePanelRef } from "react-resizable-panels";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useShallow } from "zustand/react/shallow";
+import type { Protocol } from "@bindings/Protocol";
+import type { Service } from "@bindings/Service";
+import { fetchInfo } from "@ui/api/info";
+import type { Info } from "@ui/api/info";
+import { subscribeToEvents } from "@ui/api/sse";
+import type { ConnectionStatus as ApiConnectionStatus } from "@ui/api/sse";
+import { notifyConnection } from "@ui/lib/toast";
+import { useDensity } from "@ui/lib/density";
+import { observeElementRectWithFallback } from "@ui/lib/virtual";
+import type { TimeZone } from "@ui/lib/utils";
+import { connDotStatus } from "./connection-dot";
 import { useStore, selectVisibleIds, selectSelected } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import { showPairsTab } from "@ui/protocol";
@@ -36,7 +53,7 @@ import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
-} from "@/components/ui/resizable";
+} from "@ui/components/ui/resizable";
 
 export interface AppShellProps {
   /** Configured services for the picker (app/config-owned). */
@@ -48,8 +65,12 @@ export interface AppShellProps {
   // The live `Inspector` exposes two slots — the split body view and the
   // (optional) paired msearch view; the JsonViewer/stream viewers live inside
   // `BodySplit`, so the shell never threads a `renderBody`/`renderStream` slot.
-  renderBodySplit: (x: Exchange) => ReactNode;
-  renderMsearch?: (x: Exchange, view: MsearchView) => ReactNode;
+  renderBodySplit: (x: Exchange, protocol: Protocol | null) => ReactNode;
+  renderMsearch?: (
+    x: Exchange,
+    protocol: Protocol | null,
+    view: MsearchView,
+  ) => ReactNode;
 }
 
 export function AppShell(props: AppShellProps) {
@@ -59,12 +80,22 @@ export function AppShell(props: AppShellProps) {
 }
 
 function ShellInner({
-  services,
-  upstream,
+  services: fallbackServices,
+  upstream: fallbackUpstream,
   renderBodySplit,
   renderMsearch,
 }: AppShellProps) {
   const filterRef = useRef<HTMLInputElement>(null);
+  const listPanelRef = usePanelRef();
+  const prevConnection = useRef<ApiConnectionStatus | null>(null);
+  const [info, setInfo] = useState<Info | null>(null);
+
+  const applyEvent = useStore((s) => s.applyEvent);
+  const setConnection = useStore((s) => s.setConnection);
+  const setService = useStore((s) => s.setService);
+  const setProtocol = useStore((s) => s.setProtocol);
+  const service = useStore((s) => s.service);
+  const connection = useStore((s) => s.connection);
   const listMode = useStore((s) => s.listMode);
   const setListWidth = useStore((s) => s.setListWidth);
   const listWidth = useStore((s) => s.listWidth);
@@ -72,9 +103,65 @@ function ShellInner({
 
   useGlobalKeys(filterRef);
 
+  useLayoutEffect(() => {
+    let cancelled = false;
+
+    fetchInfo()
+      .then((fetchedInfo) => {
+        if (cancelled) return;
+        setInfo(fetchedInfo);
+        const svc = fetchedInfo.services[0];
+        if (svc == null) return;
+        setService(svc.name);
+        setProtocol(svc.protocol);
+      })
+      .catch(() => {
+        // /info failed; stay in connecting until refresh or backend recovery.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setService, setProtocol]);
+
+  useEffect(() => {
+    if (service == null) return;
+
+    const svc = info?.services.find((candidate) => candidate.name === service);
+    setProtocol(svc?.protocol ?? null);
+  }, [info, service, setProtocol]);
+
+  useEffect(() => {
+    if (service == null) return;
+
+    const cleanup = subscribeToEvents(
+      service,
+      (msg) => applyEvent(msg),
+      (status) => {
+        notifyConnection(prevConnection.current, status);
+        prevConnection.current = status;
+        setConnection(status);
+      },
+    );
+
+    return cleanup;
+  }, [service, applyEvent, setConnection]);
+
+  const selectedService = info?.services.find((svc) => svc.name === service);
+  const services =
+    info == null
+      ? fallbackServices
+      : info.services.map((svc) =>
+          serviceInfoFromBinding(
+            svc,
+            svc.name === service ? connection : "connecting",
+          ),
+        );
+  const upstream = selectedService?.target ?? fallbackUpstream;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <TopBar services={services} />
+      <TopBar services={services} onSwitchService={setService} />
       <FilterBar inputRef={filterRef} />
 
       <main className="min-h-0 flex-1">
@@ -85,18 +172,26 @@ function ShellInner({
           className="h-full"
         >
           <ResizablePanel
-            defaultSize={listWidth[listMode]}
-            minSize={26}
-            onResize={(size) => setListWidth(listMode, size.inPixels)}
+            defaultSize={`${listWidth[listMode]}%`}
+            minSize="26%"
+            onResize={(size) => setListWidth(listMode, size.asPercentage)}
+            panelRef={listPanelRef}
             className="flex min-w-0 flex-col"
           >
             <ListToolbar />
             <ListPanel />
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle
+            withHandle
+            onDoubleClick={() => {
+              const defaultWidth = DEFAULT_LIST_WIDTH_PERCENT[listMode];
+              listPanelRef.current?.resize(`${defaultWidth}%`);
+              setListWidth(listMode, defaultWidth);
+            }}
+          />
 
-          <ResizablePanel minSize={30} className="min-w-0">
+          <ResizablePanel minSize="30%" className="min-w-0">
             <InspectorPanel
               renderBodySplit={renderBodySplit}
               renderMsearch={renderMsearch}
@@ -112,9 +207,11 @@ function ShellInner({
   );
 }
 
+const DEFAULT_LIST_WIDTH_PERCENT = { rows: 38, table: 46 } as const;
+
 /* ── list panel: feeds the prop-driven list components from store slices ── */
 function ListPanel() {
-  const visibleIds = useStore(selectVisibleIds);
+  const visibleIds = useStore(useShallow(selectVisibleIds));
   const exchanges = useStore((s) => s.exchanges);
   const total = useStore((s) => s.ids.length);
   const listMode = useStore((s) => s.listMode);
@@ -158,23 +255,105 @@ function ListPanel() {
         selectedId={selectedId}
         tz={tz}
         onSelect={setSelectedId}
+        onHoverTrace={setHoverTraceId}
+        onSelectTrace={setTraceFilter}
       />
     );
   }
 
-  // rows mode (secondary view). Production virtualizes this list too; kept plain
-  // here so the shell stays content-agnostic.
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      {rowsForList.map((x) => (
-        <ExchangeRow
-          key={x.id}
-          exchange={x}
-          selected={x.id === selectedId}
-          tz={tz}
-          onSelect={() => setSelectedId(x.id)}
-        />
-      ))}
+    <VirtualizedRowsList
+      exchanges={rowsForList}
+      selectedId={selectedId}
+      tz={tz}
+      onSelect={setSelectedId}
+    />
+  );
+}
+
+function VirtualizedRowsList({
+  exchanges,
+  selectedId,
+  tz,
+  onSelect,
+}: {
+  exchanges: Exchange[];
+  selectedId: number | null;
+  tz: TimeZone;
+  onSelect: (id: number) => void;
+}) {
+  const { density, rowPx } = useDensity();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // React Compiler bails out on useVirtualizer (`react-hooks/incompatible-library`).
+  // This matches the existing ExchangeTable usage; the compiler is not enabled,
+  // and the returned mutable API stays local to this component.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: exchanges.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowPx.row,
+    getItemKey: (index) => `${exchanges[index]?.id ?? index}|${density}`,
+    overscan: 12,
+    observeElementRect: observeElementRectWithFallback,
+  });
+
+  const selectedIndex = useMemo(
+    () =>
+      selectedId == null
+        ? -1
+        : exchanges.findIndex((exchange) => exchange.id === selectedId),
+    [exchanges, selectedId],
+  );
+  const scrolledToRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (selectedId == null) {
+      scrolledToRef.current = null;
+      return;
+    }
+    if (selectedIndex < 0 || scrolledToRef.current === selectedId) return;
+    scrolledToRef.current = selectedId;
+    const handle = requestAnimationFrame(() => {
+      virtualizer.scrollToIndex(selectedIndex, { align: "center" });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [rowPx.row, selectedId, selectedIndex, virtualizer]);
+
+  return (
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div
+        data-testid="requests-virtualizer"
+        className="relative"
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        <div role="listbox" aria-label="Requests" className="absolute inset-0">
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const exchange = exchanges[virtualItem.index];
+            if (exchange == null) return null;
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: virtualItem.size,
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <ExchangeRow
+                  exchange={exchange}
+                  selected={exchange.id === selectedId}
+                  tz={tz}
+                  onSelect={() => onSelect(exchange.id)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -184,10 +363,15 @@ function InspectorPanel({
   renderBodySplit,
   renderMsearch,
 }: {
-  renderBodySplit: (x: Exchange) => ReactNode;
-  renderMsearch?: (x: Exchange, view: MsearchView) => ReactNode;
+  renderBodySplit: (x: Exchange, protocol: Protocol | null) => ReactNode;
+  renderMsearch?: (
+    x: Exchange,
+    protocol: Protocol | null,
+    view: MsearchView,
+  ) => ReactNode;
 }) {
   const selected = useStore(selectSelected);
+  const visibleIds = useStore(useShallow(selectVisibleIds));
   const tz = useStore((s) => s.timeZone);
   const protocol = useStore((s) => s.protocol);
   const setSelectedId = useStore((s) => s.setSelectedId);
@@ -239,6 +423,10 @@ function InspectorPanel({
   }
 
   const isMsearch = showPairsTab(protocol, selected.uri);
+  const selectedIndex = visibleIds.indexOf(selected.id);
+  const canStepPrev = selectedIndex > 0;
+  const canStepNext =
+    selectedIndex >= 0 && selectedIndex < visibleIds.length - 1;
 
   return (
     <div className="h-full overflow-hidden">
@@ -246,15 +434,17 @@ function InspectorPanel({
         exchange={selected}
         tz={tz}
         isMsearch={isMsearch}
-        onPrev={() => stepSelection(-1)}
-        onNext={() => stepSelection(1)}
+        onPrev={canStepPrev ? () => stepSelection(-1) : undefined}
+        onNext={canStepNext ? () => stepSelection(1) : undefined}
         onNextMatching={() => stepMatching(selected)}
         onFilterTrace={(id) => setTraceFilter(id)}
         onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
         onNextInTrace={(id) => stepInTrace(selected, id)}
-        renderBodySplit={() => renderBodySplit(selected)}
+        renderBodySplit={() => renderBodySplit(selected, protocol)}
         renderMsearch={
-          renderMsearch ? (view) => renderMsearch(selected, view) : undefined
+          renderMsearch
+            ? (view) => renderMsearch(selected, protocol, view)
+            : undefined
         }
       />
     </div>
@@ -325,4 +515,16 @@ function useGlobalKeys(filterRef: React.RefObject<HTMLInputElement | null>) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [filterRef]);
+}
+
+function serviceInfoFromBinding(
+  service: Service,
+  connection: ApiConnectionStatus,
+): ServiceInfo {
+  return {
+    name: service.name,
+    upstream: service.target,
+    addr: service.addr,
+    connection: connDotStatus(connection),
+  };
 }

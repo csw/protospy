@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { AppShell } from "./components/AppShell";
+import { AppShell } from "./components/protospy/app-shell";
+import type { Exchange } from "./state/reducer";
+import type { Protocol } from "@bindings/Protocol";
+import { BodySplit } from "./components/BodySplit";
+import { EmptyState } from "./components/ui/EmptyState";
+import type { MsearchView } from "./components/protospy/inspector";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
 import { resolveDefaultTheme } from "./theme/theme";
@@ -35,6 +40,22 @@ function ThemeTestBridge() {
 }
 
 function App() {
+  const renderBodySplit = (exchange: Exchange, protocol: Protocol | null) => (
+    <BodySplit exchange={exchange} protocol={protocol} />
+  );
+  const renderMsearch = (
+    exchange: Exchange,
+    protocol: Protocol | null,
+    view: MsearchView,
+  ) =>
+    view === "raw" ? (
+      <BodySplit exchange={exchange} protocol={protocol} />
+    ) : (
+      <EmptyState textSize="sm">
+        Paired request view is not yet available
+      </EmptyState>
+    );
+
   return (
     <ThemeProvider
       attribute="class"
@@ -44,7 +65,10 @@ function App() {
       disableTransitionOnChange
     >
       <TooltipProvider>
-        <AppShell />
+        <AppShell
+          renderBodySplit={renderBodySplit}
+          renderMsearch={renderMsearch}
+        />
         <Toaster />
         {TEST_HOOKS_ENABLED && <ThemeTestBridge />}
       </TooltipProvider>

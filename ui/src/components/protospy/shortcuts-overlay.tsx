@@ -8,9 +8,10 @@ import { useStore } from "@ui/state/store";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@ui/components/ui/dialog";
 
 interface Shortcut {
   keys: string[];
@@ -57,6 +58,10 @@ export function ShortcutsOverlay() {
           <DialogTitle className="text-sm font-semibold">
             Keyboard shortcuts
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Keyboard shortcuts for navigation, filtering, and opening app
+            commands.
+          </DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-auto p-2">
           {SHORTCUTS.map((g) => (

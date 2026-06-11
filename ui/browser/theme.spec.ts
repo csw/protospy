@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", async () => {
+  await page.route("**/service/test-backend/events", async () => {
     // Park the SSE connection: never fulfill, so EventSource stays in
     // CONNECTING and the reconnect cycle never fires. This prevents the
     // reconnect logic from overwriting store state that tests set manually
@@ -39,21 +39,21 @@ test.describe("Theme preference", () => {
     expect(["dark", "light"]).toContain(await getResolvedTheme(page));
   });
 
-  test("1.2 set light mode via command palette", async ({ page }) => {
+  test("1.2 set Light via command palette", async ({ page }) => {
     await page.keyboard.press("Meta+k");
-    await page.getByText("Light mode").click();
+    await page.getByText("Light").click();
 
     await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
     expect(await getThemePreference(page)).toBe("light");
   });
 
-  test("1.3 set dark mode via command palette", async ({ page }) => {
+  test("1.3 set Dark via command palette", async ({ page }) => {
     // Start from light to verify the switch
     await setTheme(page, "light");
     await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
 
     await page.keyboard.press("Meta+k");
-    await page.getByText("Dark mode").click();
+    await page.getByText("Dark").click();
 
     await expect(page.locator("html")).toHaveClass(/\bdark\b/);
     expect(await getThemePreference(page)).toBe("dark");
@@ -61,14 +61,14 @@ test.describe("Theme preference", () => {
 
   test("1.4 set system mode via command palette", async ({ page }) => {
     await page.keyboard.press("Meta+k");
-    await page.getByText("System theme").click();
+    await page.getByText("System").click();
 
     expect(await getThemePreference(page)).toBe("system");
     // Resolved theme should follow the OS preference (dark or light).
     expect(["dark", "light"]).toContain(await getResolvedTheme(page));
   });
 
-  test("1.5 theme cycle via TopBar button: dark → light → system", async ({
+  test("1.5 theme cycle via TopBar button: dark → system → light", async ({
     page,
   }) => {
     // Start at dark
@@ -77,10 +77,10 @@ test.describe("Theme preference", () => {
     // Click the theme button (has aria-label containing "Theme:")
     const themeBtn = page.locator('button[aria-label^="Theme:"]');
     await themeBtn.click();
-    expect(await getThemePreference(page)).toBe("light");
+    expect(await getThemePreference(page)).toBe("system");
 
     await themeBtn.click();
-    expect(await getThemePreference(page)).toBe("system");
+    expect(await getThemePreference(page)).toBe("light");
 
     await themeBtn.click();
     expect(await getThemePreference(page)).toBe("dark");
@@ -112,7 +112,7 @@ test.describe("Anti-flash", () => {
     });
 
     expect(result.isDark).toBe(true);
-    // #0c0f14 → rgb(12, 15, 20) — must match --color-bg in legacy-tokens.css
+    // #0c0f14 -> rgb(12, 15, 20), matching the pre-React dark background.
     expect(result.bg).toBe("rgb(12, 15, 20)");
   });
 
@@ -129,7 +129,7 @@ test.describe("Anti-flash", () => {
     });
 
     expect(result.isDark).toBe(false);
-    // #fbfbfc → rgb(251, 251, 252) — must match --color-bg in legacy-tokens.css
+    // #fbfbfc -> rgb(251, 251, 252), matching the pre-React light background.
     expect(result.bg).toBe("rgb(251, 251, 252)");
   });
 });
@@ -141,7 +141,7 @@ test.describe("Anti-flash", () => {
 test.describe("Status text colors", () => {
   test("2.1 2xx status renders green", async ({ page }) => {
     // Status text with full "200 OK" is rows-mode only; switch from default table mode.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
     ]);
@@ -153,7 +153,7 @@ test.describe("Status text colors", () => {
 
   test("2.2 5xx status renders red", async ({ page }) => {
     // Status text with full "500 Internal Server Error" is rows-mode only.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(
         1,
@@ -171,12 +171,12 @@ test.describe("Status text colors", () => {
 
 test.describe("Status text colors (table mode)", () => {
   test("2.3 2xx status code renders green in table mode", async ({ page }) => {
-    // Table mode is the default — no mode switch needed.
+    // Table view is the default — no mode switch needed.
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
     ]);
 
-    // Table mode shows just the numeric code; find it within a row's status cell.
+    // Table view shows just the numeric code; find it within a row's status cell.
     const status = page
       .locator("button[role='option'] span", { hasText: /^200$/ })
       .first();
@@ -211,7 +211,7 @@ test.describe("Method badge colors", () => {
     page,
   }) => {
     // Method badges are rows-mode only; switch from default table mode.
-    await page.getByLabel("Rows mode").click();
+    await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
@@ -242,7 +242,7 @@ test.describe("Method badge colors (table mode)", () => {
   test("3.2 GET and POST have distinct method-typed classes in table mode", async ({
     page,
   }) => {
-    // Table mode is the default — no mode switch needed.
+    // Table view is the default — no mode switch needed.
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
@@ -252,7 +252,7 @@ test.describe("Method badge colors (table mode)", () => {
       }),
     ]);
 
-    // Table mode renders the same MethodBadge as rows mode (v2.3 --method-* tokens).
+    // Table view renders the same MethodBadge as rows mode (v2.3 --method-* tokens).
     const getMethod = page
       .locator("button[role='option'] span", { hasText: /^GET$/ })
       .first();
@@ -280,9 +280,9 @@ test.describe("Connection indicator", () => {
     // never fulfilled — so EventSource stays in CONNECTING and "open" never fires)
     await expect(page.getByText("connecting")).toBeVisible();
 
-    // The amber pulsing dot should be present — select by its bg-amber class
-    const dot = page.locator(".bg-amber.animate-pulse").first();
+    const dot = page.getByRole("status", { name: "connecting…" }).first();
     await expect(dot).toBeVisible();
+    await expect(dot).toHaveClass(/bg-conn-connecting/);
   });
 
   test("4.2 status bar shows connected state when connection is open", async ({
@@ -297,8 +297,8 @@ test.describe("Connection indicator", () => {
 
     await expect(page.getByText("connected")).toBeVisible();
 
-    // The solid green dot (no animate-pulse)
-    const dot = page.locator(".bg-green.rounded-full").first();
+    const dot = page.getByRole("status", { name: "connected" }).first();
     await expect(dot).toBeVisible();
+    await expect(dot).toHaveClass(/bg-conn-open/);
   });
 });

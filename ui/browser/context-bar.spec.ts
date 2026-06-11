@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -133,7 +133,9 @@ test.describe("ContextBar — prev/next navigation", () => {
   test("2.1 clicking Next moves to the older exchange", async ({ page }) => {
     await injectExchanges(page, three);
     await page.getByText("/second").first().click();
-    await page.getByRole("button", { name: "Next request" }).click();
+    await page
+      .getByRole("button", { name: "Next request", exact: true })
+      .click();
     await expect(contextBar(page).getByText("/first")).toBeVisible();
   });
 
@@ -160,7 +162,7 @@ test.describe("ContextBar — prev/next navigation", () => {
     await injectExchanges(page, three);
     await page.getByText("/first").first().click();
     await expect(
-      page.getByRole("button", { name: "Next request" }),
+      page.getByRole("button", { name: "Next request", exact: true }),
     ).toBeDisabled();
   });
 });

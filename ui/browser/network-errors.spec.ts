@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
 
   // The rows-mode list shows the full status line + an "Error" treatment;
   // switch from the default table mode so list-level assertions work.
-  await page.getByLabel("Rows mode").click();
+  await page.getByLabel("Rows view").click();
 });
 
 // The context bar sits above the inspector; locate it via the Prev button.
@@ -178,7 +178,7 @@ test.describe("Network error rendering — proxy-level failures", () => {
 test.describe("Network error rendering — table mode", () => {
   test.beforeEach(async ({ page }) => {
     // The file-level beforeEach switches to rows mode; switch back to table.
-    await page.getByLabel("Table mode").click();
+    await page.getByLabel("Table view").click();
   });
 
   test("connection refused: status cell shows Error in the error color", async ({
@@ -193,7 +193,7 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table mode: a transport error with no status shows "Error" (never "ERR",
+    // Table view: a transport error with no status shows "Error" (never "ERR",
     // kept deviation §1) in text-error.
     const statusCell = page
       .locator("button[role='option'] span.text-error")
@@ -215,7 +215,7 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table mode: mid-stream error shows "200 ✕" in text-error
+    // Table view: mid-stream error shows "200 ✕" in text-error
     const statusCell = page
       .locator("button[role='option'] span.text-error")
       .first();

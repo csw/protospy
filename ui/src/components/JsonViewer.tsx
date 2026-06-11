@@ -218,7 +218,7 @@ function JsonTreeView({ value }: { value: unknown }) {
             <div
               key={vRow.key}
               className={cn(
-                "flex items-center hover:bg-bg-hl",
+                "flex items-center hover:bg-accent",
                 expandable && "cursor-pointer",
               )}
               style={{
@@ -240,7 +240,7 @@ function JsonTreeView({ value }: { value: unknown }) {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="size-4 text-json-punct hover:bg-bg-hl hover:text-ink"
+                    className="size-4 text-json-punct hover:bg-accent hover:text-foreground"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggle(line.nodeId);
@@ -311,9 +311,11 @@ function LineValue({ line }: { line: FlatLine }) {
       return (
         <>
           <span className="text-json-punct">{open}</span>
-          <span className="text-dim italic">{"…"}</span>
+          <span className="text-muted-foreground italic">{"…"}</span>
           <span className="text-json-punct">{close}</span>
-          {label != null && <span className="text-dim ml-2">{label}</span>}
+          {label != null && (
+            <span className="text-muted-foreground ml-2">{label}</span>
+          )}
         </>
       );
     }
@@ -359,7 +361,7 @@ function JsonFlatView({ text }: { text: string }) {
           return (
             <div
               key={vRow.key}
-              className="flex hover:bg-bg-hl"
+              className="flex hover:bg-accent"
               style={{
                 position: "absolute",
                 top: 0,

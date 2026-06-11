@@ -23,13 +23,17 @@ function ErrorPanel({
       role="alert"
       className="flex flex-col items-center justify-center gap-2 h-full px-6 text-center"
     >
-      <AlertTriangle size={20} className="text-red/60" />
-      <span className="font-ui text-sm font-medium text-red">{panelTitle}</span>
-      <span className="font-mono text-xs text-mid max-w-md leading-relaxed">
+      <AlertTriangle size={20} className="text-error/60" />
+      <span className="font-sans text-sm font-medium text-error">
+        {panelTitle}
+      </span>
+      <span className="font-mono text-xs text-muted-foreground max-w-md leading-relaxed">
         {message}
       </span>
       {detail != null && (
-        <span className="font-mono text-xs text-dim">{detail}</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {detail}
+        </span>
       )}
     </div>
   );
@@ -93,12 +97,14 @@ export function BodyPane({
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
       {/* Pane head (30px) */}
-      <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-bg-sub border-b border-border">
-        <span className="font-ui text-xs font-semibold text-ink-2">
+      <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-secondary border-b border-border">
+        <span className="font-sans text-xs font-semibold text-secondary-foreground">
           {title}
         </span>
         {result != null && (
-          <span className="font-mono text-xs text-dim">{result.mediaType}</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {result.mediaType}
+          </span>
         )}
         <div className="ml-auto flex items-center gap-2">
           {result != null && (
@@ -110,7 +116,7 @@ export function BodyPane({
               }
             >
               <span
-                className="font-mono text-xs text-dim"
+                className="font-mono text-xs text-muted-foreground"
                 data-testid="body-size"
               >
                 {result.decodedBytes != null
@@ -127,7 +133,7 @@ export function BodyPane({
           height — without it, large bodies (e.g. JsonViewer's virtualized
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
-      <div className="flex-1 min-h-0 overflow-auto bg-bg-pane">
+      <div className="flex-1 min-h-0 overflow-auto bg-card">
         {loading && <LifecycleState>Decoding…</LifecycleState>}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
@@ -175,7 +181,7 @@ export function BodyPane({
           result != null &&
           result.kind === "text" &&
           result.text != null && (
-            <pre className="font-mono text-xs text-ink p-3 whitespace-pre-wrap">
+            <pre className="font-mono text-xs text-foreground p-3 whitespace-pre-wrap">
               {result.text}
             </pre>
           )}

@@ -88,7 +88,7 @@ describe("StreamView — generic SSE rendering", () => {
     );
     const ping = screen.getByText("ping");
     expect(ping).toHaveClass("text-muted-foreground/70");
-    expect(ping).not.toHaveClass("bg-bg-sub"); // legacy pill gone
+    expect(ping).not.toHaveClass("bg-secondary"); // legacy pill gone
     expect(screen.getByText("message")).toHaveClass(
       "text-secondary-foreground",
     );

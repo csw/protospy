@@ -75,7 +75,7 @@ describe("EventLog", () => {
     const label = screen.getByText("ping");
     expect(label).toHaveClass("text-muted-foreground/70");
     // The legacy filled-pill vocabulary must be gone.
-    expect(label).not.toHaveClass("bg-bg-sub");
+    expect(label).not.toHaveClass("bg-secondary");
   });
 
   it("surfaces the classifyEvent kind on each row as data-kind", async () => {

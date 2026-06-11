@@ -29,7 +29,7 @@ function ToggleGroup({
       data-slot="toggle-group"
       data-size={size}
       className={cn(
-        "group/toggle-group flex w-fit items-center rounded-md bg-bg-sub",
+        "group/toggle-group flex w-fit items-center rounded-md bg-secondary",
         bordered && "border border-border overflow-hidden",
         className,
       )}

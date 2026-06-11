@@ -8,7 +8,8 @@ import {
   listScenes,
   waitForSceneHarness,
 } from "./helpers/scenes";
-import { LIST_MAX_WIDTH, LIST_MIN_WIDTH } from "../src/components/paneBounds";
+
+const LIST_MIN_PERCENT = 26;
 
 // Console/page-error noise we don't care about (e.g. missing favicon on the
 // stubbed dev page). Everything else is treated as a regression.
@@ -111,15 +112,18 @@ test.describe("Fixture matrix", () => {
     const minWidth = await dragListPaneTo(page, "min");
     const wideWidth = await dragListPaneTo(page, "wide");
 
-    // The list Panel pins minSize=LIST_MIN_WIDTH[listMode] and
-    // maxSize=LIST_MAX_WIDTH (a % of the group). The default mode is "table",
-    // so the table floor applies. Dragging narrow clamps at the floor; dragging
-    // wide grows toward the cap (≈65% of the 1440px group here).
-    const maxWidth = (parseFloat(LIST_MAX_WIDTH) / 100) * 1440;
-    expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_WIDTH.table - 5);
-    expect(minWidth).toBeLessThan(LIST_MIN_WIDTH.table + 20);
+    // The v2.4 scaffold uses percentage panel sizing. Dragging narrow clamps at
+    // the 26% list floor; dragging wide grows until the inspector's 30% floor
+    // takes over.
+    const groupBox = await page
+      .locator('[data-slot="resizable-panel-group"]')
+      .boundingBox();
+    expect(groupBox).not.toBeNull();
+    const expectedMin = (groupBox!.width * LIST_MIN_PERCENT) / 100;
+    expect(minWidth).toBeGreaterThanOrEqual(expectedMin - 10);
+    expect(minWidth).toBeLessThan(expectedMin + 20);
     expect(wideWidth).toBeGreaterThan(minWidth + 200);
-    expect(wideWidth).toBeLessThanOrEqual(maxWidth + 10);
+    expect(wideWidth).toBeLessThanOrEqual(groupBox!.width * 0.7 + 15);
 
     expectNoErrors("list-pane-resize");
   });
@@ -130,7 +134,7 @@ test.describe("Fixture matrix", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await applyScene(page, "dual-size");
 
-    // 66 wire bytes → 58 decoded bytes, gzip. Table mode (the default) shows
+    // 66 wire bytes → 58 decoded bytes, gzip. Table view (the default) shows
     // the wire size inline with a compression marker; the wire/decoded
     // breakdown lives in the cell tooltip.
     const sizeCell = page
@@ -147,9 +151,7 @@ test.describe("Fixture matrix", () => {
     expectNoErrors("dual-size");
   });
 
-  test("light mode renders the matrix backdrop without errors", async ({
-    page,
-  }) => {
+  test("Light renders the matrix backdrop without errors", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await applyScene(page, "selected");
     await setTheme(page, "light");

@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
   );
-  await page.route("**/service/test-backend", (route) =>
+  await page.route("**/service/test-backend/events", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: "" }),
   );
   await page.goto("/");
@@ -54,7 +54,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("POST");
 
     const rows = page.locator("button[aria-selected]");
@@ -71,7 +71,7 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("/api/movies");
 
     const rows = page.locator("button[aria-selected]");
@@ -87,12 +87,12 @@ test.describe("Filter bar", () => {
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("404");
 
     const rows = page.locator("button[aria-selected]");
     await expect(rows).toHaveCount(1);
-    // Table mode (default) shows numeric code only; verify the 404 row is
+    // Table view (default) shows numeric code only; verify the 404 row is
     // visible and no 200/201 rows remain.
     await expect(
       page.locator("button[role='option'] span", { hasText: /^404$/ }).first(),
@@ -108,7 +108,7 @@ test.describe("Filter bar", () => {
   test("4. case insensitive: 'get' matches GET exchanges", async ({ page }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("get");
 
     const rows = page.locator("button[aria-selected]");
@@ -122,7 +122,7 @@ test.describe("Filter bar", () => {
   test("5. no matches: 'nonexistent' shows empty state", async ({ page }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("nonexistent");
 
     await expect(page.getByText("No requests match your filter")).toBeVisible();
@@ -130,19 +130,19 @@ test.describe("Filter bar", () => {
     await expect(rows).toHaveCount(0);
   });
 
-  test("6. clear filter: clicking clear button restores full list", async ({
+  test("6. clear filter: emptying the input restores full list", async ({
     page,
   }) => {
     await injectMixedExchanges(page);
 
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("POST");
 
     // Verify filter is active
     await expect(page.locator("button[aria-selected]")).toHaveCount(1);
 
     // Clear the filter
-    await page.getByLabel("Clear filter").click();
+    await input.fill("");
 
     // All 5 exchanges should be visible again
     await expect(page.locator("button[aria-selected]")).toHaveCount(5);
@@ -161,7 +161,7 @@ test.describe("Filter bar", () => {
     ).toBeVisible();
 
     // After filtering to 2 matches
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("/api/movies");
 
     await expect(page.getByText("2 of 5", { exact: true })).toBeVisible();
@@ -224,7 +224,7 @@ test.describe("Filter bar", () => {
     await expect(page.locator("button[aria-selected]")).toHaveCount(4);
 
     // Apply the method filter alone → 2 POST rows
-    const input = page.getByPlaceholder("Filter requests…");
+    const input = page.getByLabel("Filter requests");
     await input.fill("POST");
     await expect(page.locator("button[aria-selected]")).toHaveCount(2);
 
@@ -239,8 +239,9 @@ test.describe("Filter bar", () => {
     await expect(page.getByText("/api/a-post").first()).toBeVisible();
     await expect(page.getByText("/api/b-post")).not.toBeVisible();
 
-    // Clear the trace filter → method filter still active → 2 POST rows again
-    await page.getByLabel("Clear trace filter").click();
+    // Clear the trace filter via the active trace chip → method filter still
+    // active → 2 POST rows again.
+    await page.getByRole("button", { name: /trace aaaa/i }).click();
     await expect(page.locator("button[aria-selected]")).toHaveCount(2);
     await expect(page.getByText("/api/a-post").first()).toBeVisible();
     await expect(page.getByText("/api/b-post").first()).toBeVisible();
@@ -268,8 +269,8 @@ test.describe("Filter bar", () => {
     // Trace chip should appear with abbreviated trace ID
     await expect(page.getByText(/trace abcd…7890/)).toBeVisible();
 
-    // Clear trace filter button
-    const clearTrace = page.getByLabel("Clear trace filter");
+    // Clear trace filter via the active trace chip.
+    const clearTrace = page.getByRole("button", { name: /trace abcd/i });
     await expect(clearTrace).toBeVisible();
     await clearTrace.click();
 
