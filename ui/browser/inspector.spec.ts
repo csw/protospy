@@ -463,6 +463,45 @@ test.describe("Inspector — Headers filter and pinning", () => {
     expect(copied).toBe("Bearer real-secret-token");
   });
 
+  test("8.5a copied header affordance hides immediately after leaving the row", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      window.__clipboard = "";
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: (text: string) => {
+            window.__clipboard = text;
+            return Promise.resolve();
+          },
+        },
+        configurable: true,
+      });
+    });
+
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/hdrs", undefined, [
+        { name: "content-type", value: "application/json" },
+      ]),
+      makeResponse(1, "200 OK", undefined, undefined, []),
+    ]);
+    await openHeadersTab(page);
+
+    const panel = reqPanel(page);
+    const row = panel.locator("table tbody tr").first();
+    const copyButton = panel.getByLabel("Copy content-type value");
+
+    await row.hover();
+    await expect(copyButton).toBeVisible();
+    await copyButton.click();
+    await expect(copyButton.locator(".lucide-check")).toBeVisible();
+
+    await page.mouse.move(0, 0);
+
+    await expect(copyButton).toBeHidden();
+    await expect(copyButton.locator(".lucide-check")).toHaveCount(0);
+  });
+
   test("8.6 reveal toggle shows and re-hides the raw credential", async ({
     page,
   }) => {
