@@ -19,8 +19,11 @@ import { Pause, Play } from "lucide-react";
 import type { Exchange } from "@ui/state/reducer";
 import type { SSEEvent } from "@ui/body/sse";
 import { Button } from "@ui/components/ui/button";
-import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
-import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
+import {
+  LiveIndicator,
+  deriveStreamState,
+} from "@ui/components/live-indicator";
+import { StreamErrorBanner } from "@ui/components/stream-error-banner";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
 import { EventLog } from "./event-log";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { Inspector } from "@ui/components/protospy/inspector";
+import { Inspector } from "@ui/components/inspector";
 import type { Exchange } from "@ui/state/reducer";
 
 function makeExchange(overrides: Partial<Exchange> = {}): Exchange {

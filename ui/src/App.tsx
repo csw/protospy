@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
-import { AppShell } from "./components/protospy/app-shell";
+import { AppShell } from "./components/app-shell";
 import type { Exchange } from "./state/reducer";
 import type { Protocol } from "@bindings/Protocol";
-import { BodySplit } from "./components/BodySplit";
+import { BodySplit } from "./components/body-split";
 import { EmptyState } from "./components/ui/EmptyState";
-import type { MsearchView } from "./components/protospy/inspector";
+import type { MsearchView } from "./components/inspector";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
 import { resolveDefaultTheme } from "./theme/theme";

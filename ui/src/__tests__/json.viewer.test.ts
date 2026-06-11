@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tokenizeLine } from "@ui/components/JsonViewer";
+import { tokenizeLine } from "@ui/components/json-viewer";
 
 describe("tokenizeLine", () => {
   it("returns empty array for empty string", () => {

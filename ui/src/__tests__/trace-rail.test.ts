@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { packLanes, traceRailWidth } from "@ui/components/protospy/trace-rail";
+import { packLanes, traceRailWidth } from "@ui/components/trace-rail";
 
 describe("TraceRail lane packing", () => {
   it("packs overlapping multi-member traces into separate lanes", () => {

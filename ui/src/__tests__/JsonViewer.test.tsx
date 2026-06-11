@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { JsonViewer } from "@ui/components/JsonViewer";
+import { JsonViewer } from "@ui/components/json-viewer";
 
 /**
  * Render and wait for the virtualizer to settle. The virtualizer

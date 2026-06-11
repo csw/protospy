@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { ExchangeTable } from "@ui/components/protospy/exchange-table";
-import { traceRailWidth } from "@ui/components/protospy/trace-rail";
+import { ExchangeTable } from "@ui/components/exchange-table";
+import { traceRailWidth } from "@ui/components/trace-rail";
 import type { BodyState, Exchange } from "@ui/state/reducer";
 
 function body(partial: Partial<BodyState>): BodyState {
