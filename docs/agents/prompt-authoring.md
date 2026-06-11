@@ -180,7 +180,7 @@ use_, where the agent already knows it needs the skill on every task. A literal
 model reads a discovery-tuned trigger, decides "I'm not in that situation," and
 proceeds without the skill.
 
-This has bitten repeatedly: `frontend:shadcn-ui` didn't fire during routine UI
+This has bitten repeatedly: `shadcn` didn't fire during routine UI
 work, so an agent hand-rolled a button instead of using the existing shadcn
 `<Button>` (PRO-281); the session-start snapshot subagent never loaded
 `linear-cli`, guessed the CLI, and returned a wrong count (PRO-290); the

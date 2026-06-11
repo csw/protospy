@@ -61,11 +61,11 @@ elements just to get the size you want.
 convention checklists for this UI. You must invoke them yourself via the Skill tool
 rather than waiting for a discovery-tuned trigger to fire:
 
-- `frontend:shadcn-ui` — the component inventory. Invoke before writing any new
+- `shadcn` — the component inventory. Invoke before writing any new
   element from scratch, to confirm one doesn't already exist.
-- `frontend:react-patterns` — performance and composition rules. Apply whenever you
-  write or change a component.
-- `frontend:tailwind-theme-builder` — semantic tokens, `@theme inline`, no no-op or
+- `vercel-react-best-practices` and `vercel-composition-patterns` — performance and
+  composition rules. Apply whenever you write or change a component.
+- `tailwind-4-docs` — Tailwind v4 semantics, `@theme inline`, no no-op or
   undefined token classes. Follow whenever you touch styling.
 
 The `convention-review` subagent backstops these on a PR, but fixing drift there

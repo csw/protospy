@@ -151,7 +151,7 @@ If that lists **no** files, skip this step and continue to step 5. If it lists
 **any**, this step is **required** — do not open the PR on a UI change without a
 visual confirmation.
 
-This is a **lightweight, interactive** check — *look at what you built* — not
+This is a **lightweight, interactive** check — _look at what you built_ — not
 the full `visual-review` pipeline. No fixture-matrix sweep, no multi-width
 screenshot matrix, no formal report. You spawn one subagent to drive the app
 through the Playwright CLI and report back whether the change holds together.
@@ -167,7 +167,7 @@ and report the exact spawn error instead of silently using a different model.
 Tell it to drive the browser via the `playwright-cli` skill (it invokes the
 skill itself); the prompt below is self-contained, so it needs no UI-specific
 preloading beyond `ui/AGENTS.md`, which it loads on reading any `ui/` file. This
-is still the *lightweight* path: a quick interactive eyeball, deliberately *not*
+is still the _lightweight_ path: a quick interactive eyeball, deliberately _not_
 the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
 prompt of this shape, naming the components/views your change touched and the
 dev-server URL:
@@ -178,10 +178,10 @@ dev-server URL:
 > path** so step 5 can't sweep a stray PNG into the commit: omit `--filename` to
 > use the default `.playwright-cli/` location (gitignored), or pass an explicit
 > gitignored path such as `--filename=.playwright-cli/$ticket-<desc>.png`. **Never
-> pass a bare relative `--filename`** like `--filename=after.png` — that writes a
-> loose PNG into the worktree's `ui/`, which step 5 then stages. Then navigate to
-> the affected view(s) — inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where it helps you reach the right
+pass a bare relative `--filename`** like `--filename=after.png`— that writes a
+loose PNG into the worktree's`ui/`, which step 5 then stages. Then navigate to
+the affected view(s) — inject fixture state via
+`window.\_\_test_scenes.apply('<scene-id>')` where it helps you reach the right
 > state — and check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
@@ -201,7 +201,7 @@ If the subagent reports problems, fix them (you are still in the worktree),
 re-run the relevant quality checks, and re-verify before continuing. Capture a
 one-line summary of the verification to fold into the PR description (step 6).
 
-This step is deliberately scoped to *your* change. It does **not** replace
+This step is deliberately scoped to _your_ change. It does **not** replace
 `docs/frontend-dod.md` (the full Definition of Done) or the heavyweight
 `visual-review` subagent (`.codex/agents/visual-review.toml`) — neither is run
 here.
@@ -218,6 +218,7 @@ defenses make `-A` safe without per-file path discipline. Still glance at
 `git status` before committing to confirm only the files you intended are staged.
 
 Commit with a Conventional Commits message:
+
 - Subject: use the ticket title verbatim as the description, append `($ticket)`
   at the end — e.g. `fix(ui): improve header density (PRO-129)`
 - Keep the full subject line under 72 characters; if needed, trim the
@@ -340,9 +341,9 @@ code review so they run in parallel. Give it this prompt shape:
 
 > Run a React/Tailwind/shadcn convention review for $ticket ("<title>").
 > Linear URL: <url>. Scope from the diff against `main` (branch
-> `<branch-name>`). Apply the frontend:react-patterns, frontend:shadcn-ui,
-> and frontend:tailwind-theme-builder skills to the changed UI source and
-> return your prioritized convention-findings report.
+> `<branch-name>`). Apply the vercel-react-best-practices,
+> vercel-composition-patterns, shadcn, and tailwind-4-docs skills to the
+> changed UI source and return your prioritized convention-findings report.
 
 This is a read-only agent that audits convention drift (no-op tokens, missing
 `cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
@@ -588,5 +589,6 @@ When the user is satisfied and there is nothing left to act on:
    `linear issue comment add $ticket --body-file <path>` (write the body with
    the Write tool first; `--body-file` is preferred for markdown). Skip only for
    trivial mechanical changes (use judgment); when in doubt, post one.
+
 3. No checkout-exit step is needed in Codex because ticket work happened in a
    worktree-backed thread.

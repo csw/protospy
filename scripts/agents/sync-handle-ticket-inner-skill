@@ -137,8 +137,8 @@ the prompt below is self-contained, so it needs no UI-specific preloading beyond
 eyeballing a rendered
 change is not Opus-grade reasoning, and screenshots are token-heavy (~1.5k each),
 so the cheaper model keeps this check inexpensive — the same reason the
-`visual-review` agent is pinned to Sonnet. This is still the *lightweight* path:
-a quick interactive eyeball, deliberately *not* the heavyweight `visual-review`
+`visual-review` agent is pinned to Sonnet. This is still the _lightweight_ path:
+a quick interactive eyeball, deliberately _not_ the heavyweight `visual-review`
 agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
 components/views your change touched and the dev-server URL:"""
 
@@ -149,7 +149,7 @@ and report the exact spawn error instead of silently using a different model.
 Tell it to drive the browser via the `playwright-cli` skill (it invokes the
 skill itself); the prompt below is self-contained, so it needs no UI-specific
 preloading beyond `ui/AGENTS.md`, which it loads on reading any `ui/` file. This
-is still the *lightweight* path: a quick interactive eyeball, deliberately *not*
+is still the _lightweight_ path: a quick interactive eyeball, deliberately _not_
 the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
 prompt of this shape, naming the components/views your change touched and the
 dev-server URL:"""
