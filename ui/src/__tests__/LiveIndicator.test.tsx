@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
+import {
+  LiveIndicator,
+  deriveStreamState,
+} from "@ui/components/live-indicator";
 
 describe("deriveStreamState", () => {
   it("returns 'complete' when atEnd is true", () => {

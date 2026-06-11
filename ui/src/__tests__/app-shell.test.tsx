@@ -4,7 +4,7 @@ import type { EventMessage } from "@bindings/EventMessage";
 import { render } from "@ui/test/render";
 import { makeGetRequest, makeResponse } from "@ui/test/fixtures";
 import { useStore } from "@ui/state/store";
-import { AppShell } from "@ui/components/protospy/app-shell";
+import { AppShell } from "@ui/components/app-shell";
 
 const mocks = vi.hoisted(() => ({
   fetchInfo: vi.fn(),

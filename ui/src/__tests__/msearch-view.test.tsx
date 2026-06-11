@@ -1,10 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import {
-  MsearchView,
-  type SubExchange,
-} from "@ui/components/protospy/msearch-view";
+import { MsearchView, type SubExchange } from "@ui/components/msearch-view";
 
 // The per-sub body content is a render slot (PRO-56 passes <JsonViewer/>); tests
 // pass identifiable marker nodes so each pane's slot can be located unambiguously.

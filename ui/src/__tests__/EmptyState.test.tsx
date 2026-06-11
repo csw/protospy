@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { EmptyState, emptyStateText } from "@ui/components/ui/EmptyState";
+import { EmptyState, emptyStateText } from "@ui/components/ui/empty-state";
 
 describe("EmptyState", () => {
   it("renders children with the base treatment and the xs size token by default", () => {

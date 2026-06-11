@@ -13,7 +13,7 @@ import { classifyEvent } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
-import { SimpleTooltip } from "@ui/components/ui/SimpleTooltip";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 const EVENT_ROW_HEIGHT = 28;
 

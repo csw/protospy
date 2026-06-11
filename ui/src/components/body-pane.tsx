@@ -3,11 +3,11 @@ import type { BodyState } from "@ui/state/reducer";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import { formatSize } from "@ui/lib/utils";
 import { mediaTypeSlug } from "@ui/lib/format";
-import { CopyButton } from "./protospy/copy-button";
-import { StreamErrorBanner } from "./StreamErrorBanner";
-import { SimpleTooltip } from "./ui/SimpleTooltip";
-import { EmptyState } from "./ui/EmptyState";
-import { JsonViewer } from "./JsonViewer";
+import { CopyButton } from "./copy-button";
+import { StreamErrorBanner } from "./stream-error-banner";
+import { SimpleTooltip } from "./ui/simple-tooltip";
+import { EmptyState } from "./ui/empty-state";
+import { JsonViewer } from "./json-viewer";
 
 /** Centered error display used for both "no response" and "response interrupted" states. */
 function ErrorPanel({

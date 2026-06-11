@@ -11,7 +11,7 @@ import {
   selectSelected,
   selectTraceCount,
 } from "@ui/state/store";
-import { connDotStatus } from "@ui/components/protospy/connection-dot";
+import { connDotStatus } from "@ui/components/connection-dot";
 import { makeGetRequest, makeRequestWithTrace } from "@ui/test/fixtures";
 
 function apply(msg: unknown) {

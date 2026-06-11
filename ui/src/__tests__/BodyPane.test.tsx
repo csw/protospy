@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { BodyPane } from "@ui/components/BodyPane";
+import { BodyPane } from "@ui/components/body-pane";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
 

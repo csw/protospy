@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { toast } from "sonner";
 import { render } from "@ui/test/render";
-import { CopyButton } from "@ui/components/protospy/copy-button";
+import { CopyButton } from "@ui/components/copy-button";
 
 // The copy-button fires feedback through `sonner`; assert on the emission
 // rather than rendering the real toast host. The shared `render` wraps the

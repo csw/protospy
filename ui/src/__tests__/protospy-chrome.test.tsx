@@ -9,21 +9,15 @@ import {
   makeResponse,
 } from "@ui/test/fixtures";
 import { useStore } from "@ui/state/store";
-import { TopBar } from "@ui/components/protospy/top-bar";
-import { FilterBar } from "@ui/components/protospy/filter-bar";
-import { StatusBar } from "@ui/components/protospy/status-bar";
-import { ListToolbar } from "@ui/components/protospy/list-toolbar";
-import { CommandPalette } from "@ui/components/protospy/command-palette";
-import { ShortcutsOverlay } from "@ui/components/protospy/shortcuts-overlay";
-import { EmptyState } from "@ui/components/protospy/empty-state";
-import {
-  ConnectionDot,
-  connDotStatus,
-} from "@ui/components/protospy/connection-dot";
-import {
-  GroupedExchangeList,
-  TraceGroup,
-} from "@ui/components/protospy/trace-group";
+import { TopBar } from "@ui/components/top-bar";
+import { FilterBar } from "@ui/components/filter-bar";
+import { StatusBar } from "@ui/components/status-bar";
+import { ListToolbar } from "@ui/components/list-toolbar";
+import { CommandPalette } from "@ui/components/command-palette";
+import { ShortcutsOverlay } from "@ui/components/shortcuts-overlay";
+import { EmptyState } from "@ui/components/empty-state";
+import { ConnectionDot, connDotStatus } from "@ui/components/connection-dot";
+import { GroupedExchangeList, TraceGroup } from "@ui/components/trace-group";
 
 const setTheme = vi.fn();
 
