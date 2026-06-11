@@ -13,7 +13,7 @@
         ]
       },
       {
-        "matcher": "apply_patch",
+        "matcher": "^apply_patch$",
         "hooks": [
           {
             "type": "command",

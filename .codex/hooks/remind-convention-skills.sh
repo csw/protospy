@@ -7,9 +7,16 @@
 # start.
 #
 # Wired as a PreToolUse hook on the apply_patch tool (.codex/hooks.json).
-# Non-blocking: emits hookSpecificOutput.additionalContext (permissionDecision
-# "allow"), phrased as factual project convention. Fires at most once per
-# session, gated by a session_id marker file.
+# Non-blocking: emits hookSpecificOutput.additionalContext alone, phrased as
+# factual project convention. Fires at most once per session, gated by a
+# session_id marker file.
+#
+# NB: Codex honors additionalContext for an advisory PreToolUse hook only when it
+# is returned on its own. Pairing it with permissionDecision:"allow" is an
+# undocumented combination that Codex silently ignores (verified: the reminder
+# was dropped until permissionDecision was removed). The Claude hook deliberately
+# keeps permissionDecision because that pairing IS documented and verified for
+# Claude Code -- the two harnesses differ here.
 #
 # Codex's apply_patch tool_input shape is under-documented, so path extraction is
 # deliberately defensive: it reads a structured `.tool_input.path`, the raw
@@ -81,5 +88,5 @@ marker="${TMPDIR:-/tmp}/protospy-convskill-${session_id:-unknown}"
 reminder="Project convention (protospy UI): changes under ui/src/ follow four convention skills — shadcn, vercel-react-best-practices, vercel-composition-patterns, tailwind-4-docs. Loading them before editing is cheaper than fixing drift the convention-review subagent flags on the PR. If already loaded this session, no action is needed."
 
 jq -cn --arg ctx "$reminder" \
-  '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",additionalContext:$ctx}}'
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$ctx}}'
 exit 0
