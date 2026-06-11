@@ -24,6 +24,7 @@ export function ExchangeList() {
   const filter = useStore((s) => s.filter);
   const traceFilter = useStore((s) => s.traceFilter);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
+  const hoverTraceId = useStore((s) => s.hoverTraceId);
   const setHoverTraceId = useStore((s) => s.setHoverTraceId);
   const order = useStore((s) => s.order);
   const setOrder = useStore((s) => s.setOrder);
@@ -257,6 +258,9 @@ export function ExchangeList() {
           tz={timeZone}
           filtered={!!(filter || traceFilter)}
           onSelect={setSelectedId}
+          activeTraceId={hoverTraceId}
+          onHoverTrace={setHoverTraceId}
+          onSelectTrace={setTraceFilter}
         />
       ) : ordered.length === 0 ? (
         <ListEmptyState filtered={!!(filter || traceFilter)} />

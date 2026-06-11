@@ -7,9 +7,9 @@
 
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { traceColorVar, shortTraceId } from "@/lib/tokens";
-import { fmtMs } from "@/lib/format";
+import { cn } from "@ui/lib/utils";
+import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
+import { fmtMs } from "@ui/lib/format";
 // v2.4 ingest (PRO-363): bind to the live reducer Exchange model (the adapted
 // `ExchangeRow` consumes it), not the scaffold `lib/types` model.
 import type { Exchange } from "@ui/state/reducer";
@@ -45,6 +45,7 @@ export function TraceGroup({
       className="border-b border-l-[3px]"
       style={{ borderLeftColor: color } as React.CSSProperties}
       onMouseEnter={() => onHoverTrace?.(traceId)}
+      onMouseLeave={() => onHoverTrace?.(null)}
     >
       <div className="flex h-[30px] items-center gap-2 bg-secondary pl-2.5 pr-3 font-mono text-xs text-muted-foreground">
         <button

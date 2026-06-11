@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { ExchangeList } from "@ui/components/ExchangeList";
 import { useStore } from "@ui/state/store";
+import { TraceGroup } from "@ui/components/protospy/trace-group";
 import type { Exchange } from "@ui/state/reducer";
 
 function makeExchange(overrides: Partial<Exchange> = {}): Exchange {
@@ -102,5 +103,28 @@ describe("ExchangeList — grouped-by-trace mode", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /filter to trace/i }));
     expect(useStore.getState().traceFilter).toBe("t1");
+  });
+
+  it("clears trace hover when the pointer leaves a grouped trace card", () => {
+    const onHoverTrace = vi.fn();
+    render(
+      <TraceGroup
+        traceId="t1"
+        members={[
+          makeExchange({ id: 1, uri: "/a", traceId: "t1" }),
+          makeExchange({ id: 2, uri: "/b", traceId: "t1" }),
+        ]}
+        selectedId={null}
+        onHoverTrace={onHoverTrace}
+      />,
+    );
+
+    const group = screen.getByText(/2 requests/).closest(".border-b");
+    expect(group).not.toBeNull();
+    fireEvent.mouseEnter(group!);
+    fireEvent.mouseLeave(group!);
+
+    expect(onHoverTrace).toHaveBeenCalledWith("t1");
+    expect(onHoverTrace).toHaveBeenCalledWith(null);
   });
 });

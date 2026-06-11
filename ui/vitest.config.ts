@@ -47,7 +47,6 @@ export default defineConfig({
         // empty/body-state/connection-dot atoms) as un-wired source — excluded
         // until the per-surface wire slices import and exercise them.
         "src/components/protospy/msearch-view.tsx",
-        "src/components/protospy/trace-rail.tsx",
         "src/components/protospy/app-shell.tsx",
         "src/components/protospy/top-bar.tsx",
         "src/components/protospy/filter-bar.tsx",

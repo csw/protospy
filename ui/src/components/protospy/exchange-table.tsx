@@ -34,6 +34,7 @@ import { useDensity } from "@ui/lib/density";
 import type { Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
+import { packLanes, TraceRail, traceRailWidth } from "./trace-rail";
 import { ListEmptyState } from "../ListEmptyState";
 import { SimpleTooltip } from "@ui/components/ui/SimpleTooltip";
 
@@ -65,6 +66,9 @@ export interface ExchangeTableProps {
   /** Whether a filter is active — picks the empty-state copy when there are no rows. */
   filtered?: boolean;
   onSelect?: (id: number) => void;
+  activeTraceId?: string | null;
+  onHoverTrace?: (traceId: string | null) => void;
+  onSelectTrace?: (traceId: string) => void;
 }
 
 export function ExchangeTable({
@@ -73,6 +77,9 @@ export function ExchangeTable({
   tz = "local",
   filtered = false,
   onSelect,
+  activeTraceId,
+  onHoverTrace,
+  onSelectTrace,
 }: ExchangeTableProps) {
   const { density, rowPx } = useDensity();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -157,6 +164,13 @@ export function ExchangeTable({
   });
 
   const rows = table.getRowModel().rows;
+  const traceIds = useMemo(
+    () => rows.map((row) => row.original.traceId ?? null),
+    [rows],
+  );
+  const { laneCount } = useMemo(() => packLanes(traceIds), [traceIds]);
+  const railWidth = traceRailWidth(laneCount);
+  const hasTraces = laneCount > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -169,9 +183,15 @@ export function ExchangeTable({
     observeElementRect: observeElementRectWithFallback,
   });
 
-  const hasTraces = useMemo(
-    () => exchanges.some((x) => x.traceId != null),
-    [exchanges],
+  const rowOffsetByIndex = useMemo(
+    () =>
+      new Map(
+        rows.map((_, index) => {
+          const top = index * rowPx.table;
+          return [index, { top, bottom: top + rowPx.table }];
+        }),
+      ),
+    [rows, rowPx.table],
   );
 
   // Scroll the selected row into view on programmatic selection (j/k nav, command
@@ -200,14 +220,17 @@ export function ExchangeTable({
 
   return (
     <div className="flex min-h-0 flex-1">
-      {/* Trace-rail gutter (placeholder until Slice 1b mounts the lane-packed rail). */}
-      {hasTraces && <div className="w-3 shrink-0 border-r" aria-hidden />}
       <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto font-mono">
         {/* sticky header */}
         <div
           data-testid="exchange-table-header"
           className="sticky top-0 z-10 grid h-[26px] items-center gap-2 border-b bg-secondary px-3 font-sans text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          style={{ gridTemplateColumns: gridCols }}
+          style={{
+            gridTemplateColumns: gridCols,
+            paddingLeft: hasTraces
+              ? `calc(${railWidth}px + 0.75rem)`
+              : undefined,
+          }}
         >
           {table.getFlatHeaders().map((h) => (
             <button
@@ -222,16 +245,30 @@ export function ExchangeTable({
           ))}
         </div>
 
-        {/* The listbox wraps a total-height spacer (matching rows mode), so the
-            sticky header stays outside the option group and tooling that reads
-            the virtual container height finds it as the listbox's first child. */}
-        <div role="listbox" aria-label="Requests">
-          {exchanges.length === 0 ? (
-            <ListEmptyState filtered={filtered} />
-          ) : (
+        {exchanges.length === 0 ? (
+          <ListEmptyState filtered={filtered} />
+        ) : (
+          <div
+            className="relative"
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {hasTraces && (
+              <TraceRail
+                traceIds={traceIds}
+                rowTop={(index) => rowOffsetByIndex.get(index)?.top ?? 0}
+                rowBottom={(index) =>
+                  rowOffsetByIndex.get(index)?.bottom ?? rowPx.table
+                }
+                activeTraceId={activeTraceId}
+                onHoverTrace={onHoverTrace}
+                onSelectTrace={onSelectTrace}
+                className="absolute inset-y-0 left-0 z-[1]"
+              />
+            )}
             <div
-              className="relative"
-              style={{ height: virtualizer.getTotalSize() }}
+              role="listbox"
+              aria-label="Requests"
+              className="absolute inset-0"
             >
               {virtualizer.getVirtualItems().map((vi) => {
                 const x = rows[vi.index].original;
@@ -250,8 +287,8 @@ export function ExchangeTable({
                     style={{
                       position: "absolute",
                       top: 0,
-                      left: 0,
-                      width: "100%",
+                      left: hasTraces ? railWidth : 0,
+                      width: hasTraces ? `calc(100% - ${railWidth}px)` : "100%",
                       height: vi.size,
                       transform: `translateY(${vi.start}px)`,
                       gridTemplateColumns: gridCols,
@@ -278,8 +315,8 @@ export function ExchangeTable({
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

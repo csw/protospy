@@ -22,7 +22,11 @@ function makeLargeDataset(count: number) {
 async function getVirtualContainerHeight(page: Page): Promise<string> {
   return page.evaluate(() => {
     const listbox = document.querySelector('[role="listbox"]');
-    const container = listbox?.firstElementChild as HTMLElement | null;
+    const parent = listbox?.parentElement as HTMLElement | null;
+    const container =
+      parent?.style.height !== ""
+        ? parent
+        : (listbox?.firstElementChild as HTMLElement | null);
     return container?.style.height ?? "";
   });
 }
