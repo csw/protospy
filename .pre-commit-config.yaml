@@ -45,7 +45,7 @@ repos:
         name: keep handle-ticket-inner skills in sync
         entry: scripts/agents/sync-handle-ticket-inner-skill --check
         language: system
-        files: ^(\.claude/skills/handle-ticket-inner/SKILL\.md|\.agents/skills/handle-ticket-inner/SKILL\.md|scripts/agents/sync-handle-ticket-inner-skill)$
+        files: ^(\.claude/skills/handle-ticket-inner/SKILL\.md\.j2|\.claude/skills/handle-ticket-inner/SKILL\.md|\.agents/skills/handle-ticket-inner/SKILL\.md|scripts/agents/sync-handle-ticket-inner-skill)$
         pass_filenames: false
         fail_fast: true
       - id: ruff-flix

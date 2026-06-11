@@ -132,7 +132,7 @@ If that lists **no** files, skip this step and continue to step 5. If it lists
 **any**, this step is **required** — do not open the PR on a UI change without a
 visual confirmation.
 
-This is a **lightweight, interactive** check — *look at what you built* — not
+This is a **lightweight, interactive** check — _look at what you built_ — not
 the full `visual-review` pipeline. No fixture-matrix sweep, no multi-width
 screenshot matrix, no formal report. You spawn one subagent to drive the app
 through the Playwright CLI and report back whether the change holds together.
@@ -148,8 +148,8 @@ the prompt below is self-contained, so it needs no UI-specific preloading beyond
 eyeballing a rendered
 change is not Opus-grade reasoning, and screenshots are token-heavy (~1.5k each),
 so the cheaper model keeps this check inexpensive — the same reason the
-`visual-review` agent is pinned to Sonnet. This is still the *lightweight* path:
-a quick interactive eyeball, deliberately *not* the heavyweight `visual-review`
+`visual-review` agent is pinned to Sonnet. This is still the _lightweight_ path:
+a quick interactive eyeball, deliberately _not_ the heavyweight `visual-review`
 agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
 components/views your change touched and the dev-server URL:
 
@@ -159,10 +159,10 @@ components/views your change touched and the dev-server URL:
 > path** so step 5 can't sweep a stray PNG into the commit: omit `--filename` to
 > use the default `.playwright-cli/` location (gitignored), or pass an explicit
 > gitignored path such as `--filename=.playwright-cli/$ticket-<desc>.png`. **Never
-> pass a bare relative `--filename`** like `--filename=after.png` — that writes a
-> loose PNG into the worktree's `ui/`, which step 5 then stages. Then navigate to
-> the affected view(s) — inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where it helps you reach the right
+pass a bare relative `--filename`** like `--filename=after.png`— that writes a
+loose PNG into the worktree's`ui/`, which step 5 then stages. Then navigate to
+the affected view(s) — inject fixture state via
+`window.\_\_test_scenes.apply('<scene-id>')` where it helps you reach the right
 > state — and check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
@@ -182,7 +182,7 @@ If the subagent reports problems, fix them (you are still in the worktree),
 re-run the relevant quality checks, and re-verify before continuing. Capture a
 one-line summary of the verification to fold into the PR description (step 6).
 
-This step is deliberately scoped to *your* change. It does **not** replace
+This step is deliberately scoped to _your_ change. It does **not** replace
 `docs/frontend-dod.md` (the full Definition of Done) or the heavyweight
 `visual-review` subagent (`.claude/agents/visual-review.md`) — neither is run
 here.
@@ -199,6 +199,7 @@ defenses make `-A` safe without per-file path discipline. Still glance at
 `git status` before committing to confirm only the files you intended are staged.
 
 Commit with a Conventional Commits message:
+
 - Subject: use the ticket title verbatim as the description, append `($ticket)`
   at the end — e.g. `fix(ui): improve header density (PRO-129)`
 - Keep the full subject line under 72 characters; if needed, trim the
@@ -554,4 +555,5 @@ When the user is satisfied and there is nothing left to act on:
    `linear issue comment add $ticket --body-file <path>` (write the body with
    the Write tool first; `--body-file` is preferred for markdown). Skip only for
    trivial mechanical changes (use judgment); when in doubt, post one.
+
 3. Call `ExitWorktree` to return to the main checkout.
