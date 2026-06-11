@@ -81,6 +81,10 @@ class CodexGenerationTests(unittest.TestCase):
         self.assertIn("No checkout-exit step is needed in Codex", generated)
         self.assertIn("gpt-5.5", generated)
 
+    def test_check_passes_against_on_disk_files(self) -> None:
+        # Exercises both check() itself and the real production files agents read.
+        self.assertTrue(sync_handle_ticket_inner_skill.check())
+
     def test_script_has_no_hardcoded_prose_constants(self) -> None:
         script_text = SCRIPT.read_text()
         # The script should no longer contain multi-line prose from the skill
