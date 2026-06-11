@@ -55,6 +55,44 @@ class CodexGenerationTests(unittest.TestCase):
         )
         self.assertNotIn("do not use `gpt-5.4-mini`", normalized.lower())
 
+    def test_claude_skill_renders_without_jinja2_tags(self) -> None:
+        generated = sync_handle_ticket_inner_skill.generate_claude_skill()
+        self.assertNotIn("{%", generated)
+        self.assertNotIn("%}", generated)
+        self.assertNotIn("{{", generated)
+        self.assertNotIn("}}", generated)
+
+    def test_codex_skill_renders_without_jinja2_tags(self) -> None:
+        generated = sync_handle_ticket_inner_skill.generate_codex_skill()
+        self.assertNotIn("{%", generated)
+        self.assertNotIn("%}", generated)
+        self.assertNotIn("{{", generated)
+        self.assertNotIn("}}", generated)
+
+    def test_claude_skill_contains_claude_specific_content(self) -> None:
+        generated = sync_handle_ticket_inner_skill.generate_claude_skill()
+        self.assertIn("already-entered Claude Code", generated)
+        self.assertIn("Call `ExitWorktree`", generated)
+        self.assertIn("Opus model, high effort", generated)
+
+    def test_codex_skill_contains_codex_specific_content(self) -> None:
+        generated = sync_handle_ticket_inner_skill.generate_codex_skill()
+        self.assertIn("already-isolated worktree", generated)
+        self.assertIn("No checkout-exit step is needed in Codex", generated)
+        self.assertIn("gpt-5.5", generated)
+
+    def test_check_passes_against_on_disk_files(self) -> None:
+        # Exercises both check() itself and the real production files agents read.
+        self.assertTrue(sync_handle_ticket_inner_skill.check())
+
+    def test_script_has_no_hardcoded_prose_constants(self) -> None:
+        script_text = SCRIPT.read_text()
+        # The script should no longer contain multi-line prose from the skill
+        self.assertNotIn("already-entered Claude Code", script_text)
+        self.assertNotIn("already-isolated worktree", script_text)
+        self.assertNotIn("branch-name truncation rule", script_text)
+        self.assertNotIn("worktree-backed checkout", script_text)
+
 
 if __name__ == "__main__":
     unittest.main()
