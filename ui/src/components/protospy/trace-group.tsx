@@ -47,7 +47,7 @@ export function TraceGroup({
       onMouseEnter={() => onHoverTrace?.(traceId)}
       onMouseLeave={() => onHoverTrace?.(null)}
     >
-      <div className="flex h-[30px] items-center gap-2 bg-secondary pl-2.5 pr-3 font-mono text-xs text-muted-foreground">
+      <div className="flex h-tab items-center gap-2 bg-secondary pl-2.5 pr-3 font-mono text-xs text-muted-foreground">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}

@@ -2,6 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import type { BodyState } from "@ui/state/reducer";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import { formatSize } from "@ui/lib/utils";
+import { mediaTypeSlug } from "@ui/lib/format";
 import { CopyButton } from "./protospy/copy-button";
 import { StreamErrorBanner } from "./StreamErrorBanner";
 import { SimpleTooltip } from "./ui/SimpleTooltip";
@@ -93,20 +94,32 @@ export function BodyPane({
   // decoded view only then, keyed on body identity. A separate `useDecodedEntity`
   // wrapper would be Option C (a view-side shim) — cut per the shim-vs-seam bar.
   const { loading, result } = useDecodeBody(body, cacheTo);
+  const mediaTypeDisplay =
+    result != null ? mediaTypeSlug(result.mediaType) : null;
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
-      {/* Pane head (30px) */}
-      <div className="flex items-center gap-3 px-3 h-[30px] shrink-0 bg-secondary border-b border-border">
-        <span className="font-sans text-xs font-semibold text-secondary-foreground">
+      <div className="flex h-tab shrink-0 items-center gap-3 border-b border-border bg-secondary px-3">
+        <span className="shrink-0 font-sans text-xs font-semibold text-secondary-foreground">
           {title}
         </span>
-        {result != null && (
-          <span className="font-mono text-xs text-muted-foreground">
-            {result.mediaType}
-          </span>
+        {mediaTypeDisplay != null && (
+          <SimpleTooltip
+            content={
+              mediaTypeDisplay !== result?.mediaType
+                ? result?.mediaType
+                : undefined
+            }
+          >
+            <span
+              className="min-w-0 truncate font-mono text-xs text-muted-foreground"
+              data-testid="body-media-type"
+            >
+              {mediaTypeDisplay}
+            </span>
+          </SimpleTooltip>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {result != null && (
             <SimpleTooltip
               content={

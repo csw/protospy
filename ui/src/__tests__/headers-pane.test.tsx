@@ -174,6 +174,24 @@ describe("HeadersPane — copy button", () => {
     fireEvent.click(screen.getByLabelText("Copy content-type value"));
     expect(mockWriteText).toHaveBeenCalledWith("application/json");
   });
+
+  it("clears copied row state immediately when leaving the row", () => {
+    render(
+      <HeadersPane
+        title="Request"
+        headers={[{ name: "content-type", value: "application/json" }]}
+        emptyMessage="none"
+      />,
+    );
+    const copyButton = screen.getByLabelText("Copy content-type value");
+    fireEvent.click(copyButton);
+    expect(copyButton.querySelector(".lucide-check")).toBeInTheDocument();
+
+    fireEvent.mouseLeave(copyButton.closest("tr")!);
+
+    expect(copyButton.querySelector(".lucide-check")).not.toBeInTheDocument();
+    expect(copyButton.querySelector(".lucide-copy")).toBeInTheDocument();
+  });
 });
 
 describe("HeadersPane — credential reveal toggle", () => {

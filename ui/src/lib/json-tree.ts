@@ -257,21 +257,12 @@ function collectExpanded(
 
 // ── Helpers ──
 
-/**
- * Format a primitive JSON value for display.
- *
- * Known shortcut: `null` is painted with `text-json-boolean` rather than the
- * distinct `text-json-null` slot the design system defines for it. This mirrors
- * the line tokenizer (`tokenizeLine` in JsonViewer), which folds
- * `true | false | null` into a single match and tags them all
- * `text-json-boolean`. Giving `null` its own color — wiring both paths to
- * `text-json-null` — is a deliberate visual change deferred to a follow-up.
- */
+/** Format a primitive JSON value for display. */
 export function formatPrimitive(value: string | number | boolean | null): {
   text: string;
   cls: string;
 } {
-  if (value === null) return { text: "null", cls: "text-json-boolean" };
+  if (value === null) return { text: "null", cls: "text-json-null" };
   if (typeof value === "boolean")
     return { text: String(value), cls: "text-json-boolean" };
   if (typeof value === "number")

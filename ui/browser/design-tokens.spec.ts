@@ -324,6 +324,63 @@ test.describe("shadcn semantic tokens", () => {
     }
   });
 
+  test("JSON syntax color tokens resolve to concrete colors in both themes", async ({
+    page,
+  }) => {
+    const tokens = [
+      "--color-json-key",
+      "--color-json-string",
+      "--color-json-number",
+      "--color-json-boolean",
+      "--color-json-null",
+      "--color-json-punct",
+      "--color-json-lineno",
+    ];
+    const sentinel = "rgb(1, 2, 3)";
+
+    async function readResolvedColors() {
+      return page.evaluate(
+        ({ names, inheritedSentinel }) => {
+          return names.map((token) => {
+            const parent = document.createElement("div");
+            const child = document.createElement("div");
+            parent.style.color = inheritedSentinel;
+            child.style.color = `var(${token})`;
+            parent.appendChild(child);
+            document.body.appendChild(parent);
+
+            const inherited = getComputedStyle(parent).color;
+            const resolved = getComputedStyle(child).color;
+
+            parent.remove();
+            return { token, inherited, resolved };
+          });
+        },
+        { names: tokens, inheritedSentinel: sentinel },
+      );
+    }
+
+    for (const theme of ["light", "dark"] as const) {
+      await setTheme(page, theme);
+      const results = await readResolvedColors();
+
+      for (const { token, inherited, resolved } of results) {
+        expect(
+          inherited,
+          `test sentinel should be the inherited color in ${theme} theme`,
+        ).toBe(sentinel);
+        expect(
+          resolved,
+          `${token} should resolve to an rgb color in ${theme} theme`,
+        ).toMatch(/^rgba?\(/);
+        expect(
+          resolved,
+          `${token} should not inherit the sentinel in ${theme} theme`,
+        ).not.toBe(inherited);
+      }
+    }
+  });
+
   test("focus-ring token resolves so ring-ring utility produces visible CSS", async ({
     page,
   }) => {

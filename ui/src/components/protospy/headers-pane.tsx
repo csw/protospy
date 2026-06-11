@@ -59,7 +59,18 @@ function useCopyRow() {
     timerRef.current = setTimeout(() => setCopiedRow(null), 2000);
   }
 
-  return { copiedRow, copyValue };
+  function clearCopiedRow(rowIdx: number) {
+    setCopiedRow((current) => {
+      if (current !== rowIdx) return current;
+      if (timerRef.current != null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      return null;
+    });
+  }
+
+  return { copiedRow, copyValue, clearCopiedRow };
 }
 
 export function HeadersPane({
@@ -77,7 +88,7 @@ export function HeadersPane({
     row: number;
     view: HeaderView;
   } | null>(null);
-  const { copiedRow, copyValue } = useCopyRow();
+  const { copiedRow, copyValue, clearCopiedRow } = useCopyRow();
 
   // filterHeaders and sortHeadersByPin preserve object references from `headers`,
   // so indexOf() reliably recovers the original array position for stable identity.
@@ -92,7 +103,7 @@ export function HeadersPane({
       className="flex min-h-0 flex-col overflow-hidden bg-card"
     >
       {/* Subhead — title + count (design-system §10) */}
-      <div className="flex h-[30px] shrink-0 items-center gap-2 border-b px-3 text-xs text-muted-foreground">
+      <div className="flex h-tab shrink-0 items-center gap-2 border-b px-3 text-xs text-muted-foreground">
         <span className="font-semibold text-secondary-foreground">{title}</span>
         <span className="font-mono">
           {headers.length} {headers.length === 1 ? "header" : "headers"}
@@ -171,6 +182,7 @@ export function HeadersPane({
                       <tr
                         key={origIdx}
                         className="group border-b last:border-0"
+                        onMouseLeave={() => clearCopiedRow(origIdx)}
                       >
                         <td className="w-[30%] py-0.5 pr-3 align-middle whitespace-nowrap text-secondary-foreground">
                           {h.name}

@@ -28,7 +28,7 @@ export function ListToolbar() {
   const setListMode = useStore((s) => s.setListMode);
 
   return (
-    <div className="grid h-[30px] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-card pl-gutter-x pr-2">
+    <div className="grid h-tab shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b bg-card pl-gutter-x pr-2">
       <span className="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground">
         Requests
       </span>

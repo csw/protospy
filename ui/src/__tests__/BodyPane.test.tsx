@@ -67,6 +67,23 @@ describe("BodyPane size display", () => {
     // This confirms SimpleTooltip received truthy content (the decompression detail).
     expect(sizeEl).toHaveAttribute("data-state");
   });
+
+  it("renders the short media type slug and keeps the raw header in a tooltip", async () => {
+    const result: DecodeResult = {
+      kind: "json",
+      text: '{"ok":true}',
+      mediaType: "application/json; charset=utf-8",
+      wireBytes: 28,
+    };
+    decodeBodyMock.mockResolvedValueOnce(result);
+
+    render(<BodyPane title="Response" body={makeBody({ wireBytes: 28 })} />);
+
+    const mediaType = await screen.findByTestId("body-media-type");
+    expect(mediaType).toHaveTextContent("json");
+    expect(mediaType).not.toHaveTextContent("application/json");
+    expect(mediaType).toHaveAttribute("data-state");
+  });
 });
 
 describe("BodyPane error display (PRO-220)", () => {
