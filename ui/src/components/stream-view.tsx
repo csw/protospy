@@ -1,4 +1,4 @@
-// src/components/protospy/stream-view.tsx
+// src/components/stream-view.tsx
 // Generic SSE stream pane (v2.3). Renders live SSE events through the scaffold
 // presentation: a four-state live indicator, plain semantic-token event-row
 // text labels (EventLog), play/pause, and scroll-follow with a jump-to-latest

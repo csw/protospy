@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { SimpleTooltip } from "@ui/components/ui/SimpleTooltip";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 describe("SimpleTooltip", () => {
   it("renders children unwrapped when content is falsy", () => {

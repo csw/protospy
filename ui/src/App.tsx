@@ -4,7 +4,7 @@ import { AppShell } from "./components/app-shell";
 import type { Exchange } from "./state/reducer";
 import type { Protocol } from "@bindings/Protocol";
 import { BodySplit } from "./components/body-split";
-import { EmptyState } from "./components/ui/EmptyState";
+import { EmptyState } from "./components/ui/empty-state";
 import type { MsearchView } from "./components/inspector";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
