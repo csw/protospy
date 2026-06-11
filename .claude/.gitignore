@@ -8,6 +8,8 @@
 /commands
 /settings.local.json
 /skills/*
+!/skills/design-sweep/
+!/skills/design-sweep/**
 !/skills/handle-ticket/
 !/skills/handle-ticket/**
 !/skills/shadcn
