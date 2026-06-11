@@ -340,17 +340,23 @@ test.describe("shadcn semantic tokens", () => {
 
     async function readResolvedColors() {
       return page.evaluate(
-        ({ names, fallback }) => {
+        ({ names, inheritedSentinel }) => {
           return names.map((token) => {
-            const el = document.createElement("div");
-            document.body.appendChild(el);
-            el.style.color = `var(${token}, ${fallback})`;
-            const resolved = getComputedStyle(el).color;
-            el.remove();
-            return { token, resolved };
+            const parent = document.createElement("div");
+            const child = document.createElement("div");
+            parent.style.color = inheritedSentinel;
+            child.style.color = `var(${token})`;
+            parent.appendChild(child);
+            document.body.appendChild(parent);
+
+            const inherited = getComputedStyle(parent).color;
+            const resolved = getComputedStyle(child).color;
+
+            parent.remove();
+            return { token, inherited, resolved };
           });
         },
-        { names: tokens, fallback: sentinel },
+        { names: tokens, inheritedSentinel: sentinel },
       );
     }
 
@@ -358,15 +364,19 @@ test.describe("shadcn semantic tokens", () => {
       await setTheme(page, theme);
       const results = await readResolvedColors();
 
-      for (const { token, resolved } of results) {
+      for (const { token, inherited, resolved } of results) {
+        expect(
+          inherited,
+          `test sentinel should be the inherited color in ${theme} theme`,
+        ).toBe(sentinel);
         expect(
           resolved,
           `${token} should resolve to an rgb color in ${theme} theme`,
         ).toMatch(/^rgba?\(/);
         expect(
           resolved,
-          `${token} should not fall back to the sentinel in ${theme} theme`,
-        ).not.toBe(sentinel);
+          `${token} should not inherit the sentinel in ${theme} theme`,
+        ).not.toBe(inherited);
       }
     }
   });
