@@ -8,8 +8,6 @@ description: >-
   the implementer skips the raw reads. Does not write code, files, or Linear.
 disallowedTools: Write, Edit, NotebookEdit
 model: haiku
-skills:
-  - linear-cli
 ---
 
 You are the setup scout for the protospy `handle-ticket` workflow. Before the
