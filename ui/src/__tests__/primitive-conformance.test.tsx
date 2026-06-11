@@ -96,8 +96,8 @@ describe("primitive design-system conformance (PRO-321)", () => {
       </DropdownMenu>,
     );
     const item = screen.getByRole("menuitem", { name: "Item" });
-    expect(item).toHaveClass("focus:bg-accent", "focus:text-foreground");
-    expect(item.className).not.toContain("focus:text-accent-foreground");
+    expect(item).toHaveClass("focus:bg-accent", "focus:text-accent-foreground");
+    expect(item.className).not.toContain("focus:text-foreground");
   });
 
   it("CommandItem selected surface uses the selected surface token", () => {
@@ -111,10 +111,10 @@ describe("primitive design-system conformance (PRO-321)", () => {
     const item = screen.getByText("Run").closest('[data-slot="command-item"]');
     expect(item).toHaveClass(
       "data-[selected=true]:bg-accent",
-      "data-[selected=true]:text-foreground",
+      "data-[selected=true]:text-accent-foreground",
     );
     expect(item?.className).not.toContain(
-      "data-[selected=true]:text-accent-foreground",
+      "data-[selected=true]:text-foreground",
     );
   });
 

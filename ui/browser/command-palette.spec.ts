@@ -113,6 +113,18 @@ test.describe("Command palette — commands", () => {
     const after = await getStoreState(page, "traceGroupOn");
     expect(after).toBe(true);
   });
+
+  test("2.5 focus filter command leaves focus on the filter input", async ({
+    page,
+  }) => {
+    const filter = page.getByLabel("Filter requests");
+
+    await page.keyboard.press("Meta+k");
+    await page.getByRole("option", { name: /Focus the filter/i }).click();
+
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await expect(filter).toBeFocused();
+  });
 });
 
 // ---------------------------------------------------------------------------

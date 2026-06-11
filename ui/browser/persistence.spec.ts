@@ -116,6 +116,58 @@ test.describe("localStorage persistence", () => {
     expect(lsParsed.state.listWidth.rows).toBe(360);
   });
 
+  test("dragged list width persists across a reload", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/");
+    await waitForStore(page);
+
+    const handle = page.getByRole("separator");
+    const listPanel = page.locator("[data-panel]").first();
+    await expect(handle).toBeVisible();
+    const initialListWidth = (
+      (await getStoreState(page, "listWidth")) as {
+        table: number;
+      }
+    ).table;
+
+    const initialBox = await handle.boundingBox();
+    expect(initialBox).not.toBeNull();
+    const startX = initialBox!.x + initialBox!.width / 2;
+    const startY = initialBox!.y + initialBox!.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX - 160, startY, { steps: 5 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const listWidth = (await getStoreState(page, "listWidth")) as {
+          table: number;
+        };
+        return listWidth.table;
+      })
+      .toBeLessThan(initialListWidth - 50);
+    const draggedWidth = (
+      (await getStoreState(page, "listWidth")) as {
+        table: number;
+      }
+    ).table;
+
+    const stored = await page.evaluate(() => {
+      const raw = localStorage.getItem("protospy-ui-prefs");
+      return raw == null ? null : JSON.parse(raw).state.listWidth.table;
+    });
+    expect(stored).toBeCloseTo(draggedWidth, 0);
+
+    await page.reload();
+    await waitForStore(page);
+
+    await expect
+      .poll(async () => (await listPanel.boundingBox())?.width ?? 0)
+      .toBeCloseTo(draggedWidth, 0);
+  });
+
   test("all preferences survive a reload", async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);

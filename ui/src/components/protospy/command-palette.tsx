@@ -65,9 +65,13 @@ export function CommandPalette({ onFocusFilter }: CommandPaletteProps) {
   const ids = useStore((s) => s.ids);
 
   const { setTheme } = useTheme();
-  const run = (fn: () => void) => () => {
-    fn();
+  const run = (fn: () => void, options?: { afterClose?: boolean }) => () => {
     setOpen(false);
+    if (options?.afterClose) {
+      requestAnimationFrame(() => requestAnimationFrame(fn));
+      return;
+    }
+    fn();
   };
   const hasFilter = filter.trim() !== "" || traceFilter != null;
 
@@ -142,7 +146,7 @@ export function CommandPalette({ onFocusFilter }: CommandPaletteProps) {
 
         <CommandGroup heading="Filter">
           {onFocusFilter && (
-            <CommandItem onSelect={run(onFocusFilter)}>
+            <CommandItem onSelect={run(onFocusFilter, { afterClose: true })}>
               <Search className="size-4" />
               Focus the filter
               <CommandShortcut>/</CommandShortcut>
