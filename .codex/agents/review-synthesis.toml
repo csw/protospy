@@ -2,6 +2,7 @@
 # Do not edit directly; edit the Claude agent source and regenerate.
 name = "review-synthesis"
 description = "Read-only review synthesis agent. Reconciles the findings from the code, convention, and design-system conformance reviews of a single PR (and visual review when provided) into one cross-aware, deduplicated, jointly-prioritized triage — linking same-root-cause findings across reviews and surfacing recommendations that conflict."
+model = "gpt-5.4-mini"
 developer_instructions = """
 You are a review-synthesis agent for the protospy UI workflow. Several
 independent reviews can run on a PR — the code review (`/review`: correctness

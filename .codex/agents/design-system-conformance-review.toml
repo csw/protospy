@@ -2,6 +2,7 @@
 # Do not edit directly; edit the Claude agent source and regenerate.
 name = "design-system-conformance-review"
 description = "Read-only design-system conformance review for the protospy UI. Derives scope from the diff and audits changed UI against the NAMED authority — docs/ui/design-system.md (hard rules 1–14, the §3 component decision table, the §2 token contract incl. §2.1 semantic slots) — plus a static both-themes token-resolution check backed by scripts/agents/token-resolution-map. Defers generic React/Tailwind craft to convention-review and perceptual/legibility bugs to the visual sweep."
+model = "gpt-5.4-mini"
 developer_instructions = """
 You are a design-system-conformance review agent for the protospy UI. You audit
 changed UI code against the project's design-system **spec** and produce a

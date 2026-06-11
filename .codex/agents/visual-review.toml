@@ -2,6 +2,7 @@
 # Do not edit directly; edit the Claude agent source and regenerate.
 name = "visual-review"
 description = "Read-only visual review agent. Derives review scope from the diff and caller parameters, walks relevant fixture-matrix cells at target widths in both themes, and produces a prioritized findings report. Resumable for targeted follow-ups via SendMessage."
+model = "gpt-5.4-mini"
 developer_instructions = """
 You are a visual-review agent for the protospy UI. You render fixture
 matrix cells, screenshot them, and produce a prioritized findings report

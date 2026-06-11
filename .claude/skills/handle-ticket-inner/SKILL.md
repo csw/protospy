@@ -238,15 +238,12 @@ UI styling/component source — they share one trigger (step 7b's diff check).
 Every review whose trigger fires is required for the round. If a required
 typed reviewer fails to start, crashes, or returns empty output, first retry
 once after correcting any obvious spawn parameter problem. If the typed reviewer
-still fails for a tool-level reason, try once to spawn a general-purpose
-subagent with the same review prompt and explicit instructions to follow the
-matching agent definition under `.claude/agents/<name>.md`.
-
-If no real review output exists after that fallback, **stop the workflow before
-step 8** and present the blocker in-session with the exact error and which
-required review is missing. Do not write partial review reports, synthesize,
-post the review-triage Linear comment, move to step 10, or mark the PR ready
-until all required review outputs for the round exist or the user explicitly
+still fails for a tool-level reason, stop the workflow before step 8 and present
+the blocker in-session with the exact error and which required review is
+missing. Do not substitute a default/general-purpose subagent for a typed
+reviewer. Do not write partial review reports, synthesize, post the
+review-triage Linear comment, move to step 10, or mark the PR ready until all
+required typed review outputs for the round exist or the user explicitly
 changes the workflow.
 
 ### Maintainer review instructions (relay if present)

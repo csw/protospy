@@ -123,12 +123,12 @@ the same direction."""
 
 CODEX_GETTING_UNSTUCK = """**Getting unstuck.** If you have made two unsuccessful attempts at the same
 problem, or repeated the same approach without new information, stop and spawn a
-`general-purpose` subagent via the Agent tool for a fresh perspective. Use the
-stronger harness-native setting for this diagnostic pass: Claude Code should use
-Opus/high effort; Codex should use `gpt-5.5` with high or xhigh reasoning.
-Brief it on what you've tried and what's not working. A count-based trigger
-fires reliably — don't wait to "feel stuck." A second set of eyes on a stuck
-problem is almost always faster than continuing to iterate in the same direction."""
+`general-purpose` subagent via the Agent tool for a fresh perspective. In
+Codex, use `model: gpt-5.5` with high or xhigh reasoning for this diagnostic
+pass. Brief it on what you've tried and what's not working. A count-based
+trigger fires reliably — don't wait to "feel stuck." A second set of eyes on a
+stuck problem is almost always faster than continuing to iterate in the same
+direction."""
 
 CLAUDE_LIGHT_VISUAL = """**Spawn a `general-purpose` subagent on Sonnet** (`model: sonnet`). Tell it to
 drive the browser via the `playwright-cli` skill (it invokes the skill itself);
@@ -142,19 +142,16 @@ a quick interactive eyeball, deliberately *not* the heavyweight `visual-review`
 agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
 components/views your change touched and the dev-server URL:"""
 
-CODEX_LIGHT_VISUAL = """**Spawn a `general-purpose` subagent on the lighter harness-native model.** In
-Claude Code, use Sonnet (`model: sonnet`). In Codex, do **not** pass Claude model
-names; use a lighter Codex override such as `model: gpt-5.4-mini` with medium
-reasoning, or omit the model override if the tool cannot accept one. Tell it to
-drive the browser via the `playwright-cli` skill (it invokes the skill itself);
-the prompt below is self-contained, so it needs no UI-specific preloading beyond
-`ui/AGENTS.md`, which it loads on reading any `ui/` file. Eyeballing a rendered
-change is not frontier-model reasoning, and screenshots are token-heavy (~1.5k
-each), so the cheaper model keeps this check inexpensive — the same reason the
-`visual-review` agent is pinned to Sonnet in Claude. This is still the
-*lightweight* path: a quick interactive eyeball, deliberately *not* the
-heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a prompt
-of this shape, naming the components/views your change touched and the
+CODEX_LIGHT_VISUAL = """**Spawn a `general-purpose` subagent for a lightweight visual check.** In
+Codex, use `model: gpt-5.4-mini` with medium reasoning. Never pass Claude model
+names such as `sonnet` or `opus`. If the default subagent fails to start, stop
+and report the exact spawn error instead of silently using a different model.
+Tell it to drive the browser via the `playwright-cli` skill (it invokes the
+skill itself); the prompt below is self-contained, so it needs no UI-specific
+preloading beyond `ui/AGENTS.md`, which it loads on reading any `ui/` file. This
+is still the *lightweight* path: a quick interactive eyeball, deliberately *not*
+the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
+prompt of this shape, naming the components/views your change touched and the
 dev-server URL:"""
 
 CLAUDE_PR_STEP = """Create the PR **as a draft** (`gh pr create --draft ...`). Include the ticket
@@ -177,27 +174,36 @@ CLAUDE_REVIEW_FAILURES = """### Subagent startup failures
 Every review whose trigger fires is required for the round. If a required
 typed reviewer fails to start, crashes, or returns empty output, first retry
 once after correcting any obvious spawn parameter problem. If the typed reviewer
-still fails for a tool-level reason, try once to spawn a general-purpose
-subagent with the same review prompt and explicit instructions to follow the
-matching agent definition under `.claude/agents/<name>.md`."""
+still fails for a tool-level reason, stop the workflow before step 8 and present
+the blocker in-session with the exact error and which required review is
+missing. Do not substitute a default/general-purpose subagent for a typed
+reviewer. Do not write partial review reports, synthesize, post the
+review-triage Linear comment, move to step 10, or mark the PR ready until all
+required typed review outputs for the round exist or the user explicitly
+changes the workflow."""
 
 CODEX_REVIEW_FAILURES = """### Subagent model selection and startup failures
 
 Use harness-native model names only. Claude Code agent definitions may pin
 review agents to Sonnet; that is Claude-specific. In Codex, never pass
-`sonnet`, `opus`, or any Claude model name as a `model` override. Omit `model`
-to inherit the current Codex model, or use a Codex model override such as
-`gpt-5.4-mini` for lightweight read-only UI checks when the tool accepts one.
+`sonnet`, `opus`, or any Claude model name as a `model` override. For
+lightweight default subagents, `gpt-5.4-mini` is the lighter Codex model. For
+required typed reviewers, call the project custom agent type and omit `model`
+and `service_tier` in the spawn call; the generated `.codex/agents/<name>.toml`
+file pins the lightweight Codex model. Treat any typed-agent startup failure as
+a workflow blocker rather than falling back to a default agent.
 
 Every review whose trigger fires is required for the round. If a required
 typed reviewer fails to start, crashes, or returns empty output, first retry
 once after correcting any obvious spawn parameter problem: remove Claude-only
-model names in Codex, and prefer omitting both `model` and `service_tier` if an
-explicit supported Codex model still fails. If the typed reviewer still fails
-for a tool-level reason, try once to spawn a default/general-purpose subagent
-with the same review prompt and explicit instructions to follow the matching
-agent definition (`.codex/agents/<name>.toml` in Codex,
-`.claude/agents/<name>.md` in Claude)."""
+model names in Codex, omit `model` and `service_tier`, and fix malformed agent
+type strings. If the typed reviewer still fails for a tool-level reason, stop
+the workflow before step 8 and present the blocker in-session with the exact
+error and which required review is missing. Do not substitute a
+default/general-purpose subagent for a typed reviewer. Do not write partial
+review reports, synthesize, post the review-triage Linear comment, move to step
+10, or mark the PR ready until all required typed review outputs for the round
+exist or the user explicitly changes the workflow."""
 
 CLAUDE_REVIEW_PATHS = """It prints `round=<N>` and the absolute path for each report
 (`code_review`, `convention_review`, `ds_review`, `synthesis`) under
