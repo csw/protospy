@@ -43,9 +43,9 @@ repos:
         fail_fast: true
       - id: handle-ticket-inner-skill-sync
         name: keep handle-ticket-inner skills in sync
-        entry: scripts/agents/sync-handle-ticket-inner-skill --check
+        entry: uvx --with jinja2 python3 scripts/agents/sync-handle-ticket-inner-skill --check
         language: system
-        files: ^(\.claude/skills/handle-ticket-inner/SKILL\.md|\.agents/skills/handle-ticket-inner/SKILL\.md|scripts/agents/sync-handle-ticket-inner-skill)$
+        files: ^(\.claude/skills/handle-ticket-inner/SKILL\.md\.j2|\.agents/skills/handle-ticket-inner/SKILL\.md|scripts/agents/sync-handle-ticket-inner-skill)$
         pass_filenames: false
         fail_fast: true
       - id: ruff-flix
