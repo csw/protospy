@@ -142,6 +142,9 @@ describe("AppShell", () => {
     act(() => useStore.getState().setHelpOpen(false));
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     expect(useStore.getState().cmdKOpen).toBe(true);
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(useStore.getState().cmdKOpen).toBe(false);
   });
 
   it("does not let late backend discovery override a selected service", async () => {

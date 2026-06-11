@@ -484,14 +484,16 @@ function useGlobalKeys(filterRef: React.RefObject<HTMLInputElement | null>) {
           t.isContentEditable);
       const s = useStore.getState();
 
-      if (s.cmdKOpen || s.helpOpen) {
-        return;
-      }
-
       // ⌘K / Ctrl-K — toggle palette (works even while typing)
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        s.setCmdKOpen(!s.cmdKOpen);
+        if (!s.helpOpen) {
+          s.setCmdKOpen(!s.cmdKOpen);
+        }
+        return;
+      }
+
+      if (s.cmdKOpen || s.helpOpen) {
         return;
       }
       if (typing) return;
