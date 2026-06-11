@@ -148,7 +148,7 @@ export function MsearchView({
 
 function PaneHead({ title, meta }: { title: string; meta: string }) {
   return (
-    <div className="flex h-[30px] items-center gap-2 border-b px-3 text-xs text-muted-foreground">
+    <div className="flex h-tab items-center gap-2 border-b px-3 text-xs text-muted-foreground">
       <span className="font-semibold text-secondary-foreground">{title}</span>
       <span className="font-mono">{meta}</span>
     </div>

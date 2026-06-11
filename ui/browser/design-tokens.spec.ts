@@ -324,6 +324,45 @@ test.describe("shadcn semantic tokens", () => {
     }
   });
 
+  test("JSON syntax color tokens resolve to concrete colors in both themes", async ({
+    page,
+  }) => {
+    const tokens = [
+      "--color-json-key",
+      "--color-json-string",
+      "--color-json-number",
+      "--color-json-boolean",
+      "--color-json-null",
+      "--color-json-punct",
+      "--color-json-lineno",
+    ];
+
+    async function readResolvedColors() {
+      return page.evaluate((names) => {
+        return names.map((token) => {
+          const el = document.createElement("div");
+          document.body.appendChild(el);
+          el.style.color = `var(${token})`;
+          const resolved = getComputedStyle(el).color;
+          el.remove();
+          return { token, resolved };
+        });
+      }, tokens);
+    }
+
+    for (const theme of ["light", "dark"] as const) {
+      await setTheme(page, theme);
+      const results = await readResolvedColors();
+
+      for (const { token, resolved } of results) {
+        expect(
+          resolved,
+          `${token} should resolve to an rgb color in ${theme} theme`,
+        ).toMatch(/^rgba?\(/);
+      }
+    }
+  });
+
   test("focus-ring token resolves so ring-ring utility produces visible CSS", async ({
     page,
   }) => {

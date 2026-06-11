@@ -99,11 +99,19 @@ export function tokenizeLine(line: string): Token[] {
       continue;
     }
 
-    // Boolean / null
-    const boolMatch = /^(true|false|null)/.exec(rest);
+    // Boolean
+    const boolMatch = /^(true|false)/.exec(rest);
     if (boolMatch) {
       tokens.push({ cls: "text-json-boolean", text: boolMatch[1] });
       rest = rest.slice(boolMatch[1].length);
+      continue;
+    }
+
+    // Null
+    const nullMatch = /^(null)/.exec(rest);
+    if (nullMatch) {
+      tokens.push({ cls: "text-json-null", text: nullMatch[1] });
+      rest = rest.slice(nullMatch[1].length);
       continue;
     }
 

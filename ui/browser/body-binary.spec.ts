@@ -37,11 +37,9 @@ test.describe("Inspector — binary body rendering", () => {
       page.getByText(`Binary data · ${BINARY_BYTES}B`),
     ).toBeVisible();
 
-    // The application/octet-stream media-type label appears in the response
-    // pane head, confirming the response pane is the one rendering binary.
-    await expect(
-      page.getByText("application/octet-stream").first(),
-    ).toBeVisible();
+    // The short media-type label appears in the response pane head, confirming
+    // the response pane is the one rendering binary.
+    await expect(page.getByText("octet-stream").first()).toBeVisible();
 
     // Neither the JsonViewer (aria-label="JSON viewer") nor the text <pre>
     // fallback should render for binary content.

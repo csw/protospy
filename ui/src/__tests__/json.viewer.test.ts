@@ -47,9 +47,9 @@ describe("tokenizeLine", () => {
     expect(tokens).toContainEqual({ cls: "text-json-boolean", text: "false" });
   });
 
-  it("tokenizes null as bool-class token", () => {
+  it("tokenizes null as null-class token", () => {
     const tokens = tokenizeLine(" null");
-    expect(tokens).toContainEqual({ cls: "text-json-boolean", text: "null" });
+    expect(tokens).toContainEqual({ cls: "text-json-null", text: "null" });
   });
 
   it("tokenizes opening brace as punctuation", () => {

@@ -429,7 +429,7 @@ describe("formatPrimitive", () => {
   it("formats null", () => {
     expect(formatPrimitive(null)).toEqual({
       text: "null",
-      cls: "text-json-boolean",
+      cls: "text-json-null",
     });
   });
 
