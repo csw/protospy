@@ -256,15 +256,19 @@ def shell_join(argv: list[str]) -> str:
 def harness_cli_args(args: argparse.Namespace) -> list[str]:
     """CLI args passed to the harness binary, before the worktree/prompt args.
 
-    `--model` is shared by both harnesses. `--effort` is Codex-only (it expands
-    to a `-c model_reasoning_effort` config override). Anything in `--harness-arg`
+    `--model` is shared by both harnesses. `--effort` maps to
+    `-c model_reasoning_effort` for Codex and `--effort` for Claude Code.
+    Anything in `--harness-arg`
     (or its Codex alias `--codex-arg`) and after `--` is passed through verbatim.
     """
     result: list[str] = []
     if args.model:
         result.extend(["--model", args.model])
-    if args.harness == "codex" and args.effort:
-        result.extend(["-c", f'model_reasoning_effort="{args.effort}"'])
+    if args.effort:
+        if args.harness == "codex":
+            result.extend(["-c", f'model_reasoning_effort="{args.effort}"'])
+        else:
+            result.extend(["--effort", args.effort])
     result.extend(args.harness_arg)
     result.extend(args.passthrough)
     return result
@@ -403,7 +407,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "-e",
         "--effort",
         choices=EFFORT_LEVELS,
-        help="Codex reasoning effort; expands to -c model_reasoning_effort",
+        help="reasoning effort (Codex: -c model_reasoning_effort; Claude: --effort)",
     )
     parser.add_argument(
         "--harness-arg",
@@ -494,8 +498,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         args.harness_bin = HARNESS_BIN[args.harness]
     if args.branch and args.branch_version:
         parser.error("--branch and --version are mutually exclusive")
-    if args.effort and args.harness != "codex":
-        parser.error("--effort is only supported with --harness codex")
     return args
 
 
