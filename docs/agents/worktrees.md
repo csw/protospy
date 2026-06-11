@@ -1,23 +1,36 @@
 # Worktree Claude config
 
+## How ticket worktrees are created
+
+Ticket worktrees are created **up front by the launcher** (`scripts/agents/ticket`,
+via `just claude-ticket` / `just codex-ticket`), which runs `git worktree add`
+itself and then starts the harness CLI inside the new worktree. The session
+therefore begins with its cwd already in the worktree — the agent never holds the
+main-checkout path in its context (PRO-376). The standard ticket flow does **not**
+call the `EnterWorktree` tool mid-session.
+
+`EnterWorktree` and its `enforce-worktree-path.sh` PreToolUse hook are retained as
+a safety net for **ad-hoc** worktree entry (using the tool outside the launcher
+flow). When used that way they still apply the placement rules below.
+
 ## Where worktrees live
 
-Worktrees are created under **`.claude/worktrees/`** at the project root — the
-directory the `EnterWorktree` tool manages. A **`.worktrees` → `.claude/worktrees`
-symlink** is kept as an alias so external tooling (editors, scripts) that expects
-the old `.worktrees/` path keeps working. The `enforce-worktree-path.sh` hook also
-accepts a legacy `.worktrees/<name>` path and normalizes it to the canonical
-location.
+Worktrees live under **`.claude/worktrees/`** at the project root. A
+**`.worktrees` → `.claude/worktrees` symlink** is kept as an alias so external
+tooling (editors, scripts) that expects the old `.worktrees/` path keeps working;
+the launcher creates worktrees under `.worktrees/<branch-slug>`, which resolves to
+the same real location. The `enforce-worktree-path.sh` hook also accepts a legacy
+`.worktrees/<name>` path and normalizes it to the canonical location.
 
-**Why not `.worktrees/` directly?** The tool enforces that *managed* worktrees
-live under `.claude/worktrees/`. From the main checkout it will enter any path in
-`git worktree list`, but **switching from inside one worktree into another** (the
-nesting scenario) is rejected unless the target is a real directory under
-`.claude/worktrees/`. The tool also explicitly refuses a `.claude/worktrees`
-*symlink* ("the managed worktrees directory must not be a symlink"), so the
-inverse — real `.worktrees/` aliased by a `.claude/worktrees` symlink — is
-impossible. `.claude/worktrees/` as the real location is the only arrangement the
-tool accepts in every mode. See PRO-247.
+**Why not `.worktrees/` directly?** The `EnterWorktree` tool enforces that
+_managed_ worktrees live under `.claude/worktrees/`. From the main checkout it
+will enter any path in `git worktree list`, but **switching from inside one
+worktree into another** (the nesting scenario) is rejected unless the target is a
+real directory under `.claude/worktrees/`. The tool also explicitly refuses a
+`.claude/worktrees` _symlink_ ("the managed worktrees directory must not be a
+symlink"), so the inverse — real `.worktrees/` aliased by a `.claude/worktrees`
+symlink — is impossible. `.claude/worktrees/` as the real location is the only
+arrangement the tool accepts in every mode. See PRO-247.
 
 The hook anchors placement to the **main repo root** (via `git rev-parse
 --git-common-dir`), so a worktree is never nested inside another even when the
@@ -32,14 +45,14 @@ access to the same skills, hooks, settings, and local overrides as the main chec
 
 The following items are symlinked (if they exist in the main repo):
 
-| Item | Destination |
-|---|---|
-| `.claude/skills/` | `.claude/skills/` in the worktree |
-| `.claude/hooks/` | `.claude/hooks/` in the worktree |
-| `.claude/agents/` | `.claude/agents/` in the worktree |
+| Item                          | Destination                                   |
+| ----------------------------- | --------------------------------------------- |
+| `.claude/skills/`             | `.claude/skills/` in the worktree             |
+| `.claude/hooks/`              | `.claude/hooks/` in the worktree              |
+| `.claude/agents/`             | `.claude/agents/` in the worktree             |
 | `.claude/settings.local.json` | `.claude/settings.local.json` in the worktree |
-| `CLAUDE.local.md` (root) | `CLAUDE.local.md` in the worktree |
-| `*/CLAUDE.local.md` (subdirs) | mirrored path in the worktree |
+| `CLAUDE.local.md` (root)      | `CLAUDE.local.md` in the worktree             |
+| `*/CLAUDE.local.md` (subdirs) | mirrored path in the worktree                 |
 
 `CLAUDE.local.md` files in subdirectories are discovered dynamically via `find`, so
 new subdirectory overrides are picked up automatically without editing the hook.

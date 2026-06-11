@@ -41,11 +41,11 @@ repos:
         files: ^(\.claude/agents/(convention-review|design-system-conformance-review|qa-explorer|review-synthesis|visual-review)\.md|\.codex/agents/.*\.toml|scripts/agents/sync-codex-agents)$
         pass_filenames: false
         fail_fast: true
-      - id: handle-ticket-inner-skill-sync
-        name: keep handle-ticket-inner skills in sync
-        entry: scripts/agents/sync-handle-ticket-inner-skill --check
+      - id: handle-ticket-skill-sync
+        name: keep handle-ticket skills in sync
+        entry: scripts/agents/sync-handle-ticket-skill --check
         language: system
-        files: ^(\.claude/skills/handle-ticket-inner/SKILL\.md\.j2|\.claude/skills/handle-ticket-inner/SKILL\.md|\.agents/skills/handle-ticket-inner/SKILL\.md|scripts/agents/sync-handle-ticket-inner-skill)$
+        files: ^(\.claude/skills/handle-ticket/SKILL\.md\.j2|\.claude/skills/handle-ticket/SKILL\.md|\.agents/skills/handle-ticket/SKILL\.md|scripts/agents/sync-handle-ticket-skill)$
         pass_filenames: false
         fail_fast: true
       - id: ruff-flix

@@ -68,7 +68,11 @@ audit:
 
 # Start Codex CLI on a Linear ticket branch in an isolated Git worktree
 codex-ticket +args:
-    @scripts/agents/codex-ticket {{args}}
+    @scripts/agents/ticket --harness codex {{args}}
+
+# Start Claude Code on a Linear ticket branch in an isolated Git worktree
+claude-ticket +args:
+    @scripts/agents/ticket --harness claude {{args}}
 
 # Dry-run: build UI, package crate, but don't upload
 publish-dry-run: ui::build
