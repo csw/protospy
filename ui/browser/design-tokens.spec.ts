@@ -336,18 +336,22 @@ test.describe("shadcn semantic tokens", () => {
       "--color-json-punct",
       "--color-json-lineno",
     ];
+    const sentinel = "rgb(1, 2, 3)";
 
     async function readResolvedColors() {
-      return page.evaluate((names) => {
-        return names.map((token) => {
-          const el = document.createElement("div");
-          document.body.appendChild(el);
-          el.style.color = `var(${token})`;
-          const resolved = getComputedStyle(el).color;
-          el.remove();
-          return { token, resolved };
-        });
-      }, tokens);
+      return page.evaluate(
+        ({ names, fallback }) => {
+          return names.map((token) => {
+            const el = document.createElement("div");
+            document.body.appendChild(el);
+            el.style.color = `var(${token}, ${fallback})`;
+            const resolved = getComputedStyle(el).color;
+            el.remove();
+            return { token, resolved };
+          });
+        },
+        { names: tokens, fallback: sentinel },
+      );
     }
 
     for (const theme of ["light", "dark"] as const) {
@@ -359,6 +363,10 @@ test.describe("shadcn semantic tokens", () => {
           resolved,
           `${token} should resolve to an rgb color in ${theme} theme`,
         ).toMatch(/^rgba?\(/);
+        expect(
+          resolved,
+          `${token} should not fall back to the sentinel in ${theme} theme`,
+        ).not.toBe(sentinel);
       }
     }
   });
