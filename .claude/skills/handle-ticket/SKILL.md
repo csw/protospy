@@ -10,25 +10,15 @@ Handle Linear ticket **$ticket** end-to-end from the worktree the ticket
 launcher placed you in. Work through the steps below in order. Stop and surface
 blockers rather than guessing through them.
 
-Read `docs/agents/implementation.md` before starting. You do **not** need to
-read all of `docs/agents/linear.md` for the standard flow — the rules this skill
-exercises are inlined at point of use: the `linear issue view --json` command in
-step 1, and the agent-header comment format and summary-comment obligation in
-steps 9–10. Open `linear.md` only when a step's point-of-use reference sends you
-there.
+Read `docs/agents/implementation.md` before starting. Open `docs/agents/linear.md`
+only when a step's point-of-use reference sends you there — the rules this skill
+exercises are inlined at point of use.
 
-**Your directions.** Everything after the ticket ID is freeform direction for
-this run. `$ARGUMENTS` is the full invocation as typed; the ticket ID is
-`$ticket` and your directions are whatever follows it. These directions are
-**authoritative** — where they extend or conflict with the standard flow below,
-follow the directions. They exist so we can deviate from the default path ad hoc
-— reuse an existing worktree, rebase onto `main`, push to an open PR or
-deliberately open a fresh one, follow a ticket comment instead of the
-description — without this skill having to anticipate every case. Honor them
-throughout the steps that follow; the steps are the default path, not a
-constraint your directions can't override. If a direction points you at a ticket
-comment, read the comment thread, not just the description. If you pass no
-directions, run the standard flow exactly as written.
+**Your directions.** Everything after the ticket ID in `$ARGUMENTS` is freeform
+direction. Directions are **authoritative** — where they extend or conflict with
+the standard flow, follow the directions. If a direction points at a ticket
+comment, read the comment thread. If you pass no directions, run the standard
+flow exactly as written.
 
 ---
 
@@ -38,31 +28,23 @@ directions, run the standard flow exactly as written.
 linear issue view $ticket --json
 ```
 
-Extract `title`, `description`, and `url`. Read the description fully — it
-defines the scope of work. Save `title` and `url` (the Linear ticket URL) — both
-are needed when writing review front matter in step 8. Derive the app URL by
-replacing the `https://` scheme with `linear://` (e.g. `https://linear.app/...` →
-`linear://linear.app/...`).
+Extract `title`, `description`, `url`. Read the description fully — it defines
+scope. Save `title` and `url` for review front matter in step 8. Derive the
+app URL by replacing `https://` with `linear://`.
 
 If the issue has a parent or children, follow the Linear-ticket guidance in
-`CLAUDE.md`: read the parent and inspect sibling titles, and open any
+`CLAUDE.md`: read the parent and inspect sibling titles, opening any
 sibling whose title suggests it bears on this work.
 
-The ticket launcher already resolved the branch and created the worktree you are
-in. Use the current Git branch as-is; do not derive, truncate, create, or check
-out a branch yourself unless the user's directions explicitly ask you to.
+The ticket launcher already resolved the branch and created the worktree. Use
+the current Git branch as-is; do not derive, truncate, create, or check out a
+branch yourself unless directions say otherwise.
 
 ---
 
 ## 2 — Verify the worktree and branch
 
-The launcher started this session inside an isolated worktree on the ticket
-branch, so this is just a cheap safety net in case the skill was invoked some
-other way. This skill must not create worktrees, switch branches, or move the
-checkout.
-
-Confirm the current checkout is a linked worktree, not the main/local checkout,
-using Git's worktree metadata rather than path assumptions:
+Confirm you are in a linked worktree, not the main/local checkout:
 
 ```bash
 git rev-parse --show-toplevel
@@ -71,24 +53,18 @@ git rev-parse --git-common-dir
 git worktree list --porcelain
 ```
 
-In a linked worktree, `git rev-parse --git-dir` differs from
-`git rev-parse --git-common-dir`. If this is the main/local checkout, stop and
-tell the user to launch the ticket through the launcher
-(`just claude-ticket $ARGUMENTS`, or `cs claude-ticket $ARGUMENTS` in the
-container) instead of running this skill in place. Do not implement from the
-main/local checkout.
+In a linked worktree, `--git-dir` differs from `--git-common-dir`. If this is
+the main checkout, stop and tell the user to launch via
+`just claude-ticket $ARGUMENTS`.
 
-Then confirm the current branch looks like it belongs to `$ticket`:
+Confirm the current branch belongs to `$ticket`:
 
 ```bash
 git branch --show-current
 ```
 
-If it does not match, stop and surface the mismatch rather than switching or
-repairing branches. If the user says to start fresh, ignore prior branches and
-PRs for the ticket and continue as an independent run on the current
-branch/worktree; do not continue, repair, push to, or create a PR from an older
-branch unless the user explicitly names it.
+If it does not match, stop and surface the mismatch. If the user says to start
+fresh, ignore prior branches/PRs and continue on the current branch/worktree.
 
 All implementation, quality checks, commits, pushes, and PR work happen inside
 this worktree on this branch.
@@ -97,130 +73,85 @@ this worktree on this branch.
 
 ## 3 — Implement
 
-At this point, set the ticket to 'In Progress' in Linear.
+Set the ticket to **In Progress** in Linear.
 
-Before writing any code, consult the `docs/agents/` files relevant to the type
-of work. You do **not** need to read the subproject's `CLAUDE.md` manually — the
-harness auto-injects it the first time you `Read` any file under that
-subproject's tree (e.g. `ui/CLAUDE.md` on your first `ui/` file read), which
-always precedes your first edit. Reading it explicitly just duplicates ~6k
-tokens of identical content in context.
+Consult the `docs/agents/` files relevant to the work type. You do **not** need
+to read the subproject's `CLAUDE.md` manually — the harness auto-injects it
+on your first `Read` under that subproject's tree.
 
-**Scope.** Read the ticket description, then construe scope broadly — this is a
-requirement, not permission to decline. You **must** fix adjacent defects you
+**Scope.** Construe scope broadly. You **must** fix adjacent defects you
 encounter in code you are already editing when the fix is the same nature and
-similar magnitude as the ticket work: another bug in the same script you're
-fixing, missing type coverage on a file you're touching, a typo in an adjacent
-comment. Don't limit yourself to only the literal items enumerated in the
-description — ticket scope defines the primary objective, not the boundary of
-what you're allowed to touch.
+similar magnitude as the ticket work. Don't limit yourself to the literal items
+in the description. Conversely, if you find something that warrants a
+fundamentally different kind of work or is much larger than the ticket, note it
+in the PR description and move on. Use `/pm:capture` for genuinely separate
+discoveries.
 
-Conversely, if you find something that warrants a fundamentally different
-kind of work (a rewrite, a design change, a new dependency) or is much
-larger than the ticket itself, note it in the PR description and move on.
-Use `/pm:capture` for genuinely separate discoveries.
-
-**Getting unstuck.** If you have made two unsuccessful attempts at the same
-problem, or repeated the same approach without new information, stop and spawn a
-`general-purpose` subagent via the Agent tool for a fresh perspective.
+**Getting unstuck.** After two unsuccessful attempts at the same problem, spawn
+a `general-purpose` subagent via the Agent tool for a fresh perspective.
 Use the Opus model at high effort.
-Brief it on what you've tried and what's not working. A count-based trigger fires
-reliably — don't wait to "feel stuck." A second set of eyes on a stuck problem is
-almost always faster than continuing to iterate in the same direction.
+Brief it on what you've tried and what's not working.
 
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
-When done, run the subproject's quality checks as listed in its `CLAUDE.md`.
-Any code path you changed that isn't covered by the test suite must be executed
-manually before proceeding (start a dev server, run the binary, etc.).
+Run the subproject's quality checks as listed in its `CLAUDE.md`. Any
+code path you changed that isn't covered by the test suite must be executed
+manually before proceeding.
 
 ---
 
 ## 4 — Visually verify UI changes
 
-**Trigger.** Run this step whenever the branch diff touches UI source. Check
-with a three-dot diff against the merge-base:
+**Trigger.** Run this step only when the branch diff touches UI source:
 
 ```bash
 git diff main...HEAD --name-only -- 'ui/src/**'
 ```
 
-If that lists **no** files, skip this step and continue to step 5. If it lists
-**any**, this step is **required** — do not open the PR on a UI change without a
-visual confirmation.
+If no files listed, skip to step 5.
 
-This is a **lightweight, interactive** check — _look at what you built_ — not
-the full `visual-review` pipeline. No fixture-matrix sweep, no multi-width
-screenshot matrix, no formal report. You spawn one subagent to drive the app
-through the Playwright CLI and report back whether the change holds together.
+Start a dev server on a non-default port for the subagent to drive:
 
-**Start a dev server** for the subagent to drive, on a non-default port so it
-doesn't collide with anything the user is running, and note the URL. Run it in
-the background (e.g. `pnpm dev --port <port>` from `ui/`).
+```bash
+cd ui && pnpm dev --port <port> &
+```
 
-**Spawn a `qa-explorer` subagent** (`subagent_type: "qa-explorer"`). It is
-already pinned to Sonnet and knows how to drive the browser via `playwright-cli`
-without needing a skill invocation — its system prompt has the full command
-reference. Do **not** spawn a `general-purpose` agent for this step; that type
-lacks playwright knowledge and will cascade into nested subagent spawns.
-This is the _lightweight_ path: a quick interactive eyeball, deliberately _not_
-the heavyweight `visual-review` agent or its fixture-matrix sweep. This is **not
-a charter run** — do not tell the subagent to read `exploratory-charters.md` or
-follow the charter protocol. Give it a prompt of this shape, naming the
-components/views your change touched and the dev-server URL:
+Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
+`playwright-cli` natively. Do **not** use `general-purpose` for this.
+Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
-> `http://localhost:<port>/`. The change touched <components/views>. Use the
-> `playwright-cli` skill to drive the app. **Save any screenshots to a gitignored
-> path** so step 5 can't sweep a stray PNG into the commit: omit `--filename` to
-> use the default `.playwright-cli/` location (gitignored), or pass an explicit
-> gitignored path such as `--filename=.playwright-cli/$ticket-<desc>.png`. **Never
-pass a bare relative `--filename`** like `--filename=after.png`— that writes a
-loose PNG into the worktree's`ui/`, which step 5 then stages. Then navigate to
-the affected view(s) — inject fixture state via
-`window.\_\_test_scenes.apply('<scene-id>')` where it helps you reach the right
-> state — and check:
+> `http://localhost:<port>/`. The change touched <components/views>. Use
+> `playwright-cli` to drive the app. **Save screenshots to a gitignored path** —
+> omit `--filename` to use the default `.playwright-cli/` location, or pass an
+> explicit gitignored path. **Never pass a bare relative `--filename`** like
+> `--filename=after.png`. Inject fixture state via
+> `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
 >
-> - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
->   misaligns; the change renders what it should.
-> - **Does the layout hold at reasonable widths?** Spot-check 1280 and 1440
->   (`playwright-cli resize <w> 900`). Desktop only — do not go below 1280.
-> - **Both themes.** Toggle dark and light via
->   `window.__test_store.getState().setTheme('dark')` / `'light'` and confirm
->   the change reads correctly in each.
+> - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
+> - **Reasonable widths?** Spot-check 1280 and 1440 (`playwright-cli resize`).
+> - **Both themes.** Toggle via
+>   `window.__test_store.getState().setTheme('dark')` / `'light'`.
 > - **No new console errors** (`playwright-cli console`).
 >
-> Report a brief confirmation: what you checked, what looks right, and any
-> issues (with a screenshot reference). Keep it short — this is a quick
-> self-check, not a formal review.
+> Report briefly: what you checked, what looks right, any issues.
 
-If the subagent reports problems, fix them (you are still in the worktree),
-re-run the relevant quality checks, and re-verify before continuing. Capture a
-one-line summary of the verification to fold into the PR description (step 6).
-
-This step is deliberately scoped to _your_ change. It does **not** replace
-`docs/frontend-dod.md` (the full Definition of Done) or the heavyweight
-`visual-review` subagent (`.claude/agents/visual-review.md`) — neither is run
-here.
+If the subagent reports problems, fix them, re-run quality checks, and
+re-verify. Capture a one-line summary for the PR description.
 
 ---
 
 ## 5 — Commit and push
 
-**Staging.** `git add -A` is the staging approach here. The visual-verify step
-(step 4) directs screenshots to gitignored paths and a root-scoped `/*.png`
-backstop ignore in `ui/.gitignore` catches a stray dropped at the `ui/` cwd root
-(PRO-348), so `-A` cannot sweep a loose screenshot into the commit — those two
-defenses make `-A` safe without per-file path discipline. Still glance at
-`git status` before committing to confirm only the files you intended are staged.
+Stage with `git add -A` (screenshot paths are gitignored). Glance at
+`git status` before committing to confirm only intended files are staged.
 
 Commit with a Conventional Commits message:
 
-- Subject: use the ticket title verbatim as the description, append `($ticket)`
-  at the end — e.g. `fix(ui): improve header density (PRO-129)`
-- Keep the full subject line under 72 characters; if needed, trim the
-  description (not the ticket ID or type/scope prefix)
-- Put any implementation notes in the commit body, not the subject
+- Subject: ticket title verbatim as description, append `($ticket)` — e.g.
+  `fix(ui): improve header density (PRO-129)`
+- Keep under 72 characters; trim the description if needed, not the ticket ID
+- Implementation notes go in the body, not the subject
 
 Push the branch.
 
@@ -228,102 +159,61 @@ Push the branch.
 
 ## 6 — Create the PR
 
-Before creating a PR, check whether the current branch already has one. Reuse an
-existing PR only when its head branch is the current branch. Do not inspect, use,
-repair, push to, or continue existing PRs or review-triage comments from other
-branches with the same Linear ticket ID unless the user explicitly names that
-branch or PR.
+Check whether the current branch already has a PR. Reuse only when the head
+branch matches. Do not inspect or use PRs from other branches with the same
+ticket ID unless the user names them.
 
-If the current branch has no PR, create one **as a draft** (`gh pr create
---draft ...`). Include the ticket ID in parentheses at the end of the PR title:
-`fix(ui): bust virtualizer cache on mode change (PRO-126)`. This links the commit
-to the issue in Linear.
-
-Note the PR number.
+If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
+the ticket ID at the end of the title. Note the PR number.
 
 ---
 
 ## 7 — Run a review round
 
-Steps 7–9 are **one review round**. A round spawns the reviews (7), writes
-each report to that round's numbered files (8), and synthesizes them (9). The
-first time through is round 1. After you address findings and push fixes in
-step 10, you come **back here** for round 2, round 3, and so on — each push of
-fixes earns a fresh round so the new reports never clobber the old ones. The
-round number `N` is assigned in step 8; everything written in a round shares
-that `N`.
+Steps 7–9 are **one review round**. Round 1 runs here; after pushing fixes in
+step 10, return here for round 2, 3, etc. The round number `N` is assigned in
+step 8; everything written in a round shares that `N`.
 
-Up to three reviews can run here. The code review always runs; the convention
-review and the design-system-conformance review each run when the diff touches
-UI styling/component source — they share one trigger (step 7b's diff check).
+The code review always runs. The convention review (7b) and design-system
+conformance review (7c) each run when the diff touches UI source/config.
 
-### Subagent startup failures
+### Startup failures
 
-Every review whose trigger fires is required for the round. If a required
-typed reviewer fails to start, crashes, or returns empty output, first retry
-once after correcting any obvious spawn parameter problem. If the typed reviewer still fails for a
-tool-level reason, stop the workflow before step 8 and present the blocker
-in-session with the exact error and which required review is missing. Do not
-substitute a default/general-purpose subagent for a typed reviewer. Do not write
-partial review reports, synthesize, post the review-triage Linear comment, move
-to step 10, or mark the PR ready until all required typed review outputs for the
-round exist or the user explicitly changes the workflow.
+Every review whose trigger fires is required. If a required typed reviewer
+fails to start, retry once. If it still fails, **stop** — present the
+blocker with the exact error. Do not substitute a default agent. Do not write
+partial reports or proceed to step 8 until all required reviews succeed.
 
-### Maintainer review instructions (relay if present)
+### Reviewer instructions (relay if present)
 
-Before spawning the reviews, check the ticket description (fetched in step 1)
-for a `## Reviewer instructions` section. If it exists, its body is
-maintainer-authored guidance written for **this PR's** reviewers — relay it
-**verbatim** into the 7a, 7b, and 7c prompts, appended as the block below. It
-carries what a diff-scoped review can't infer on its own: a mechanism the PR
-deliberately changes (so the reviewer doesn't flag the intended change as
-drift), an area to scrutinize harder, or scope the maintainer has explicitly
-bounded out (e.g. vendored code imported verbatim — don't code-review it). Treat
-it as authoritative context for the review, not a finding to evaluate.
-
-When the section exists, append this block to each reviewer prompt, filling in
-its body verbatim:
+Check the ticket description for a `## Reviewer instructions` section. If
+present, append this block verbatim to each 7a/7b/7c prompt:
 
 > **Maintainer instructions for this review** (authoritative — context the diff
 > can't show you; weigh accordingly):
 >
 > <verbatim body of the ticket's `## Reviewer instructions` section>
 
-If the ticket has no `## Reviewer instructions` section, skip this — most
-tickets won't have one.
-
 ### 7a — Code review (always)
 
-Spawn a general-purpose subagent. Give it this exact prompt (substitute the
-actual PR number):
+Spawn a general-purpose subagent:
 
 > /review PR #<PR-number> for $ticket. In addition to the standard checks, for
-> every test added or changed in this PR, verify it exercises the real
-> production code path rather than standing in a different library, polyfill,
-> runtime, or mock for it. Flag any divergent-path test that lacks a companion
-> test on the real path (e.g. a unit test against a Node shim with no browser
-> test covering the WASM path that ships). See `docs/agents/testing.md`, "Test
-> the real production code path".
+> every test added or changed, verify it exercises the real production code path
+> rather than a polyfill, runtime, or mock. Flag any divergent-path test lacking
+> a companion test on the real path. See `docs/agents/testing.md`, "Test the real
+> production code path".
 
-This catches correctness bugs and CLAUDE.md compliance. It does **not** apply
-the React/Tailwind/shadcn convention checklists — that's what 7b is for. The
-appended prod-vs-test-path check is here because "the unit tests pass" can hide
-an entirely uncovered production path (PRO-205) — a correctness gap `/review`
-won't surface unless prompted for it.
+### 7b — Convention review (UI diffs only)
 
-### 7b — Convention review (UI source or UI config diffs only)
-
-Check whether the diff touches UI source **or** the Tailwind/shadcn config
-files that carry convention surface (use a three-dot diff against the
-merge-base):
+Check with a three-dot diff:
 
 ```bash
 git diff main...HEAD --name-only -- 'ui/src/**' 'ui/components.json' 'ui/*.config.*'
 ```
 
-If that lists any files, spawn the **`convention-review` subagent**
-(`subagent_type: "convention-review"`) in the **same message** as the 7a
-code review so they run in parallel. Give it this prompt shape:
+If any files listed, spawn **`convention-review`** (`subagent_type:
+"convention-review"`) in the **same message** as 7a (parallel). Prompt:
 
 > Run a React/Tailwind/shadcn convention review for $ticket ("<title>").
 > Linear URL: <url>. Scope from the diff against `main` (branch
@@ -331,23 +221,13 @@ code review so they run in parallel. Give it this prompt shape:
 > vercel-composition-patterns, shadcn, and tailwind-4-docs skills to the
 > changed UI source and return your prioritized convention-findings report.
 
-This is a read-only agent that audits convention drift (no-op tokens, missing
-`cn()`, hand-rolled vs. shadcn primitives, hooks/effects footguns,
-composition drift) — the recurring class of issue that `/review` structurally
-suppresses (it filters out style/quality findings not mandated by CLAUDE.md).
-See `.claude/agents/convention-review.md`.
+If no files match, skip 7b.
 
-If the diff matches **none** of those paths (no `ui/src/**`, `ui/components.json`,
-or `ui/*.config.*` files), skip 7b — there are no React/Tailwind/shadcn
-conventions to review.
+### 7c — Design-system conformance review (same trigger as 7b)
 
-### 7c — Design-system conformance review (UI source or UI config diffs only)
-
-Uses the **same trigger as 7b** — the identical three-dot diff check above. If it
-lists any files, spawn the **`design-system-conformance-review` subagent**
-(`subagent_type: "design-system-conformance-review"`) in the **same message** as
-the 7a code review and the 7b convention review, so all run in one parallel
-batch. Give it this prompt shape:
+If the 7b diff check listed files, also spawn
+**`design-system-conformance-review`** (`subagent_type:
+"design-system-conformance-review"`) in the **same parallel message**. Prompt:
 
 > Run a design-system conformance review for $ticket ("<title>"). Linear URL:
 > <url>. Scope from the diff against `main` (branch `<branch-name>`). Audit the
@@ -357,50 +237,32 @@ batch. Give it this prompt shape:
 > `scripts/agents/token-resolution-map`). Defer generic React/Tailwind hygiene to
 > the convention review. Return your prioritized findings report.
 
-This is a read-only agent that judges **adherence to the named spec**
-(`docs/ui/design-system.md`) — drift from the hard rules, the §3 component table,
-and the §2 token contract, plus tokens that resolve in light but not dark. It is
-the inverse stance to 7b (which is an independent expert that second-guesses
-design choices); it defers generic craft back to 7b and perceptual-contrast bugs
-to the visual sweep. See `.claude/agents/design-system-conformance-review.md`.
+If no files matched, skip 7c.
 
-Skip 7c on the **same condition** as 7b — when the diff matches none of those
-paths, there is no UI styling/component surface to check against the spec.
-
-Wait for all required subagents to finish. Capture each one's complete output.
-Apply the startup-failure rule above to any failed or empty result; partial
-review coverage is a blocker, not a successful round.
+Wait for all required subagents. Capture each output. Apply the startup-failure
+rule to any failed or empty result.
 
 ---
 
 ## 8 — Write reviews to Obsidian
 
-### Establish the round and its paths
+### Establish the round
 
-Call the path helper **once** to allocate this round's directory and the
-filenames every report in the round will use:
+Call the path helper **once**:
 
 ```bash
 scripts/agents/review-paths $ticket <PR-number>
 ```
 
-It prints `round=<N>` and the absolute path for each report
-(`code_review`, `convention_review`, `ds_review`, `synthesis`) under
-`~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`. The first round
-is `N=1`; a re-review after pushing fixes (step 10) is the next integer. Reuse
-these exact paths for every write in this round — do **not** call the helper
-again per file, or you will advance the round counter mid-round.
+It prints `round=<N>` and absolute paths for each report (`code_review`,
+`convention_review`, `ds_review`, `synthesis`) under
+`~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`.
+Reuse these exact paths for every write in this round — do **not** call the
+helper again mid-round.
 
-`scripts/agents/review-paths` is the single source of truth for review report
-paths. The `review-synthesis` agent reads the same directory via the same
-helper (`--current`); do not hand-roll these paths anywhere.
+### Front matter (every report and the synthesis)
 
-### Front matter and links list (every report in this round)
-
-Each report below — and the synthesis in step 9a — gets a YAML front matter
-block with these five common fields plus a `type` (named per report), and,
-after the front matter's closing `---` and before the first heading, an
-identical links list:
+Each report gets this YAML front matter and links list:
 
 ```yaml
 ---
@@ -416,166 +278,92 @@ type: <named per report>
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
-The per-report subsections below state only the `type` value and whether to
-write the report verbatim or merge these fields into its own front matter.
+### Write the reports
 
-### Code review (always)
-
-Write the code review subagent's output **verbatim** to the `code_review`
-path. Prepend the front matter (`type: code-review`) and links list above.
-
-### Convention review (only if 7b ran)
-
-If a convention review ran in step 7b, write its findings to the
-`convention_review` path. The report already includes its own YAML front
-matter (`type: convention-review`, `title`, `scope`, `files_reviewed`,
-`skills_applied`). Use it as the primary block; ensure the five common fields
-above (`ticket`, `title`, `pr`, `round`, `date`) are present, adding any that
-are missing. Then insert the links list above, after the merged front matter's
-closing `---` and before the first heading.
-
-### Design-system conformance review (only if 7c ran)
-
-If a design-system conformance review ran in step 7c, write its findings to the
-`ds_review` path. The report already includes its own YAML front matter
-(`type: design-system-conformance-review`, `title`, `scope`, `files_reviewed`,
-`spec`). Use it as the primary block; ensure the five common fields above are
-present, adding any that are missing. Then insert the links list above, after
-the front matter's closing `---` and before the first heading.
+- **Code review** (always): write verbatim to `code_review` path. Prepend front
+  matter with `type: code-review`.
+- **Convention review** (if 7b ran): write to `convention_review` path. The
+  report has its own front matter; merge in the five common fields above if
+  missing, then insert the links list.
+- **DS conformance review** (if 7c ran): write to `ds_review` path. Same merge
+  logic as convention review.
 
 ---
 
 ## 9 — Evaluate and discuss
 
-Triage **every** review that ran: the code review (always), the convention
-review (UI source diffs, step 7b), and the design-system conformance review
-(same trigger, step 7c).
+Triage **every** review that ran.
 
 ### 9a — Synthesize (when two or more reviews ran)
 
-The reviews run **independently and blind to each other**, so the same issue
-can surface twice with different framings, recommendations can conflict, and
-severities are ranked on separate scales. When **two or more** reviews ran,
-spawn the **`review-synthesis` subagent** (`subagent_type:
-"review-synthesis"`) to reconcile them into one cross-aware triage. Give it:
+Spawn **`review-synthesis`** (`subagent_type: "review-synthesis"`) with the
+ticket ID, PR number, round `N`, and which reviews ran. It reads this round's
+reports from Obsidian and returns a single merged triage: deduplicated, with
+same-root-cause links, conflicts surfaced, and everything re-ranked on one
+blocking/advisory scale. See `.claude/agents/review-synthesis.md`.
 
-- The ticket ID and PR number
-- The round number `N` (so it reads this round's reports, not an older one)
-- Which reviews ran (code / convention / ds-conformance)
+If synthesis fails, retry once. If it still fails, stop and present the
+blocker. Do not hand-roll a replacement.
 
-It reads this round's review reports written to Obsidian in step 8 and returns
-a single merged triage: deduplicated, with same-root-cause findings linked
-("one fix resolves both"), conflicts surfaced, and everything re-ranked
-blocking vs. advisory on one scale. See `.claude/agents/review-synthesis.md`.
-If synthesis fails or returns empty, retry once after correcting any obvious
-spawn parameter problem. If it still fails, stop and present the synthesis
-blocker in-session; do not hand-roll a replacement synthesis or proceed to step
-9b unless the user explicitly changes the workflow.
+Write the synthesis **verbatim** to this round's `synthesis` path, prepending
+front matter (`type: synthesis`) and links list.
 
-**Persist the synthesis.** The subagent is read-only, so write its returned
-triage **verbatim** to this round's `synthesis` path (from the step-8
-`review-paths` call), prepending the front matter (`type: synthesis`) and links
-list from step 8's "Front matter and links list" block.
-
-This keeps the merged triage alongside the reports it reconciles, one
-`synthesis-<N>.md` per round.
-
-If only **one** review ran (e.g. a non-UI change, where just the code review
-fires), skip synthesis — there is nothing to reconcile, and no `synthesis-<N>`
-file is written. Present that review's findings directly using the triage
-shape below.
+If only **one** review ran, skip synthesis — present that review's findings
+directly.
 
 ### 9b — Record, present, and discuss
 
-Assemble the triage (from 9a, or the single review's findings if synthesis was
-skipped): group by **blocking** vs. **advisory**, note which review surfaced each
-finding (code / convention / ds-conformance), call out the cross-review links and any conflicts the
-synthesis raised, and for each finding say whether you'd address it now or defer,
-flagging anything low-signal, redundant, or likely incorrect.
+Assemble the triage: group by **blocking** vs. **advisory**, note which review
+surfaced each finding, call out cross-review links and conflicts, and for each
+finding say whether you'd address it now or defer.
 
-**Post this triage as a ticket comment before you show it to the user.** Record the
-review summary, the blocking/advisory triage, and your proposed course of action on
-each finding as a Linear comment on $ticket — agent-header prefixed per
-`docs/agents/linear.md` — and then present the same content in-session. Posting it
-first makes the triage a durable, linkable record the moment it exists.
-A case worth a second opinion can then be handed to the senior-pm agent (or
-revisited later) by pointing at the ticket rather than digging through the
-transcript.
-This is in addition to the close-out summary comment in step 10: that one records
-what shipped; this one records the review findings and the decision still to be
-made.
+**Post this triage as a Linear comment on $ticket** (agent-header prefixed per
+`docs/agents/linear.md`) **before** presenting it in-session. This makes the
+triage a durable record.
 
-Then invite the user to discuss: which findings to act on, which to push back
-on, what to do next. **Stop here and wait for the user's explicit direction.**
-Posting the Linear comment is not approval to continue. Do not enter step 10,
-edit files, push fixes, mark the PR ready, close out, or run another review
-round until the user says what to do with the presented findings.
+Then present in-session and invite the user to discuss. **Stop here and wait for
+explicit direction.** Do not enter step 10, edit files, push fixes, mark the PR
+ready, or run another round until the user says what to do.
 
 ---
 
 ## 10 — Address findings, then loop or close out
 
-Start this step only after the user has responded to the step-9 triage with
-explicit direction. Make any changes the user wants to address from the review.
-You are still in the worktree, so changes go directly on the branch. Commit and
-push each batch of fixes; the open PR picks them up automatically.
+Start only after the user has responded to step 9 with explicit direction.
+Make changes, commit, and push. The open PR picks up the commits automatically.
 
-This is the **revise half of the review cycle**. After pushing fixes there are
-two ways forward:
+### Run another review round
 
-### Run another review round (when fixes warrant a re-review)
-
-After pushing fixes, ask the user whether to run another review round. Run one
-(go **back to step 7**) if the user asks, or if the fixes changed program
-behavior, touched more than a trivial number of lines, or addressed a blocking
+After pushing fixes, ask whether to re-review. Re-review if: fixes changed
+program behavior, touched more than trivial lines, or addressed a blocking
 finding. A pure comment/rename/formatting fix does not require a new round.
-When you do run another round against the updated PR:
+To re-review, go **back to step 7**. `review-paths` returns the next round
+number automatically.
 
-1. Re-spawn the code review (and the convention **and** design-system
-   conformance reviews, if the step-7b/7c diff check still lists files) on the
-   new diff. The UI passes are a floor — they re-run every round, not just the
-   first.
-2. In step 8, `scripts/agents/review-paths $ticket <PR-number>` now returns the
-   **next** round number, so the new reports land as `code-review-2.md`,
-   `synthesis-2.md`, and so on without touching round 1's files.
-3. Synthesize and present again (step 9), then return here.
+### Close out
 
-Repeat the round as many times as the review surfaces things worth fixing.
+When nothing is left to act on:
 
-### Close out (when nothing is left to act on)
-
-When the user is satisfied and there is nothing left to act on:
-
-1. **Mark the PR ready for review.** This transitions the draft PR and triggers
-   the deferred expensive checks (Docker builds + browser tests):
+1. **Mark the PR ready:**
 
    ```bash
    gh pr ready <PR-number>
    ```
 
-   Then watch CI to completion per `docs/agents/ci.md` — the ready transition
-   is what fires the deferred runs. If CI fails, fix the issue, push the fix,
-   and re-watch; repeat until CI is green. Only proceed once the ready-PR run
-   is fully green.
+   Watch CI to completion per `docs/agents/ci.md`. If CI fails, fix, push,
+   re-watch. Proceed only when green.
 
-2. **Post a summary comment to the ticket.** This is the durable record of the
-   run, required on completion (`docs/agents/linear.md`, "Post a summary comment
-   when you finish"). Write a concise summary of $ticket's work and fold it into
-   a Linear comment:
+2. **Post a summary comment** to $ticket (`docs/agents/linear.md`, "Post a
+   summary comment when you finish"):
 
    > **Claude agent (handle-ticket)**
    >
-   > _What changed_ — a short description of the work, linking the PR.
+   > _What changed_ — short description, linking the PR.
    >
-   > _Key decisions and findings_ — what you decided and why; anything you
-   > discovered that bears on the work.
+   > _Key decisions and findings_ — what you decided and why.
    >
-   > _Spillover_ — anything that affects or belongs to another ticket (name the
-   > `PRO-NNN`), so a human sees it here rather than only in the transcript.
+   > _Spillover_ — anything affecting another ticket (name the `PRO-NNN`).
 
-   Mirror the end-of-work summary you'd report in-session — include what a
-   reader needs to understand the run without replaying the transcript, and no
-   more. Post it with the agent-header above via
-   `linear issue comment add $ticket --body-file <path>` (write the body with
-   the Write tool first; `--body-file` is preferred for markdown). Skip only for
-   trivial mechanical changes (use judgment); when in doubt, post one.
+   Write the body with the Write tool, post via
+   `linear issue comment add $ticket --body-file <path>`. Skip only for trivial
+   mechanical changes.

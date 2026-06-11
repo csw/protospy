@@ -24,19 +24,19 @@ class GenerationTests(unittest.TestCase):
         normalized = " ".join(generated.split())
 
         self.assertIn(
-            "If the typed reviewer still fails for a tool-level reason, stop",
+            "If it still fails, **stop**",
             normalized,
         )
-        self.assertIn("Do not substitute a default/general-purpose subagent", normalized)
+        self.assertIn("Do not substitute a default agent", normalized)
 
     def test_codex_light_visual_guidance_uses_only_codex_model_names(self) -> None:
         generated = sync_handle_ticket_skill.generate_codex_skill()
 
         self.assertIn(
-            "Spawn a `general-purpose` subagent for a lightweight visual check",
+            "Spawn a **`general-purpose`** subagent",
             generated,
         )
-        self.assertIn("use `model: gpt-5.4-mini` with medium reasoning", generated)
+        self.assertIn("use `model: gpt-5.4-mini`", generated)
 
     def test_claude_skill_renders_without_jinja2_tags(self) -> None:
         generated = sync_handle_ticket_skill.generate_claude_skill()
@@ -63,7 +63,7 @@ class GenerationTests(unittest.TestCase):
     def test_claude_skill_contains_claude_specific_content(self) -> None:
         generated = sync_handle_ticket_skill.generate_claude_skill()
         self.assertIn("Use the Opus model at high effort", generated)
-        self.assertIn("`model: sonnet`", generated)
+        self.assertIn("qa-explorer", generated)
         self.assertIn("just claude-ticket", generated)
         self.assertIn("**Claude agent (handle-ticket)**", generated)
 
