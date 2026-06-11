@@ -132,7 +132,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Group by trace"
           }
         >
-          <Layers className="size-4" />
+          <Layers />
         </IconToggle>
 
         {/* Density (regular ↔ compact) */}
@@ -147,11 +147,7 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
               : "Regular density — click for compact"
           }
         >
-          {density === "compact" ? (
-            <Rows2 className="size-4" />
-          ) : (
-            <Rows3 className="size-4" />
-          )}
+          {density === "compact" ? <Rows2 /> : <Rows3 />}
         </IconToggle>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -172,6 +168,7 @@ function ThemeControl() {
   };
   const current = theme ?? "system";
   const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor;
+  const label = `Theme: ${current} — click to cycle`;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -179,13 +176,13 @@ function ThemeControl() {
           variant="ghost"
           size="icon-chrome"
           onClick={() => setTheme(next[current] ?? "light")}
-          aria-label={`Theme: ${current} — click to cycle`}
+          aria-label={label}
           className="shrink-0 text-muted-foreground"
         >
-          <Icon className="size-4" />
+          <Icon />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{`Theme: ${current} — click to cycle`}</TooltipContent>
+      <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
 }

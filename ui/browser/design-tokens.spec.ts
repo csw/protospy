@@ -480,11 +480,21 @@ test.describe("line-variant tabs and standalone Toggle (PRO-378)", () => {
     const pressedBtn = page.getByLabel("Compact density — click for regular");
     await expect(pressedBtn).toHaveAttribute("aria-pressed", "true");
 
-    // Pressed: aria-pressed:bg-primary/10 must have fired — background is no
-    // longer transparent.  toHaveCSS retries through the transition animation.
-    const pressedBg = await pressedBtn.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
-    expect(pressedBg).not.toBe("rgba(0, 0, 0, 0)");
+    // Read the reference color from the token before using toHaveCSS so the
+    // probe is not evaluated mid-transition.  Tailwind v4 /10 modifier =
+    // color-mix(in oklab, <color> 10%, transparent).
+    const expected = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;top:-9999px;background-color:color-mix(in oklab,var(--color-primary) 10%,transparent)";
+      document.body.appendChild(probe);
+      const val = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return val;
+    });
+    // toHaveCSS auto-retries until the transition-colors animation settles
+    // on the exact token-resolved value — guards both that the aria-pressed:
+    // selector fired AND that --color-primary resolves to the correct hue.
+    await expect(pressedBtn).toHaveCSS("background-color", expected);
   });
 });

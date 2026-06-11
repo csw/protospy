@@ -63,9 +63,9 @@ export function ListToolbar() {
               className="text-muted-foreground"
             >
               {order === "newest" ? (
-                <ArrowDownWideNarrow className="size-4" />
+                <ArrowDownWideNarrow />
               ) : (
-                <ArrowUpWideNarrow className="size-4" />
+                <ArrowUpWideNarrow />
               )}
             </Button>
           </TooltipTrigger>
