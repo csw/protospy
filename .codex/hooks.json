@@ -11,6 +11,17 @@
             "statusMessage": "Checking git safety policy..."
           }
         ]
+      },
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -lc 'repo=$(git rev-parse --show-toplevel) && \"$repo/.codex/hooks/remind-convention-skills.sh\"'",
+            "timeout": 10,
+            "statusMessage": "Checking UI convention skills..."
+          }
+        ]
       }
     ]
   }
