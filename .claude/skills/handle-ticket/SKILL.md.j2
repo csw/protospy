@@ -162,23 +162,22 @@ doesn't collide with anything the user is running, and note the URL. Run it in
 the background (e.g. `pnpm dev --port <port>` from `ui/`).
 
 {% if harness == 'claude' %}
-**Spawn a `general-purpose` subagent on Sonnet** (`model: sonnet`). Use Sonnet,
-not Opus: eyeballing a rendered change is not Opus-grade reasoning, and
-screenshots are token-heavy (~1.5k each), so the cheaper model keeps this check
-inexpensive — the same reason the `visual-review` agent is pinned to Sonnet.
+**Spawn a `qa-explorer` subagent** (`subagent_type: "qa-explorer"`). It is
+already pinned to Sonnet and knows how to drive the browser via `playwright-cli`
+without needing a skill invocation — its system prompt has the full command
+reference. Do **not** spawn a `general-purpose` agent for this step; that type
+lacks playwright knowledge and will cascade into nested subagent spawns.
 {% else %}
 **Spawn a `general-purpose` subagent for a lightweight visual check.** In Codex,
 use `model: gpt-5.4-mini` with medium reasoning. Never pass Claude model names
 such as `sonnet` or `opus`. If the default subagent fails to start, stop and
 report the exact spawn error instead of silently using a different model.
 {% endif %}
-Tell it to drive the browser via the `playwright-cli` skill (it invokes the skill
-itself); the prompt below is self-contained, so it needs no UI-specific
-preloading beyond `{{ ui_guides_md }}`, which it loads on reading any `ui/` file.
-This is still the _lightweight_ path: a quick interactive eyeball, deliberately
-_not_ the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
-prompt of this shape, naming the components/views your change touched and the
-dev-server URL:
+This is the _lightweight_ path: a quick interactive eyeball, deliberately _not_
+the heavyweight `visual-review` agent or its fixture-matrix sweep. This is **not
+a charter run** — do not tell the subagent to read `exploratory-charters.md` or
+follow the charter protocol. Give it a prompt of this shape, naming the
+components/views your change touched and the dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the

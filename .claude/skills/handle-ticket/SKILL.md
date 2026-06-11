@@ -158,17 +158,16 @@ through the Playwright CLI and report back whether the change holds together.
 doesn't collide with anything the user is running, and note the URL. Run it in
 the background (e.g. `pnpm dev --port <port>` from `ui/`).
 
-**Spawn a `general-purpose` subagent on Sonnet** (`model: sonnet`). Use Sonnet,
-not Opus: eyeballing a rendered change is not Opus-grade reasoning, and
-screenshots are token-heavy (~1.5k each), so the cheaper model keeps this check
-inexpensive — the same reason the `visual-review` agent is pinned to Sonnet.
-Tell it to drive the browser via the `playwright-cli` skill (it invokes the skill
-itself); the prompt below is self-contained, so it needs no UI-specific
-preloading beyond `ui/CLAUDE.md`, which it loads on reading any `ui/` file.
-This is still the _lightweight_ path: a quick interactive eyeball, deliberately
-_not_ the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
-prompt of this shape, naming the components/views your change touched and the
-dev-server URL:
+**Spawn a `qa-explorer` subagent** (`subagent_type: "qa-explorer"`). It is
+already pinned to Sonnet and knows how to drive the browser via `playwright-cli`
+without needing a skill invocation — its system prompt has the full command
+reference. Do **not** spawn a `general-purpose` agent for this step; that type
+lacks playwright knowledge and will cascade into nested subagent spawns.
+This is the _lightweight_ path: a quick interactive eyeball, deliberately _not_
+the heavyweight `visual-review` agent or its fixture-matrix sweep. This is **not
+a charter run** — do not tell the subagent to read `exploratory-charters.md` or
+follow the charter protocol. Give it a prompt of this shape, naming the
+components/views your change touched and the dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the

@@ -165,13 +165,11 @@ the background (e.g. `pnpm dev --port <port>` from `ui/`).
 use `model: gpt-5.4-mini` with medium reasoning. Never pass Claude model names
 such as `sonnet` or `opus`. If the default subagent fails to start, stop and
 report the exact spawn error instead of silently using a different model.
-Tell it to drive the browser via the `playwright-cli` skill (it invokes the skill
-itself); the prompt below is self-contained, so it needs no UI-specific
-preloading beyond `ui/AGENTS.md`, which it loads on reading any `ui/` file.
-This is still the _lightweight_ path: a quick interactive eyeball, deliberately
-_not_ the heavyweight `visual-review` agent or its fixture-matrix sweep. Give it a
-prompt of this shape, naming the components/views your change touched and the
-dev-server URL:
+This is the _lightweight_ path: a quick interactive eyeball, deliberately _not_
+the heavyweight `visual-review` agent or its fixture-matrix sweep. This is **not
+a charter run** — do not tell the subagent to read `exploratory-charters.md` or
+follow the charter protocol. Give it a prompt of this shape, naming the
+components/views your change touched and the dev-server URL:
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the
