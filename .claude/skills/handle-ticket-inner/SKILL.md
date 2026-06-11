@@ -153,17 +153,16 @@ a quick interactive eyeball, deliberately _not_ the heavyweight `visual-review`
 agent or its fixture-matrix sweep. Give it a prompt of this shape, naming the
 components/views your change touched and the dev-server URL:
 
-<!-- prettier-ignore -->
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use the
 > `playwright-cli` skill to drive the app. **Save any screenshots to a gitignored
 > path** so step 5 can't sweep a stray PNG into the commit: omit `--filename` to
 > use the default `.playwright-cli/` location (gitignored), or pass an explicit
 > gitignored path such as `--filename=.playwright-cli/$ticket-<desc>.png`. **Never
-> pass a bare relative `--filename`** like `--filename=after.png` — that writes a
-> loose PNG into the worktree's `ui/`, which step 5 then stages. Then navigate to
-> the affected view(s) — inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where it helps you reach the right
+pass a bare relative `--filename`** like `--filename=after.png`— that writes a
+loose PNG into the worktree's`ui/`, which step 5 then stages. Then navigate to
+the affected view(s) — inject fixture state via
+`window.\_\_test_scenes.apply('<scene-id>')` where it helps you reach the right
 > state — and check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips silently, or
