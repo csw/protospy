@@ -35,9 +35,6 @@ docker-compose.override.*
 !/.agents/skills/tailwind-4-docs/**
 /.agents/skills/tailwind-4-docs/references/docs/
 /.agents/skills/tailwind-4-docs/references/docs-index.tsx
-/.claude/skills/*
-!/.claude/skills/handle-ticket-inner/
-!/.claude/skills/handle-ticket-inner/**
 /.claude/worktrees/
 /skills-lock.json
 .DS_Store
