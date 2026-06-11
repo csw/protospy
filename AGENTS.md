@@ -142,12 +142,15 @@ agents. When changing one of those agents, edit the `.claude/agents/*.md` source
 then run `scripts/agents/sync-codex-agents`; pre-commit checks that the generated
 Codex TOML stays in sync.
 
-The Codex `handle-ticket-inner` skill is generated from the Claude skill source
-plus Codex-specific worktree/branch fragments. Edit
-`.claude/skills/handle-ticket-inner/SKILL.md` for shared workflow changes, then
-run `scripts/agents/sync-handle-ticket-inner-skill`. Edit Codex-only dispatch
-behavior in `scripts/agents/codex-ticket` or the sync script, not directly in
-`.agents/skills/handle-ticket-inner/SKILL.md`.
+The `handle-ticket` skill is generated for both harnesses from one Jinja2
+template, `.claude/skills/handle-ticket/SKILL.md.j2` (`-D harness=claude|codex`).
+Edit the template for any workflow change, then run
+`scripts/agents/sync-handle-ticket-skill`; pre-commit checks that both generated
+`SKILL.md` files stay in sync. Do not edit the generated
+`.claude/skills/handle-ticket/SKILL.md` or `.agents/skills/handle-ticket/SKILL.md`
+directly. Worktree placement and harness launch live in the launcher,
+`scripts/agents/ticket` (`just claude-ticket` / `just codex-ticket`), not in the
+skill.
 
 ## Agent Configuration
 
@@ -165,13 +168,11 @@ filesystem/CLI-based via `obsidian-cli` when needed.
 
 Implementation work should happen in worktrees for both harnesses.
 
-Claude Code keeps the project-managed `.claude/worktrees/<branch-name>` flow;
-see `docs/agents/worktrees.md`.
-
-Codex uses Codex-native app worktrees. Do not assume a fixed `.Codex/worktrees`
-path. For ticket work, create or check out a recognizable branch inside the
-Codex worktree before implementation. Prefer Linear's `branchName`; otherwise
-use a shape like `codex/pro-123-short-title-slug`.
+For ticket work, the launcher (`scripts/agents/ticket`, via `just claude-ticket`
+/ `just codex-ticket`) creates the worktree under `.claude/worktrees/<branch>`
+and starts the harness CLI inside it, so the session begins pre-placed. The
+`EnterWorktree` tool and its hook are retained only for ad-hoc worktree entry.
+See `docs/agents/worktrees.md`.
 
 ## Delegating Noisy Investigation
 

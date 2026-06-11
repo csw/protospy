@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Start a Codex CLI ticket run in an isolated Git worktree."""
+"""Start a ticket run in an isolated Git worktree, for Codex or Claude Code.
+
+This launcher owns worktree placement so the harness session begins with its cwd
+already inside the worktree: it resolves the ticket's branch from Linear, creates
+or reuses the worktree, installs UI dependencies, then execs the harness CLI
+pointed at that worktree running `handle-ticket`. Starting the session pre-placed
+is the structural fix for "worktree edits leak onto the main checkout" — the
+agent never has the main-checkout path in its context (PRO-376).
+
+Codex is launched with `codex -C <worktree>`. Claude Code has no equivalent of
+`-C`, so we `chdir` into the worktree and exec `claude` from there; its cwd is
+then the worktree from turn one.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +29,13 @@ from pathlib import Path
 MAX_BRANCH_LEN = 50
 DEFAULT_WORKTREE_ROOT = ".worktrees"
 EFFORT_LEVELS = ("minimal", "low", "medium", "high", "xhigh")
+HARNESSES = ("codex", "claude")
+
+# Per-harness defaults: CLI binary, branch-fallback prefix, and the prompt prefix
+# that invokes the handle-ticket skill (Codex uses `$name`, Claude uses `/name`).
+HARNESS_BIN = {"codex": "codex", "claude": "claude"}
+HARNESS_BRANCH_PREFIX = {"codex": "codex", "claude": "claude"}
+HARNESS_SKILL_PREFIX = {"codex": "$handle-ticket", "claude": "/handle-ticket"}
 
 
 def run(
@@ -55,8 +74,9 @@ def slugify(text: str) -> str:
     return slug.strip("-") or "ticket"
 
 
-def fallback_branch_name(ticket: str, title: str) -> str:
-    return f"codex/{ticket.lower()}-{slugify(title)}"
+def fallback_branch_name(ticket: str, title: str, harness: str) -> str:
+    prefix = HARNESS_BRANCH_PREFIX[harness]
+    return f"{prefix}/{ticket.lower()}-{slugify(title)}"
 
 
 def branch_parts(branch: str, ticket: str) -> tuple[str, str] | None:
@@ -233,22 +253,29 @@ def shell_join(argv: list[str]) -> str:
     return " ".join(shlex.quote(arg) for arg in argv)
 
 
-def codex_args(args: argparse.Namespace) -> list[str]:
+def harness_cli_args(args: argparse.Namespace) -> list[str]:
+    """CLI args passed to the harness binary, before the worktree/prompt args.
+
+    `--model` is shared by both harnesses. `--effort` is Codex-only (it expands
+    to a `-c model_reasoning_effort` config override). Anything in `--harness-arg`
+    (or its Codex alias `--codex-arg`) and after `--` is passed through verbatim.
+    """
     result: list[str] = []
     if args.model:
         result.extend(["--model", args.model])
-    if args.effort:
+    if args.harness == "codex" and args.effort:
         result.extend(["-c", f'model_reasoning_effort="{args.effort}"'])
-    result.extend(args.codex_arg)
-    result.extend(args.codex_passthrough)
+    result.extend(args.harness_arg)
+    result.extend(args.passthrough)
     return result
 
 
-def build_prompt(ticket: str, directions: list[str]) -> str:
+def build_prompt(ticket: str, directions: list[str], harness: str) -> str:
+    prefix = HARNESS_SKILL_PREFIX[harness]
     suffix = " ".join(directions).strip()
     if suffix:
-        return f"$handle-ticket-inner {ticket} {suffix}"
-    return f"$handle-ticket-inner {ticket}"
+        return f"{prefix} {ticket} {suffix}"
+    return f"{prefix} {ticket}"
 
 
 def build_wrapper_directions(
@@ -257,7 +284,7 @@ def build_wrapper_directions(
     args: argparse.Namespace,
 ) -> list[str]:
     direction = (
-        "Codex wrapper selected branch "
+        "The ticket launcher selected branch "
         f"{branch!r} in worktree {str(worktree_path)!r}; treat this branch and "
         "worktree as authoritative. Do not switch to, reset to, repair, push "
         "to, or create a PR from any other ticket branch unless the user "
@@ -307,12 +334,19 @@ def build_directions(
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="codex-ticket",
+        prog="ticket",
         description=(
             "Fetch a Linear issue, create or reuse an isolated Git worktree on "
-            "Linear's branch name, then launch Codex CLI in that worktree."
+            "Linear's branch name, then launch the chosen harness CLI in that "
+            "worktree running handle-ticket."
         ),
         add_help=False,
+    )
+    parser.add_argument(
+        "--harness",
+        choices=HARNESSES,
+        default="codex",
+        help="harness CLI to launch in the worktree (default: codex)",
     )
     parser.add_argument("--base", default="HEAD", help="base ref for new branches")
     parser.add_argument(
@@ -321,9 +355,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="directory for Git worktrees, relative to the repo root by default",
     )
     parser.add_argument(
+        "--harness-bin",
         "--codex-bin",
-        default=os.environ.get("CODEX_BIN", "codex"),
-        help="Codex executable to launch",
+        dest="harness_bin",
+        default=None,
+        help="harness executable to launch (defaults per --harness)",
     )
     parser.add_argument(
         "--branch",
@@ -348,7 +384,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="append",
         default=[],
         help=(
-            "extra instruction text passed through to handle-ticket-inner; "
+            "extra instruction text passed through to handle-ticket; "
             "repeatable, and combined with any freeform words after the ticket"
         ),
     )
@@ -361,7 +397,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        help="Codex model to pass through as --model",
+        help="model to pass through as --model (both harnesses)",
     )
     parser.add_argument(
         "-e",
@@ -370,15 +406,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Codex reasoning effort; expands to -c model_reasoning_effort",
     )
     parser.add_argument(
+        "--harness-arg",
         "--codex-arg",
+        dest="harness_arg",
         action="append",
         default=[],
-        help="extra argument passed to Codex before -C; repeat for multiple args",
+        help=(
+            "extra argument passed to the harness CLI before the worktree/prompt "
+            "args; repeat for multiple args"
+        ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="print the worktree and Codex command without launching Codex",
+        help="print the worktree and launch command without launching",
     )
     parser.add_argument(
         "-h",
@@ -388,8 +429,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     recognized_with_values = {
+        "--harness",
         "--base",
         "--worktree-root",
+        "--harness-bin",
         "--codex-bin",
         "--branch",
         "-v",
@@ -401,15 +444,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--model",
         "-e",
         "--effort",
+        "--harness-arg",
         "--codex-arg",
     }
     recognized_flags = {"--dry-run", "-h", "--help"}
 
     if "--" in argv:
         delimiter_index = argv.index("--")
-        argv, codex_passthrough = argv[:delimiter_index], argv[delimiter_index + 1 :]
+        argv, passthrough = argv[:delimiter_index], argv[delimiter_index + 1 :]
     else:
-        codex_passthrough = []
+        passthrough = []
 
     option_args: list[str] = []
     positional: list[str] = []
@@ -445,10 +489,31 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         parser.error("missing Linear issue identifier, e.g. PRO-123")
     args.ticket = positional[0]
     args.directions = positional[1:]
-    args.codex_passthrough = codex_passthrough
+    args.passthrough = passthrough
+    if args.harness_bin is None:
+        args.harness_bin = HARNESS_BIN[args.harness]
     if args.branch and args.branch_version:
         parser.error("--branch and --version are mutually exclusive")
+    if args.effort and args.harness != "codex":
+        parser.error("--effort is only supported with --harness codex")
     return args
+
+
+def launch_command(
+    args: argparse.Namespace,
+    worktree_path: Path,
+    prompt: str,
+) -> list[str]:
+    """The exec argv for the chosen harness.
+
+    Codex re-anchors its cwd with `-C <worktree>`. Claude Code has no such flag,
+    so the caller chdir()s into the worktree first and Claude takes the prompt as
+    a leading positional argument.
+    """
+    cli_args = harness_cli_args(args)
+    if args.harness == "codex":
+        return [args.harness_bin, *cli_args, "-C", str(worktree_path), prompt]
+    return [args.harness_bin, *cli_args, prompt]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -464,7 +529,7 @@ def main(argv: list[str] | None = None) -> int:
         if not branch:
             raise SystemExit("--branch must not be empty")
     else:
-        branch = raw_branch or fallback_branch_name(ticket, title)
+        branch = raw_branch or fallback_branch_name(ticket, title, args.harness)
         if args.branch_version:
             branch = branch_with_suffix(branch, ticket, args.branch_version)
         else:
@@ -497,9 +562,11 @@ def main(argv: list[str] | None = None) -> int:
             args.instructions,
             args.directions,
         ),
+        args.harness,
     )
-    codex_cmd = [args.codex_bin, *codex_args(args), "-C", str(worktree_path), prompt]
+    launch_cmd = launch_command(args, worktree_path, prompt)
 
+    print(f"harness: {args.harness}", file=sys.stderr)
     print(f"ticket: {ticket}", file=sys.stderr)
     print(f"title: {title}", file=sys.stderr)
     print(f"branch: {branch}", file=sys.stderr)
@@ -512,12 +579,23 @@ def main(argv: list[str] | None = None) -> int:
             f"{shell_join(ui_install_command())})",
             file=sys.stderr,
         )
-    print(f"codex: {shell_join(codex_cmd)}", file=sys.stderr)
+    if args.harness == "claude":
+        print(
+            f"launch: (cd {shlex.quote(str(worktree_path))} && "
+            f"{shell_join(launch_cmd)})",
+            file=sys.stderr,
+        )
+    else:
+        print(f"launch: {shell_join(launch_cmd)}", file=sys.stderr)
 
     if args.dry_run:
         return 0
 
-    os.execvp(args.codex_bin, codex_cmd)
+    # Claude Code has no -C: start it from inside the worktree so its cwd is the
+    # worktree from the first turn.
+    if args.harness == "claude":
+        os.chdir(worktree_path)
+    os.execvp(args.harness_bin, launch_cmd)
     return 127
 
 

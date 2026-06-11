@@ -11,6 +11,7 @@ For full CLI documentation, invoke the `linear-cli` skill.
 The CLI has **read-write access**. You can look up and update issues.
 
 **Do:**
+
 - Move an issue to In Progress when you start working on it:
   `linear issue update PRO-NNN --state "In Progress"`
 - Add comments to issues when you have useful context to record — prefixed
@@ -19,6 +20,7 @@ The CLI has **read-write access**. You can look up and update issues.
 - Look up issue details, branch names, status
 
 **Don't:**
+
 - Close issues or move them to Done. Let the GitHub integration handle
   that on PR merge (see "Linking work to issues" below).
 - Create issues directly. Use `/pm:capture` with a short description —
@@ -60,15 +62,15 @@ use:
   action. It's usually an ad-hoc judgment call rather than a fixed workflow
   step; the header is required whenever you comment.
 - **Ticket descriptions** you create or substantially rewrite — `linear issue
-  create`/`update --description-file …`, or the corresponding MCP tools.
+create`/`update --description-file …`, or the corresponding MCP tools.
 
 The header is **not** for fields where it doesn't belong — titles, labels, and
 state changes carry no header.
 
 ## Post a summary comment when you finish
 
-The section above governs *how* you write in Linear; this one makes one such
-write an *obligation*. **On finishing a ticket, you must post a concise summary
+The section above governs _how_ you write in Linear; this one makes one such
+write an _obligation_. **On finishing a ticket, you must post a concise summary
 of your work and findings as a comment on that ticket** — agent-header prefixed,
 mirroring the end-of-work summary you report in-session. Without it, a ticket's
 narrative lives only in the session transcript and (for code) the PR; for
@@ -85,11 +87,11 @@ durable, and is where a cross-ticket finding will actually be seen by a human.
 
 **What the summary should contain** — e.g.:
 
-- *What changed* — a short description of the work, linked to the PR where one
+- _What changed_ — a short description of the work, linked to the PR where one
   exists.
-- *Key decisions and findings* — what you decided and why, and anything you
+- _Key decisions and findings_ — what you decided and why, and anything you
   discovered that bears on the work.
-- *Spillover* — anything that affects or belongs to another ticket (name the
+- _Spillover_ — anything that affects or belongs to another ticket (name the
   `PRO-NNN`), so it surfaces where a human will see it rather than only in the
   transcript. The `--color-accent` token collision surfaced during PRO-292 is
   the kind of cross-ticket finding this is meant to capture.
@@ -106,6 +108,11 @@ Post it with the same mechanism and agent-header as above — preferably
 
 ## Branch naming
 
+For ticket work the launcher (`scripts/agents/ticket`) resolves and truncates the
+branch name and creates the worktree for you, so you normally don't apply this
+rule by hand. It's documented here for ad-hoc worktree creation and as the rule
+the launcher implements.
+
 When creating a branch or worktree for a Linear issue, **start from the branch name Linear suggests**, then truncate if needed:
 
 ```bash
@@ -119,7 +126,9 @@ Linear's branch names include the issue ID (e.g. `feature/pro-136-give-agents-in
 - Full: `feature/pro-136-give-agents-instructions-on-where-to-put-worktrees`
 - Truncated: `feature/pro-136-give-agents-instructions`
 
-Pass the result as the branch name to `EnterWorktree` (with path `.claude/worktrees/<branch-name>`). Do not use `git worktree add` separately — `EnterWorktree` handles both creation and entry.
+For ad-hoc worktree creation, pass the result as the branch name to
+`EnterWorktree` (with path `.claude/worktrees/<branch-name>`); do not use
+`git worktree add` separately — `EnterWorktree` handles both creation and entry.
 
 ## Getting issue details
 

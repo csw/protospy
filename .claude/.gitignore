@@ -8,8 +8,8 @@
 /commands
 /settings.local.json
 /skills/*
-!/skills/handle-ticket-inner/
-!/skills/handle-ticket-inner/**
+!/skills/handle-ticket/
+!/skills/handle-ticket/**
 !/skills/shadcn
 !/skills/vercel-react-best-practices
 !/skills/vercel-composition-patterns
