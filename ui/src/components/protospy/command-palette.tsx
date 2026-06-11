@@ -69,6 +69,10 @@ export function CommandPalette({ onFocusFilter }: CommandPaletteProps) {
     fn();
     setOpen(false);
   };
+  const runAfterClose = (fn: () => void) => () => {
+    setOpen(false);
+    requestAnimationFrame(fn);
+  };
   const hasFilter = filter.trim() !== "" || traceFilter != null;
 
   // distinct traces present in the feed, with member counts + first member id
@@ -142,7 +146,7 @@ export function CommandPalette({ onFocusFilter }: CommandPaletteProps) {
 
         <CommandGroup heading="Filter">
           {onFocusFilter && (
-            <CommandItem onSelect={run(onFocusFilter)}>
+            <CommandItem onSelect={runAfterClose(onFocusFilter)}>
               <Search className="size-4" />
               Focus the filter
               <CommandShortcut>/</CommandShortcut>

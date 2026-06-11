@@ -23,11 +23,9 @@ const toggleVariants = cva(
         // recess, no accent. Keyed off data-[state=on] (stock shadcn default):
         // ToggleGroup items aren't tooltip-wrapped, and data-state is set for
         // both type="single" and type="multiple", sidestepping the
-        // aria-checked-vs-aria-pressed split. Shadow is theme-aware — the 5%
-        // light shadow is invisible on a dark raised pane, so a dark override
-        // carries the elevation cue there.
+        // aria-checked-vs-aria-pressed split.
         segmented:
-          "bg-transparent text-muted-foreground hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-[0_1px_1px_rgba(0,0,0,.05)] dark:data-[state=on]:shadow-[0_1px_2px_rgba(0,0,0,.35)]",
+          "bg-transparent text-muted-foreground hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-xs dark:data-[state=on]:shadow-sm",
       },
       size: {
         default: "h-9 min-w-9 px-2",

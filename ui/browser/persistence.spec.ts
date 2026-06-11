@@ -146,9 +146,7 @@ test.describe("localStorage persistence", () => {
       table: number;
     };
     expect(listWidth.rows).toBe(38);
-    // The mounted resizable panel owns the active table width; after reload it
-    // reports its scaffold percentage including the 1px separator.
-    expect(listWidth.table).toBeCloseTo(46, 0);
+    expect(listWidth.table).toBeCloseTo(55, 0);
     expect(await getStoreState(page, "traceGroupOn")).toBe(true);
     expect(await getThemePreference(page)).toBe("light");
     expect(await getResolvedTheme(page)).toBe("light");

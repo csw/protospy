@@ -88,6 +88,7 @@ function ShellInner({
   const filterRef = useRef<HTMLInputElement>(null);
   const listPanelRef = usePanelRef();
   const prevConnection = useRef<ApiConnectionStatus | null>(null);
+  const appliedInitialPanelSize = useRef<string | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
 
   const applyEvent = useStore((s) => s.applyEvent);
@@ -100,6 +101,7 @@ function ShellInner({
   const setListWidth = useStore((s) => s.setListWidth);
   const listWidth = useStore((s) => s.listWidth);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
+  const currentListWidth = listWidth[listMode];
 
   useGlobalKeys(filterRef);
 
@@ -112,6 +114,7 @@ function ShellInner({
         setInfo(fetchedInfo);
         const svc = fetchedInfo.services[0];
         if (svc == null) return;
+        if (useStore.getState().service != null) return;
         setService(svc.name);
         setProtocol(svc.protocol);
       })
@@ -147,6 +150,15 @@ function ShellInner({
     return cleanup;
   }, [service, applyEvent, setConnection]);
 
+  useLayoutEffect(() => {
+    appliedInitialPanelSize.current = null;
+    const frame = requestAnimationFrame(() => {
+      listPanelRef.current?.resize(`${currentListWidth}%`);
+      appliedInitialPanelSize.current = listMode;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [currentListWidth, listMode, listPanelRef]);
+
   const selectedService = info?.services.find((svc) => svc.name === service);
   const services =
     info == null
@@ -174,7 +186,12 @@ function ShellInner({
           <ResizablePanel
             defaultSize={`${listWidth[listMode]}%`}
             minSize="26%"
-            onResize={(size) => setListWidth(listMode, size.asPercentage)}
+            onResize={(size) => {
+              if (appliedInitialPanelSize.current !== listMode) return;
+              const savedWidth = useStore.getState().listWidth[listMode];
+              if (Math.abs(savedWidth - size.asPercentage) < 0.05) return;
+              setListWidth(listMode, size.asPercentage);
+            }}
             panelRef={listPanelRef}
             className="flex min-w-0 flex-col"
           >
@@ -191,7 +208,11 @@ function ShellInner({
             }}
           />
 
-          <ResizablePanel minSize="30%" className="min-w-0">
+          <ResizablePanel
+            defaultSize={`${100 - listWidth[listMode]}%`}
+            minSize="30%"
+            className="min-w-0"
+          >
             <InspectorPanel
               renderBodySplit={renderBodySplit}
               renderMsearch={renderMsearch}
@@ -461,17 +482,20 @@ function useGlobalKeys(filterRef: React.RefObject<HTMLInputElement | null>) {
         (t.tagName === "INPUT" ||
           t.tagName === "TEXTAREA" ||
           t.isContentEditable);
+      const s = useStore.getState();
+
+      if (s.cmdKOpen || s.helpOpen) {
+        return;
+      }
 
       // ⌘K / Ctrl-K — toggle palette (works even while typing)
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        const s = useStore.getState();
         s.setCmdKOpen(!s.cmdKOpen);
         return;
       }
       if (typing) return;
 
-      const s = useStore.getState();
       const ids = selectVisibleIds(s);
       const move = (delta: number) => {
         if (ids.length === 0) return;

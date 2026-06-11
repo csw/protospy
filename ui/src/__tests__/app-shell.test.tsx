@@ -126,6 +126,7 @@ describe("AppShell", () => {
       .querySelectorAll("[data-panel]");
     expect(panels[0]).toHaveAttribute("data-default-size", "46%");
     expect(panels[0]).toHaveAttribute("data-min-size", "26%");
+    expect(panels[1]).toHaveAttribute("data-default-size", "54%");
     expect(panels[1]).toHaveAttribute("data-min-size", "30%");
     expect(screen.getByText("body 1 Elasticsearch")).toBeInTheDocument();
 
@@ -141,5 +142,60 @@ describe("AppShell", () => {
     act(() => useStore.getState().setHelpOpen(false));
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     expect(useStore.getState().cmdKOpen).toBe(true);
+  });
+
+  it("does not let late backend discovery override a selected service", async () => {
+    let resolveInfo: (
+      value: Awaited<ReturnType<typeof import("@ui/api/info").fetchInfo>>,
+    ) => void = () => {};
+    mocks.fetchInfo.mockReturnValue(
+      new Promise((resolve) => {
+        resolveInfo = resolve;
+      }),
+    );
+    useStore.getState().setService("search");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    resolveInfo({
+      started_at: "2026-06-11T00:00:00Z",
+      services: [
+        {
+          name: "api",
+          addr: "127.0.0.1:3000",
+          target: "http://localhost:9200",
+          protocol: "Elasticsearch",
+          subscribers: 0,
+        },
+        {
+          name: "search",
+          addr: "127.0.0.1:3001",
+          target: "http://localhost:9300",
+          protocol: "Elasticsearch",
+          subscribers: 0,
+        },
+      ],
+    });
+
+    expect(await screen.findByText("search")).toBeInTheDocument();
+    expect(useStore.getState().service).toBe("search");
+  });
+
+  it("does not run global navigation shortcuts while dialogs are open", () => {
+    applyMessages(makeGetRequest(1, "/one"), makeGetRequest(2, "/two"));
+    useStore.getState().setSelectedId(1);
+    useStore.getState().setCmdKOpen(true);
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    fireEvent.keyDown(window, { key: "j" });
+    expect(useStore.getState().selectedId).toBe(1);
+
+    act(() => {
+      useStore.getState().setCmdKOpen(false);
+      useStore.getState().setHelpOpen(true);
+    });
+    fireEvent.keyDown(window, { key: "/" });
+    expect(screen.getByLabelText("Filter requests")).not.toHaveFocus();
   });
 });

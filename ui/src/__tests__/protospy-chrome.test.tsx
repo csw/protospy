@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Exchange } from "@ui/state/reducer";
 import { render } from "@ui/test/render";
@@ -115,7 +115,7 @@ describe("protospy chrome components", () => {
     expect(useStore.getState().listMode).toBe("rows");
   });
 
-  it("runs command palette commands and trace jumps", () => {
+  it("runs command palette commands and trace jumps", async () => {
     const traceId = "abcdef0123456789abcdef0123456789";
     applyMessages(
       makeRequestWithTrace(3, traceId, "/traced"),
@@ -132,7 +132,8 @@ describe("protospy chrome components", () => {
 
     act(() => useStore.getState().setCmdKOpen(true));
     fireEvent.click(screen.getByText("Focus the filter"));
-    expect(onFocusFilter).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onFocusFilter).toHaveBeenCalledOnce());
+    expect(useStore.getState().cmdKOpen).toBe(false);
 
     act(() => useStore.getState().setCmdKOpen(true));
     fireEvent.click(screen.getByRole("option", { name: /trace abcd/i }));
