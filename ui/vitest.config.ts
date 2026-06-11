@@ -45,8 +45,10 @@ export default defineConfig({
         // interactive scaffolds (app shell, chrome bars, command palette,
         // shortcuts overlay, grouped trace list, chat stream view, and the
         // empty/body-state/connection-dot atoms) as un-wired source — excluded
-        // until the per-surface wire slices import and exercise them.
-        "src/components/protospy/msearch-view.tsx",
+        // until the per-surface wire slices import and exercise them. PRO-362
+        // (Slice 5) cleaned up msearch-view (import-unify + direct component
+        // tests), so it is now covered even though its paired content stays a
+        // placeholder until PRO-56 wires the app-computed pairing.
         "src/components/protospy/app-shell.tsx",
         "src/components/protospy/top-bar.tsx",
         "src/components/protospy/filter-bar.tsx",
