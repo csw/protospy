@@ -6,20 +6,23 @@
 // tab strip (see inspector.tsx), passed in as `view`.
 //
 // This is the chrome + correlation logic; the per-sub-body rendering delegates to
-// your JsonViewer. Summary stats are ES-specific and computed by app code.
-
-"use client";
+// the live JsonViewer (passed in as the `requestBody`/`responseBody` slots).
+// Summary stats are ES-specific and computed by app code.
+//
+// PRO-362 (Slice 5): import-unified (@/ → @ui/) and brought under vitest coverage.
+// The component is intentionally not yet mounted — the in-Bodies Paired view renders
+// a placeholder; wiring app-computed `SubExchange[]` pairing into it is PRO-56.
 
 // PRO-341: dropped unused `useState` import from the v2.3 scaffold (the
 // Collapsible primitives manage their own open state) to satisfy noUnusedLocals.
 import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { statusClass, type StatusKind } from "@/lib/tokens";
+import { cn } from "@ui/lib/utils";
+import { statusClass, type StatusKind } from "@ui/lib/tokens";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@ui/components/ui/collapsible";
 
 export interface SubExchange {
   index: string; // target index name
@@ -128,10 +131,7 @@ export function MsearchView({
               focusedIndex === i && "border-primary ring-1 ring-primary",
             )}
           >
-            <CollapsibleTrigger
-              onMouseEnter={() => {}}
-              className="group flex w-full items-center gap-2.5 border-b bg-secondary px-2.5 py-2 text-left"
-            >
+            <CollapsibleTrigger className="group flex w-full items-center gap-2.5 border-b bg-secondary px-2.5 py-2 text-left">
               <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
               <IndexBadge n={i + 1} focused={focusedIndex === i} />
               <Stats sub={sub} />
