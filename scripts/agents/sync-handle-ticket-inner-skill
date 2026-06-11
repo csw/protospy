@@ -55,12 +55,11 @@ def _render(harness: str) -> str:
 
 def _prettify(content: str, path: Path) -> str:
     result = subprocess.run(
-        ["pnpm", "exec", "prettier", "--stdin-filepath", str(path)],
+        ["prettier", "--stdin-filepath", path.name],
         input=content,
         capture_output=True,
         text=True,
         check=True,
-        cwd=REPO_ROOT / "ui",
     )
     return result.stdout
 
