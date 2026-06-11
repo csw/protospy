@@ -110,8 +110,9 @@ read `rowPx`.
 | **SSE stream view** | `stream-view.tsx` | custom |
 | Method badge / status / trace pill / connection dot | `protospy/*` atoms | custom |
 
-If a need isn't listed and a shadcn primitive fits → use it. Custom is only for the
-content-centric core above.
+This table is illustrative, not exhaustive. If a need isn't listed and a shadcn
+or Radix primitive fits → use it. Custom is only for the content-centric core
+above.
 
 ---
 
@@ -146,6 +147,13 @@ content-centric core above.
     command.
 13. **Theme** cycles three states: light → dark → system.
 14. **No synthetic timing waterfall.** Timing tab = facts only, "bytes" terminology.
+15. **Primitive over hand-roll.** Prefer the stock shadcn/Radix primitive over a
+    hand-rolled equivalent (`button`, toggle, switch, tooltip, dialog, ...). The
+    §3 table is illustrative, not exhaustive: an interactive element whose
+    semantics match an existing primitive must use it, even if that exact
+    affordance is not a listed row. Example: a two-state selection uses
+    `Toggle`/`aria-pressed`, not a bespoke `<button>` state machine. Custom is
+    only for the content-centric core named in §3.
 
 ---
 
