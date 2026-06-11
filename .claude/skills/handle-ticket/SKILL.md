@@ -10,12 +10,13 @@ Handle Linear ticket **$ticket** end-to-end from the worktree the ticket
 launcher placed you in. Work through the steps below in order. Stop and surface
 blockers rather than guessing through them.
 
-Read `docs/agents/implementation.md` before starting. You do **not** need to
-read all of `docs/agents/linear.md` for the standard flow — the rules this skill
-exercises are inlined at point of use: the `linear issue view --json` command in
-step 1, and the agent-header comment format and summary-comment obligation in
-steps 9–10. Open `linear.md` only when a step's point-of-use reference sends you
-there.
+The setup scout (step 2) reads `docs/agents/implementation.md` and the other
+applicable guides for you and returns their rules in an orientation brief — you
+do **not** read them raw. You also do **not** need to read all of
+`docs/agents/linear.md` for the standard flow — the rules this skill exercises
+are inlined at point of use: the agent-header comment format and summary-comment
+obligation in steps 9–10. Open `linear.md` only when a step's point-of-use
+reference sends you there.
 
 **Your directions.** Everything after the ticket ID is freeform direction for
 this run. `$ARGUMENTS` is the full invocation as typed; the ticket ID is
@@ -32,34 +33,13 @@ directions, run the standard flow exactly as written.
 
 ---
 
-## 1 — Fetch the ticket
-
-```bash
-linear issue view $ticket --json
-```
-
-Extract `title`, `description`, and `url`. Read the description fully — it
-defines the scope of work. Save `title` and `url` (the Linear ticket URL) — both
-are needed when writing review front matter in step 8. Derive the app URL by
-replacing the `https://` scheme with `linear://` (e.g. `https://linear.app/...` →
-`linear://linear.app/...`).
-
-If the issue has a parent or children, follow the Linear-ticket guidance in
-`CLAUDE.md`: read the parent and inspect sibling titles, and open any
-sibling whose title suggests it bears on this work.
-
-The ticket launcher already resolved the branch and created the worktree you are
-in. Use the current Git branch as-is; do not derive, truncate, create, or check
-out a branch yourself unless the user's directions explicitly ask you to.
-
----
-
-## 2 — Verify the worktree and branch
+## 1 — Verify the worktree and branch
 
 The launcher started this session inside an isolated worktree on the ticket
 branch, so this is just a cheap safety net in case the skill was invoked some
-other way. This skill must not create worktrees, switch branches, or move the
-checkout.
+other way. It runs **first** so a misplaced session fails fast — before the
+scout (step 2) spends any tokens. This skill must not create worktrees, switch
+branches, or move the checkout.
 
 Confirm the current checkout is a linked worktree, not the main/local checkout,
 using Git's worktree metadata rather than path assumptions:
@@ -84,7 +64,10 @@ Then confirm the current branch looks like it belongs to `$ticket`:
 git branch --show-current
 ```
 
-If it does not match, stop and surface the mismatch rather than switching or
+The launcher already resolved the branch and created the worktree you are in;
+use the current branch as-is — do not derive, truncate, create, or check out a
+branch yourself unless the user's directions explicitly ask you to. If it does
+not match `$ticket`, stop and surface the mismatch rather than switching or
 repairing branches. If the user says to start fresh, ignore prior branches and
 PRs for the ticket and continue as an independent run on the current
 branch/worktree; do not continue, repair, push to, or create a PR from an older
@@ -95,18 +78,58 @@ this worktree on this branch.
 
 ---
 
+## 2 — Orient: run the setup scout
+
+Before implementing, get a compact orientation brief from the **`setup-scout`**
+subagent instead of reading the ticket and guidance files yourself. The scout
+runs on a cheap model (Haiku / GPT-5.4-mini) and does the rote reads — ticket
+fetch, parent/sibling reads, the applicable `docs/agents/` guides, and the
+relevant subproject `CLAUDE.md` — returning a ~2–3k-token brief. This is the
+orientation that otherwise burns a large fraction of the implementer's context,
+almost all of it thinking tokens, before a line of code.
+
+**Spawn the `setup-scout` subagent** (`subagent_type: "setup-scout"`) via the
+Agent tool — it is pinned to Haiku and is read-only.
+Give it this prompt:
+
+> Produce the orientation brief for $ticket. Fetch the ticket, read its parent
+> and any bearing siblings, read the applicable `docs/agents/` guides and the
+> relevant subproject `CLAUDE.md`, and return the compact brief exactly as your
+> instructions specify.
+
+If the scout fails to start, retry once. If it still fails, **fall back to doing
+the orientation reads yourself** — `linear issue view $ticket --json` (extract
+`title`, `description`, `url`, `branchName`; derive the app URL by swapping
+`https://` for `linear://`), read the parent and any bearing siblings, and read
+`docs/agents/implementation.md` plus every other guide whose `## Specific
+Guidelines` trigger in `CLAUDE.md` applies, and the relevant subproject
+`CLAUDE.md`. This is the costlier path the scout exists to avoid; note in-session
+that you took it. Do not block the ticket on a missing scout.
+
+From the returned brief, record the ticket **title**, **Linear url**, and
+**app-url** — step 8 needs the title and url verbatim for the review front
+matter. Carry the brief forward; it is your source of truth for ticket scope and
+the guidance rules through the rest of this run.
+
+At this point, set the ticket to **In Progress** in Linear.
+
+---
+
 ## 3 — Implement
 
-At this point, set the ticket to 'In Progress' in Linear.
+You already have the orientation brief from step 2. **Work from it — do not
+re-read the ticket description or the `docs/agents/` guides the brief already
+covers.** Re-reading them raw is exactly the cost the scout removed; a second
+pass on the Opus implementer defeats the purpose. Read a full guide on demand
+only when you need specific detail the brief flags but does not contain (e.g. a
+particular code sample) — not as a matter of routine.
 
-Before writing any code, consult the `docs/agents/` files relevant to the type
-of work. You do **not** need to read the subproject's `CLAUDE.md` manually — the
-harness auto-injects it the first time you `Read` any file under that
-subproject's tree (e.g. `ui/CLAUDE.md` on your first `ui/` file read), which
-always precedes your first edit. Reading it explicitly just duplicates ~6k
-tokens of identical content in context.
+You also do **not** need to read the subproject's `CLAUDE.md` manually — the
+brief captured its rules, and the harness also auto-injects it the first time you
+`Read` any file under that subproject's tree (e.g. `ui/CLAUDE.md` on your first
+`ui/` file read), which always precedes your first edit.
 
-**Scope.** Read the ticket description, then construe scope broadly — this is a
+**Scope.** Construe the ticket's scope (from the brief) broadly — this is a
 requirement, not permission to decline. You **must** fix adjacent defects you
 encounter in code you are already editing when the fix is the same nature and
 similar magnitude as the ticket work: another bug in the same script you're
@@ -271,8 +294,9 @@ round exist or the user explicitly changes the workflow.
 
 ### Maintainer review instructions (relay if present)
 
-Before spawning the reviews, check the ticket description (fetched in step 1)
-for a `## Reviewer instructions` section. If it exists, its body is
+Before spawning the reviews, check the ticket description for a
+`## Reviewer instructions` section — the step-2 brief reproduces it verbatim if
+present (re-fetch with `linear issue view $ticket --json` if you need to confirm). If it exists, its body is
 maintainer-authored guidance written for **this PR's** reviewers — relay it
 **verbatim** into the 7a, 7b, and 7c prompts, appended as the block below. It
 carries what a diff-scoped review can't infer on its own: a mechanism the PR
@@ -405,14 +429,14 @@ identical links list:
 ```yaml
 ---
 ticket: $ticket
-title: "<ticket title from step 1>"
+title: "<ticket title from step 2>"
 pr: <PR-number>
 round: <N>
 date: <today's date>
 type: <named per report>
 ---
 
-- **Linear**: [$ticket](<url from step 1>) ([App: $ticket](<app-url from step 1>))
+- **Linear**: [$ticket](<url from step 2>) ([App: $ticket](<app-url from step 2>))
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 

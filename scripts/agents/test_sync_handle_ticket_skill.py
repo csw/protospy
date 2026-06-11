@@ -63,7 +63,7 @@ class GenerationTests(unittest.TestCase):
     def test_claude_skill_contains_claude_specific_content(self) -> None:
         generated = sync_handle_ticket_skill.generate_claude_skill()
         self.assertIn("Use the Opus model at high effort", generated)
-        self.assertIn("`model: sonnet`", generated)
+        self.assertIn("already pinned to Sonnet", generated)
         self.assertIn("just claude-ticket", generated)
         self.assertIn("**Claude agent (handle-ticket)**", generated)
 
