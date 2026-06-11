@@ -82,7 +82,7 @@ describe("ToggleGroup", () => {
     expect(root).not.toHaveClass("overflow-hidden");
   });
 
-  it("applies border classes when size is sm (catalog density target)", () => {
+  it("applies border classes when size is sm (catalog density target, default on)", () => {
     const { container } = render(
       <ToggleGroup type="single" value="a" onValueChange={() => {}} size="sm">
         <ToggleGroupItem value="a">A</ToggleGroupItem>
@@ -91,6 +91,22 @@ describe("ToggleGroup", () => {
     const root = container.querySelector('[data-slot="toggle-group"]');
     expect(root).toHaveClass("border", "border-border");
     expect(root).not.toHaveClass("overflow-hidden");
+  });
+
+  it("suppresses border when size is sm and bordered is false", () => {
+    const { container } = render(
+      <ToggleGroup
+        type="single"
+        value="a"
+        onValueChange={() => {}}
+        size="sm"
+        bordered={false}
+      >
+        <ToggleGroupItem value="a">A</ToggleGroupItem>
+      </ToggleGroup>,
+    );
+    const root = container.querySelector('[data-slot="toggle-group"]');
+    expect(root).not.toHaveClass("border-border");
   });
 
   it("renders as a segmented control: secondary track, items carry the segmented on-state fill (PRO-321)", () => {

@@ -13,7 +13,7 @@ const ToggleGroupContext = React.createContext<
 
 function ToggleGroup({
   className,
-  bordered = false,
+  bordered,
   size,
   children,
   ...props
@@ -30,7 +30,8 @@ function ToggleGroup({
       data-size={size}
       className={cn(
         "group/toggle-group flex w-fit items-center rounded-md bg-secondary",
-        (bordered || size === "sm") && "border border-border",
+        (size === "sm" ? bordered !== false : bordered) &&
+          "border border-border",
         className,
       )}
       {...props}
