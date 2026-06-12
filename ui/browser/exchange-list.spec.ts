@@ -46,6 +46,12 @@ test.describe("Exchange list — rows mode", () => {
   });
 
   test("1.1 shows empty state when no exchanges", async ({ page }) => {
+    // Initial store connection is "connecting" (shows skeleton); set to "open"
+    // to reach the first-run empty state this test targets.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setConnection("open");
+    });
     await expect(page.getByText("No requests yet")).toBeVisible();
     await expect(
       page.getByText(

@@ -179,6 +179,50 @@ describe("AppShell", () => {
     expect(useStore.getState().service).toBe("search");
   });
 
+  it("shows first-run state before the delay fires when connection is 'connecting'", () => {
+    vi.useFakeTimers();
+    useStore.getState().setConnection("connecting");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    expect(screen.getByText("No requests yet")).toBeInTheDocument();
+    expect(screen.queryByText("Connecting to proxy…")).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("shows connecting state after 300ms delay when connection is 'connecting'", () => {
+    vi.useFakeTimers();
+    useStore.getState().setConnection("connecting");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+    act(() => vi.advanceTimersByTime(350));
+
+    expect(screen.getByText("Connecting to proxy…")).toBeInTheDocument();
+    expect(screen.queryByText("No requests yet")).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("shows connecting state after 300ms delay when connection is 'reconnecting'", () => {
+    vi.useFakeTimers();
+    useStore.getState().setConnection("reconnecting");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+    act(() => vi.advanceTimersByTime(350));
+
+    expect(screen.getByText("Connecting to proxy…")).toBeInTheDocument();
+    expect(screen.queryByText("No requests yet")).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("shows first-run empty state when connected with no exchanges", () => {
+    useStore.getState().setConnection("open");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    expect(screen.getByText("No requests yet")).toBeInTheDocument();
+    expect(screen.queryByText("Connecting to proxy…")).not.toBeInTheDocument();
+  });
+
   it("does not run global navigation shortcuts while dialogs are open", () => {
     applyMessages(makeGetRequest(1, "/one"), makeGetRequest(2, "/two"));
     useStore.getState().setSelectedId(1);

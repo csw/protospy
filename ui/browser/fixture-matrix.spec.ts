@@ -78,14 +78,20 @@ test.describe("Fixture matrix", () => {
         await expect(page.getByText("Requests").first()).toBeVisible();
 
         // Scene-specific signal that injection actually took effect.
-        if (scene.id === "empty" || scene.id === "loading") {
+        if (scene.id === "empty") {
           await expect(page.getByText("No requests yet")).toBeVisible();
+          await expect(page.getByText("connected")).toBeVisible();
         }
         if (scene.id === "loading") {
-          await expect(page.getByText("connecting")).toBeVisible();
-        }
-        if (scene.id === "empty") {
-          await expect(page.getByText("connected")).toBeVisible();
+          // "loading" shows a connecting message (not "No requests yet")
+          // because connection is "connecting" — the distinguishable affordance.
+          // The 300ms delay means assertions use Playwright's built-in retry.
+          await expect(page.getByText("Connecting to proxy…")).toBeVisible();
+          // Verify the EmptyState connecting variant itself, not just ConnectionDot.
+          await expect(page.getByTestId("connecting-state")).toBeVisible();
+          await expect(
+            page.getByRole("status", { name: "connecting…" }).first(),
+          ).toBeVisible();
         }
         if (scene.id === "many-rows") {
           await expect(page.getByText("120 requests").first()).toBeVisible();
