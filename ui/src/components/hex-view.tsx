@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import {
   useVirtualizer,
   observeElementRect as defaultObserveRect,
@@ -47,7 +47,7 @@ const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
  * clipping its ASCII gutter inside a narrow split pane.
  */
 export function HexView({ bytes }: Props) {
-  const rowCount = useMemo(() => hexRowCount(bytes.length), [bytes]);
+  const rowCount = hexRowCount(bytes.length);
   const parentRef = useRef<HTMLDivElement>(null);
 
   // React Compiler bails on useVirtualizer (react-hooks/incompatible-library);
@@ -81,7 +81,7 @@ export function HexView({ bytes }: Props) {
           return (
             <div
               key={vRow.key}
-              className="whitespace-pre px-3 hover:bg-accent"
+              className="whitespace-pre px-3 hover:bg-hover"
               style={{
                 position: "absolute",
                 top: 0,

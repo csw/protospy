@@ -329,11 +329,21 @@ test.describe("Inspector — body view-mode selector", () => {
     // Parsed by default → JSON viewer present, no raw/hex viewer.
     await expect(page.getByLabel("JSON viewer").first()).toBeVisible();
 
+    // Hex: assert real dump rows render through the production virtualizer
+    // (not just the container) — the request body is '{"hello":"world"}', so
+    // the first byte '{' is 0x7b and the ASCII gutter shows the text. Mirrors
+    // the JsonViewer real-render assertions in body-large.spec.ts.
     await page.getByText("Hex", { exact: true }).click();
-    await expect(page.getByLabel("Hex viewer").first()).toBeVisible();
+    const hex = page.getByLabel("Hex viewer").first();
+    await expect(hex).toBeVisible();
+    await expect(hex).toContainText("7b");
+    await expect(hex).toContainText("hello");
 
+    // Raw: the decoded source text renders with its line-number gutter.
     await page.getByText("Raw", { exact: true }).click();
-    await expect(page.getByLabel("Raw body viewer").first()).toBeVisible();
+    const raw = page.getByLabel("Raw body viewer").first();
+    await expect(raw).toBeVisible();
+    await expect(raw).toContainText('{"hello":"world"}');
   });
 });
 
