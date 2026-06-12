@@ -25,7 +25,7 @@ export function EmptyState({ kind = "first-run", className }: EmptyStateProps) {
         )}
       >
         <span className="mb-1 inline-flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-          <Radio className="size-5" />
+          <Radio className="size-5 animate-pulse" />
         </span>
         <span className="text-sm font-semibold text-foreground">
           Connecting to proxy…
