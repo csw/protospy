@@ -242,7 +242,7 @@ test.describe("Exchange list — table mode", () => {
     const header = page.getByTestId("exchange-table-header");
     await expect(header).toBeVisible();
 
-    for (const width of [1280, 1440, 1920]) {
+    for (const width of [1024, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       const overflows = await header.locator("span").evaluateAll((spans) =>
         spans.map((el) => ({
@@ -415,7 +415,7 @@ test.describe("Exchange list — table mode", () => {
     await expect(elapsed).toHaveText("98.8 s");
     await expect(time).toHaveText(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
 
-    for (const width of [1280, 1440, 1920]) {
+    for (const width of [1024, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       for (const [label, cell] of [
         ["ELAPSED", elapsed],
@@ -477,7 +477,7 @@ test.describe("Exchange list — table mode", () => {
     // a Range (intrinsic width, unaffected by the inner `truncate`) against the
     // cell's content box — the inner value span shrink-wraps its text, so
     // measuring slack on it alone would always read ~0.
-    for (const width of [1280, 1440, 1920]) {
+    for (const width of [1024, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       const slack = await sizeCell.evaluate((el) => {
         const range = document.createRange();
