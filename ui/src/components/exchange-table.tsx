@@ -216,7 +216,7 @@ export function ExchangeTable({
   }, [selectedId, rows, virtualizer]);
 
   // Grid template shared by header + rows. Path (col 3) is the only flexible one.
-  const gridCols = "56px 54px minmax(110px,1fr) 62px 96px 104px";
+  const gridCols = "56px 54px minmax(110px,480px) 62px 96px 104px";
 
   return (
     <div className="flex min-h-0 flex-1">

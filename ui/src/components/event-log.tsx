@@ -22,11 +22,20 @@ const EVENT_ROW_HEIGHT = 28;
  * Plain-text label color per SSE event type — semantic tokens only (no raw
  * palette colors). This is the scaffold's `EVENT_TYPE_CLASS`, replacing the
  * legacy filled-pill `eventTypeBadgeClass`.
+ *
+ * Color logic:
+ *   text-sse-lifecycle — lifecycle / boundary events (start, stop, block edges)
+ *   text-ok            — data-carrying events (deltas with actual content)
+ *   text-muted-foreground      — terminal or low-signal events (message_stop)
+ *   text-muted-foreground/70   — keepalive noise (ping)
+ *   text-secondary-foreground  — everything else (metadata, unknown)
  */
 export function eventTypeClass(type: string): string {
   switch (type) {
     case "message_start":
-      return "text-method-patch";
+    case "content_block_start":
+    case "content_block_stop":
+      return "text-sse-lifecycle";
     case "content_block_delta":
       return "text-ok";
     case "message_delta":

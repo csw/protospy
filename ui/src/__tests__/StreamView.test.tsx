@@ -353,8 +353,10 @@ describe("ChatStreamView — Anthropic protocol", () => {
       <ChatStreamView exchange={makeSSEExchange(ANTHROPIC_SSE)} />,
     );
     const label = screen.getByText("message_start");
-    expect(label).toHaveClass("text-method-patch"); // scaffold text label
+    expect(label).toHaveClass("text-sse-lifecycle"); // lifecycle boundary → amber
     expect(label).not.toHaveClass("text-purple-500"); // legacy pill gone
+    expect(label).not.toHaveClass("text-method-patch"); // not a borrowed method color
+    expect(label).not.toHaveClass("text-redirect"); // not a raw status namespace token
   });
 
   it("shows 'No events yet' when body is empty", async () => {
