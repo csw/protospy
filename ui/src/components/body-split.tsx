@@ -1,5 +1,6 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { Exchange } from "@ui/state/reducer";
+import { useStore } from "@ui/state/store";
 import { Separator } from "./ui/separator";
 import { BodyPane } from "./body-pane";
 import { StreamView } from "./stream-view";
@@ -30,6 +31,12 @@ export function BodySplit({ exchange, protocol }: Props) {
     exchange.status == null &&
     exchange.error == null;
 
+  // Shared body view mode (PRO-336). `paired` is an msearch-only layout handled
+  // upstream in Inspector (it supersedes this split), so here it falls back to
+  // the parsed per-pane rendering.
+  const bodyViewMode = useStore((s) => s.bodyViewMode);
+  const viewMode = bodyViewMode === "paired" ? "parsed" : bodyViewMode;
+
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       <div className="flex-1 overflow-hidden">
@@ -37,6 +44,7 @@ export function BodySplit({ exchange, protocol }: Props) {
           title="Request"
           body={exchange.requestBody}
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
+          viewMode={viewMode}
         />
       </div>
       <Separator
@@ -62,6 +70,7 @@ export function BodySplit({ exchange, protocol }: Props) {
             errorMessage={responseError}
             awaiting={awaitingResponse}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
+            viewMode={viewMode}
           />
         )}
       </div>

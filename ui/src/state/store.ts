@@ -9,6 +9,15 @@ import { apply } from "./reducer";
 import type { Exchange } from "./reducer";
 export type { Exchange, BodyState } from "./reducer";
 
+/** Per-pane body content render mode (parsed/raw/hex view-mode toggle, PRO-336). */
+export type ContentMode = "parsed" | "raw" | "hex";
+/**
+ * The body view-mode selector value: the generic content modes plus the
+ * type-specific msearch `paired` mode, which supersedes the request/response
+ * split rather than rendering per-pane (PRO-336).
+ */
+export type BodyViewMode = ContentMode | "paired";
+
 interface PersistedPrefs {
   listWidth: { rows: number; table: number };
   density: "regular" | "compact";
@@ -35,6 +44,12 @@ export interface StoreState extends PersistedPrefs {
   cmdKOpen: boolean;
   /** Keyboard-shortcuts (`?`) help overlay visibility. Session-only. */
   helpOpen: boolean;
+  /**
+   * Shared body view mode (parsed/raw/hex, plus msearch `paired`). Drives both
+   * request and response panes. Session-only: sticks across exchange selection,
+   * resets to `parsed` on refresh (NOT persisted — absent from `partialize`).
+   */
+  bodyViewMode: BodyViewMode;
 
   // Core actions
   applyEvent: (msg: EventMessage) => void;
@@ -66,6 +81,7 @@ export interface StoreState extends PersistedPrefs {
   setCmdKOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   setTimeZone: (tz: TimeZone) => void;
+  setBodyViewMode: (mode: BodyViewMode) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -91,6 +107,7 @@ export const useStore = create<StoreState>()(
         cmdKOpen: false,
         helpOpen: false,
         timeZone: "local",
+        bodyViewMode: "parsed",
 
         // Core actions
         applyEvent: (msg) =>
@@ -153,6 +170,8 @@ export const useStore = create<StoreState>()(
         setHelpOpen: (open) => set({ helpOpen: open }),
 
         setTimeZone: (tz) => set({ timeZone: tz }),
+
+        setBodyViewMode: (mode) => set({ bodyViewMode: mode }),
       }),
       {
         name: "protospy-ui-prefs",

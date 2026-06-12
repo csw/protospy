@@ -7,6 +7,7 @@ import {
 } from "./helpers/inject";
 import {
   makeGetRequest,
+  makePostRequest,
   makeResponse,
   makeCompleteExchange,
   makeSSEResponse,
@@ -277,11 +278,11 @@ test.describe("Inspector — Stream tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. msearch Paired ↔ Raw NDJSON toggle (replaces the legacy separate Pairs tab)
+// 6. Body view-mode selector (Parsed · Raw · Hex, plus Paired for msearch)
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — msearch toggle", () => {
-  test("6.1 in-Bodies Paired/Raw toggle appears for _msearch requests (no Pairs tab)", async ({
+test.describe("Inspector — body view-mode selector", () => {
+  test("6.1 msearch gains the Paired option alongside parsed/raw/hex (no Pairs tab)", async ({
     page,
   }) => {
     await setStoreProtocol(page, "Elasticsearch");
@@ -292,12 +293,16 @@ test.describe("Inspector — msearch toggle", () => {
 
     await page.getByText("/_msearch").first().click();
 
-    // The kept deviation: msearch is an in-Bodies toggle, not a separate tab.
+    // The kept deviation: msearch is an in-Bodies selector option, not a separate tab.
     await expect(page.getByRole("tab", { name: "Pairs" })).toHaveCount(0);
-    await expect(page.getByText("Raw NDJSON", { exact: true })).toBeVisible();
+    await expect(page.getByText("Paired", { exact: true })).toBeVisible();
+    await expect(page.getByText("Parsed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Hex", { exact: true })).toBeVisible();
   });
 
-  test("6.2 toggle is not shown for regular requests", async ({ page }) => {
+  test("6.2 regular requests get parsed/raw/hex but no Paired option", async ({
+    page,
+  }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/regular"),
       makeResponse(1, "200 OK"),
@@ -305,7 +310,30 @@ test.describe("Inspector — msearch toggle", () => {
 
     await page.getByText("/api/regular").first().click();
 
-    await expect(page.getByText("Raw NDJSON", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Parsed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Raw", { exact: true })).toBeVisible();
+    await expect(page.getByText("Hex", { exact: true })).toBeVisible();
+    await expect(page.getByText("Paired", { exact: true })).toHaveCount(0);
+  });
+
+  test("6.3 selecting Raw / Hex swaps the rendered body view", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makePostRequest(1, "/api/echo", '{"hello":"world"}'),
+      makeResponse(1, "200 OK", '{"ok":true}'),
+    ]);
+
+    await page.getByText("/api/echo").first().click();
+
+    // Parsed by default → JSON viewer present, no raw/hex viewer.
+    await expect(page.getByLabel("JSON viewer").first()).toBeVisible();
+
+    await page.getByText("Hex", { exact: true }).click();
+    await expect(page.getByLabel("Hex viewer").first()).toBeVisible();
+
+    await page.getByText("Raw", { exact: true }).click();
+    await expect(page.getByLabel("Raw body viewer").first()).toBeVisible();
   });
 });
 

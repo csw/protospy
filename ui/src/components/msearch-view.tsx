@@ -2,8 +2,9 @@
 // Request/response element correlation (Elasticsearch _msearch/_mget). Numbered
 // sub-cards aligned 1:1 across two columns. Responses are collapsed by default
 // (shadcn Collapsible) showing a summary; click to expand. Clicking a card head
-// focuses the pair on both sides. Paired ↔ Raw NDJSON is a toggle in the inspector
-// tab strip (see inspector.tsx), passed in as `view`.
+// focuses the pair on both sides. `Paired` is one option in the inspector tab
+// strip's body view-mode selector (see inspector.tsx); the other options
+// (parsed/raw/hex) render the normal request/response split instead.
 //
 // This is the chrome + correlation logic; the per-sub-body rendering delegates to
 // the live JsonViewer (passed in as the `requestBody`/`responseBody` slots).
