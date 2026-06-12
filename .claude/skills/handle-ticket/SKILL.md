@@ -10,10 +10,12 @@ Handle Linear ticket **$ticket** end-to-end from the worktree the ticket
 launcher placed you in. Work through the steps below in order. Stop and surface
 blockers rather than guessing through them.
 
-The setup scout (step 2) reads `docs/agents/implementation.md` and the other
-applicable guides for you and returns their rules in an orientation brief — you
-do **not** read them raw. Open `docs/agents/linear.md` only when a step's
-point-of-use reference sends you there — the rules this skill exercises are
+The setup scout (step 2) fetches the ticket and its parent/sibling context from
+Linear — you do **not** fetch those yourself. The scout passes the ticket
+description through verbatim and summarizes the family context. You **do** read
+the applicable `docs/agents/` guides yourself — consult the trigger list in the
+`## Specific Guidelines` section of `CLAUDE.md` and read every guide whose
+trigger applies to this ticket's work. The rules this skill exercises are also
 inlined at point of use.
 
 **Your directions.** Everything after the ticket ID in `$ARGUMENTS` is freeform
@@ -62,40 +64,48 @@ this worktree on this branch.
 
 ---
 
-## 2 — Orient: run the setup scout
+## 2 — Orient: run the setup scout and read guides
 
-Before implementing, get a compact orientation brief from the **`setup-scout`**
-subagent instead of reading the ticket and guidance files yourself. The scout
-runs on a cheap model (Haiku / GPT-5.4-mini) and does the rote reads — ticket
-fetch, parent/sibling reads, the applicable `docs/agents/` guides, and the
-relevant subproject `CLAUDE.md` — returning a ~2–3k-token brief. This is the
-orientation that otherwise burns a large fraction of the implementer's context,
-almost all of it thinking tokens, before a line of code.
+### 2a — Scout: ticket and family context
+
+Get the ticket and its Linear family context from the **`setup-scout`** subagent.
+The scout runs on a cheap model (Haiku) and does the mechanical Linear reads —
+ticket fetch, parent/sibling reads — returning a brief with the **full ticket
+description verbatim** and summarized family context. This displaces the
+expensive thinking tokens the implementer would otherwise burn on those reads.
 
 **Spawn the `setup-scout` subagent** (`subagent_type: "setup-scout"`) via the
 Agent tool — it is pinned to Haiku and is read-only.
 Give it this prompt:
 
 > Produce the orientation brief for $ticket. Fetch the ticket, read its parent
-> and any bearing siblings, read the applicable `docs/agents/` guides and the
-> relevant subproject `CLAUDE.md`, and return the compact brief exactly as your
-> instructions specify.
+> and any bearing siblings, and return the brief exactly as your instructions
+> specify.
 
-If the scout fails to start, retry once. If it still fails, **fall back to doing
-the orientation reads yourself** — `linear issue view $ticket --json` (extract
-`title`, `description`, `url`, `branchName`; derive the app URL by swapping
-`https://` for `linear://`), read the parent and any bearing siblings, and read
-`docs/agents/implementation.md` plus every other guide whose `## Specific
-Guidelines` trigger in `CLAUDE.md` applies, and the relevant subproject
-`CLAUDE.md`. This is the costlier path the scout exists to avoid; note in-session
-that you took it. Do not block the ticket on a missing scout.
+If the scout fails to start, retry once. If it still fails, **fall back to
+fetching the ticket yourself** — `linear issue view $ticket --json` (extract
+`title`, `description`, `url`), read the parent and any bearing siblings. This
+is the costlier path the scout exists to avoid; note in-session that you took it.
+Do not block the ticket on a missing scout.
 
-From the returned brief, record the ticket **title**, **Linear url**, and
-**app-url** — step 8 needs the title and url verbatim for the review front
-matter. Carry the brief forward; it is your source of truth for ticket scope and
-the guidance rules through the rest of this run.
+From the returned brief, record the ticket **title** and **Linear url** — step 8
+needs these verbatim for the review front matter. The ticket description in the
+brief is your source of truth for scope.
 
-At this point, set the ticket to **In Progress** in Linear.
+### 2b — Read the applicable guidance files
+
+The scout does **not** read `docs/agents/` guides — that is your job. Consult
+the `## Specific Guidelines` trigger list in `CLAUDE.md`: always read
+`docs/agents/implementation.md`, then read every other guide whose trigger
+applies to this ticket's work type (interpreting triggers broadly — more than one
+usually applies). If the ticket targets a specific subproject (`ui/`, `flix/`,
+`conformance/`, `demo/`), read that subproject's `CLAUDE.md` as well.
+
+At this point, set the ticket to **In Progress** in Linear:
+
+```bash
+linear issue update $ticket --state "In Progress"
+```
 
 ---
 
