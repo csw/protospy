@@ -187,7 +187,7 @@ export function HeadersPane({
                         <td className="w-[30%] py-0.5 pr-3 align-middle whitespace-nowrap text-secondary-foreground">
                           {h.name}
                         </td>
-                        <td className="py-0.5 align-middle text-foreground [overflow-wrap:anywhere]">
+                        <td className="py-0.5 align-middle text-foreground wrap-anywhere">
                           <div className="flex items-center gap-1">
                             <span className="min-w-0 flex-1 [font-variant-ligatures:none]">
                               {shown}

@@ -158,7 +158,7 @@ describe("BodyPane error display (PRO-220)", () => {
     expect(screen.getByText("500B received before error")).toBeInTheDocument();
   });
 
-  it("applies wrap-break-word to error message text so long URLs do not clip (PRO-383)", () => {
+  it("applies wrap-anywhere to error message text so long URLs do not clip (PRO-383)", () => {
     const longError =
       "error sending request for url (https://upstream.internal.example.com:8443/v1/ingest): connection error: connection reset by peer (os error 104); after 3 retries over 12.4s";
     render(
