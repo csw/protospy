@@ -364,6 +364,15 @@ Assemble the triage: group by **blocking** vs. **advisory**, note which review
 surfaced each finding, call out cross-review links and conflicts, and for each
 finding say whether you'd address it now or defer.
 
+**Default to addressing findings, not deferring them.** The step 2 scope rule
+applies here too: a minor fix in code you already touched — a one-line token
+swap, a stale class, a naming inconsistency — is not "out of scope" because you
+didn't introduce it. "Not introduced by this PR" is not a reason to defer a
+small fix in a file you're already editing — this is a small project, not an
+enterprise codebase where every change needs its own ticket. Reserve "defer" for
+findings that require fundamentally different work, are much larger than the
+ticket, or touch code you didn't otherwise change.
+
 **Post this triage as a Linear comment on $ticket** (agent-header prefixed per
 `docs/agents/linear.md`) **before** presenting it in-session. This makes the
 triage a durable record.
