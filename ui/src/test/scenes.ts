@@ -18,9 +18,12 @@
 // inside its body, and `AppStore` is a type-only import (erased at runtime).
 //
 // Axes covered (see docs/fixture-matrix.md for the full table):
-//   - state: empty, loading, error row, mid-stream error, selected, hover
-//   - data:  long URI + query, long error, many rows, dual size
-//   - view:  rows vs table, compact vs regular density
+//   - state: empty, loading, error row, mid-stream error, selected, hover,
+//            SSE streams, body-pane terminal modes (awaiting, no-body, text,
+//            binary, decode-failed)
+//   - data:  long URI + query, long error, many rows, dual size, NDJSON
+//   - view:  rows vs table, compact vs regular density, compact inspector,
+//            headers tab, timing tab
 //   - cross: view × data combinations (table/compact crossed with a data
 //            extreme) that stress column-width allocation
 //   - trace: traceparent grouping (colour bars, trace rail, trace filter chip)
@@ -34,22 +37,26 @@ import {
   GZIP_JSON_DECODED_BYTES,
   LONG_ERROR_MESSAGE,
   LONG_URI,
+  makeBinaryResponse,
   makeCompleteExchange,
   makeDualSizeResponse,
+  makeEncodedJsonResponse,
   makeGetRequest,
   makeLongUriRequest,
   makeManyExchanges,
+  makeNDJsonResponse,
   makePostRequest,
   makeProxyError,
   makeResponse,
   makeSSEBodyData,
   makeSSEResponse,
+  makeTextResponse,
 } from "./fixtures";
 
 type Msg = Record<string, unknown>;
 
-/** The three desktop-only review widths (px). Below 1280 is unsupported. */
-export const SUPPORTED_WIDTHS = [1280, 1440, 1920] as const;
+/** The four desktop-only review widths (px). Below 1024 is unsupported. */
+export const SUPPORTED_WIDTHS = [1024, 1280, 1440, 1920] as const;
 
 export type SceneAxis = "state" | "data" | "view";
 
@@ -539,6 +546,160 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
     ],
     config: { selectedId: 1, protocol: "Anthropic" },
+  },
+
+  // ---- body-pane terminal modes -------------------------------------------
+  // The existing scenes cover JSON bodies (selected, dual-size, etc.) and
+  // SSE stream bodies, but left the other BodyPane branches unexercised
+  // (PRO-396). These scenes target each remaining render path in BodyPane.
+  {
+    id: "body-awaiting",
+    title: "Awaiting response",
+    axis: "state",
+    description:
+      'A request that has not yet received a response. The status badge in the context bar shows the pulsing ··· placeholder and the response body pane shows "Awaiting response…".',
+    messages: [makeGetRequest(1, "/api/slow")],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-no-body",
+    title: "No body (204)",
+    axis: "state",
+    description:
+      'A 204 No Content response with no body. The response body pane shows the "No body" empty state (distinct from "Awaiting response…").',
+    messages: [
+      makeGetRequest(1, "/api/items/42"),
+      makeResponse(1, "204 No Content"),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-text",
+    title: "Plain text body",
+    axis: "state",
+    description:
+      "A text/plain response body. BodyPane renders the content in a <pre> block (the text render branch, distinct from JSON tree and binary).",
+    messages: [makeGetRequest(1, "/api/health"), makeTextResponse(1)],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-binary",
+    title: "Binary body",
+    axis: "state",
+    description:
+      'An application/octet-stream binary response. BodyPane shows the "Binary data · N bytes" lifecycle state instead of content.',
+    messages: [
+      makeGetRequest(1, "/api/download/artifact.bin"),
+      makeBinaryResponse(1, "AAECAwQFBgcICQoLDA0ODw==", 12),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-decode-failed",
+    title: "Decode failed",
+    axis: "state",
+    description:
+      'A response with Content-Encoding: gzip but a corrupt (non-gzip) payload. The decode pipeline throws, so BodyPane shows "Could not decode body".',
+    messages: [
+      makeGetRequest(1, "/api/compressed"),
+      makeEncodedJsonResponse(1, "AAAA", 3, "gzip"),
+    ],
+    config: { selectedId: 1 },
+  },
+
+  // ---- NDJSON / JSONL view ------------------------------------------------
+  {
+    id: "ndjson",
+    title: "NDJSON body (flat view)",
+    axis: "data",
+    description:
+      "An application/x-ndjson response with several JSON lines. JsonViewer renders in flat (non-tree) JSONL mode — each line pretty-printed sequentially rather than collapsed into a single tree.",
+    messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
+    config: { selectedId: 1 },
+  },
+
+  // ---- view axis: compact inspector + headers/timing isolated scenes -------
+  {
+    id: "compact-inspector",
+    title: "Compact density + inspector",
+    axis: "view",
+    description:
+      "Compact density with a selected exchange that has a JSON response body. Verifies that the inspector/body pane content renders correctly at compact density (list rows are tighter; inspector layout is unaffected).",
+    messages: [...backdrop(), makeResponseBody(2)],
+    config: { listMode: "rows", density: "compact", selectedId: 2 },
+  },
+  {
+    id: "headers-selected",
+    title: "Headers tab",
+    axis: "view",
+    description:
+      "An exchange with many request and response headers selected. Verify the Headers tab: side-by-side request/response columns, header names and values, overflow and wrapping.",
+    interaction: "Click the Headers tab in the inspector.",
+    messages: [
+      {
+        exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
+        direction: "Request",
+        event: {
+          type: "Request",
+          method: "POST",
+          uri: "/api/v2/ingest",
+          version: "HTTP/1.1",
+          headers: [
+            { name: "Content-Type", value: "application/json" },
+            {
+              name: "Authorization",
+              value: "Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyXzEyMyJ9",
+            },
+            {
+              name: "X-Request-Id",
+              value: "a3f2c1d4-8e7b-4a9c-b5d6-1234567890ab",
+            },
+            { name: "X-Forwarded-For", value: "203.0.113.42" },
+            { name: "Accept", value: "application/json" },
+            { name: "Accept-Encoding", value: "gzip, deflate, br" },
+            {
+              name: "User-Agent",
+              value: "protospy-client/1.0 (compatible; curl/8.4)",
+            },
+            {
+              name: "traceparent",
+              value: "00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000001-01",
+            },
+          ],
+          body: { type: "NoBody" },
+        },
+      },
+      makeResponse(1, "200 OK", '{"status":"ok","ingested":42}', undefined, [
+        { name: "Content-Type", value: "application/json" },
+        { name: "X-Request-Id", value: "a3f2c1d4-8e7b-4a9c-b5d6-1234567890ab" },
+        { name: "X-RateLimit-Limit", value: "1000" },
+        { name: "X-RateLimit-Remaining", value: "997" },
+        { name: "X-RateLimit-Reset", value: "1704067260" },
+        { name: "Cache-Control", value: "no-store" },
+        { name: "Vary", value: "Accept, Accept-Encoding" },
+        {
+          name: "Strict-Transport-Security",
+          value: "max-age=31536000; includeSubDomains",
+        },
+      ]),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "timing-selected",
+    title: "Timing tab",
+    axis: "view",
+    description:
+      "A slow exchange with a traceparent header selected. Verify the Timing tab: Started timestamp, HTTP version, method, status, elapsed time, request/response sizes, and Trace ID row.",
+    interaction: "Click the Timing tab in the inspector.",
+    messages: [
+      ...makeCompleteExchange(1, "POST", "/api/v1/search", "200 OK", {
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+        elapsed: 1247,
+        responseBody: '{"hits":[],"total":0}',
+      }),
+    ],
+    config: { selectedId: 1 },
   },
 ];
 

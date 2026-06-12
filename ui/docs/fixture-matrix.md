@@ -25,14 +25,14 @@ Run the dev server (`pnpm dev`) and inject a scene by id from the page:
 ```js
 window.__test_scenes.apply("dual-size"); // resets the store, then applies the cell
 window.__test_scenes.list(); // metadata for every scene, in matrix order
-window.__test_scenes.widths; // [1280, 1440, 1920]
+window.__test_scenes.widths; // [1024, 1280, 1440, 1920]
 ```
 
 `apply` returns `false` for an unknown id. The harness exists only in dev
 builds; the dynamic import is dead-code-eliminated from production.
 
-Inspect each cell at the three supported widths — **1280** (minimum), **1440**
-(baseline), **1920** (wide). Below 1280 is unsupported.
+Inspect each cell at the four supported widths — **1024** (narrow), **1280**
+(baseline), **1440** (wide), **1920** (fullhd). Below 1024 is unsupported.
 
 ## The matrix
 
@@ -48,18 +48,24 @@ Inspect each cell at the three supported widths — **1280** (minimum), **1440**
 | `hover`                  | Row hover                    | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                                                    |
 | `stream-complete`        | SSE stream (complete)        | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                                  |
 | `stream-live`            | SSE stream (live)            | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                              |
-| `stream-anthropic`       | Anthropic SSE stream         | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`.                                    |
+| `stream-anthropic`       | Anthropic SSE stream         | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`. Default tab is events.             |
 | `stream-error`           | SSE stream (error)           | Generic SSE interrupted by Response error. Red "disconnected" indicator + StreamErrorBanner with error message.                          |
 | `stream-anthropic-error` | Anthropic SSE stream (error) | Anthropic SSE interrupted by Response error. ChatStreamView with "disconnected" indicator + StreamErrorBanner. Protocol = `"Anthropic"`. |
+| `body-awaiting`          | Awaiting response            | Request sent, no response yet. Status badge shows pulsing `···`; response body pane shows "Awaiting response…".                          |
+| `body-no-body`           | No body (204)                | 204 No Content response. Response body pane shows "No body" (distinct from "Awaiting response…").                                        |
+| `body-text`              | Plain text body              | `text/plain` response. Body pane renders content in `<pre>` block (text branch, distinct from JSON tree and binary).                     |
+| `body-binary`            | Binary body                  | `application/octet-stream` response. Body pane shows "Binary data · N bytes" lifecycle state.                                            |
+| `body-decode-failed`     | Decode failed                | `Content-Encoding: gzip` response with corrupt payload. Decode pipeline throws; body pane shows "Could not decode body".                 |
 
 ### Data-size axis
 
-| Scene id     | Cell                   | Notes                                                                                                    |
-| ------------ | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| `long-uri`   | Long URI + query       | Deep path + long query string; check truncation / `title` tooltip.                                       |
-| `long-error` | Long error text        | Verbose hyper-style error chain.                                                                         |
-| `many-rows`  | Many rows (120)        | Virtualization, scroll, status-bar count.                                                                |
-| `dual-size`  | Dual wire/decoded size | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip. |
+| Scene id     | Cell                    | Notes                                                                                                                      |
+| ------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `long-uri`   | Long URI + query        | Deep path + long query string; check truncation / `title` tooltip.                                                         |
+| `long-error` | Long error text         | Verbose hyper-style error chain.                                                                                           |
+| `many-rows`  | Many rows (120)         | Virtualization, scroll, status-bar count.                                                                                  |
+| `dual-size`  | Dual wire/decoded size  | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip.                   |
+| `ndjson`     | NDJSON body (flat view) | `application/x-ndjson` response with several JSON lines. JsonViewer renders in flat JSONL mode (each line pretty-printed). |
 
 There is intentionally **no long-status cell**. HTTP status phrases are short by
 design (200/302/404/500/502 dominate real traffic; even exotic codes carry short
@@ -71,11 +77,14 @@ invented long phrase. See the note near the data-extreme fixtures in
 
 ### View axis
 
-| Scene id        | Cell                    | Notes                                                                                          |
-| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `table-mode`    | Table mode              | Columnar list (table is the default mode since PRO-222; explicit config still exercised here). |
-| `compact-rows`  | Compact density (rows)  | Tighter row height.                                                                            |
-| `compact-table` | Compact density (table) | Tightest row height.                                                                           |
+| Scene id            | Cell                        | Notes                                                                                                                |
+| ------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `table-mode`        | Table mode                  | Columnar list (table is the default mode since PRO-222; explicit config still exercised here).                       |
+| `compact-rows`      | Compact density (rows)      | Tighter row height.                                                                                                  |
+| `compact-table`     | Compact density (table)     | Tightest row height.                                                                                                 |
+| `compact-inspector` | Compact density + inspector | Compact density with a selected exchange that has a JSON body — verifies inspector content at compact density.       |
+| `headers-selected`  | Headers tab                 | Exchange with many request + response headers. **Interaction:** click the Headers tab to see the side-by-side panel. |
+| `timing-selected`   | Timing tab                  | Slow traced exchange. **Interaction:** click the Timing tab to see elapsed time, Trace ID, and other timing facts.   |
 
 ### Cross-axis (view × data combinations)
 

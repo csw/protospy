@@ -40,8 +40,8 @@ describe("scene matrix integrity", () => {
     expect(axes).toEqual(new Set(["state", "data", "view"]));
   });
 
-  it("declares the three supported desktop widths", () => {
-    expect([...SUPPORTED_WIDTHS]).toEqual([1280, 1440, 1920]);
+  it("declares the four supported desktop widths including 1024", () => {
+    expect([...SUPPORTED_WIDTHS]).toEqual([1024, 1280, 1440, 1920]);
   });
 
   it("getScene resolves known ids and rejects unknown ones", () => {
@@ -202,6 +202,90 @@ describe("applySceneToStore", () => {
   it("does not open a live subscription by leaving service unset", () => {
     applySceneToStore(useStore, getScene("selected")!);
     expect(useStore.getState().service).toBeNull();
+  });
+});
+
+describe("new scenes (PRO-396)", () => {
+  it("body-awaiting has only a request — no response body or status", () => {
+    applySceneToStore(useStore, getScene("body-awaiting")!);
+    const state = useStore.getState();
+    expect(state.ids).toEqual([1]);
+    const ex = state.exchanges.get(1);
+    expect(ex?.status).toBeUndefined();
+    expect(ex?.responseBody).toBeUndefined();
+    expect(state.selectedId).toBe(1);
+  });
+
+  it("body-no-body has a 204 response with no body state", () => {
+    applySceneToStore(useStore, getScene("body-no-body")!);
+    const state = useStore.getState();
+    expect(state.ids).toEqual([1]);
+    const ex = state.exchanges.get(1);
+    expect(ex?.status).toBe("204 No Content");
+    expect(ex?.responseBody).toBeUndefined();
+    expect(state.selectedId).toBe(1);
+  });
+
+  it("body-text has a text/plain response body", () => {
+    applySceneToStore(useStore, getScene("body-text")!);
+    const state = useStore.getState();
+    const body = state.exchanges.get(1)?.responseBody;
+    expect(body).toBeDefined();
+    expect(body?.atEnd).toBe(true);
+    expect(body?.contentType).toMatch(/text\/plain/);
+  });
+
+  it("body-binary has an octet-stream response body", () => {
+    applySceneToStore(useStore, getScene("body-binary")!);
+    const state = useStore.getState();
+    const body = state.exchanges.get(1)?.responseBody;
+    expect(body).toBeDefined();
+    expect(body?.atEnd).toBe(true);
+    expect(body?.contentType).toMatch(/octet-stream/);
+  });
+
+  it("body-decode-failed has a gzip-encoded response body with corrupt payload", () => {
+    applySceneToStore(useStore, getScene("body-decode-failed")!);
+    const state = useStore.getState();
+    const body = state.exchanges.get(1)?.responseBody;
+    expect(body).toBeDefined();
+    expect(body?.atEnd).toBe(true);
+    expect(body?.contentEncoding).toBe("gzip");
+  });
+
+  it("ndjson has an application/x-ndjson response body", () => {
+    applySceneToStore(useStore, getScene("ndjson")!);
+    const state = useStore.getState();
+    const body = state.exchanges.get(1)?.responseBody;
+    expect(body).toBeDefined();
+    expect(body?.atEnd).toBe(true);
+    expect(body?.contentType).toMatch(/ndjson/);
+  });
+
+  it("compact-inspector sets compact density with a selected exchange that has a body", () => {
+    applySceneToStore(useStore, getScene("compact-inspector")!);
+    const state = useStore.getState();
+    expect(state.density).toBe("compact");
+    expect(state.selectedId).toBe(2);
+    expect(state.exchanges.get(2)?.responseBody).toBeDefined();
+  });
+
+  it("headers-selected has many request and response headers", () => {
+    applySceneToStore(useStore, getScene("headers-selected")!);
+    const state = useStore.getState();
+    expect(state.selectedId).toBe(1);
+    const ex = state.exchanges.get(1);
+    expect(ex?.requestHeaders?.length).toBeGreaterThanOrEqual(8);
+    expect(ex?.responseHeaders?.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("timing-selected has a traced exchange with elapsed time", () => {
+    applySceneToStore(useStore, getScene("timing-selected")!);
+    const state = useStore.getState();
+    expect(state.selectedId).toBe(1);
+    const ex = state.exchanges.get(1);
+    expect(ex?.elapsedMs).toBeGreaterThan(1000);
+    expect(ex?.traceId).toBeDefined();
   });
 });
 

@@ -115,9 +115,15 @@ async function decompress(
   const writer = ds.writable.getWriter();
   const reader = ds.readable.getReader();
 
-  // Ensure data has a concrete ArrayBuffer (not SharedArrayBuffer) for the writer
-  writer.write(new Uint8Array(data));
-  writer.close();
+  // Ensure data has a concrete ArrayBuffer (not SharedArrayBuffer) for the writer.
+  // Attach no-op catchers to the write/close promises — when the payload is
+  // corrupt the stream errors and these promises reject, but their rejections
+  // are noise: the actual error surfaces through reader.read() below and
+  // propagates up as a rejection on this async function. Without the catchers
+  // the write/close rejections would escape as unhandled-rejection page errors
+  // even though useDecodeBody's .catch() handles the outer promise correctly.
+  writer.write(new Uint8Array(data)).catch(() => {});
+  writer.close().catch(() => {});
 
   const chunks: Uint8Array[] = [];
   while (true) {

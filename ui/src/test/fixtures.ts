@@ -180,6 +180,30 @@ export function makeMsearchRequest(id: number, ts?: string): Msg {
   return makePostRequest(id, "/_msearch", '{"index":"test"}\n{}\n', ts);
 }
 
+/** text/plain response. Used by the body-text scene. */
+export function makeTextResponse(
+  id: number,
+  body = "OK\nService is healthy.\nVersion: 1.4.2",
+  ts?: string,
+): Msg {
+  return makeResponse(id, "200 OK", body, ts, [
+    { name: "Content-Type", value: "text/plain; charset=utf-8" },
+  ]);
+}
+
+/** application/x-ndjson response with several JSON lines (JSONL flat view). */
+export function makeNDJsonResponse(id: number, ts?: string): Msg {
+  const lines = [
+    '{"id":1,"event":"login","user":"alice","ts":"2024-01-01T00:00:01Z"}',
+    '{"id":2,"event":"view","user":"alice","path":"/dashboard","ts":"2024-01-01T00:00:02Z"}',
+    '{"id":3,"event":"click","user":"alice","target":"btn-export","ts":"2024-01-01T00:00:04Z"}',
+    '{"id":4,"event":"logout","user":"alice","ts":"2024-01-01T00:00:08Z"}',
+  ].join("\n");
+  return makeResponse(id, "200 OK", lines, ts, [
+    { name: "Content-Type", value: "application/x-ndjson" },
+  ]);
+}
+
 export function makeBinaryResponse(
   id: number,
   base64: string,
