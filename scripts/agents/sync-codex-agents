@@ -20,10 +20,12 @@ IMPLEMENTER_AGENT_NAMES = (
     "design-system-conformance-review",
     "qa-explorer",
     "review-synthesis",
+    "setup-scout",
     "visual-review",
 )
 
 CODEX_MODEL_BY_CLAUDE_MODEL = {
+    "haiku": "gpt-5.4-mini",
     "sonnet": "gpt-5.4-mini",
 }
 

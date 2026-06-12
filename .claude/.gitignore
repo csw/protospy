@@ -1,9 +1,9 @@
 /agents/*
 !/agents/convention-review.md
 !/agents/design-system-conformance-review.md
-!/agents/frontend-engineer.md
 !/agents/qa-explorer.md
 !/agents/review-synthesis.md
+!/agents/setup-scout.md
 !/agents/visual-review.md
 /commands
 /settings.local.json

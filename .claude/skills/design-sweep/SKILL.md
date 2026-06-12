@@ -86,6 +86,7 @@ agent:
 **Scoped run** (scenes and/or widths specified):
 
 > Check scenes: [scene list]. Widths: [width list]. Themes: [both / light /
+>
 > > dark]. Rubric emphasis: [categories, or "full rubric"].
 
 Always include the screenshots directory path (see step 3).
