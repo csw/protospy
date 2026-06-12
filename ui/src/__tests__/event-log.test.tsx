@@ -107,11 +107,68 @@ describe("EventLog", () => {
         onSelect={onSelect}
       />,
     );
-    // The selected row carries data-selected (state lives on the row button).
+    // The selected row carries data-selected.
     const selectedRow = screen.getByText("message").closest("button");
     expect(selectedRow).toHaveAttribute("data-selected");
 
     fireEvent.click(screen.getByText("ping").closest("button")!);
     expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  describe("expand affordance", () => {
+    it("shows no expand button for short data", async () => {
+      await renderAndSettle(<Harness events={[ev(0, "ping", "short")]} />);
+      expect(
+        screen.queryByRole("button", { name: /expand event data/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows an expand button for data longer than 80 characters", async () => {
+      const long = "x".repeat(100);
+      await renderAndSettle(<Harness events={[ev(0, "message", long)]} />);
+      expect(
+        screen.getByRole("button", { name: /expand event data/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("expands to show full data on click and collapses again", async () => {
+      const long = "a".repeat(100);
+      await renderAndSettle(<Harness events={[ev(0, "message", long)]} />);
+
+      // Initially truncated.
+      expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
+      expect(screen.queryByText(long)).not.toBeInTheDocument();
+
+      const expandBtn = screen.getByRole("button", {
+        name: /expand event data/i,
+      });
+      expect(expandBtn).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(expandBtn);
+
+      // Now shows full data.
+      expect(screen.getByText(long)).toBeInTheDocument();
+      expect(screen.queryByText(`${"a".repeat(80)}…`)).not.toBeInTheDocument();
+      expect(expandBtn).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(expandBtn);
+
+      // Collapsed again.
+      expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
+      expect(expandBtn).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("expand click does not trigger row selection", async () => {
+      const onSelect = vi.fn();
+      const long = "b".repeat(100);
+      await renderAndSettle(
+        <Harness events={[ev(0, "message", long)]} onSelect={onSelect} />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /expand event data/i }),
+      );
+      expect(onSelect).not.toHaveBeenCalled();
+    });
   });
 });

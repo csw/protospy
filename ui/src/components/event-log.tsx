@@ -9,11 +9,12 @@
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ChevronDown } from "lucide-react";
 import { classifyEvent } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
-import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
+import { Button } from "@ui/components/ui/button";
 
 const EVENT_ROW_HEIGHT = 28;
 
@@ -40,11 +41,39 @@ export function eventTypeClass(type: string): string {
 }
 
 function EventDataSummary({ data }: { data: string }) {
-  const summary = data.length > 80 ? data.slice(0, 80) + "…" : data;
+  const [expanded, setExpanded] = useState(false);
+  const isTruncated = data.length > 80;
+
+  if (!isTruncated) {
+    return <span className="truncate text-secondary-foreground">{data}</span>;
+  }
+
   return (
-    <SimpleTooltip content={data}>
-      <span className="truncate text-secondary-foreground">{summary}</span>
-    </SimpleTooltip>
+    <div className="flex min-w-0 items-start gap-1">
+      <span
+        className={cn(
+          "text-secondary-foreground",
+          expanded ? "break-all" : "truncate",
+        )}
+      >
+        {expanded ? data : data.slice(0, 80) + "…"}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={expanded ? "Collapse event data" : "Expand event data"}
+        aria-expanded={expanded}
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((v) => !v);
+        }}
+        className="-my-1 shrink-0 text-muted-foreground"
+      >
+        <ChevronDown
+          className={cn("transition-transform", expanded && "rotate-180")}
+        />
+      </Button>
+    </div>
   );
 }
 
