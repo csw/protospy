@@ -7,8 +7,8 @@
 // Exact error copy is owned by app code; this component only fixes the treatment.
 //
 // Consumes the live string `status` (PRO-359): the runtime `status` is a full
-// reason-phrase line ("404 Not Found"), so rows mode renders it verbatim and table
-// mode shows the numeric code only (kept deviation §3).
+// reason-phrase line ("404 Not Found"); rows mode renders it verbatim (full prop),
+// table mode shows the numeric code only.
 
 import { cn } from "@ui/lib/utils";
 import { statusCodeOnly, statusKind } from "@ui/lib/exchange";

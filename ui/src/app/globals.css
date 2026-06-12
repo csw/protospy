@@ -83,6 +83,12 @@
   --conn-down: var(--server);
   --conn-down-bg: var(--server-bg);
 
+  /* SSE event lifecycle (message_start / content_block_start / _stop). Declared
+     as var() indirections so they track the redirect amber across themes with no
+     .dark re-definition — same pattern as conn-connecting. */
+  --sse-lifecycle: var(--redirect);
+  --sse-lifecycle-bg: var(--redirect-bg);
+
   /* HTTP method tints (fg / bg) — LIGHT */
   --method-get: #047857;
   --method-get-bg: #d1fae5;
@@ -300,6 +306,10 @@
   --color-conn-connecting-bg: var(--conn-connecting-bg);
   --color-conn-down: var(--conn-down);
   --color-conn-down-bg: var(--conn-down-bg);
+
+  /* SSE event lifecycle → text-sse-lifecycle / bg-sse-lifecycle-bg */
+  --color-sse-lifecycle: var(--sse-lifecycle);
+  --color-sse-lifecycle-bg: var(--sse-lifecycle-bg);
 
   /* methods */
   --color-method-get: var(--method-get);

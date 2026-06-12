@@ -24,8 +24,8 @@ const EVENT_ROW_HEIGHT = 28;
  * legacy filled-pill `eventTypeBadgeClass`.
  *
  * Color logic:
- *   text-redirect  — lifecycle / boundary events (start, stop, block edges)
- *   text-ok        — data-carrying events (deltas with actual content)
+ *   text-sse-lifecycle — lifecycle / boundary events (start, stop, block edges)
+ *   text-ok            — data-carrying events (deltas with actual content)
  *   text-muted-foreground      — terminal or low-signal events (message_stop)
  *   text-muted-foreground/70   — keepalive noise (ping)
  *   text-secondary-foreground  — everything else (metadata, unknown)
@@ -35,7 +35,7 @@ export function eventTypeClass(type: string): string {
     case "message_start":
     case "content_block_start":
     case "content_block_stop":
-      return "text-redirect";
+      return "text-sse-lifecycle";
     case "content_block_delta":
       return "text-ok";
     case "message_delta":
