@@ -439,6 +439,38 @@ test.describe("shadcn semantic tokens", () => {
   });
 });
 
+test.describe("body pane divider (PRO-382)", () => {
+  test("body split divider uses border-strong token in both themes", async ({
+    page,
+  }) => {
+    // Select an exchange so the inspector renders with the bodies tab (default).
+    await page.locator("button[role='option']").first().click();
+
+    const divider = page.locator('[data-testid="body-split-divider"]');
+    await expect(divider).toBeVisible();
+
+    for (const theme of ["light", "dark"] as const) {
+      await setTheme(page, theme);
+
+      // Compare the rendered background to a probe painted with the token so
+      // the assertion holds in both themes without hard-coding rgba strings.
+      const { actual, expected } = await divider.evaluate((el) => {
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "var(--color-border-strong)";
+        document.body.appendChild(probe);
+        const expected = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return { actual: getComputedStyle(el).backgroundColor, expected };
+      });
+
+      expect(
+        actual,
+        `body split divider should use --color-border-strong in ${theme} theme`,
+      ).toBe(expected);
+    }
+  });
+});
+
 test.describe("line-variant tabs and standalone Toggle (PRO-378)", () => {
   test("line-variant active tab has transparent background (no card fill)", async ({
     page,
