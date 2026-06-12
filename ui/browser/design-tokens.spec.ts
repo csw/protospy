@@ -554,10 +554,36 @@ test.describe("StreamErrorBanner tokens (PRO-385)", () => {
       return val;
     });
 
+    // color-mix(in srgb, #b91c1c 20%, white) — lock in the exact resolved value
+    // so any future token change to another pale tint is caught, not just a
+    // reversion to the exact old hex.
+    expect(expected).toBe("rgb(241, 210, 210)");
     await expect(banner).toHaveCSS("background-color", expected);
+  });
 
-    // Guard against regression to the old faint value (#fee2e2 = rgb(254,226,226)).
-    expect(expected).not.toBe("rgb(254, 226, 226)");
+  test("banner background is visible in dark mode", async ({ page }) => {
+    await waitForSceneHarness(page);
+    await setTheme(page, "dark");
+    await applyScene(page, "stream-error");
+
+    const banner = page.getByTestId("stream-error-banner");
+    await expect(banner).toBeVisible();
+
+    // Dark mode: color-mix(in srgb, #f87171 14%, transparent) — probe the token
+    // so the assertion tracks the CSS rather than a hardcoded string.
+    const expected = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;top:-9999px;background-color:var(--color-error-bg)";
+      document.body.appendChild(probe);
+      const val = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return val;
+    });
+
+    await expect(banner).toHaveCSS("background-color", expected);
+    // Guard: must not be transparent (token resolved to something visible).
+    expect(expected).not.toBe("rgba(0, 0, 0, 0)");
   });
 
   test("banner has bottom clearance (mb-2) from pane edge", async ({
