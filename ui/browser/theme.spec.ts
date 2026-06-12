@@ -281,6 +281,7 @@ test.describe("Connection indicator", () => {
     const dot = page.getByRole("status", { name: "connecting…" }).first();
     await expect(dot).toBeVisible();
     await expect(dot).toHaveClass(/bg-conn-connecting/);
+    await expect(page.getByText("connecting…", { exact: true })).toBeVisible();
   });
 
   test("4.2 status bar shows connected state when connection is open", async ({

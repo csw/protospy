@@ -277,12 +277,20 @@ function ListPanel() {
 
   const grouped = useStore((s) => s.traceGroupOn);
 
+  // Delay the connecting affordance so the normal sub-10ms initial connection
+  // never flashes it. Only genuine reconnects (300ms+) will cross the threshold.
+  const [showConnecting, setShowConnecting] = useState(false);
+  useEffect(() => {
+    if (connDotStatus(connection) !== "connecting") return;
+    const id = setTimeout(() => setShowConnecting(true), 300);
+    return () => {
+      clearTimeout(id);
+      setShowConnecting(false);
+    };
+  }, [connection]);
+
   if (total === 0) {
-    return (
-      <EmptyState
-        kind={connection === "connecting" ? "connecting" : "first-run"}
-      />
-    );
+    return <EmptyState kind={showConnecting ? "connecting" : "first-run"} />;
   }
   if (visibleIds.length === 0) {
     return <EmptyState kind="filtered" />;

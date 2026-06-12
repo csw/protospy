@@ -85,7 +85,10 @@ test.describe("Fixture matrix", () => {
         if (scene.id === "loading") {
           // "loading" shows a connecting message (not "No requests yet")
           // because connection is "connecting" — the distinguishable affordance.
+          // The 300ms delay means assertions use Playwright's built-in retry.
           await expect(page.getByText("Connecting to proxy…")).toBeVisible();
+          // Verify the EmptyState connecting variant itself, not just ConnectionDot.
+          await expect(page.getByTestId("connecting-state")).toBeVisible();
           await expect(
             page.getByRole("status", { name: "connecting…" }).first(),
           ).toBeVisible();
