@@ -530,3 +530,44 @@ test.describe("line-variant tabs and standalone Toggle (PRO-378)", () => {
     await expect(pressedBtn).toHaveCSS("background-color", expected);
   });
 });
+
+test.describe("StreamErrorBanner tokens (PRO-385)", () => {
+  test("banner background is visibly saturated in light mode", async ({
+    page,
+  }) => {
+    await waitForSceneHarness(page);
+    await setTheme(page, "light");
+    await applyScene(page, "stream-error");
+
+    const banner = page.getByTestId("stream-error-banner");
+    await expect(banner).toBeVisible();
+
+    // Probe the token-resolved background so the assertion is not hardcoded
+    // against a specific rgb string — the browser resolves the color-mix.
+    const expected = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;top:-9999px;background-color:var(--color-error-bg)";
+      document.body.appendChild(probe);
+      const val = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return val;
+    });
+
+    await expect(banner).toHaveCSS("background-color", expected);
+
+    // Guard against regression to the old faint value (#fee2e2 = rgb(254,226,226)).
+    expect(expected).not.toBe("rgb(254, 226, 226)");
+  });
+
+  test("banner has bottom clearance (mb-2) from pane edge", async ({
+    page,
+  }) => {
+    await waitForSceneHarness(page);
+    await applyScene(page, "stream-error");
+
+    const banner = page.getByTestId("stream-error-banner");
+    await expect(banner).toBeVisible();
+    await expect(banner).toHaveCSS("margin-bottom", "8px");
+  });
+});
