@@ -531,6 +531,59 @@ test.describe("line-variant tabs and standalone Toggle (PRO-378)", () => {
   });
 });
 
+test.describe("mid-stream error status badge (PRO-388)", () => {
+  test("mid-stream badge renders with the amber warning token in both themes", async ({
+    page,
+  }) => {
+    // Verify that a mid-stream error (status received + connection broke) renders
+    // with --color-client (amber) rather than --color-error (red) or --color-ok
+    // (green) in both light and dark themes.
+    await waitForSceneHarness(page);
+
+    for (const theme of ["light", "dark"] as const) {
+      await setTheme(page, theme);
+      await applyScene(page, "error-midstream");
+
+      const badge = page
+        .locator('[data-testid="status-code"][data-error]')
+        .first();
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveText("200 ✕");
+
+      // Compare rendered color against a probe painted with --color-client so
+      // the assertion holds in both themes without hard-coding rgba values.
+      const { actual, expectedClient, expectedError } = await badge.evaluate(
+        (el) => {
+          const probe = document.createElement("div");
+          document.body.appendChild(probe);
+
+          probe.style.color = "var(--color-client)";
+          const expectedClient = getComputedStyle(probe).color;
+
+          probe.style.color = "var(--color-error)";
+          const expectedError = getComputedStyle(probe).color;
+
+          probe.remove();
+          return {
+            actual: getComputedStyle(el).color,
+            expectedClient,
+            expectedError,
+          };
+        },
+      );
+
+      expect(
+        actual,
+        `mid-stream badge should use --color-client (amber) in ${theme} theme`,
+      ).toBe(expectedClient);
+      expect(
+        actual,
+        `mid-stream badge should NOT use --color-error (red) in ${theme} theme`,
+      ).not.toBe(expectedError);
+    }
+  });
+});
+
 test.describe("StreamErrorBanner tokens (PRO-385)", () => {
   test("banner background is visibly saturated in light mode", async ({
     page,

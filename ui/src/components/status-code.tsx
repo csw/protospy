@@ -45,9 +45,10 @@ export function StatusCode({
 
   if (hasError) {
     if (status != null) {
-      // Mid-stream: a status arrived, then the connection broke. Amber warning
-      // tone communicates partial success — neither green (success) nor red
-      // (clean failure).
+      // Mid-stream: a status arrived, then the connection broke. Use
+      // text-client (the design system's amber warning-tone slot) to
+      // communicate partial success — neither green (success) nor red
+      // (clean failure). See design-system.md §2.2 "Status" namespace.
       return (
         <span
           data-testid="status-code"
