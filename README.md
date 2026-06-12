@@ -77,10 +77,46 @@ Agent-assisted development workflows are documented in
 
 ### Dependencies
 
-- Rust
-- Docker Compose
-- [just](https://just.systems)
-- [pre-commit](https://pre-commit.com)
+#### Root project
+
+- **Rust** 1.85+ — the proxy is written in Rust (Cargo edition 2024); install via [rustup](https://rustup.rs)
+- **Docker Compose** — runs the demo services (Elasticsearch, Jaeger, ElasticFlix)
+- **[just](https://just.systems)** — task runner used for build, run, and publish recipes
+- **[pre-commit](https://pre-commit.com)** — commit-time lint, format, and validation hooks; install hooks after cloning (see [Setup](#setup))
+
+Additional Rust tools used in development:
+
+```shell
+cargo install cargo-audit --locked   # dependency vulnerability audit
+cargo install cargo-tarpaulin --locked  # code coverage
+```
+
+#### ui/ — React frontend
+
+- **Node.js** 22+ — JavaScript runtime
+- **pnpm** 10+ — package manager (`npm install -g pnpm` or via [pnpm docs](https://pnpm.io/installation))
+
+See [ui/README.md](ui/README.md) for setup and dev commands.
+
+#### flix/ — ElasticFlix demo app
+
+- **Docker** — for running the Elasticsearch container
+- **uv** — Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
+- **Python** 3.14+ — managed by `uv`; no separate install needed if using `uv`
+
+See [flix/README.md](flix/README.md) for setup.
+
+#### conformance/ — HTTP conformance test suite
+
+- **uv** — Python package manager (same as above)
+- **Python** 3.14+ — managed by `uv`
+- **Caddy** 2.11.3+ and **HAProxy** 3.x — reference proxy binaries, required only when running `--proxy caddy`, `--proxy haproxy`, or `--proxy all`; not needed for `--proxy protospy`
+
+The `cs` development container provides Caddy and HAProxy at the required versions. On a bare host, install them manually. See [conformance/README.md](conformance/README.md) for details.
+
+#### demo/ — static demo wrapper
+
+No additional prerequisites. The demo is served by `serve.py`, a stdlib-only Python static file server.
 
 
 ### Setup
@@ -97,13 +133,6 @@ This installs three hook stages:
 - `pre-commit` — lint, format, type-check, and ts-rs binding checks
 - `commit-msg` — Conventional Commits validation
 - `post-checkout` — symlinks Claude config (skills, hooks, agents, local settings) into new worktrees so agents have the right environment
-
-#### Rust tools
-
-```shell
-cargo install cargo-audit --locked
-cargo install cargo-tarpaulin --locked
-```
 
 ### Conventions
 
