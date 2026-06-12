@@ -21,11 +21,13 @@ describe("StatusCode", () => {
     expect(screen.getByTestId("status-code")).toHaveClass("text-pending");
   });
 
-  it("renders a pure transport error as 'Error' with text-error", () => {
+  it("renders a pure transport error as an 'Error' badge chip with destructive token treatment", () => {
     render(<StatusCode status={undefined} hasError />);
     const el = screen.getByTestId("status-code");
     expect(el).toHaveTextContent("Error");
-    expect(el).toHaveClass("text-error");
+    expect(el).toHaveAttribute("data-slot", "badge");
+    expect(el).toHaveClass("text-destructive");
+    expect(el).toHaveClass("bg-destructive/10");
     expect(el).toHaveAttribute("data-error");
   });
 

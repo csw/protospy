@@ -13,6 +13,7 @@
 import { cn } from "@ui/lib/utils";
 import { statusCodeOnly, statusKind } from "@ui/lib/exchange";
 import type { StatusKind } from "@ui/lib/tokens";
+import { Badge } from "@ui/components/ui/badge";
 
 const KIND_TEXT: Record<StatusKind, string> = {
   ok: "text-ok",
@@ -62,14 +63,17 @@ export function StatusCode({
     }
     // Pure transport error: no HTTP status arrived at all.
     return (
-      <span
+      <Badge
         data-testid="status-code"
         data-error
         title={title}
-        className={cn(base, "text-error", className)}
+        className={cn(
+          "border-transparent bg-destructive/10 font-mono font-semibold tabular-nums text-destructive",
+          className,
+        )}
       >
         Error
-      </span>
+      </Badge>
     );
   }
   if (status == null) {
