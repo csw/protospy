@@ -584,6 +584,24 @@ test.describe("mid-stream error status badge (PRO-388)", () => {
   });
 });
 
+test.describe("top-bar responsive layout (PRO-392)", () => {
+  test("⌘K button grows to fill top-bar space at 1920px", async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+
+    const jumpBtn = page.getByRole("button", { name: /jump to/i });
+    await expect(jumpBtn).toBeVisible();
+
+    const width = await jumpBtn.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+
+    // At 1920px the button must grow well past its natural ~100px content width
+    // to fill the empty space in the top bar, capped at max-w-xl (36rem).
+    expect(width).toBeGreaterThan(350);
+    expect(width).toBeLessThanOrEqual(600);
+  });
+});
+
 test.describe("StreamErrorBanner tokens (PRO-385)", () => {
   test("banner background is visibly saturated in light mode", async ({
     page,
