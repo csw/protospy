@@ -99,26 +99,45 @@ class PromptTests(unittest.TestCase):
             ["wrapper note", "skip the visual review", "follow", "comment", "2"],
         )
 
-    def test_wrapper_directions_pin_branch_and_version(self) -> None:
+    def test_wrapper_directions_empty_for_default_run(self) -> None:
+        args = ticket.parse_args(["PRO-136"])
+        directions = ticket.build_wrapper_directions(
+            "pro-136-example",
+            Path("/tmp/pro-136-example"),
+            args,
+        )
+        self.assertEqual(directions, [])
+
+    def test_wrapper_directions_versioned_branch(self) -> None:
         args = ticket.parse_args(["PRO-136", "-v", "3"])
         directions = ticket.build_wrapper_directions(
-            "feature/pro-136-example-3",
+            "pro-136-example-3",
             Path("/tmp/pro-136-example-3"),
             args,
         )
-        joined = " ".join(directions)
-        self.assertIn("feature/pro-136-example-3", joined)
-        self.assertIn("ticket launcher selected branch", joined)
-        self.assertIn("authoritative", joined)
-        self.assertIn("existing PR handling to this branch only", joined)
-        self.assertIn("do not inspect or use", joined)
-        self.assertIn("ticket-linked PRs from other branches", joined)
-        self.assertIn("If the user says to start fresh", joined)
-        self.assertIn("ignoring prior branches and PRs", joined)
-        self.assertNotIn("background context", joined)
-        self.assertIn("intentional alternate branch/worktree run", joined)
-        self.assertIn("Do not drop the version suffix", joined)
-        self.assertIn("Do not continue or repair PRs from older", joined)
+        self.assertEqual(len(directions), 1)
+        self.assertIn("versioned-branch", directions[0])
+        self.assertIn("version 3", directions[0])
+
+    def test_wrapper_directions_explicit_branch(self) -> None:
+        args = ticket.parse_args(["PRO-136", "--branch", "my-branch"])
+        directions = ticket.build_wrapper_directions(
+            "my-branch",
+            Path("/tmp/my-branch"),
+            args,
+        )
+        self.assertEqual(len(directions), 1)
+        self.assertIn("explicit-branch", directions[0])
+
+    def test_wrapper_directions_explicit_worktree(self) -> None:
+        args = ticket.parse_args(["PRO-136", "--worktree", "/tmp/wt"])
+        directions = ticket.build_wrapper_directions(
+            "pro-136-example",
+            Path("/tmp/wt"),
+            args,
+        )
+        self.assertEqual(len(directions), 1)
+        self.assertIn("explicit-worktree", directions[0])
 
 
 class HarnessArgsTests(unittest.TestCase):
