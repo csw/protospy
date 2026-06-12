@@ -44,8 +44,23 @@ export function StatusCode({
   const base = "font-mono text-sm font-semibold tabular-nums";
 
   if (hasError) {
-    // Mid-stream: a status arrived, then the connection broke — surface both.
-    const label = status != null ? `${statusCodeOnly(status)} ✕` : "Error";
+    if (status != null) {
+      // Mid-stream: a status arrived, then the connection broke. Use
+      // text-client (the design system's amber warning-tone slot) to
+      // communicate partial success — neither green (success) nor red
+      // (clean failure). See design-system.md §2.2 "Status" namespace.
+      return (
+        <span
+          data-testid="status-code"
+          data-error
+          title={title}
+          className={cn(base, "text-client", className)}
+        >
+          {statusCodeOnly(status)} ✕
+        </span>
+      );
+    }
+    // Pure transport error: no HTTP status arrived at all.
     return (
       <span
         data-testid="status-code"
@@ -53,7 +68,7 @@ export function StatusCode({
         title={title}
         className={cn(base, "text-error", className)}
       >
-        {label}
+        Error
       </span>
     );
   }
