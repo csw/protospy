@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { Button } from "@ui/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { JsonTreeViewer } from "./json-tree-viewer";
 import type { JsonValue } from "./model";
 
@@ -128,17 +129,22 @@ export function JsonTreeHarness() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
-        {FIXTURES.map((f) => (
-          <Button
-            key={f.id}
-            size="sm"
-            variant={f.id === fixtureId ? "default" : "outline"}
-            data-testid={`fixture-${f.id}`}
-            onClick={() => setFixtureId(f.id)}
-          >
-            {f.label}
-          </Button>
-        ))}
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={fixtureId}
+          onValueChange={(v) => v && setFixtureId(v)}
+        >
+          {FIXTURES.map((f) => (
+            <ToggleGroupItem
+              key={f.id}
+              value={f.id}
+              data-testid={`fixture-${f.id}`}
+            >
+              {f.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
         <div className="ml-auto">
           <Button
             size="sm"

@@ -19,7 +19,9 @@ import { buildJsonTree, type JsonValue } from "./model";
 import { computeDefaultExpanded } from "./expand";
 import { flattenTree, type FlatRow } from "./flatten";
 
-// `text-xs` (12px) + `leading-5` (20px) — the estimate/fallback row height.
+// One row is a single `leading-5` line (20px). Used as the virtualizer's size
+// estimate and as the jsdom measurement fallback; real heights come from
+// `measureElement`.
 const ROW_HEIGHT = 20;
 
 /** Pixels of indentation per nesting depth level. */
@@ -139,7 +141,7 @@ export function JsonTreeViewer({
               data-index={vRow.index}
               ref={virtualizer.measureElement}
               className={cn(
-                "absolute top-0 left-0 flex w-max min-w-full items-center hover:bg-accent",
+                "absolute top-0 left-0 flex w-max min-w-full items-center hover:bg-hover",
                 expandable && "cursor-pointer",
               )}
               style={{ transform: `translateY(${vRow.start}px)` }}
@@ -174,7 +176,7 @@ function JsonTreeRow({
           <Button
             variant="ghost"
             size="icon-xs"
-            className="size-4 text-json-punct hover:bg-accent hover:text-foreground"
+            className="size-4 text-json-punct"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(row.nodeId);
