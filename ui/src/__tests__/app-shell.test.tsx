@@ -179,6 +179,24 @@ describe("AppShell", () => {
     expect(useStore.getState().service).toBe("search");
   });
 
+  it("shows connecting skeleton when connection is 'connecting' and list is empty", () => {
+    useStore.getState().setConnection("connecting");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    expect(screen.getByTestId("connecting-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("No requests yet")).not.toBeInTheDocument();
+  });
+
+  it("shows first-run empty state when connected with no exchanges", () => {
+    useStore.getState().setConnection("open");
+
+    render(<AppShell renderBodySplit={() => <div>body</div>} />);
+
+    expect(screen.getByText("No requests yet")).toBeInTheDocument();
+    expect(screen.queryByTestId("connecting-skeleton")).not.toBeInTheDocument();
+  });
+
   it("does not run global navigation shortcuts while dialogs are open", () => {
     applyMessages(makeGetRequest(1, "/one"), makeGetRequest(2, "/two"));
     useStore.getState().setSelectedId(1);

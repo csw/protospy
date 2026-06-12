@@ -150,7 +150,7 @@ describe("protospy chrome components", () => {
     expect(useStore.getState().helpOpen).toBe(false);
   });
 
-  it("renders both empty-list variants and connection mapping", () => {
+  it("renders all empty-list variants and connection mapping", () => {
     const { rerender } = render(<EmptyState />);
     expect(screen.getByText("No requests yet")).toBeInTheDocument();
 
@@ -158,6 +158,9 @@ describe("protospy chrome components", () => {
     expect(
       screen.getByText("No requests match your filter"),
     ).toBeInTheDocument();
+
+    rerender(<EmptyState kind="connecting" />);
+    expect(screen.getByTestId("connecting-skeleton")).toBeInTheDocument();
 
     expect(connDotStatus("reconnecting")).toBe("connecting");
     rerender(<ConnectionDot status="down" />);

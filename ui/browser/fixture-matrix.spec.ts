@@ -78,14 +78,15 @@ test.describe("Fixture matrix", () => {
         await expect(page.getByText("Requests").first()).toBeVisible();
 
         // Scene-specific signal that injection actually took effect.
-        if (scene.id === "empty" || scene.id === "loading") {
+        if (scene.id === "empty") {
           await expect(page.getByText("No requests yet")).toBeVisible();
+          await expect(page.getByText("connected")).toBeVisible();
         }
         if (scene.id === "loading") {
+          // "loading" shows skeleton rows (not "No requests yet") because
+          // connection is "connecting" — the distinguishable affordance.
+          await expect(page.getByTestId("connecting-skeleton")).toBeVisible();
           await expect(page.getByText("connecting")).toBeVisible();
-        }
-        if (scene.id === "empty") {
-          await expect(page.getByText("connected")).toBeVisible();
         }
         if (scene.id === "many-rows") {
           await expect(page.getByText("120 requests").first()).toBeVisible();

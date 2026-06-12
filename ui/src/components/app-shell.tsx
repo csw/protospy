@@ -273,11 +273,16 @@ function ListPanel() {
   const setSelectedId = useStore((s) => s.setSelectedId);
   const setHoverTraceId = useStore((s) => s.setHoverTraceId);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
+  const connection = useStore((s) => s.connection);
 
   const grouped = useStore((s) => s.traceGroupOn);
 
   if (total === 0) {
-    return <EmptyState kind="first-run" />;
+    return (
+      <EmptyState
+        kind={connection === "connecting" ? "connecting" : "first-run"}
+      />
+    );
   }
   if (visibleIds.length === 0) {
     return <EmptyState kind="filtered" />;
