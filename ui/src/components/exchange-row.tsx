@@ -64,7 +64,7 @@ export function ExchangeRow({
     >
       <div className="flex min-w-0 items-center gap-2">
         <MethodBadge method={x.method} />
-        <StatusCode status={x.status} hasError={hasError} />
+        <StatusCode status={x.status} hasError={hasError} full />
         {isSSEExchange(x) && <Badge variant="secondary">SSE</Badge>}
         {isMsearchExchange(x) && <Badge variant="outline">msearch</Badge>}
         <span className="ml-auto font-mono text-xs text-muted-foreground">

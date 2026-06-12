@@ -140,21 +140,19 @@ test.describe("Anti-flash", () => {
 
 test.describe("Status text colors", () => {
   test("2.1 2xx status renders green", async ({ page }) => {
-    // rows mode shows terse code (consistent with table mode — L3 polish)
+    // Status text with full "200 OK" is rows-mode only; switch from default table mode.
     await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
     ]);
 
-    // getByTestId scopes to the status-code element, avoiding the path text
-    const status = page.getByTestId("status-code").first();
+    const status = page.getByText("200 OK").first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveText("200");
     await expect(status).toHaveClass(/text-ok/);
   });
 
   test("2.2 5xx status renders red", async ({ page }) => {
-    // rows mode shows terse code (consistent with table mode — L3 polish)
+    // Status text with full "500 Internal Server Error" is rows-mode only.
     await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(
@@ -165,9 +163,8 @@ test.describe("Status text colors", () => {
       ),
     ]);
 
-    const status = page.getByTestId("status-code").first();
+    const status = page.getByText("500 Internal Server Error").first();
     await expect(status).toBeVisible();
-    await expect(status).toHaveText("500");
     await expect(status).toHaveClass(/text-server/);
   });
 });

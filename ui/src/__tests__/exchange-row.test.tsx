@@ -38,12 +38,11 @@ describe("ExchangeRow", () => {
     expect(badge).toHaveClass("text-muted-foreground");
   });
 
-  it("renders the terse status code (consistent with table mode) from the live string status", () => {
+  it("renders the full status line (rows mode) from the live string status", () => {
     render(
       <ExchangeRow exchange={makeExchange({ status: "404 Not Found" })} />,
     );
-    expect(screen.getByText("404")).toBeInTheDocument();
-    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
+    expect(screen.getByText("404 Not Found")).toBeInTheDocument();
   });
 
   it("renders an absolute timestamp honouring the UTC toggle", () => {
