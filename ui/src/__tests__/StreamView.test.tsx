@@ -257,6 +257,17 @@ describe("StreamView — error/disconnected state", () => {
     );
     expect(screen.queryByTestId("stream-error-banner")).not.toBeInTheDocument();
   });
+
+  it("applies wrap-anywhere to banner message text so long errors do not clip (PRO-383)", async () => {
+    await renderAndSettle(
+      <StreamView
+        exchange={makeSSEExchange(GENERIC_SSE, false, RESPONSE_ERROR)}
+      />,
+    );
+    const banner = screen.getByTestId("stream-error-banner");
+    const msgEl = banner.querySelector("span");
+    expect(msgEl).toHaveClass("wrap-anywhere");
+  });
 });
 
 describe("StreamView — pause snapshot does not leak across exchanges (key reset)", () => {

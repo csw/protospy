@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 import {
   makeGetRequest,
   makeProxyError,
@@ -227,5 +228,38 @@ test.describe("Network error rendering — table mode", () => {
       "title",
       /connection reset by peer/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layout: long error text must not overflow the body pane (PRO-383)
+// ---------------------------------------------------------------------------
+
+test.describe("Network error rendering — long error text layout (PRO-383)", () => {
+  test("long-error scene: error text wraps without horizontal overflow at 1280px", async ({
+    page,
+  }) => {
+    await page.route("**/info", (route) =>
+      route.fulfill({ json: { services: [] } }),
+    );
+    await page.goto("/");
+    await waitForStore(page);
+    await waitForSceneHarness(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await applyScene(page, "long-error");
+
+    // Wait for the error panel to render.
+    await expect(page.getByRole("alert")).toBeVisible();
+
+    // The body pane scroll container must not overflow horizontally.
+    const overflow = await page.evaluate(() => {
+      const alert = document.querySelector("[role='alert']");
+      if (!alert) return { scrollWidth: 0, clientWidth: 0 };
+      return {
+        scrollWidth: alert.scrollWidth,
+        clientWidth: alert.clientWidth,
+      };
+    });
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   });
 });

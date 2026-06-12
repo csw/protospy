@@ -28,7 +28,7 @@ function ErrorPanel({
       <span className="font-sans text-sm font-medium text-error">
         {panelTitle}
       </span>
-      <span className="font-mono text-xs text-muted-foreground max-w-md leading-relaxed">
+      <span className="font-mono text-xs text-muted-foreground min-w-0 max-w-md leading-relaxed wrap-anywhere">
         {message}
       </span>
       {detail != null && (
