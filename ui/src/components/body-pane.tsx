@@ -81,12 +81,18 @@ function BodyContent({
     (result.kind === "json" || result.kind === "jsonl") &&
     result.text != null
   ) {
+    // Wrap (rather than padding JsonViewer itself, which is shared by the
+    // table, body-state, and msearch surfaces) so the parsed body gets the same
+    // top inset as the raw/hex/text views. h-full resolves against the wrapper's
+    // content box, so the viewer fits below the padding without overflow.
     return (
-      <JsonViewer
-        text={result.text}
-        kind={result.kind}
-        parsed={result.parsed}
-      />
+      <div className="h-full pt-3">
+        <JsonViewer
+          text={result.text}
+          kind={result.kind}
+          parsed={result.parsed}
+        />
+      </div>
     );
   }
   if (result.kind === "text" && result.text != null) {

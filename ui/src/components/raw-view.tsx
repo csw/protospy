@@ -23,7 +23,7 @@ export function RawView({ text }: Props) {
     >
       {lines.map((line, i) => (
         <div key={i} className="flex gap-3">
-          <span className="select-none w-10 shrink-0 text-right text-json-lineno">
+          <span className="select-none w-10 shrink-0 text-right text-muted-foreground">
             {i + 1}
           </span>
           <span className="flex-1 whitespace-pre-wrap break-words text-foreground">

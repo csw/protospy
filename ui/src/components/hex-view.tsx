@@ -64,7 +64,7 @@ export function HexView({ bytes }: Props) {
   return (
     <div
       ref={parentRef}
-      className="font-mono text-xs leading-5 overflow-auto w-full h-full"
+      className="font-mono text-xs leading-5 overflow-auto w-full h-full pt-3"
       style={{ contain: "strict" }}
       aria-label={VIEWER_LABEL}
     >
