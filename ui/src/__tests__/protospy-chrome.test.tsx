@@ -160,7 +160,7 @@ describe("protospy chrome components", () => {
     ).toBeInTheDocument();
 
     rerender(<EmptyState kind="connecting" />);
-    expect(screen.getByTestId("connecting-skeleton")).toBeInTheDocument();
+    expect(screen.getByText("Connecting to proxy…")).toBeInTheDocument();
 
     expect(connDotStatus("reconnecting")).toBe("connecting");
     rerender(<ConnectionDot status="down" />);

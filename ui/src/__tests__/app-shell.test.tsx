@@ -184,7 +184,7 @@ describe("AppShell", () => {
 
     render(<AppShell renderBodySplit={() => <div>body</div>} />);
 
-    expect(screen.getByTestId("connecting-skeleton")).toBeInTheDocument();
+    expect(screen.getByText("Connecting to proxy…")).toBeInTheDocument();
     expect(screen.queryByText("No requests yet")).not.toBeInTheDocument();
   });
 
@@ -194,7 +194,7 @@ describe("AppShell", () => {
     render(<AppShell renderBodySplit={() => <div>body</div>} />);
 
     expect(screen.getByText("No requests yet")).toBeInTheDocument();
-    expect(screen.queryByTestId("connecting-skeleton")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to proxy…")).not.toBeInTheDocument();
   });
 
   it("does not run global navigation shortcuts while dialogs are open", () => {

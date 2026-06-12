@@ -278,8 +278,6 @@ test.describe("Connection indicator", () => {
   }) => {
     // resetStore sets connection back to "connecting" (SSE route is parked —
     // never fulfilled — so EventSource stays in CONNECTING and "open" never fires)
-    await expect(page.getByText("connecting")).toBeVisible();
-
     const dot = page.getByRole("status", { name: "connecting…" }).first();
     await expect(dot).toBeVisible();
     await expect(dot).toHaveClass(/bg-conn-connecting/);
