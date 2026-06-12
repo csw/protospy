@@ -4,7 +4,7 @@
 // fields/actions. THEME is the one exception — it lives in next-themes
 // (.dark on <html>), so the theme control uses useTheme(), not the store.
 //
-// Layout: wordmark · service picker · (spacer) · Jump-to ⌘K · group · density · theme.
+// Layout: wordmark · service picker · Jump-to ⌘K (grows, max-w-xl) · group · density · theme.
 
 import { useTheme } from "next-themes";
 import {
@@ -112,13 +112,13 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
         variant="outline"
         size="sm-dense"
         onClick={() => setCmdKOpen(true)}
-        className="max-w-xl grow justify-between text-muted-foreground"
+        className="min-w-fit max-w-xl grow justify-between text-muted-foreground"
       >
         <span className="flex items-center gap-1.5">
           <Search className="size-3.5" />
           Jump to…
         </span>
-        <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
+        <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-xs text-muted-foreground">
           ⌘K
         </kbd>
       </Button>
