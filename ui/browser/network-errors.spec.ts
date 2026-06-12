@@ -194,13 +194,15 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table view: a transport error with no status shows "Error" (never "ERR",
-    // kept deviation §1) in text-error.
+    // Table view: a transport error with no status shows "Error" as a badge chip
+    // (kept deviation §1 — never "ERR") with the §2.2 status-namespace error token.
     const statusCell = page
-      .locator("button[role='option'] span.text-error")
+      .locator("button[role='option'] [data-testid='status-code']")
       .first();
     await expect(statusCell).toBeVisible();
     await expect(statusCell).toHaveText("Error");
+    await expect(statusCell).toHaveAttribute("data-slot", "badge");
+    await expect(statusCell).toHaveClass(/text-error/);
   });
 
   test("mid-stream disconnect: status cell shows code with error marker", async ({

@@ -584,6 +584,44 @@ test.describe("mid-stream error status badge (PRO-388)", () => {
   });
 });
 
+test.describe("pure transport error badge (PRO-391)", () => {
+  test("error badge renders with --color-error in both themes", async ({
+    page,
+  }) => {
+    // Verify that a pure transport error (no HTTP status) renders the "Error"
+    // badge chip with --color-error (§2.2 Status namespace) rather than any
+    // other red token in both light and dark themes.
+    await waitForSceneHarness(page);
+
+    for (const theme of ["light", "dark"] as const) {
+      await setTheme(page, theme);
+      await applyScene(page, "error-row");
+
+      const badge = page
+        .locator('[data-testid="status-code"][data-error][data-slot="badge"]')
+        .first();
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveText("Error");
+
+      // Compare rendered color against a probe painted with --color-error so
+      // the assertion holds in both themes without hard-coding rgba values.
+      const { actual, expected } = await badge.evaluate((el) => {
+        const probe = document.createElement("div");
+        document.body.appendChild(probe);
+        probe.style.color = "var(--color-error)";
+        const expected = getComputedStyle(probe).color;
+        probe.remove();
+        return { actual: getComputedStyle(el).color, expected };
+      });
+
+      expect(
+        actual,
+        `transport error badge should use --color-error in ${theme} theme`,
+      ).toBe(expected);
+    }
+  });
+});
+
 test.describe("top-bar responsive layout (PRO-392)", () => {
   test("⌘K button grows to fill top-bar space at 1920px", async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
