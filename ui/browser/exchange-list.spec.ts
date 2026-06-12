@@ -125,6 +125,27 @@ test.describe("Exchange list — rows mode", () => {
     const rows = page.locator("button[aria-selected]");
     await expect(rows).toHaveCount(3);
   });
+
+  test("1.6 rows-mode URI div shows tooltip with full URI on hover", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/very/long/path?q=search"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // The URI div in rows mode displays the full path+query as its text content
+    const uriEl = page.locator("button[role='option'] div", {
+      hasText: "/api/very/long/path?q=search",
+    });
+    await expect(uriEl).toBeVisible();
+
+    // Hover to trigger Radix Tooltip — should show the full URI
+    await uriEl.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(
+      "/api/very/long/path?q=search",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

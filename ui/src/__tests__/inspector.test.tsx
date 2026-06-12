@@ -114,12 +114,17 @@ describe("Inspector shell — context bar", () => {
     // truncate independently, and the tooltip must expose the full raw URI.
     render(
       <Inspector
-        exchange={makeExchange({ uri: "/api/users" })}
+        exchange={makeExchange({ uri: "/api/users?limit=10" })}
         renderBodySplit={body}
       />,
     );
-    // Radix adds data-state to the TooltipTrigger child when content is truthy
-    expect(screen.getByText("/api/users")).toHaveAttribute("data-state");
+    // Radix sets data-state="closed" on the TooltipTrigger child at mount.
+    // The truncating span contains both path and query as one unit.
+    const trigger = screen
+      .getByText("limit", { exact: true })
+      .closest("span[data-state]");
+    expect(trigger).not.toBeNull();
+    expect(trigger).toHaveAttribute("data-state", "closed");
   });
 
   it("keeps the full query string when the URI contains a second '?'", () => {

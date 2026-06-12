@@ -71,7 +71,7 @@ export function ExchangeRow({
           {formatAbsoluteTime(x.timestamp, tz)}
         </span>
       </div>
-      <SimpleTooltip content={x.uri ?? "/"}>
+      <SimpleTooltip content={x.uri}>
         <div className="truncate font-mono text-sm text-secondary-foreground group-data-[selected]:font-medium group-data-[selected]:text-foreground">
           {x.uri ?? "/"}
         </div>
