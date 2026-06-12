@@ -120,7 +120,7 @@ See [flix/README.md](flix/README.md) for setup.
 - **Python** 3.14+ — managed by `uv`
 - **Caddy** 2.11.3+ and **HAProxy** 3.2+ — reference proxy binaries, required only when running `--proxy caddy`, `--proxy haproxy`, or `--proxy all`; not needed for `--proxy protospy`
 
-The `cs` development container provides Caddy and HAProxy at the required versions. On a bare host, install them manually. See [conformance/README.md](conformance/README.md) for details.
+See [conformance/README.md](conformance/README.md) for details.
 
 #### demo/ — static demo wrapper
 
