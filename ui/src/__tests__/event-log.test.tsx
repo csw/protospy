@@ -81,7 +81,7 @@ describe("EventLog", () => {
   it("surfaces the classifyEvent kind on each row as data-kind", async () => {
     await renderAndSettle(<Harness events={[ev(0, "ping", "x")]} />);
     // The O2 classification seam is live — every variant is "generic" today.
-    expect(screen.getByText("ping").closest("[data-kind]")).toHaveAttribute(
+    expect(screen.getByText("ping").closest("button")).toHaveAttribute(
       "data-kind",
       "generic",
     );
@@ -108,10 +108,10 @@ describe("EventLog", () => {
       />,
     );
     // The selected row carries data-selected.
-    const selectedRow = screen.getByText("message").closest("[data-selected]");
-    expect(selectedRow).toBeInTheDocument();
+    const selectedRow = screen.getByText("message").closest("button");
+    expect(selectedRow).toHaveAttribute("data-selected");
 
-    fireEvent.click(screen.getByText("ping").closest("[data-kind]")!);
+    fireEvent.click(screen.getByText("ping").closest("button")!);
     expect(onSelect).toHaveBeenCalledWith(0);
   });
 
@@ -155,6 +155,7 @@ describe("EventLog", () => {
 
       // Collapsed again.
       expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
+      expect(expandBtn).toHaveAttribute("aria-expanded", "false");
     });
 
     it("expand click does not trigger row selection", async () => {

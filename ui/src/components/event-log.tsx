@@ -14,6 +14,7 @@ import { classifyEvent } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
+import { Button } from "@ui/components/ui/button";
 
 const EVENT_ROW_HEIGHT = 28;
 
@@ -48,7 +49,7 @@ function EventDataSummary({ data }: { data: string }) {
   }
 
   return (
-    <div className="flex min-w-0 items-baseline gap-1">
+    <div className="flex min-w-0 items-start gap-1">
       <span
         className={cn(
           "text-secondary-foreground",
@@ -57,23 +58,21 @@ function EventDataSummary({ data }: { data: string }) {
       >
         {expanded ? data : data.slice(0, 80) + "…"}
       </span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-xs"
         aria-label={expanded ? "Collapse event data" : "Expand event data"}
         aria-expanded={expanded}
         onClick={(e) => {
           e.stopPropagation();
           setExpanded((v) => !v);
         }}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className="-my-1 shrink-0 text-muted-foreground"
       >
         <ChevronDown
-          className={cn(
-            "size-3 transition-transform",
-            expanded && "rotate-180",
-          )}
+          className={cn("transition-transform", expanded && "rotate-180")}
         />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -149,12 +148,12 @@ export function EventLog({
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
-            {/* Row container: div so EventDataSummary can contain a proper button. */}
-            <div
+            <button
+              type="button"
               onClick={() => onSelect?.(event.index)}
               data-selected={selected || undefined}
               data-kind={kind}
-              className="grid w-full cursor-pointer grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 hover:bg-hover data-[selected]:bg-accent"
+              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
             >
               <span
                 className={cn(
@@ -165,7 +164,7 @@ export function EventLog({
                 {event.type}
               </span>
               <EventDataSummary data={event.data} />
-            </div>
+            </button>
           </div>
         );
       })}
