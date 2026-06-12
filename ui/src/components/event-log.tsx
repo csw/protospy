@@ -9,11 +9,11 @@
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ChevronDown } from "lucide-react";
 import { classifyEvent } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
 import { cn } from "@ui/lib/utils";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
-import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 const EVENT_ROW_HEIGHT = 28;
 
@@ -40,11 +40,41 @@ export function eventTypeClass(type: string): string {
 }
 
 function EventDataSummary({ data }: { data: string }) {
-  const summary = data.length > 80 ? data.slice(0, 80) + "…" : data;
+  const [expanded, setExpanded] = useState(false);
+  const isTruncated = data.length > 80;
+
+  if (!isTruncated) {
+    return <span className="truncate text-secondary-foreground">{data}</span>;
+  }
+
   return (
-    <SimpleTooltip content={data}>
-      <span className="truncate text-secondary-foreground">{summary}</span>
-    </SimpleTooltip>
+    <div className="flex min-w-0 items-baseline gap-1">
+      <span
+        className={cn(
+          "text-secondary-foreground",
+          expanded ? "break-all" : "truncate",
+        )}
+      >
+        {expanded ? data : data.slice(0, 80) + "…"}
+      </span>
+      <button
+        type="button"
+        aria-label={expanded ? "Collapse event data" : "Expand event data"}
+        aria-expanded={expanded}
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((v) => !v);
+        }}
+        className="shrink-0 text-muted-foreground hover:text-foreground"
+      >
+        <ChevronDown
+          className={cn(
+            "size-3 transition-transform",
+            expanded && "rotate-180",
+          )}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -119,12 +149,12 @@ export function EventLog({
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
-            <button
-              type="button"
+            {/* Row container: div so EventDataSummary can contain a proper button. */}
+            <div
               onClick={() => onSelect?.(event.index)}
               data-selected={selected || undefined}
               data-kind={kind}
-              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
+              className="grid w-full cursor-pointer grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 hover:bg-hover data-[selected]:bg-accent"
             >
               <span
                 className={cn(
@@ -135,7 +165,7 @@ export function EventLog({
                 {event.type}
               </span>
               <EventDataSummary data={event.data} />
-            </button>
+            </div>
           </div>
         );
       })}

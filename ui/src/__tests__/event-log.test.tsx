@@ -81,7 +81,7 @@ describe("EventLog", () => {
   it("surfaces the classifyEvent kind on each row as data-kind", async () => {
     await renderAndSettle(<Harness events={[ev(0, "ping", "x")]} />);
     // The O2 classification seam is live — every variant is "generic" today.
-    expect(screen.getByText("ping").closest("button")).toHaveAttribute(
+    expect(screen.getByText("ping").closest("[data-kind]")).toHaveAttribute(
       "data-kind",
       "generic",
     );
@@ -107,11 +107,67 @@ describe("EventLog", () => {
         onSelect={onSelect}
       />,
     );
-    // The selected row carries data-selected (state lives on the row button).
-    const selectedRow = screen.getByText("message").closest("button");
-    expect(selectedRow).toHaveAttribute("data-selected");
+    // The selected row carries data-selected.
+    const selectedRow = screen.getByText("message").closest("[data-selected]");
+    expect(selectedRow).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("ping").closest("button")!);
+    fireEvent.click(screen.getByText("ping").closest("[data-kind]")!);
     expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  describe("expand affordance", () => {
+    it("shows no expand button for short data", async () => {
+      await renderAndSettle(<Harness events={[ev(0, "ping", "short")]} />);
+      expect(
+        screen.queryByRole("button", { name: /expand event data/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows an expand button for data longer than 80 characters", async () => {
+      const long = "x".repeat(100);
+      await renderAndSettle(<Harness events={[ev(0, "message", long)]} />);
+      expect(
+        screen.getByRole("button", { name: /expand event data/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("expands to show full data on click and collapses again", async () => {
+      const long = "a".repeat(100);
+      await renderAndSettle(<Harness events={[ev(0, "message", long)]} />);
+
+      // Initially truncated.
+      expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
+      expect(screen.queryByText(long)).not.toBeInTheDocument();
+
+      const expandBtn = screen.getByRole("button", {
+        name: /expand event data/i,
+      });
+      expect(expandBtn).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(expandBtn);
+
+      // Now shows full data.
+      expect(screen.getByText(long)).toBeInTheDocument();
+      expect(screen.queryByText(`${"a".repeat(80)}…`)).not.toBeInTheDocument();
+      expect(expandBtn).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(expandBtn);
+
+      // Collapsed again.
+      expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
+    });
+
+    it("expand click does not trigger row selection", async () => {
+      const onSelect = vi.fn();
+      const long = "b".repeat(100);
+      await renderAndSettle(
+        <Harness events={[ev(0, "message", long)]} onSelect={onSelect} />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /expand event data/i }),
+      );
+      expect(onSelect).not.toHaveBeenCalled();
+    });
   });
 });
