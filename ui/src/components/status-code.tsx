@@ -64,11 +64,12 @@ export function StatusCode({
     // Pure transport error: no HTTP status arrived at all.
     return (
       <Badge
+        variant="outline"
         data-testid="status-code"
         data-error
         title={title}
         className={cn(
-          "border-transparent bg-destructive/10 font-mono font-semibold tabular-nums text-destructive",
+          "border-transparent bg-error-bg text-sm font-mono font-semibold tabular-nums text-error",
           className,
         )}
       >
