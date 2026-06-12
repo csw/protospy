@@ -100,7 +100,7 @@ See [ui/README.md](ui/README.md) for setup and dev commands.
 
 #### flix/ — ElasticFlix demo app
 
-- **Docker** — for running the Elasticsearch container
+- **Docker** with **Compose** plugin — for running the Elasticsearch container (same Docker Compose install as the root project)
 - **uv** — Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
 - **Python** 3.14+ — managed by `uv`; no separate install needed if using `uv`
 
@@ -110,7 +110,7 @@ See [flix/README.md](flix/README.md) for setup.
 
 - **uv** — Python package manager (same as above)
 - **Python** 3.14+ — managed by `uv`
-- **Caddy** 2.11.3+ and **HAProxy** 3.x — reference proxy binaries, required only when running `--proxy caddy`, `--proxy haproxy`, or `--proxy all`; not needed for `--proxy protospy`
+- **Caddy** 2.11.3+ and **HAProxy** 3.2+ — reference proxy binaries, required only when running `--proxy caddy`, `--proxy haproxy`, or `--proxy all`; not needed for `--proxy protospy`
 
 The `cs` development container provides Caddy and HAProxy at the required versions. On a bare host, install them manually. See [conformance/README.md](conformance/README.md) for details.
 
