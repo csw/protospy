@@ -41,7 +41,7 @@ export function StatusBar({ upstream, onShowHelp }: StatusBarProps) {
         <span>
           {total} {total === 1 ? "request" : "requests"}
         </span>
-        <span aria-hidden className="text-border-strong">
+        <span aria-hidden className="text-muted-foreground/50">
           ·
         </span>
         <span>
@@ -49,7 +49,7 @@ export function StatusBar({ upstream, onShowHelp }: StatusBarProps) {
         </span>
         {selectedId != null && (
           <>
-            <span aria-hidden className="text-border-strong">
+            <span aria-hidden className="text-muted-foreground/50">
               ·
             </span>
             <span className="text-secondary-foreground">#{selectedId}</span>
@@ -59,7 +59,7 @@ export function StatusBar({ upstream, onShowHelp }: StatusBarProps) {
         <button
           type="button"
           onClick={onShowHelp}
-          className="inline-flex items-center gap-1.5 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 pr-1 hover:text-foreground"
         >
           <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px text-[10.5px]">
             ?

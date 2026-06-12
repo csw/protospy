@@ -188,6 +188,7 @@ function ShellInner({
 
           <ResizableHandle
             withHandle
+            className="items-start pt-ctxbar"
             onPointerDown={() => {
               resizing.current = true;
             }}

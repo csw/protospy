@@ -61,7 +61,8 @@ test.describe("Exchange list — rows mode", () => {
     ]);
 
     await expect(page.getByText("GET").first()).toBeVisible();
-    await expect(page.getByText("200 OK").first()).toBeVisible();
+    // rows mode shows terse code only (consistent with table mode — L3 polish)
+    await expect(page.getByText("200").first()).toBeVisible();
     await expect(page.getByText("/api/movies").first()).toBeVisible();
   });
 

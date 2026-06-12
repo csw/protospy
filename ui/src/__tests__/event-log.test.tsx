@@ -47,10 +47,17 @@ async function renderAndSettle(ui: React.ReactElement) {
 
 describe("eventTypeClass", () => {
   it("maps known SSE event types to semantic token text colors", () => {
-    expect(eventTypeClass("message_start")).toBe("text-method-patch");
+    // lifecycle / boundary events → redirect (amber)
+    expect(eventTypeClass("message_start")).toBe("text-redirect");
+    expect(eventTypeClass("content_block_start")).toBe("text-redirect");
+    expect(eventTypeClass("content_block_stop")).toBe("text-redirect");
+    // data-carrying events → ok (green)
     expect(eventTypeClass("content_block_delta")).toBe("text-ok");
+    // metadata delta → secondary
     expect(eventTypeClass("message_delta")).toBe("text-secondary-foreground");
+    // terminal → muted
     expect(eventTypeClass("message_stop")).toBe("text-muted-foreground");
+    // keepalive noise → very muted
     expect(eventTypeClass("ping")).toBe("text-muted-foreground/70");
   });
 
