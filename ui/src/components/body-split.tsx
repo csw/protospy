@@ -38,7 +38,10 @@ export function BodySplit({ exchange, protocol }: Props) {
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
         />
       </div>
-      <div className="w-px bg-border shrink-0" />
+      <div
+        data-testid="body-split-divider"
+        className="w-px bg-border-strong shrink-0"
+      />
       <div className="flex-1 overflow-hidden">
         {isSSE(exchange) ? (
           // Key on exchange.id so per-exchange view state — the stream's
