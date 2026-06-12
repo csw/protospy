@@ -91,7 +91,9 @@ export function HexView({ bytes }: Props) {
                 transform: `translateY(${vRow.start}px)`,
               }}
             >
-              <span className="select-none text-json-lineno">{offset}</span>
+              <span className="select-none text-muted-foreground">
+                {offset}
+              </span>
               {"  "}
               <span className="text-foreground">{hex}</span>
               {"  "}

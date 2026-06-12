@@ -129,11 +129,19 @@ export function Inspector({
               aria-label="body view mode"
             >
               {showMsearch && (
-                <ToggleGroupItem value="paired">Paired</ToggleGroupItem>
+                <ToggleGroupItem value="paired" className="px-2 text-xs">
+                  Paired
+                </ToggleGroupItem>
               )}
-              <ToggleGroupItem value="parsed">Parsed</ToggleGroupItem>
-              <ToggleGroupItem value="raw">Raw</ToggleGroupItem>
-              <ToggleGroupItem value="hex">Hex</ToggleGroupItem>
+              <ToggleGroupItem value="parsed" className="px-2 text-xs">
+                Parsed
+              </ToggleGroupItem>
+              <ToggleGroupItem value="raw" className="px-2 text-xs">
+                Raw
+              </ToggleGroupItem>
+              <ToggleGroupItem value="hex" className="px-2 text-xs">
+                Hex
+              </ToggleGroupItem>
             </ToggleGroup>
           )}
         </div>
