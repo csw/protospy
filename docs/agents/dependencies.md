@@ -10,3 +10,8 @@ When adding or upgrading any dependency (or changing how one is pinned) — Pyth
 - **Any dependency type not listed above**: apply the same principle — pin to a specific current version, never a floating tag (`latest`, a bare major, `main`).
 
 Always look up the current version before pinning — query the registry (PyPI, npm, the action's releases page, Docker Hub) or use Context7. Do not rely on your own recollection of the current version; treat your training data as stale even when you feel certain.
+
+## Keeping the README current
+
+When a change adds, removes, or changes the minimum version of a development prerequisite — a tool, runtime, or binary required to build or develop any part of the project — update the `### Dependencies` section in the root `README.md` in the same PR. This applies to root-project tools and to subproject prerequisites listed there.
+
