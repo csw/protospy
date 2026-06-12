@@ -109,6 +109,24 @@ describe("Inspector shell — context bar", () => {
     expect(onNextMatching).toHaveBeenCalledOnce();
   });
 
+  it("wraps path+query as a single truncation unit with a tooltip for the full URI", () => {
+    // Both path and query must be inside one truncating element so they don't
+    // truncate independently, and the tooltip must expose the full raw URI.
+    render(
+      <Inspector
+        exchange={makeExchange({ uri: "/api/users?limit=10" })}
+        renderBodySplit={body}
+      />,
+    );
+    // Radix sets data-state="closed" on the TooltipTrigger child at mount.
+    // The truncating span contains both path and query as one unit.
+    const trigger = screen
+      .getByText("limit", { exact: true })
+      .closest("span[data-state]");
+    expect(trigger).not.toBeNull();
+    expect(trigger).toHaveAttribute("data-state", "closed");
+  });
+
   it("keeps the full query string when the URI contains a second '?'", () => {
     // splitUri keeps everything after the FIRST "?"; a raw uri.split("?") would
     // drop the "?cd" tail of the value here.

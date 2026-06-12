@@ -7,6 +7,7 @@ import {
 } from "./helpers/inject";
 import {
   makeCompleteExchange,
+  makeGetRequest,
   makeRequestWithTrace,
   makeResponse,
 } from "./fixtures/exchanges";
@@ -241,5 +242,34 @@ test.describe("ContextBar — elapsed pill", () => {
     await page.getByText("/api/timed").first().click();
     // fmtMs renders a space before the unit ("123 ms").
     await expect(contextBar(page).getByText("123 ms")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. Path display tooltip
+// ---------------------------------------------------------------------------
+
+test.describe("ContextBar — path display tooltip", () => {
+  test("6.1 hovering the path display shows the full URI including query string", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/very/long/path?q=search&limit=20"),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    await page.getByText("/api/very/long/path").first().click();
+
+    // The path+query display is a single truncating span (SimpleTooltip trigger);
+    // hovering it should show the full URI as a tooltip.
+    const pathDisplay = contextBar(page)
+      .locator("span", { hasText: "/api/very/long/path" })
+      .first();
+    await expect(pathDisplay).toBeVisible();
+
+    await pathDisplay.hover();
+    await expect(page.getByRole("tooltip")).toHaveText(
+      "/api/very/long/path?q=search&limit=20",
+    );
   });
 });

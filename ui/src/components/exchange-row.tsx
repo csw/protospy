@@ -23,6 +23,7 @@ import type { Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { Badge } from "@ui/components/ui/badge";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 export interface ExchangeRowProps {
   exchange: Exchange;
@@ -70,9 +71,11 @@ export function ExchangeRow({
           {formatAbsoluteTime(x.timestamp, tz)}
         </span>
       </div>
-      <div className="truncate font-mono text-sm text-secondary-foreground group-data-[selected]:font-medium group-data-[selected]:text-foreground">
-        {x.uri ?? "/"}
-      </div>
+      <SimpleTooltip content={x.uri}>
+        <div className="truncate font-mono text-sm text-secondary-foreground group-data-[selected]:font-medium group-data-[selected]:text-foreground">
+          {x.uri ?? "/"}
+        </div>
+      </SimpleTooltip>
       <div className="flex gap-2.5 overflow-hidden font-mono text-xs text-muted-foreground">
         <span className="truncate">
           {hasError ? x.error!.message : fmtMs(x.elapsedMs ?? null)}

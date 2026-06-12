@@ -128,6 +128,15 @@ describe("ExchangeRow", () => {
     expect(screen.getByText("res —")).toBeInTheDocument();
   });
 
+  it("wraps the URI in a SimpleTooltip so the full value is accessible when truncated", () => {
+    render(<ExchangeRow exchange={makeExchange({ uri: "/api/users" })} />);
+    // Radix sets data-state="closed" on the TooltipTrigger child at mount
+    expect(screen.getByText("/api/users")).toHaveAttribute(
+      "data-state",
+      "closed",
+    );
+  });
+
   it("marks the selected row via aria-selected and data-selected", () => {
     render(<ExchangeRow exchange={makeExchange()} selected />);
     const row = screen.getByRole("option");
