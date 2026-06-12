@@ -11,6 +11,7 @@ include = [
     "/LICENSE",
     "/README.md",
 ]
+rust-version = "1.88.0"
 
 [dependencies]
 hyper = { version = "1", features = ["full"] }
