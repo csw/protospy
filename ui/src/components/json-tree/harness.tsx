@@ -140,6 +140,7 @@ export function JsonTreeHarness() {
               key={f.id}
               value={f.id}
               data-testid={`fixture-${f.id}`}
+              className="px-2 text-xs"
             >
               {f.label}
             </ToggleGroupItem>
