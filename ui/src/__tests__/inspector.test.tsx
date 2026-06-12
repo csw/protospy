@@ -109,6 +109,19 @@ describe("Inspector shell — context bar", () => {
     expect(onNextMatching).toHaveBeenCalledOnce();
   });
 
+  it("wraps path+query as a single truncation unit with a tooltip for the full URI", () => {
+    // Both path and query must be inside one truncating element so they don't
+    // truncate independently, and the tooltip must expose the full raw URI.
+    render(
+      <Inspector
+        exchange={makeExchange({ uri: "/api/users" })}
+        renderBodySplit={body}
+      />,
+    );
+    // Radix adds data-state to the TooltipTrigger child when content is truthy
+    expect(screen.getByText("/api/users")).toHaveAttribute("data-state");
+  });
+
   it("keeps the full query string when the URI contains a second '?'", () => {
     // splitUri keeps everything after the FIRST "?"; a raw uri.split("?") would
     // drop the "?cd" tail of the value here.

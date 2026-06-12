@@ -31,6 +31,7 @@ import {
 } from "@ui/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { Button } from "@ui/components/ui/button";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 type BodyTab = "bodies" | "headers" | "timing";
 export type MsearchView = "paired" | "raw";
@@ -233,27 +234,31 @@ function PathDisplay({
   const query = rawQuery.startsWith("?") ? rawQuery.slice(1) : rawQuery;
   return (
     <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap font-mono text-[length:calc(var(--text-mono)+1px)] text-foreground">
-      <span className="truncate">{path}</span>
-      {query && (
-        <span className="truncate text-muted-foreground">
-          ?
-          {query.split("&").map((kv, i) => {
-            const [k, v] = kv.split("=");
-            return (
-              <span key={i}>
-                {i > 0 && <span className="text-muted-foreground">&</span>}
-                <span className="text-foreground">{k}</span>
-                {v != null && (
-                  <>
-                    <span className="text-muted-foreground">=</span>
-                    <span className="text-secondary-foreground">{v}</span>
-                  </>
-                )}
-              </span>
-            );
-          })}
+      <SimpleTooltip content={uri}>
+        <span className="min-w-0 truncate">
+          {path}
+          {query && (
+            <span className="text-muted-foreground">
+              ?
+              {query.split("&").map((kv, i) => {
+                const [k, v] = kv.split("=");
+                return (
+                  <span key={i}>
+                    {i > 0 && <span className="text-muted-foreground">&</span>}
+                    <span className="text-foreground">{k}</span>
+                    {v != null && (
+                      <>
+                        <span className="text-muted-foreground">=</span>
+                        <span className="text-secondary-foreground">{v}</span>
+                      </>
+                    )}
+                  </span>
+                );
+              })}
+            </span>
+          )}
         </span>
-      )}
+      </SimpleTooltip>
       {onNextMatching && (
         <Button
           variant="ghost"
