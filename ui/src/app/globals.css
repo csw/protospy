@@ -70,7 +70,7 @@
   --pending: #475569;
   --pending-bg: #f4f5f7;
   --error: #b91c1c;
-  --error-bg: #fee2e2;
+  --error-bg: color-mix(in srgb, #b91c1c 20%, white);
 
   /* SSE connection state (drives every ConnectionDot). A dedicated contract so
      "connecting" is first-class — not a borrowed redirect amber. Declared as
