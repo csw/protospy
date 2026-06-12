@@ -216,9 +216,10 @@ test.describe("Network error rendering — table mode", () => {
       ),
     ]);
 
-    // Table view: mid-stream error shows "200 ✕" in text-error
+    // Table view: mid-stream error shows "200 ✕" in text-client (amber warning
+    // tone — not text-error, which is reserved for pure transport failures).
     const statusCell = page
-      .locator("button[role='option'] span.text-error")
+      .locator("button[role='option'] span.text-client")
       .first();
     await expect(statusCell).toBeVisible();
     await expect(statusCell).toHaveText("200 ✕");
