@@ -1,5 +1,6 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { Exchange } from "@ui/state/reducer";
+import { Separator } from "./ui/separator";
 import { BodyPane } from "./body-pane";
 import { StreamView } from "./stream-view";
 import { ChatStreamView } from "./anthropic/chat-stream-view";
@@ -38,9 +39,10 @@ export function BodySplit({ exchange, protocol }: Props) {
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
         />
       </div>
-      <div
+      <Separator
+        orientation="vertical"
+        className="bg-border-strong"
         data-testid="body-split-divider"
-        className="w-px bg-border-strong shrink-0"
       />
       <div className="flex-1 overflow-hidden">
         {isSSE(exchange) ? (
