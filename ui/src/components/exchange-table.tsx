@@ -36,7 +36,7 @@ import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { packLanes, TraceRail, traceRailWidth } from "./trace-rail";
 import { EmptyState } from "./empty-state";
-import { SimpleTooltip } from "@ui/components/ui/SimpleTooltip";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 const col = createColumnHelper<Exchange>();
 

@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { StreamView } from "@ui/components/protospy/stream-view";
-import { ChatStreamView } from "@ui/components/anthropic/ChatStreamView";
-import { BodySplit } from "@ui/components/BodySplit";
+import { StreamView } from "@ui/components/stream-view";
+import { ChatStreamView } from "@ui/components/anthropic/chat-stream-view";
+import { BodySplit } from "@ui/components/body-split";
 import type { Exchange } from "@ui/state/reducer";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 

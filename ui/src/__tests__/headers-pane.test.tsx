@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { HeadersPane } from "@ui/components/protospy/headers-pane";
+import { HeadersPane } from "@ui/components/headers-pane";
 
 // Navigator clipboard mock
 let mockWriteText: ReturnType<typeof vi.fn>;

@@ -9,7 +9,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 
 **Keep both current:** when you change the UI's architecture, stack, data flow, or directory structure, update `ARCHITECTURE.md`, the `## Architecture` section of `README.md`, and the TL;DR below in the same change. See [`docs/agents/tldr-maintenance.md`](../docs/agents/tldr-maintenance.md) for the regeneration prompt.
 
-**Design system.** The visual design system, token contract, and component rationale are specified in [`docs/ui/design-system.md`](../docs/ui/design-system.md) (with [`rationale.md`](../docs/ui/rationale.md) and [`mapping.md`](../docs/ui/mapping.md)). Consult it before changing tokens, theming, or shared visual treatment. A per-PR `design-system-conformance-review` subagent (wired into `handle-ticket`, PRO-331) backstops adherence to this spec — including a static both-themes token-resolution check — but getting it right the first time is cheaper than fixing drift it flags. The v2.4 shell/chrome under `src/components/protospy/` is the live outer app layer; keep new rendered surfaces on that scaffold path.
+**Design system.** The visual design system, token contract, and component rationale are specified in [`docs/ui/design-system.md`](../docs/ui/design-system.md) (with [`rationale.md`](../docs/ui/rationale.md) and [`mapping.md`](../docs/ui/mapping.md)). Consult it before changing tokens, theming, or shared visual treatment. A per-PR `design-system-conformance-review` subagent (wired into `handle-ticket`, PRO-331) backstops adherence to this spec — including a static both-themes token-resolution check — but getting it right the first time is cheaper than fixing drift it flags. The v2.4 shell/chrome lives under `src/components/` (flat, kebab-case); keep new rendered surfaces on that scaffold path.
 
 ### TL;DR
 
@@ -37,7 +37,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `src/lib/` — `utils.ts` (`cn`, formatters incl. `formatAbsoluteTime`/`TimeZone`, matchers, trace colors, header helpers), `tickSource.ts`, `density.tsx` (store-derived `useDensity`, `ROW_PX`)
 - `src/app/` — `globals.css` (v2.3 token contract: `:root`/`.dark` raw tokens + `@theme inline` shadcn aliases + `@custom-variant dark`/`compact` + `@layer base` default border-color)
 - `src/theme/` — `theme.ts` (`ThemePreference` type, `DEFAULT_THEME`, `resolveDefaultTheme`)
-- `src/components/` — app components (`BodySplit`, `LiveIndicator`, `HeadersSplit`, `JsonViewer`, `TimingView`, …); live v2.4 shell/chrome and list/inspector scaffolds under `components/protospy/`; vendored shadcn primitives under `components/ui/`
+- `src/components/` — app components (flat, kebab-case: `body-split.tsx`, `live-indicator.tsx`, `json-viewer.tsx`, …); v2.4 shell/chrome and list/inspector scaffolds alongside legacy components; `components/anthropic/` for SSE+Anthropic-specific rendering; vendored shadcn primitives under `components/ui/`
 - `src/test/` (`setup.ts`, `fixtures.ts`, `scenes.ts` — fixture matrix + `window.__test_scenes`), `src/__tests__/` (Vitest)
 - `browser/` — Playwright specs (incl. `fixture-matrix.spec.ts`) + `helpers/inject.ts` (drives the store via `window.__test_store`) + `helpers/scenes.ts` (drives `window.__test_scenes`); `browser/fixtures/exchanges.ts` re-exports `src/test/fixtures.ts`
 - `docs/fixture-matrix.md` — the injectable state matrix and how to reach each cell

@@ -207,7 +207,7 @@ useStore.subscribe((s) => s.density, applyDensityToDOM, {
 export type AppStore = typeof useStore;
 
 // ---------------------------------------------------------------------------
-// Derived selectors. The v2.4 chrome scaffolds (`components/protospy/`) read
+// Derived selectors. The v2.4 chrome scaffolds (`components/`) read
 // the visible/selected/trace-count slices through these named selectors rather
 // than re-deriving inline. `selectVisibleIds` mirrors `ExchangeList`'s
 // filtered+ordered derivation exactly (same `matchesFilter` + trace filter +

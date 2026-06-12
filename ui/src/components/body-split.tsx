@@ -1,8 +1,8 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { Exchange } from "@ui/state/reducer";
-import { BodyPane } from "./BodyPane";
-import { StreamView } from "./protospy/stream-view";
-import { ChatStreamView } from "./anthropic/ChatStreamView";
+import { BodyPane } from "./body-pane";
+import { StreamView } from "./stream-view";
+import { ChatStreamView } from "./anthropic/chat-stream-view";
 
 interface Props {
   exchange: Exchange;

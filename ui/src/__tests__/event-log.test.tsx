@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { useRef } from "react";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
-import { EventLog, eventTypeClass } from "@ui/components/protospy/event-log";
+import { EventLog, eventTypeClass } from "@ui/components/event-log";
 import type { SSEEvent } from "@ui/body/sse";
 
 const ev = (index: number, type: string, data = ""): SSEEvent => ({

@@ -2,9 +2,12 @@ import { useMemo, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
-import { LiveIndicator, deriveStreamState } from "@ui/components/LiveIndicator";
-import { EventLog } from "@ui/components/protospy/event-log";
-import { StreamErrorBanner } from "@ui/components/StreamErrorBanner";
+import {
+  LiveIndicator,
+  deriveStreamState,
+} from "@ui/components/live-indicator";
+import { EventLog } from "@ui/components/event-log";
+import { StreamErrorBanner } from "@ui/components/stream-error-banner";
 import { Button } from "@ui/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { useStreamFollow } from "@ui/hooks/useStreamFollow";
