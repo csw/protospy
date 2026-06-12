@@ -4,7 +4,7 @@
 // fields/actions. THEME is the one exception — it lives in next-themes
 // (.dark on <html>), so the theme control uses useTheme(), not the store.
 //
-// Layout: wordmark · service picker · (spacer) · Jump-to ⌘K · group · density · theme.
+// Layout: wordmark · service picker · Jump-to ⌘K (grows, max-w-xl) · group · density · theme.
 
 import { useTheme } from "next-themes";
 import {
@@ -107,21 +107,23 @@ export function TopBar({ services = [], onSwitchService }: TopBarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1">
-        {/* ⌘K opener */}
-        <Button
-          variant="outline"
-          size="sm-dense"
-          onClick={() => setCmdKOpen(true)}
-          className="shrink-0 gap-2 text-muted-foreground"
-        >
+      {/* ⌘K opener — grows to fill empty space at wide viewports, capped at max-w-xl */}
+      <Button
+        variant="outline"
+        size="sm-dense"
+        onClick={() => setCmdKOpen(true)}
+        className="min-w-fit max-w-xl grow justify-between text-muted-foreground"
+      >
+        <span className="flex items-center gap-1.5">
           <Search className="size-3.5" />
           Jump to…
-          <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-[10.5px] text-muted-foreground">
-            ⌘K
-          </kbd>
-        </Button>
+        </span>
+        <kbd className="rounded border border-b-2 bg-secondary px-1.5 py-px font-mono text-xs text-muted-foreground">
+          ⌘K
+        </kbd>
+      </Button>
 
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* Group-by-trace */}
         <IconToggle
           active={traceGroupOn}
