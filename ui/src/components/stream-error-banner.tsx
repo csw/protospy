@@ -17,7 +17,9 @@ export function StreamErrorBanner({ message }: Props) {
       className="flex items-center gap-2 px-3 py-2 border-t border-border bg-error-bg shrink-0"
     >
       <AlertTriangle size={14} className="text-error/60 shrink-0" />
-      <span className="font-mono text-xs text-error">{message}</span>
+      <span className="font-mono text-xs text-error min-w-0 wrap-anywhere">
+        {message}
+      </span>
     </div>
   );
 }
