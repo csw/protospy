@@ -145,8 +145,10 @@ interface Props {
    * The shared body view mode (PRO-336). `parsed` keeps the kind-switched smart
    * rendering; `raw` shows the decoded text; `hex` shows a hex + ASCII dump.
    * Passed in (not read from the store) so this pane stays presentational.
+   * Defaults to `"parsed"` so tests that only care about size/error state can
+   * omit it.
    */
-  viewMode: ContentMode;
+  viewMode?: ContentMode;
 }
 
 export function BodyPane({
@@ -155,7 +157,7 @@ export function BodyPane({
   errorMessage,
   awaiting,
   cacheTo,
-  viewMode,
+  viewMode = "parsed",
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a

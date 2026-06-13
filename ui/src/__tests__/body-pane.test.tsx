@@ -35,6 +35,8 @@ describe("BodyPane size display", () => {
       text: "ok",
       mediaType: "text/plain",
       wireBytes: 11,
+      rawText: "ok",
+      bytes: new TextEncoder().encode("ok"),
       // No decodedBytes — decode pipeline did not run decompression.
     };
     decodeBodyMock.mockResolvedValueOnce(result);
@@ -56,6 +58,8 @@ describe("BodyPane size display", () => {
       mediaType: "application/json",
       wireBytes: 28,
       decodedBytes: 24, // bytes after decompression
+      rawText: '{"ok":true}',
+      bytes: new TextEncoder().encode('{"ok":true}'),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
@@ -74,6 +78,8 @@ describe("BodyPane size display", () => {
       text: '{"ok":true}',
       mediaType: "application/json; charset=utf-8",
       wireBytes: 28,
+      rawText: '{"ok":true}',
+      bytes: new TextEncoder().encode('{"ok":true}'),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
@@ -128,6 +134,8 @@ describe("BodyPane error display (PRO-220)", () => {
       text: "partial data",
       mediaType: "text/plain",
       wireBytes: 12,
+      rawText: "partial data",
+      bytes: new TextEncoder().encode("partial data"),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 

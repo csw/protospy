@@ -1,29 +1,12 @@
 import { useRef, useMemo } from "react";
-import {
-  useVirtualizer,
-  observeElementRect as defaultObserveRect,
-} from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementRectWithFallback } from "@ui/lib/virtual";
 
 // One row is a single `leading-5` line (20px).
 const ROW_HEIGHT = 20;
 
 /** Shared aria-label for the flat viewer scroll container. */
 const VIEWER_LABEL = "JSON viewer";
-
-/**
- * Wrap the default observeElementRect so jsdom (where getBoundingClientRect
- * returns a 0x0 rect) reports a usable fallback rect — otherwise the
- * virtualizer renders no items and component tests can't assert on rows.
- */
-const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
-  return defaultObserveRect(instance, (rect) => {
-    if (rect.width === 0 && rect.height === 0) {
-      cb({ width: 800, height: 600 });
-    } else {
-      cb(rect);
-    }
-  });
-};
 
 // ── Line tokenizer ──
 
@@ -123,7 +106,7 @@ export function JsonFlatView({ text }: { text: string }) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
-    observeElementRect,
+    observeElementRect: observeElementRectWithFallback,
   });
 
   return (
@@ -147,7 +130,7 @@ export function JsonFlatView({ text }: { text: string }) {
           return (
             <div
               key={vRow.key}
-              className="flex hover:bg-accent"
+              className="flex hover:bg-hover"
               style={{
                 position: "absolute",
                 top: 0,

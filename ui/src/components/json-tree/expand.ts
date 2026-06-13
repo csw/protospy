@@ -9,7 +9,7 @@
  * Pure and free of React/DOM so it is unit-testable in the Vitest `node` project.
  */
 
-import { countNodes, type JsonTreeNode } from "./model";
+import type { JsonTreeNode } from "./model";
 
 /**
  * Containers at or below this depth auto-expand (root = depth 0).
@@ -73,7 +73,7 @@ export function computeDefaultExpanded(
   } = opts;
 
   const effectiveMaxDepth =
-    countNodes(root) <= smallTreeNodeCount ? Infinity : maxDepth;
+    root.totalNodes <= smallTreeNodeCount ? Infinity : maxDepth;
 
   const expanded = new Set<number>();
   collectExpanded(root, effectiveMaxDepth, maxChildren, expanded);

@@ -63,6 +63,8 @@ export interface JsonTreeNode {
    * already carry it.
    */
   truncated: boolean;
+  /** Total node count in the subtree rooted at this node (including this node). */
+  totalNodes: number;
 }
 
 // ── Tree building ──
@@ -84,29 +86,43 @@ function buildNode(
   const base = { id, path, depth, key, truncated: false };
 
   if (value === null) {
-    return { ...base, type: "null", value: null, childCount: 0 };
+    return { ...base, type: "null", value: null, childCount: 0, totalNodes: 1 };
   }
   switch (typeof value) {
     case "string":
-      return { ...base, type: "string", value, childCount: 0 };
+      return { ...base, type: "string", value, childCount: 0, totalNodes: 1 };
     case "number":
-      return { ...base, type: "number", value, childCount: 0 };
+      return { ...base, type: "number", value, childCount: 0, totalNodes: 1 };
     case "boolean":
-      return { ...base, type: "boolean", value, childCount: 0 };
+      return { ...base, type: "boolean", value, childCount: 0, totalNodes: 1 };
   }
 
   if (Array.isArray(value)) {
     const children = value.map((item, i) =>
       buildNode(item, undefined, [...path, i], depth + 1, counter),
     );
-    return { ...base, type: "array", children, childCount: children.length };
+    const totalNodes = children.reduce((s, c) => s + c.totalNodes, 1);
+    return {
+      ...base,
+      type: "array",
+      children,
+      childCount: children.length,
+      totalNodes,
+    };
   }
 
   // Object
   const children = Object.entries(value).map(([k, v]) =>
     buildNode(v, k, [...path, k], depth + 1, counter),
   );
-  return { ...base, type: "object", children, childCount: children.length };
+  const totalNodes = children.reduce((s, c) => s + c.totalNodes, 1);
+  return {
+    ...base,
+    type: "object",
+    children,
+    childCount: children.length,
+    totalNodes,
+  };
 }
 
 // ── Path helpers ──

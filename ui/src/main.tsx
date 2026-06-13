@@ -23,9 +23,9 @@ if (
   TEST_HOOKS_ENABLED &&
   window.location.hash.startsWith("#json-tree-harness")
 ) {
-  // Dev/test-only standalone harness for the new JsonTreeViewer (PRO-397, phase
-  // 1a). The component isn't wired into the app yet (phase 1b); this lets visual
-  // review and the browser suite drive it in isolation.
+  // Dev/test-only standalone harness for JsonTreeViewer (PRO-397/PRO-398,
+  // phases 1a–1b). Lets visual review and the browser suite drive the
+  // component with representative fixtures in isolation.
   void import("./components/json-tree/harness").then(({ JsonTreeHarness }) => {
     createRoot(rootEl).render(
       <StrictMode>
