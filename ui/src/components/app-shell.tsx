@@ -40,7 +40,7 @@ import { ExchangeTable } from "./exchange-table";
 import { ExchangeRow } from "./exchange-row";
 import { GroupedExchangeList } from "./trace-group";
 import { EmptyState } from "./empty-state";
-import { Inspector, type MsearchView } from "./inspector";
+import { Inspector } from "./inspector";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -63,11 +63,7 @@ export interface AppShellProps {
   // (optional) paired msearch view; the JsonViewer/stream viewers live inside
   // `BodySplit`, so the shell never threads a `renderBody`/`renderStream` slot.
   renderBodySplit: (x: Exchange, protocol: Protocol | null) => ReactNode;
-  renderMsearch?: (
-    x: Exchange,
-    protocol: Protocol | null,
-    view: MsearchView,
-  ) => ReactNode;
+  renderMsearch?: (x: Exchange, protocol: Protocol | null) => ReactNode;
 }
 
 export function AppShell(props: AppShellProps) {
@@ -430,11 +426,7 @@ function InspectorPanel({
   renderMsearch,
 }: {
   renderBodySplit: (x: Exchange, protocol: Protocol | null) => ReactNode;
-  renderMsearch?: (
-    x: Exchange,
-    protocol: Protocol | null,
-    view: MsearchView,
-  ) => ReactNode;
+  renderMsearch?: (x: Exchange, protocol: Protocol | null) => ReactNode;
 }) {
   const selected = useStore(selectSelected);
   const tz = useStore((s) => s.timeZone);
@@ -502,9 +494,7 @@ function InspectorPanel({
         onNextInTrace={(id) => stepInTrace(selected, id)}
         renderBodySplit={() => renderBodySplit(selected, protocol)}
         renderMsearch={
-          renderMsearch
-            ? (view) => renderMsearch(selected, protocol, view)
-            : undefined
+          renderMsearch ? () => renderMsearch(selected, protocol) : undefined
         }
       />
     </div>

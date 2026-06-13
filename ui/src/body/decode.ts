@@ -26,6 +26,18 @@ export interface DecodeResult {
    * the pretty-printed text. `undefined` for all other kinds.
    */
   parsed?: unknown;
+  /**
+   * The decompressed body decoded as UTF-8 text, with NO pretty-printing or
+   * classification applied. Equals `text` for the `text` kind; for `json`/
+   * `jsonl` it is the original (un-pretty) source; for `binary` it is the bytes
+   * decoded as text (may contain replacement characters). Backs the `raw`
+   * view-mode escape hatch (PRO-336).
+   */
+  rawText: string;
+  /**
+   * The decompressed body bytes. Backs the `hex` view-mode dump (PRO-336).
+   */
+  bytes: Uint8Array;
 }
 
 function chunkToBytes(chunk: BodyChunk): Uint8Array {
@@ -194,6 +206,8 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       mediaType,
       wireBytes,
       decodedBytes,
+      rawText: text,
+      bytes,
     };
   }
 
@@ -209,6 +223,8 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         mediaType,
         wireBytes,
         decodedBytes,
+        rawText: text,
+        bytes,
       };
     } catch {
       // fall through to plain text
@@ -223,9 +239,24 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     "application/octet-stream",
   ];
   if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
-    return { kind: "binary", mediaType, wireBytes, decodedBytes };
+    return {
+      kind: "binary",
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
   }
 
   // Step 7: Default to text
-  return { kind: "text", text, mediaType, wireBytes, decodedBytes };
+  return {
+    kind: "text",
+    text,
+    mediaType,
+    wireBytes,
+    decodedBytes,
+    rawText: text,
+    bytes,
+  };
 }

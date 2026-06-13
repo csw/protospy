@@ -1,8 +1,9 @@
 // src/components/protospy/inspector.tsx
 // Composition of the detail panel (the v2.3 scaffold shell, wired to live data —
 // PRO-360 Slice 2). One shared tab strip (Bodies · Headers · Timing) spans the pane.
-// msearch is an in-Bodies Paired ↔ Raw NDJSON toggle on the right of the tab strip —
-// NOT a separate tab. Headers is ONE tab showing request + response side-by-side with
+// A body view-mode selector (Parsed · Raw · Hex, plus a type-specific Paired
+// option for msearch) sits on the right of the tab strip on the Bodies tab — NOT
+// a separate tab. Headers is ONE tab showing request + response side-by-side with
 // counts in the pane subheads.
 //
 // This is a PRESENTATIONAL shell: it takes the selected live `Exchange` plus render-slot
@@ -10,7 +11,8 @@
 // slices own) and keyboard/trace callbacks the container fills from the store. The
 // SSE/entity split lives inside `renderBodySplit` (the live BodySplit, which owns the
 // stream pane since PRO-361), so this shell only chooses the tab label and the
-// msearch-vs-bodies content.
+// paired-vs-split content. The shared body view mode is read from the store
+// (session-only); BodySplit reads the same slice to render each pane (PRO-336).
 
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
@@ -18,6 +20,8 @@ import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
 import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { isSSEExchange } from "@ui/lib/exchange";
+import { useStore } from "@ui/state/store";
+import type { BodyViewMode } from "@ui/state/store";
 import type { BodyState, Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
@@ -34,12 +38,15 @@ import { Button } from "@ui/components/ui/button";
 import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 type BodyTab = "bodies" | "headers" | "timing";
-export type MsearchView = "paired" | "raw";
 
 export interface InspectorProps {
   exchange: Exchange;
   tz?: TimeZone;
-  /** Whether to surface the msearch Paired ↔ Raw toggle + view (protocol-gated). */
+  /**
+   * Whether this is an msearch exchange (protocol-gated). When true, the body
+   * view-mode selector gains a type-specific `Paired` option alongside
+   * parsed/raw/hex, and `renderMsearch` supplies the Paired layout.
+   */
   isMsearch?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
@@ -49,7 +56,8 @@ export interface InspectorProps {
   onNextInTrace?: (id: string) => void;
   /** Slots for the heavy content, kept out of this composition shell. */
   renderBodySplit: () => React.ReactNode;
-  renderMsearch?: (view: MsearchView) => React.ReactNode;
+  /** The msearch `Paired` layout (only invoked for msearch exchanges). */
+  renderMsearch?: () => React.ReactNode;
 }
 
 export function Inspector({
@@ -66,8 +74,19 @@ export function Inspector({
   renderMsearch,
 }: InspectorProps) {
   const [tab, setTab] = useState<BodyTab>("bodies");
-  const [msView, setMsView] = useState<MsearchView>("paired");
   const showMsearch = isMsearch && renderMsearch != null;
+
+  // Shared body view mode (PRO-336). The selector offers parsed/raw/hex for any
+  // body, plus a type-specific `Paired` option for msearch. SSE exchanges keep
+  // their own ChatStreamView/StreamView toggles, so the selector is hidden there.
+  const bodyViewMode = useStore((s) => s.bodyViewMode);
+  const setBodyViewMode = useStore((s) => s.setBodyViewMode);
+  const showViewToggle = tab === "bodies" && !isSSEExchange(x);
+  // Guard against a stale `paired` selection on a non-msearch exchange so Radix
+  // never receives an out-of-range value.
+  const selectedViewMode =
+    bodyViewMode === "paired" && !showMsearch ? "parsed" : bodyViewMode;
+  const showPaired = showMsearch && bodyViewMode === "paired";
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
@@ -98,24 +117,37 @@ export function Inspector({
             <UnderlineTab value="headers">Headers</UnderlineTab>
             <UnderlineTab value="timing">Timing</UnderlineTab>
           </TabsList>
-          {/* Paired ↔ Raw NDJSON toggle — only for msearch, only on the Bodies tab */}
-          {showMsearch && tab === "bodies" && (
+          {/* Body view-mode selector — parsed/raw/hex for any body, plus a
+              type-specific Paired option for msearch. Hidden for SSE. */}
+          {showViewToggle && (
             <ToggleGroup
               type="single"
-              value={msView}
-              onValueChange={(v) => v && setMsView(v as MsearchView)}
+              value={selectedViewMode}
+              onValueChange={(v) => v && setBodyViewMode(v as BodyViewMode)}
               size="sm"
               className="ml-auto"
-              aria-label="msearch body view"
+              aria-label="body view mode"
             >
-              <ToggleGroupItem value="paired">Paired</ToggleGroupItem>
-              <ToggleGroupItem value="raw">Raw NDJSON</ToggleGroupItem>
+              {showMsearch && (
+                <ToggleGroupItem value="paired" className="px-2 text-xs">
+                  Paired
+                </ToggleGroupItem>
+              )}
+              <ToggleGroupItem value="parsed" className="px-2 text-xs">
+                Parsed
+              </ToggleGroupItem>
+              <ToggleGroupItem value="raw" className="px-2 text-xs">
+                Raw
+              </ToggleGroupItem>
+              <ToggleGroupItem value="hex" className="px-2 text-xs">
+                Hex
+              </ToggleGroupItem>
             </ToggleGroup>
           )}
         </div>
 
         <TabsContent value="bodies" className="min-h-0 flex-1 overflow-hidden">
-          {showMsearch ? renderMsearch!(msView) : renderBodySplit()}
+          {showPaired ? renderMsearch!() : renderBodySplit()}
         </TabsContent>
 
         <TabsContent value="headers" className="min-h-0 flex-1 overflow-hidden">

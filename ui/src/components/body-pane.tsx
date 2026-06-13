@@ -1,13 +1,19 @@
+import { useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { BodyState } from "@ui/state/reducer";
+import type { ContentMode } from "@ui/state/store";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
+import type { DecodeResult } from "@ui/body/decode";
 import { formatSize } from "@ui/lib/utils";
 import { mediaTypeSlug } from "@ui/lib/format";
+import { hexDumpText } from "@ui/lib/hex";
 import { CopyButton } from "./copy-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
 import { JsonViewer } from "./json-viewer";
+import { RawView } from "./raw-view";
+import { HexView } from "./hex-view";
 
 /** Centered error display used for both "no response" and "response interrupted" states. */
 function ErrorPanel({
@@ -55,6 +61,57 @@ function LifecycleState({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The decoded body rendered per the active view mode. `parsed` keeps the
+ * kind-switched smart rendering; `raw` and `hex` are kind-agnostic escape
+ * hatches over the same decoded bytes (PRO-336).
+ */
+function BodyContent({
+  result,
+  viewMode,
+}: {
+  result: DecodeResult;
+  viewMode: ContentMode;
+}) {
+  if (viewMode === "hex") return <HexView bytes={result.bytes} />;
+  if (viewMode === "raw") return <RawView text={result.rawText} />;
+
+  // parsed — the existing kind-switched rendering.
+  if (
+    (result.kind === "json" || result.kind === "jsonl") &&
+    result.text != null
+  ) {
+    // Wrap (rather than padding JsonViewer itself, which is shared by the
+    // table, body-state, and msearch surfaces) so the parsed body gets the same
+    // top inset as the raw/hex/text views. h-full resolves against the wrapper's
+    // content box, so the viewer fits below the padding without overflow.
+    return (
+      <div className="h-full pt-3">
+        <JsonViewer
+          text={result.text}
+          kind={result.kind}
+          parsed={result.parsed}
+        />
+      </div>
+    );
+  }
+  if (result.kind === "text" && result.text != null) {
+    return (
+      <pre className="font-mono text-xs text-foreground p-3 whitespace-pre-wrap">
+        {result.text}
+      </pre>
+    );
+  }
+  if (result.kind === "binary") {
+    return (
+      <LifecycleState>
+        Binary data · {formatSize(result.wireBytes)}
+      </LifecycleState>
+    );
+  }
+  return null;
+}
+
 interface Props {
   title: string;
   body: BodyState | undefined;
@@ -80,6 +137,12 @@ interface Props {
    * decode themselves.
    */
   cacheTo?: { exchangeId: number; direction: "request" | "response" };
+  /**
+   * The shared body view mode (PRO-336). `parsed` keeps the kind-switched smart
+   * rendering; `raw` shows the decoded text; `hex` shows a hex + ASCII dump.
+   * Passed in (not read from the store) so this pane stays presentational.
+   */
+  viewMode: ContentMode;
 }
 
 export function BodyPane({
@@ -88,6 +151,7 @@ export function BodyPane({
   errorMessage,
   awaiting,
   cacheTo,
+  viewMode,
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
@@ -96,6 +160,15 @@ export function BodyPane({
   const { loading, result } = useDecodeBody(body, cacheTo);
   const mediaTypeDisplay =
     result != null ? mediaTypeSlug(result.mediaType) : null;
+
+  // Copy the content of the active view: parsed text, raw decoded text, or the
+  // hex dump. hexDumpText is memoized since it walks every byte.
+  const copyValue = useMemo(() => {
+    if (result == null) return undefined;
+    if (viewMode === "hex") return hexDumpText(result.bytes);
+    if (viewMode === "raw") return result.rawText;
+    return result.text;
+  }, [result, viewMode]);
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
@@ -138,7 +211,7 @@ export function BodyPane({
               </span>
             </SimpleTooltip>
           )}
-          {body != null && <CopyButton value={result?.text} />}
+          {body != null && <CopyButton value={copyValue} />}
         </div>
       </div>
 
@@ -179,30 +252,8 @@ export function BodyPane({
           <LifecycleState>Could not decode body</LifecycleState>
         )}
 
-        {!loading &&
-          result != null &&
-          (result.kind === "json" || result.kind === "jsonl") &&
-          result.text != null && (
-            <JsonViewer
-              text={result.text}
-              kind={result.kind}
-              parsed={result.parsed}
-            />
-          )}
-
-        {!loading &&
-          result != null &&
-          result.kind === "text" &&
-          result.text != null && (
-            <pre className="font-mono text-xs text-foreground p-3 whitespace-pre-wrap">
-              {result.text}
-            </pre>
-          )}
-
-        {!loading && result != null && result.kind === "binary" && (
-          <LifecycleState>
-            Binary data · {formatSize(result.wireBytes)}
-          </LifecycleState>
+        {!loading && result != null && (
+          <BodyContent result={result} viewMode={viewMode} />
         )}
 
         {/* Mid-stream error: body completed but the exchange has an error.

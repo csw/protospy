@@ -467,3 +467,70 @@ describe("decodeBody edge cases", () => {
     expect(parsed.id).toBe(1);
   });
 });
+
+// rawText (the un-pretty decoded source) and bytes (the decompressed bytes)
+// back the raw/hex view modes (PRO-336); both are always present.
+describe("decodeBody raw/hex fields", () => {
+  it("json: rawText is the original un-pretty source, bytes are the decoded bytes", async () => {
+    const json = '{"hello":"world","n":42}';
+    const body: BodyState = {
+      chunks: [{ text: json }],
+      atEnd: true,
+      wireBytes: json.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    // Pretty text is multi-line; rawText is the compact original.
+    expect(result.text).toContain("\n");
+    expect(result.rawText).toBe(json);
+    expect(result.rawText).not.toContain("\n");
+    expect(new TextDecoder().decode(result.bytes)).toBe(json);
+  });
+
+  it("text: rawText equals text and bytes round-trip", async () => {
+    const body: BodyState = {
+      chunks: [{ text: "hello world" }],
+      atEnd: true,
+      wireBytes: 11,
+      contentType: "text/plain",
+    };
+    const result = await decodeBody(body);
+    expect(result.rawText).toBe("hello world");
+    expect(result.rawText).toBe(result.text);
+    expect(Array.from(result.bytes)).toEqual(
+      Array.from(new TextEncoder().encode("hello world")),
+    );
+  });
+
+  it("binary: bytes carry the decoded bytes even though text is absent", async () => {
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }], // 0x00 0x01 0x02
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "image/png",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("binary");
+    expect(result.text).toBeUndefined();
+    expect(Array.from(result.bytes)).toEqual([0x00, 0x01, 0x02]);
+    // rawText is always a string (the bytes decoded as UTF-8).
+    expect(typeof result.rawText).toBe("string");
+  });
+
+  it("bytes are the decompressed bytes for a compressed body", async () => {
+    const body: BodyState = {
+      chunks: [{ binary: DEFLATE_JSON_BASE64 }],
+      atEnd: true,
+      wireBytes: 32,
+      contentType: "application/json",
+      contentEncoding: "deflate",
+    };
+    const result = await decodeBody(body);
+    // The decompressed JSON, not the compressed wire bytes.
+    expect(new TextDecoder().decode(result.bytes)).toBe(
+      '{"hello":"world","n":42}',
+    );
+    expect(result.bytes.length).toBe(24);
+  });
+});

@@ -5,7 +5,6 @@ import type { Exchange } from "./state/reducer";
 import type { Protocol } from "@bindings/Protocol";
 import { BodySplit } from "./components/body-split";
 import { EmptyState } from "./components/ui/empty-state";
-import type { MsearchView } from "./components/inspector";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
 import { resolveDefaultTheme } from "./theme/theme";
@@ -43,18 +42,13 @@ function App() {
   const renderBodySplit = (exchange: Exchange, protocol: Protocol | null) => (
     <BodySplit exchange={exchange} protocol={protocol} />
   );
-  const renderMsearch = (
-    exchange: Exchange,
-    protocol: Protocol | null,
-    view: MsearchView,
-  ) =>
-    view === "raw" ? (
-      <BodySplit exchange={exchange} protocol={protocol} />
-    ) : (
-      <EmptyState textSize="sm">
-        Paired request view is not yet available
-      </EmptyState>
-    );
+  // The msearch `Paired` layout. Still the PRO-56 placeholder; the parsed/raw/hex
+  // modes for an msearch body go through `renderBodySplit`, not here.
+  const renderMsearch = () => (
+    <EmptyState textSize="sm">
+      Paired request view is not yet available
+    </EmptyState>
+  );
 
   return (
     <ThemeProvider
