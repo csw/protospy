@@ -84,7 +84,7 @@ function BodyContent({
     // h-full resolves against the wrapper's content box, keeping the viewer
     // below the padding without overflow.
     return (
-      <div className="h-full pt-3">
+      <div className="h-full pt-3 pl-3">
         <JsonTreeViewer
           value={result.parsed as JsonValue}
           aria-label="JSON viewer"
@@ -94,7 +94,7 @@ function BodyContent({
   }
   if (result.kind === "jsonl" && result.text != null) {
     return (
-      <div className="h-full pt-3">
+      <div className="h-full pt-3 pl-3">
         <JsonFlatView text={result.text} />
       </div>
     );
