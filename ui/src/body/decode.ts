@@ -22,7 +22,7 @@ export interface DecodeResult {
   decodedBytes?: number;
   /**
    * For `json` kind: the already-parsed JSON value, so downstream
-   * consumers (e.g. JsonViewer's tree builder) can skip re-parsing
+   * consumers (e.g. the JSON tree viewer) can skip re-parsing
    * the pretty-printed text. `undefined` for all other kinds.
    */
   parsed?: unknown;

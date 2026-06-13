@@ -613,7 +613,7 @@ export const SCENES: Scene[] = [
     title: "NDJSON body (flat view)",
     axis: "data",
     description:
-      "An application/x-ndjson response with several JSON lines. JsonViewer renders in flat (non-tree) JSONL mode — each line pretty-printed sequentially rather than collapsed into a single tree.",
+      "An application/x-ndjson response with several JSON lines. Renders in flat (line-numbered) JSONL mode — each line pretty-printed sequentially rather than collapsed into a single tree.",
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
     config: { selectedId: 1 },
   },

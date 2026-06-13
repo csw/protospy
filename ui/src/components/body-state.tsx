@@ -2,7 +2,7 @@
 // Lifecycle-aware body placeholder (design-system §4.5): body panes are never a
 // flat "pending". `awaiting` = no status/headers yet (awaiting the response);
 // `streaming` = response started, body still arriving. Used symmetrically on the
-// request/response panes; the `complete` phase renders the real JsonViewer, not
+// request/response panes; the `complete` phase renders the real JSON viewer, not
 // this. Maps a BodyState phase to the right copy + treatment.
 
 import { cn } from "@ui/lib/utils";

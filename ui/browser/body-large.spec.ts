@@ -16,8 +16,9 @@ test.beforeEach(async ({ page }) => {
 test.describe("Inspector — large body rendering", () => {
   // Generate a ~2 MB pretty-printed JSON body directly in the page context
   // (faster than serializing across CDP) and inject the GET/200 exchange via
-  // the test store. Verifies the JsonViewer renders within Playwright's
-  // default action timeout and that scrolling the viewer still moves.
+  // the test store. Verifies the JsonTreeViewer renders within Playwright's
+  // default action timeout and that scrolling the viewer moves after the
+  // auto-collapsed 20k-item array is expanded.
   test("renders a 2MB JSON body and scrolls without freezing", async ({
     page,
   }) => {
@@ -80,12 +81,24 @@ test.describe("Inspector — large body rendering", () => {
     // Select the exchange; Inspector defaults to the Bodies tab on selection.
     await page.getByText("/api/large").first().click();
 
-    // The JsonViewer eventually mounts. The default 30s test timeout caps the
-    // assertion — if the render or decode chokes, this fails loudly.
+    // The JsonTreeViewer eventually mounts. The default 30s caps the assertion
+    // — if the render or decode chokes, this fails loudly.
     const viewer = page.getByLabel("JSON viewer");
     await expect(viewer).toBeVisible({ timeout: 30_000 });
 
-    // Scroll the viewer 500px. BodyPane wraps the JsonViewer in its own
+    // JsonTreeViewer auto-collapses containers with >100 children. The
+    // 20k-item `items` array starts collapsed (3 visible rows, no overflow).
+    // Expand it so the windowed view (first 100 items) adds enough rows to
+    // overflow the pane and make the viewer scrollable.
+    await viewer.getByLabel("Expand").click();
+    // Poll until the virtualizer total height reflects the expanded rows
+    // (105 rows × 20 px each ≈ 2100 px). The show-more row lands outside
+    // the initial viewport so it can't serve as an in-viewport sentinel.
+    await expect
+      .poll(() => viewer.evaluate((el) => el.scrollHeight), { timeout: 5_000 })
+      .toBeGreaterThan(1_000);
+
+    // Scroll the viewer 500px. BodyPane wraps the viewer in its own
     // overflow-auto container, so try the viewer itself plus its overflow
     // ancestors — whichever container is the active scroller should accept
     // the scrollTop. A frozen / unmounted viewer would leave every

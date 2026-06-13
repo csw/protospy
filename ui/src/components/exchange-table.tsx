@@ -150,7 +150,7 @@ export function ExchangeTable({
   // PRO-341: React Compiler bails out on useReactTable
   // (`react-hooks/incompatible-library`) because TanStack Table returns methods
   // that close over mutable instance state. Safe to ignore here, matching the
-  // repo's useVirtualizer call sites (ExchangeList/EventsView/JsonViewer): the
+  // repo's useVirtualizer call sites (ExchangeList/EventsView/JsonTreeViewer): the
   // compiler is not enabled in this build, and the returned API is consumed
   // inline rather than handed to a memoized child.
   // eslint-disable-next-line react-hooks/incompatible-library
