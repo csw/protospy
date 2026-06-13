@@ -1,7 +1,6 @@
 /**
- * Dev/test-only standalone harness for {@link JsonTreeViewer} (phase 1a,
- * PRO-397). The component isn't wired into the body pane yet (phase 1b); this
- * harness lets visual review and the Playwright browser suite drive the real
+ * Dev/test-only standalone harness for {@link JsonTreeViewer} (PRO-397/PRO-398,
+ * phases 1a–1b). Lets visual review and the Playwright browser suite drive the
  * component with representative fixtures, in either theme.
  *
  * Mounted from `main.tsx` at the `#json-tree-harness` hash, gated behind the

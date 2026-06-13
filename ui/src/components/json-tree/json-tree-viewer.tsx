@@ -1,21 +1,20 @@
 /**
- * JsonTreeViewer — a collapsible, virtualized JSON tree (phase 1a, PRO-397).
+ * JsonTreeViewer — a collapsible, virtualized JSON tree (PRO-397/PRO-398,
+ * phases 1a–1b).
  *
  * Renders a parsed JSON value as a collapse-by-default tree over a flattened,
  * virtualized row list. It builds the tree model internally but does *not* parse
  * text, so phase 2's worker can hand it a parsed value without an API change.
- * Developed standalone — not yet wired into the body pane (phase 1b).
+ * Wired into the body pane (phase 1b, PRO-398).
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  useVirtualizer,
-  observeElementRect as defaultObserveRect,
-} from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementRectWithFallback } from "@ui/lib/virtual";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
-import { buildJsonTree, type JsonValue } from "./model";
+import { buildJsonTree, type JsonTreeNode, type JsonValue } from "./model";
 import { computeDefaultExpanded } from "./expand";
 import { flattenTree, CONTAINER_WINDOW, type FlatRow } from "./flatten";
 
@@ -29,20 +28,26 @@ const INDENT_PX = 16;
 
 const DEFAULT_LABEL = "JSON tree viewer";
 
-/**
- * Wrap the default observeElementRect so jsdom (where getBoundingClientRect
- * returns a 0x0 rect) reports a usable fallback rect — otherwise the virtualizer
- * renders no items and component tests can't assert on rows.
- */
-const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
-  return defaultObserveRect(instance, (rect) => {
-    if (rect.width === 0 && rect.height === 0) {
-      cb({ width: 800, height: 600 });
-    } else {
-      cb(rect);
-    }
-  });
-};
+/** Find the subtree node with the given ID, or null if not found. */
+function findNodeById(
+  node: JsonTreeNode,
+  targetId: number,
+): JsonTreeNode | null {
+  if (node.id === targetId) return node;
+  for (const child of node.children ?? []) {
+    const found = findNodeById(child, targetId);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Collect IDs of all descendants of `node` (not including `node` itself). */
+function collectDescendantIds(node: JsonTreeNode, out: Set<number>): void {
+  for (const child of node.children ?? []) {
+    out.add(child.id);
+    collectDescendantIds(child, out);
+  }
+}
 
 /**
  * Dynamic row measurement. Falls back to the estimate when the environment
@@ -89,30 +94,47 @@ export function JsonTreeViewer({
     setLimits(new Map());
   }
 
+  // Stable ref so toggle can read the current expanded set without adding it
+  // to the callback's dep array (expanded changes on every toggle, which would
+  // recreate the callback unnecessarily since JsonTreeRow isn't memoized).
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
+
   const rows = useMemo(
     () => flattenTree(tree, expanded, limits),
     [tree, expanded, limits],
   );
 
-  const toggle = useCallback((nodeId: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
+  const toggle = useCallback(
+    (nodeId: number) => {
+      const isCollapsing = expandedRef.current.has(nodeId);
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(nodeId)) {
+          next.delete(nodeId);
+        } else {
+          next.add(nodeId);
+        }
+        return next;
+      });
+      // On collapse: re-window the collapsed node and all its descendants so
+      // any "Show more" raise is forgotten and the next expand starts fresh.
+      if (isCollapsing) {
+        setLimits((prev) => {
+          if (prev.size === 0) return prev;
+          const node = findNodeById(tree, nodeId);
+          if (!node) return prev;
+          const toRemove = new Set<number>([nodeId]);
+          collectDescendantIds(node, toRemove);
+          if (![...toRemove].some((id) => prev.has(id))) return prev;
+          const next = new Map(prev);
+          for (const id of toRemove) next.delete(id);
+          return next;
+        });
       }
-      return next;
-    });
-    // Re-window on collapse: drop any raised reveal count so the next expand
-    // starts from the default window again.
-    setLimits((prev) => {
-      if (!prev.has(nodeId)) return prev;
-      const next = new Map(prev);
-      next.delete(nodeId);
-      return next;
-    });
-  }, []);
+    },
+    [tree],
+  );
 
   const showMore = useCallback((nodeId: number, total: number) => {
     setLimits((prev) => {
@@ -138,7 +160,7 @@ export function JsonTreeViewer({
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 12,
-    observeElementRect,
+    observeElementRect: observeElementRectWithFallback,
     measureElement,
   });
 
@@ -224,8 +246,7 @@ function JsonTreeRow({
         {expandable ? (
           <Button
             variant="ghost"
-            size="icon-xs"
-            className="size-4 text-json-punct"
+            className="size-4 rounded-md text-json-punct"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(row.nodeId);
@@ -296,7 +317,6 @@ function JsonTreeShowMore({
         </span>
         <Button
           variant="link"
-          size="xs"
           className="h-auto p-0 text-xs"
           data-testid="json-tree-show-more"
           onClick={() => onShowMore(row.nodeId, total)}
@@ -305,7 +325,6 @@ function JsonTreeShowMore({
         </Button>
         <Button
           variant="link"
-          size="xs"
           className="h-auto p-0 text-xs"
           data-testid="json-tree-show-all"
           onClick={() => onShowAll(row.nodeId, total)}

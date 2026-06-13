@@ -27,7 +27,7 @@ const VIEWER_LABEL = "Hex viewer";
 /**
  * Wrapper around the default observeElementRect that reports a fallback rect in
  * jsdom (where getBoundingClientRect is 0x0), so the virtualizer renders items
- * and component tests can assert on them. Mirrors json-viewer.tsx.
+ * and component tests can assert on them. Mirrors the json-viewer pattern.
  */
 const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
   return defaultObserveRect(instance, (rect) => {
@@ -41,7 +41,7 @@ const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
 
 /**
  * A hex + ASCII dump of the decompressed body bytes — the `hex` view mode
- * (PRO-336). Rows are fixed-height with no wrapping, so the json-viewer
+ * (PRO-336). Rows are fixed-height with no wrapping, so the flat-viewer
  * fixed-height virtualization pattern applies directly. The scroll content is
  * `ROW_COLS` wide so a full 16-byte row scrolls horizontally rather than
  * clipping its ASCII gutter inside a narrow split pane.

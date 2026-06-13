@@ -3,7 +3,7 @@
 // content components: the chrome (top/filter/status/list-toolbar/palette) reads
 // & writes the store itself, while the prop-driven content pieces (ExchangeTable,
 // ExchangeRow, Inspector) are fed derived slices here. Heavy body renderers
-// (JsonViewer, stream, msearch) stay app-owned and arrive as render slots —
+// (the JSON viewer, stream, msearch) stay app-owned and arrive as render slots —
 // the shell never imports a body viewer.
 //
 // Owns: the resizable list↔inspector split (width persists per list-mode) and
@@ -60,7 +60,7 @@ export interface AppShellProps {
 
   // ── inspector heavy-content slots (app-owned; see inspector.tsx) ──
   // The live `Inspector` exposes two slots — the split body view and the
-  // (optional) paired msearch view; the JsonViewer/stream viewers live inside
+  // (optional) paired msearch view; the JSON/stream viewers live inside
   // `BodySplit`, so the shell never threads a `renderBody`/`renderStream` slot.
   renderBodySplit: (x: Exchange, protocol: Protocol | null) => ReactNode;
   renderMsearch?: (x: Exchange, protocol: Protocol | null) => ReactNode;

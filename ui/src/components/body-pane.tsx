@@ -11,7 +11,9 @@ import { CopyButton } from "./copy-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
-import { JsonViewer } from "./json-viewer";
+import { JsonFlatView } from "./json-viewer";
+import { JsonTreeViewer } from "./json-tree";
+import type { JsonValue } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
@@ -76,22 +78,24 @@ function BodyContent({
   if (viewMode === "hex") return <HexView bytes={result.bytes} />;
   if (viewMode === "raw") return <RawView text={result.rawText} />;
 
-  // parsed — the existing kind-switched rendering.
-  if (
-    (result.kind === "json" || result.kind === "jsonl") &&
-    result.text != null
-  ) {
-    // Wrap (rather than padding JsonViewer itself, which is shared by the
-    // table, body-state, and msearch surfaces) so the parsed body gets the same
-    // top inset as the raw/hex/text views. h-full resolves against the wrapper's
-    // content box, so the viewer fits below the padding without overflow.
+  // parsed — the kind-switched rendering.
+  if (result.kind === "json" && result.parsed != null) {
+    // Wrap so the JSON viewer gets the same top inset as raw/hex/text views.
+    // h-full resolves against the wrapper's content box, keeping the viewer
+    // below the padding without overflow.
     return (
-      <div className="h-full pt-3">
-        <JsonViewer
-          text={result.text}
-          kind={result.kind}
-          parsed={result.parsed}
+      <div className="h-full pt-3 pl-3">
+        <JsonTreeViewer
+          value={result.parsed as JsonValue}
+          aria-label="JSON viewer"
         />
+      </div>
+    );
+  }
+  if (result.kind === "jsonl" && result.text != null) {
+    return (
+      <div className="h-full pt-3 pl-3">
+        <JsonFlatView text={result.text} />
       </div>
     );
   }
@@ -141,8 +145,10 @@ interface Props {
    * The shared body view mode (PRO-336). `parsed` keeps the kind-switched smart
    * rendering; `raw` shows the decoded text; `hex` shows a hex + ASCII dump.
    * Passed in (not read from the store) so this pane stays presentational.
+   * Defaults to `"parsed"` so tests that only care about size/error state can
+   * omit it.
    */
-  viewMode: ContentMode;
+  viewMode?: ContentMode;
 }
 
 export function BodyPane({
@@ -151,7 +157,7 @@ export function BodyPane({
   errorMessage,
   awaiting,
   cacheTo,
-  viewMode,
+  viewMode = "parsed",
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
@@ -216,7 +222,7 @@ export function BodyPane({
       </div>
 
       {/* Body area. `min-h-0` lets the flex item shrink below its content
-          height — without it, large bodies (e.g. JsonViewer's virtualized
+          height — without it, large bodies (e.g. the JSON viewer's virtualized
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-card">

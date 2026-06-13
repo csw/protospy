@@ -35,6 +35,8 @@ describe("BodyPane size display", () => {
       text: "ok",
       mediaType: "text/plain",
       wireBytes: 11,
+      rawText: "ok",
+      bytes: new TextEncoder().encode("ok"),
       // No decodedBytes — decode pipeline did not run decompression.
     };
     decodeBodyMock.mockResolvedValueOnce(result);
@@ -56,6 +58,8 @@ describe("BodyPane size display", () => {
       mediaType: "application/json",
       wireBytes: 28,
       decodedBytes: 24, // bytes after decompression
+      rawText: '{"ok":true}',
+      bytes: new TextEncoder().encode('{"ok":true}'),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
@@ -74,6 +78,8 @@ describe("BodyPane size display", () => {
       text: '{"ok":true}',
       mediaType: "application/json; charset=utf-8",
       wireBytes: 28,
+      rawText: '{"ok":true}',
+      bytes: new TextEncoder().encode('{"ok":true}'),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
@@ -128,6 +134,8 @@ describe("BodyPane error display (PRO-220)", () => {
       text: "partial data",
       mediaType: "text/plain",
       wireBytes: 12,
+      rawText: "partial data",
+      bytes: new TextEncoder().encode("partial data"),
     };
     decodeBodyMock.mockResolvedValueOnce(result);
 
@@ -185,12 +193,38 @@ describe("BodyPane view modes (PRO-336)", () => {
     bytes: new TextEncoder().encode(text),
   };
 
-  it("parsed mode renders the smart JSON viewer", async () => {
+  it("parsed mode renders the JSON tree viewer for JSON bodies", async () => {
     decodeBodyMock.mockResolvedValueOnce(jsonResult);
     render(<BodyPane title="Response" body={makeBody()} viewMode="parsed" />);
-    expect(await screen.findByLabelText("JSON viewer")).toBeInTheDocument();
+    const viewer = await screen.findByLabelText("JSON viewer");
+    expect(viewer).toBeInTheDocument();
+    // JsonTreeViewer renders tree rows; confirm the parsed value is visible.
+    expect(viewer).toHaveTextContent('"hello"');
     expect(screen.queryByLabelText("Raw body viewer")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Hex viewer")).not.toBeInTheDocument();
+  });
+
+  it("parsed mode renders the flat viewer for JSONL bodies", async () => {
+    const jsonlResult: DecodeResult = {
+      kind: "jsonl",
+      text: '{\n  "a": 1\n}\n\n{\n  "b": 2\n}',
+      mediaType: "application/x-ndjson",
+      wireBytes: 16,
+      rawText: '{"a":1}\n{"b":2}',
+      bytes: new TextEncoder().encode('{"a":1}\n{"b":2}'),
+    };
+    decodeBodyMock.mockResolvedValueOnce(jsonlResult);
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ contentType: "application/x-ndjson" })}
+        viewMode="parsed"
+      />,
+    );
+    const viewer = await screen.findByLabelText("JSON viewer");
+    expect(viewer).toBeInTheDocument();
+    expect(viewer).toHaveTextContent('"a"');
+    expect(viewer).toHaveTextContent('"b"');
   });
 
   it("raw mode renders the decoded text, not the pretty JSON", async () => {

@@ -7,7 +7,7 @@
 // (parsed/raw/hex) render the normal request/response split instead.
 //
 // This is the chrome + correlation logic; the per-sub-body rendering delegates to
-// the live JsonViewer (passed in as the `requestBody`/`responseBody` slots).
+// the live JSON viewer (passed in as the `requestBody`/`responseBody` slots).
 // Summary stats are ES-specific and computed by app code.
 //
 // PRO-362 (Slice 5): import-unified (@/ → @ui/) and brought under vitest coverage.
@@ -32,8 +32,8 @@ export interface SubExchange {
   hits: number;
   tookMs: number;
   showing?: number;
-  requestBody: React.ReactNode; // <JsonViewer …/>
-  responseBody: React.ReactNode; // <JsonViewer …/>
+  requestBody: React.ReactNode; // <JsonTreeViewer …/>
+  responseBody: React.ReactNode; // <JsonTreeViewer …/>
 }
 
 const STAT_TEXT: Record<StatusKind, string> = {

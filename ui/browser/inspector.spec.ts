@@ -326,8 +326,15 @@ test.describe("Inspector — body view-mode selector", () => {
 
     await page.getByText("/api/echo").first().click();
 
-    // Parsed by default → JSON viewer present, no raw/hex viewer.
+    // Parsed by default → JSON viewer present, small trees auto-expand fully.
     await expect(page.getByLabel("JSON viewer").first()).toBeVisible();
+    // Request body '{"hello":"world"}' — leaf values render through the real DOM.
+    await expect(page.getByLabel("JSON viewer").first()).toContainText(
+      '"hello"',
+    );
+    await expect(page.getByLabel("JSON viewer").first()).toContainText(
+      '"world"',
+    );
 
     // Hex: assert real dump rows render through the production virtualizer
     // (not just the container) — the request body is '{"hello":"world"}', so
@@ -344,6 +351,55 @@ test.describe("Inspector — body view-mode selector", () => {
     const raw = page.getByLabel("Raw body viewer").first();
     await expect(raw).toBeVisible();
     await expect(raw).toContainText('{"hello":"world"}');
+  });
+
+  test("6.4 JSON tree viewer leaf content visible and resets on exchange navigation", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/alpha"),
+      makeResponse(1, "200 OK", '{"value":"alpha"}'),
+      makeGetRequest(2, "/api/beta"),
+      makeResponse(2, "200 OK", '{"value":"beta"}'),
+    ]);
+
+    // First exchange — leaf value "alpha" visible through the real DOM layout.
+    await page.getByText("/api/alpha").first().click();
+    const viewer = page.getByLabel("JSON viewer");
+    await expect(viewer).toBeVisible();
+    await expect(viewer).toContainText('"value"');
+    await expect(viewer).toContainText('"alpha"');
+
+    // Navigate to second exchange — tree resets and shows new body.
+    await page.getByText("/api/beta").first().click();
+    await expect(viewer).toContainText('"beta"');
+    await expect(viewer).not.toContainText('"alpha"');
+  });
+
+  test("6.5 JSON tree viewer collapses and expands container nodes on toggle", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/tree"),
+      makeResponse(1, "200 OK", '{"items":[1,2,3]}'),
+    ]);
+    await page.getByText("/api/tree").first().click();
+
+    const viewer = page.getByLabel("JSON viewer");
+    await expect(viewer).toBeVisible();
+
+    // Small tree (5 nodes ≤ 50) auto-expands; array values are visible.
+    await expect(viewer).toContainText("1");
+
+    // Collapse the items array (second Collapse button — first is the root).
+    await viewer.getByLabel("Collapse").nth(1).click();
+    // Collapsed summary shows item count; leaf rows are gone from the DOM.
+    await expect(viewer).toContainText("3 items");
+    await expect(viewer.getByLabel("Expand")).toBeVisible();
+
+    // Re-expand via the Expand button.
+    await viewer.getByLabel("Expand").click();
+    await expect(viewer).toContainText("1");
   });
 });
 
