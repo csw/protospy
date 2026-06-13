@@ -440,6 +440,31 @@
         .stats-table tr:last-child td { border-bottom: none; }
         .stats-table td:last-child { color: var(--text-muted); text-align: right; }
 
+        /* ── Error toast ── */
+        #htmx-error-toast {
+            position: fixed;
+            top: 4.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-2);
+            border: 1px solid var(--rating);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 0.75rem 1.25rem;
+            z-index: 1000;
+            font-size: 0.875rem;
+            box-shadow: var(--shadow);
+            display: none;
+            cursor: pointer;
+            max-width: 480px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        #htmx-error-toast.visible {
+            display: block;
+            animation: fadeSlideIn 0.2s ease;
+        }
+
         /* Bar chart */
         .bar-row { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.4rem; }
         .bar-label { width: 3.5rem; text-align: right; font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
@@ -458,6 +483,36 @@
     </style>
 </head>
 <body hx-boost="true" hx-swap="innerHTML scroll:top">
+    <div id="htmx-error-toast" role="alert" aria-live="assertive"></div>
+    <script>
+    (function () {
+        const toast = document.getElementById('htmx-error-toast');
+        let timer;
+
+        function show(msg) {
+            toast.textContent = msg;
+            toast.classList.add('visible');
+            clearTimeout(timer);
+            timer = setTimeout(dismiss, 4000);
+        }
+
+        function dismiss() {
+            clearTimeout(timer);
+            toast.classList.remove('visible');
+        }
+
+        toast.addEventListener('click', dismiss);
+
+        document.body.addEventListener('htmx:sendError', function () {
+            show('Network error — could not reach the server.');
+        });
+
+        document.body.addEventListener('htmx:responseError', function (e) {
+            var status = e.detail && e.detail.xhr && e.detail.xhr.status;
+            show(status ? 'Server error (' + status + ') — please try again.' : 'Server error — please try again.');
+        });
+    }());
+    </script>
     <header>
         <div class="container">
             <nav>
