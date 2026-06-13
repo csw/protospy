@@ -1,5 +1,6 @@
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
+import { parseJson } from "./json-parse-worker";
 
 export interface DecodeResult {
   kind: "json" | "jsonl" | "text" | "binary";
@@ -211,11 +212,11 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 5: Detect JSON
+  // Step 5: Detect JSON — parse in a Web Worker so multi-MB bodies don't
+  // block the UI thread. Falls through to plain text on invalid JSON.
   if (contentType?.toLowerCase().includes("json")) {
     try {
-      const parsed: unknown = JSON.parse(text);
-      const prettyText = JSON.stringify(parsed, null, 2);
+      const { parsed, prettyText } = await parseJson(text);
       return {
         kind: "json",
         text: prettyText,
@@ -227,7 +228,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         bytes,
       };
     } catch {
-      // fall through to plain text
+      // invalid JSON — fall through to plain text
     }
   }
 

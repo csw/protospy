@@ -1,6 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
+import type { ParseResult } from "@ui/body/json-parse";
+import { parseAndFormat } from "@ui/body/json-parse";
+
+// Mock the Worker client so decodeBody's JSON step runs without a real Worker
+// in the Node environment. The mock delegates to parseAndFormat (the same pure
+// function the Worker itself calls), so the test exercises the real JSON parse
+// logic through the same interface as production.
+vi.mock("@ui/body/json-parse-worker", () => ({
+  parseJson: (text: string): Promise<ParseResult> =>
+    Promise.resolve(parseAndFormat(text)),
+}));
 
 // Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
 // the Vitest node project config. That wrapper uses initSync() + readFileSync()
@@ -532,5 +543,70 @@ describe("decodeBody raw/hex fields", () => {
       '{"hello":"world","n":42}',
     );
     expect(result.bytes.length).toBe(24);
+  });
+});
+
+// Verify the parse → transfer → tree-construction round-trip at the decode
+// layer. The Worker boundary is mocked (see vi.mock above), so these tests run
+// in Node. The real Worker code path (including structured-clone transfer) is
+// exercised by the browser tests in browser/body-json-worker.spec.ts.
+describe("decodeBody JSON Worker round-trip", () => {
+  it("parsed value is the exact JS object JSON.parse returns", async () => {
+    const input = '{"id":1,"tags":["a","b"],"active":true}';
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.parsed).toEqual({ id: 1, tags: ["a", "b"], active: true });
+  });
+
+  it("prettyText (result.text) is 2-space indented JSON", async () => {
+    const input = '{"x":1}';
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.text).toBe('{\n  "x": 1\n}');
+  });
+
+  it("invalid JSON falls through to kind: text after the Worker rejects", async () => {
+    const input = "not json {{{";
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    // Should fall through to plain text, not throw.
+    expect(result.kind).toBe("text");
+    expect(result.text).toBe(input);
+  });
+
+  it("parsed object can be passed to buildJsonTree without error", async () => {
+    const { buildJsonTree } = await import("@ui/components/json-tree/model");
+    const input = JSON.stringify({ hits: [{ _id: "1", score: 0.9 }] });
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    // Tree construction must not throw for structured-clone-compatible values.
+    const tree = buildJsonTree(
+      result.parsed as import("@ui/components/json-tree/model").JsonValue,
+    );
+    expect(tree).toBeDefined();
+    expect(tree.children).toBeDefined();
   });
 });

@@ -11,6 +11,7 @@ import { CopyButton } from "./copy-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
+import { Skeleton } from "./ui/skeleton";
 import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
 import type { JsonValue } from "./json-tree";
@@ -59,6 +60,28 @@ function LifecycleState({ children }: { children: React.ReactNode }) {
   return (
     <div role="status" className="h-full">
       <EmptyState>{children}</EmptyState>
+    </div>
+  );
+}
+
+/**
+ * Skeleton shown while the body is being decoded / parsed. Renders pulsing
+ * lines that suggest tree-structured content, giving the user a visual cue
+ * that content is on its way rather than a blank pane. Announced to assistive
+ * tech via `role="status"`.
+ */
+function BodySkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading body…"
+      className="flex flex-col gap-1.5 p-3"
+    >
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-4 w-5/6" />
+      <Skeleton className="h-4 w-2/3" />
+      <Skeleton className="h-4 w-4/5" />
     </div>
   );
 }
@@ -226,7 +249,7 @@ export function BodyPane({
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-card">
-        {loading && <LifecycleState>Decoding…</LifecycleState>}
+        {loading && <BodySkeleton />}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
           <LifecycleState>
