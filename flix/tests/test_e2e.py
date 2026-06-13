@@ -441,3 +441,49 @@ def test_demo_mode_timeout_shows_error(page: Page) -> None:
     )
     # The overlay itself stays visible (it's the error container now).
     expect(page.locator("#demo-overlay")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# Error toast E2E tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.e2e
+def test_send_error_shows_toast(page: Page) -> None:
+    """Network failure on a boosted link shows the network-error toast."""
+    page.goto("/")
+    page.route("**/stats", lambda route: route.abort())
+    page.locator("nav a", has_text="Stats").click()
+    expect(page.locator("#htmx-error-toast")).to_be_visible()
+    expect(page.locator("#htmx-error-toast")).to_contain_text("Network error")
+
+
+@pytest.mark.e2e
+def test_response_error_shows_status_in_toast(page: Page) -> None:
+    """Server HTTP error on a boosted link shows the status code in the toast."""
+    page.goto("/")
+    page.route("**/stats", lambda route: route.fulfill(status=500, body="error"))
+    page.locator("nav a", has_text="Stats").click()
+    expect(page.locator("#htmx-error-toast")).to_be_visible()
+    expect(page.locator("#htmx-error-toast")).to_contain_text("500")
+
+
+@pytest.mark.e2e
+def test_toast_auto_dismisses(page: Page) -> None:
+    """Error toast auto-dismisses within 6 seconds (4 s timer + buffer)."""
+    page.goto("/")
+    page.route("**/stats", lambda route: route.abort())
+    page.locator("nav a", has_text="Stats").click()
+    expect(page.locator("#htmx-error-toast")).to_be_visible()
+    expect(page.locator("#htmx-error-toast")).not_to_be_visible(timeout=6000)
+
+
+@pytest.mark.e2e
+def test_toast_click_dismisses(page: Page) -> None:
+    """Clicking the error toast dismisses it immediately."""
+    page.goto("/")
+    page.route("**/stats", lambda route: route.abort())
+    page.locator("nav a", has_text="Stats").click()
+    expect(page.locator("#htmx-error-toast")).to_be_visible()
+    page.locator("#htmx-error-toast").click()
+    expect(page.locator("#htmx-error-toast")).not_to_be_visible()

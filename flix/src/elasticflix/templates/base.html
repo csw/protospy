@@ -458,7 +458,6 @@
             cursor: pointer;
             max-width: 480px;
             text-align: center;
-            white-space: nowrap;
         }
         #htmx-error-toast.visible {
             display: block;
@@ -490,8 +489,8 @@
         let timer;
 
         function show(msg) {
-            toast.textContent = msg;
             toast.classList.add('visible');
+            toast.textContent = msg;
             clearTimeout(timer);
             timer = setTimeout(dismiss, 4000);
         }
