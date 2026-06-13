@@ -17,7 +17,7 @@ import { cn } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
 import { buildJsonTree, type JsonValue } from "./model";
 import { computeDefaultExpanded } from "./expand";
-import { flattenTree, type FlatRow } from "./flatten";
+import { flattenTree, CONTAINER_WINDOW, type FlatRow } from "./flatten";
 
 // One row is a single `leading-5` line (20px). Used as the virtualizer's size
 // estimate and as the jsdom measurement fallback; real heights come from
@@ -77,13 +77,22 @@ export function JsonTreeViewer({
   // pattern — the same approach json-viewer.tsx uses.
   const [expanded, setExpanded] =
     useState<ReadonlySet<number>>(defaultExpanded);
+  // Per-container reveal counts for windowed large containers; absent entries
+  // fall back to CONTAINER_WINDOW in the flattener.
+  const [limits, setLimits] = useState<ReadonlyMap<number, number>>(
+    () => new Map(),
+  );
   const [prevValue, setPrevValue] = useState(value);
   if (value !== prevValue) {
     setPrevValue(value);
     setExpanded(defaultExpanded);
+    setLimits(new Map());
   }
 
-  const rows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
+  const rows = useMemo(
+    () => flattenTree(tree, expanded, limits),
+    [tree, expanded, limits],
+  );
 
   const toggle = useCallback((nodeId: number) => {
     setExpanded((prev) => {
@@ -95,6 +104,27 @@ export function JsonTreeViewer({
       }
       return next;
     });
+    // Re-window on collapse: drop any raised reveal count so the next expand
+    // starts from the default window again.
+    setLimits((prev) => {
+      if (!prev.has(nodeId)) return prev;
+      const next = new Map(prev);
+      next.delete(nodeId);
+      return next;
+    });
+  }, []);
+
+  const showMore = useCallback((nodeId: number, total: number) => {
+    setLimits((prev) => {
+      const next = new Map(prev);
+      const current = next.get(nodeId) ?? CONTAINER_WINDOW;
+      next.set(nodeId, Math.min(current + CONTAINER_WINDOW, total));
+      return next;
+    });
+  }, []);
+
+  const showAll = useCallback((nodeId: number, total: number) => {
+    setLimits((prev) => new Map(prev).set(nodeId, total));
   }, []);
 
   const parentRef = useRef<HTMLDivElement>(null);
@@ -147,7 +177,12 @@ export function JsonTreeViewer({
               style={{ transform: `translateY(${vRow.start}px)` }}
               onClick={expandable ? () => toggle(row.nodeId) : undefined}
             >
-              <JsonTreeRow row={row} onToggle={toggle} />
+              <JsonTreeRow
+                row={row}
+                onToggle={toggle}
+                onShowMore={showMore}
+                onShowAll={showAll}
+              />
             </div>
           );
         })}
@@ -160,10 +195,24 @@ export function JsonTreeViewer({
 function JsonTreeRow({
   row,
   onToggle,
+  onShowMore,
+  onShowAll,
 }: {
   row: FlatRow;
   onToggle: (nodeId: number) => void;
+  onShowMore: (nodeId: number, total: number) => void;
+  onShowAll: (nodeId: number, total: number) => void;
 }) {
+  if (row.kind === "show-more") {
+    return (
+      <JsonTreeShowMore
+        row={row}
+        onShowMore={onShowMore}
+        onShowAll={onShowAll}
+      />
+    );
+  }
+
   const expandable = row.kind === "open" || row.kind === "collapsed";
   return (
     <>
@@ -204,6 +253,65 @@ function JsonTreeRow({
         ) : null}
         <JsonTreeRowValue row={row} />
         {row.hasComma ? <span className="text-json-punct">,</span> : null}
+      </span>
+    </>
+  );
+}
+
+/**
+ * A windowed container's "show more" row: a remaining-count label plus controls
+ * to reveal the next batch or all remaining children. Indented as a child so it
+ * lines up under the container's items.
+ */
+function JsonTreeShowMore({
+  row,
+  onShowMore,
+  onShowAll,
+}: {
+  row: FlatRow;
+  onShowMore: (nodeId: number, total: number) => void;
+  onShowAll: (nodeId: number, total: number) => void;
+}) {
+  const total = row.childCount ?? 0;
+  const shown = row.shownCount ?? 0;
+  const remaining = total - shown;
+  const step = Math.min(CONTAINER_WINDOW, remaining);
+  const noun =
+    row.containerType === "array"
+      ? remaining === 1
+        ? "item"
+        : "items"
+      : remaining === 1
+        ? "key"
+        : "keys";
+  return (
+    <>
+      <span
+        className="inline-flex shrink-0"
+        style={{ width: `${row.depth * INDENT_PX + 16}px` }}
+      />
+      <span className="flex items-center gap-2 text-muted-foreground">
+        <span className="italic">
+          {remaining} more {noun}
+        </span>
+        <Button
+          variant="link"
+          size="xs"
+          className="h-auto p-0 text-xs"
+          data-testid="json-tree-show-more"
+          onClick={() => onShowMore(row.nodeId, total)}
+        >
+          Show {step} more
+        </Button>
+        <Button
+          variant="link"
+          size="xs"
+          className="h-auto p-0 text-xs"
+          data-testid="json-tree-show-all"
+          onClick={() => onShowAll(row.nodeId, total)}
+        >
+          Show all
+        </Button>
       </span>
     </>
   );

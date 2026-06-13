@@ -11,6 +11,8 @@
 
 import { useState } from "react";
 import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
+import { Textarea } from "@ui/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 import { JsonTreeViewer } from "./json-tree-viewer";
 import type { JsonValue } from "./model";
@@ -19,6 +21,32 @@ interface Fixture {
   id: string;
   label: string;
   value: JsonValue;
+}
+
+/** Source id for the "paste / load a file" custom-input mode. */
+const CUSTOM_ID = "custom";
+
+/** Result of parsing the custom-input text into a renderable value. */
+export type ParsedInput =
+  | { status: "empty" }
+  | { status: "ok"; value: JsonValue }
+  | { status: "error"; message: string };
+
+/**
+ * Parse the harness's custom-input text. Blank input is "empty" (a prompt, not
+ * an error); anything else is run through `JSON.parse`, with the parse failure
+ * surfaced as a message. Exported for unit testing.
+ */
+export function parseJsonInput(text: string): ParsedInput {
+  if (text.trim() === "") return { status: "empty" };
+  try {
+    return { status: "ok", value: JSON.parse(text) as JsonValue };
+  } catch (e) {
+    return {
+      status: "error",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 /** A representative Elasticsearch search response (hits with nested _source). */
@@ -113,17 +141,30 @@ const FIXTURES: Fixture[] = [
 ];
 
 export function JsonTreeHarness() {
-  const [fixtureId, setFixtureId] = useState(FIXTURES[0].id);
+  const [sourceId, setSourceId] = useState(FIXTURES[0].id);
+  const [customText, setCustomText] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
   const [dark, setDark] = useState(() =>
     document.documentElement.classList.contains("dark"),
   );
 
-  const fixture = FIXTURES.find((f) => f.id === fixtureId) ?? FIXTURES[0];
+  const isCustom = sourceId === CUSTOM_ID;
+  const fixture = FIXTURES.find((f) => f.id === sourceId) ?? FIXTURES[0];
+  const parsed: ParsedInput = isCustom
+    ? parseJsonInput(customText)
+    : { status: "ok", value: fixture.value };
 
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
+  };
+
+  const loadFile = async (file: File) => {
+    const text = await file.text();
+    setCustomText(text);
+    setFileName(file.name);
+    setSourceId(CUSTOM_ID);
   };
 
   return (
@@ -132,8 +173,8 @@ export function JsonTreeHarness() {
         <ToggleGroup
           type="single"
           size="sm"
-          value={fixtureId}
-          onValueChange={(v) => v && setFixtureId(v)}
+          value={sourceId}
+          onValueChange={(v) => v && setSourceId(v)}
         >
           {FIXTURES.map((f) => (
             <ToggleGroupItem
@@ -145,6 +186,13 @@ export function JsonTreeHarness() {
               {f.label}
             </ToggleGroupItem>
           ))}
+          <ToggleGroupItem
+            value={CUSTOM_ID}
+            data-testid="source-custom"
+            className="px-2 text-xs"
+          >
+            Custom
+          </ToggleGroupItem>
         </ToggleGroup>
         <div className="ml-auto">
           <Button
@@ -157,11 +205,71 @@ export function JsonTreeHarness() {
           </Button>
         </div>
       </div>
+      {isCustom && (
+        <div className="flex flex-col gap-2 border-b border-border p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="file"
+              accept="application/json,.json,.txt"
+              aria-label="Load a JSON file"
+              data-testid="custom-file"
+              className="h-9 w-auto py-1.5 text-xs"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void loadFile(file);
+                // Reset so re-selecting the same file fires onChange again.
+                e.target.value = "";
+              }}
+            />
+            {fileName && (
+              <span className="text-xs text-muted-foreground">{fileName}</span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="custom-clear"
+              disabled={customText === ""}
+              onClick={() => {
+                setCustomText("");
+                setFileName(null);
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+          <Textarea
+            value={customText}
+            spellCheck={false}
+            aria-label="Paste JSON to preview"
+            placeholder="Paste JSON here, or load a file above…"
+            data-testid="custom-input"
+            aria-invalid={parsed.status === "error"}
+            className="h-28 resize-none font-mono text-xs"
+            onChange={(e) => {
+              setCustomText(e.target.value);
+              setFileName(null);
+            }}
+          />
+          {parsed.status === "error" && (
+            <p className="text-xs text-destructive" data-testid="custom-error">
+              Invalid JSON: {parsed.message}
+            </p>
+          )}
+        </div>
+      )}
       <div
         className="min-h-0 flex-1 p-2"
         data-testid="json-tree-harness-viewport"
       >
-        <JsonTreeViewer value={fixture.value} />
+        {parsed.status === "ok" ? (
+          <JsonTreeViewer value={parsed.value} />
+        ) : (
+          <p className="p-2 text-sm text-muted-foreground">
+            {parsed.status === "empty"
+              ? "Paste JSON or load a file above to preview it."
+              : "Fix the JSON above to preview it."}
+          </p>
+        )}
       </div>
     </div>
   );

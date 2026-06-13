@@ -22,6 +22,7 @@ export {
 export {
   flattenTree,
   formatPrimitive,
+  CONTAINER_WINDOW,
   type FlatRowKind,
   type FlatRow,
 } from "./flatten";

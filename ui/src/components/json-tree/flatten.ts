@@ -9,13 +9,27 @@
  * count index with binary search — see the research report — is the optimization
  * a later phase can add if a fully-expanded multi-MB body ever needs it.)
  *
+ * A large expanded container is *windowed*: only the first `CONTAINER_WINDOW`
+ * children are materialized, followed by a single `show-more` row. The viewer
+ * raises the per-node reveal count through `limits`, so the flattened list (and
+ * its allocations) stays bounded even when a huge array is expanded.
+ *
  * Pure and free of React/DOM so it is unit-testable in the Vitest `node` project.
  */
 
+import { LARGE_CONTAINER_CHILD_COUNT } from "./expand";
 import type { JsonPrimitive, JsonTreeNode, PathSegment } from "./model";
 
+/**
+ * How many children of a large container are revealed per step — both the
+ * initial window and each "show more" increment. Intentionally the same value
+ * as {@link LARGE_CONTAINER_CHILD_COUNT}: a container big enough to auto-collapse
+ * is exactly one that windows when expanded, so a single constant governs both.
+ */
+export const CONTAINER_WINDOW = LARGE_CONTAINER_CHILD_COUNT;
+
 /** The kind of a rendered row. */
-export type FlatRowKind = "open" | "close" | "collapsed" | "leaf";
+export type FlatRowKind = "open" | "close" | "collapsed" | "leaf" | "show-more";
 
 /** A single visible row in the flattened tree output. */
 export interface FlatRow {
@@ -29,10 +43,12 @@ export interface FlatRow {
   path: readonly PathSegment[];
   /** Property key if this node is an object entry. */
   key?: string;
-  /** Container type (for open/close/collapsed rows). */
+  /** Container type (for open/close/collapsed/show-more rows). */
   containerType?: "object" | "array";
-  /** Number of direct children (for container rows). */
+  /** Number of direct children (for container and show-more rows). */
   childCount?: number;
+  /** How many children are currently revealed (show-more rows only). */
+  shownCount?: number;
   /** Formatted value text (for leaf and empty-container rows). */
   valueText?: string;
   /** CSS class for the value text. */
@@ -43,13 +59,23 @@ export interface FlatRow {
   truncated: boolean;
 }
 
-/** Flatten a tree into visible rows based on which nodes are expanded. */
+/** Shared empty map so the common no-windowing call avoids an allocation. */
+const NO_LIMITS: ReadonlyMap<number, number> = new Map();
+
+/**
+ * Flatten a tree into visible rows based on which nodes are expanded.
+ *
+ * `limits` maps a container's node ID to how many of its children to reveal;
+ * absent entries fall back to {@link CONTAINER_WINDOW}. A large expanded
+ * container shows that many children plus a trailing `show-more` row.
+ */
 export function flattenTree(
   root: JsonTreeNode,
   expanded: ReadonlySet<number>,
+  limits: ReadonlyMap<number, number> = NO_LIMITS,
 ): FlatRow[] {
   const rows: FlatRow[] = [];
-  flattenNode(root, true, expanded, rows);
+  flattenNode(root, true, expanded, limits, rows);
   return rows;
 }
 
@@ -57,6 +83,7 @@ function flattenNode(
   node: JsonTreeNode,
   isLast: boolean,
   expanded: ReadonlySet<number>,
+  limits: ReadonlyMap<number, number>,
   out: FlatRow[],
 ): void {
   const hasComma = !isLast;
@@ -127,8 +154,32 @@ function flattenNode(
     truncated: node.truncated,
   });
 
-  for (let i = 0; i < children.length; i++) {
-    flattenNode(children[i], i === children.length - 1, expanded, out);
+  // Window large containers: reveal the first `shown` children, then a
+  // show-more row. Small containers (≤ window) always render in full.
+  const total = children.length;
+  const windowed = total > CONTAINER_WINDOW;
+  const shown = windowed
+    ? Math.min(limits.get(node.id) ?? CONTAINER_WINDOW, total)
+    : total;
+
+  for (let i = 0; i < shown; i++) {
+    // A revealed child is "last" only when it is the final child overall; a
+    // child followed by hidden siblings still gets a trailing comma.
+    flattenNode(children[i], i === total - 1, expanded, limits, out);
+  }
+
+  if (shown < total) {
+    out.push({
+      kind: "show-more",
+      nodeId: node.id,
+      depth: node.depth + 1, // indented as a child of the container
+      path: node.path,
+      containerType,
+      childCount: total,
+      shownCount: shown,
+      hasComma: false,
+      truncated: false,
+    });
   }
 
   out.push({

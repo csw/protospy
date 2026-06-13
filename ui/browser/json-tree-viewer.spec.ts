@@ -94,4 +94,45 @@ test.describe("JsonTreeViewer harness", () => {
 
     expect(errors).toEqual([]);
   });
+
+  test("windows a large array and reveals more in batches", async ({
+    page,
+  }) => {
+    const errors = collectErrors(page);
+    await page.goto("/#json-tree-harness");
+    await page.getByTestId("fixture-large-array").click();
+
+    const viewer = page.getByLabel("JSON tree viewer");
+    // The 250-item array auto-collapses; expand it (root toggle is [0], the
+    // items container is [1]) to trigger windowing.
+    await expect(viewer).toContainText("250 items");
+    await viewer.getByRole("button").nth(1).click();
+
+    const scrollToBottom = () =>
+      viewer.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+
+    // First window of 100 is shown; 150 remain behind a show-more row.
+    await scrollToBottom();
+    await expect(
+      page.getByText("150 more items", { exact: true }),
+    ).toBeVisible();
+
+    // Reveal the next batch of 100 → 50 remain.
+    await page.getByTestId("json-tree-show-more").click();
+    await scrollToBottom();
+    await expect(
+      page.getByText("50 more items", { exact: true }),
+    ).toBeVisible();
+
+    // Reveal the rest → the show-more controls are gone and the last item
+    // (only reachable once fully revealed) is present.
+    await page.getByTestId("json-tree-show-all").click();
+    await scrollToBottom();
+    await expect(page.getByTestId("json-tree-show-all")).toHaveCount(0);
+    await expect(viewer).toContainText("item 249");
+
+    expect(errors).toEqual([]);
+  });
 });

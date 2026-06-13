@@ -3,7 +3,11 @@ import {
   buildJsonTree,
   type JsonTreeNode,
 } from "@ui/components/json-tree/model";
-import { flattenTree, formatPrimitive } from "@ui/components/json-tree/flatten";
+import {
+  flattenTree,
+  formatPrimitive,
+  CONTAINER_WINDOW,
+} from "@ui/components/json-tree/flatten";
 
 // ── flattenTree: leaves & empty containers ──
 
@@ -112,6 +116,74 @@ describe("flattenTree commas", () => {
       (r) => r.kind === "close" && r.nodeId === tree.children![0].id,
     )!;
     expect(firstClose.hasComma).toBe(true);
+  });
+});
+
+// ── windowing of large expanded containers ──
+
+describe("flattenTree windowing", () => {
+  // An array one past the window: forces a single show-more row when expanded.
+  const overWindow = () =>
+    buildJsonTree(Array.from({ length: CONTAINER_WINDOW + 5 }, (_, i) => i));
+
+  it("does not window a container at or below the window size", () => {
+    const tree = buildJsonTree(
+      Array.from({ length: CONTAINER_WINDOW }, (_, i) => i),
+    );
+    const rows = flattenTree(tree, new Set([tree.id]));
+    expect(rows.some((r) => r.kind === "show-more")).toBe(false);
+    // open + CONTAINER_WINDOW leaves + close
+    expect(rows).toHaveLength(CONTAINER_WINDOW + 2);
+  });
+
+  it("reveals only the first window and appends a show-more row", () => {
+    const tree = overWindow();
+    const rows = flattenTree(tree, new Set([tree.id]));
+    const leaves = rows.filter((r) => r.kind === "leaf");
+    expect(leaves).toHaveLength(CONTAINER_WINDOW);
+
+    const more = rows.find((r) => r.kind === "show-more")!;
+    expect(more).toMatchObject({
+      kind: "show-more",
+      nodeId: tree.id,
+      containerType: "array",
+      childCount: CONTAINER_WINDOW + 5,
+      shownCount: CONTAINER_WINDOW,
+      depth: 1, // indented as a child of the root container
+    });
+    // The show-more row sits just before the container's close row.
+    const moreIdx = rows.indexOf(more);
+    expect(rows[moreIdx + 1].kind).toBe("close");
+  });
+
+  it("keeps a trailing comma on the last revealed child (more follow)", () => {
+    const tree = overWindow();
+    const rows = flattenTree(tree, new Set([tree.id]));
+    const leaves = rows.filter((r) => r.kind === "leaf");
+    expect(leaves[leaves.length - 1].hasComma).toBe(true);
+  });
+
+  it("honours a raised reveal limit and drops show-more once all are shown", () => {
+    const tree = overWindow();
+    const total = CONTAINER_WINDOW + 5;
+
+    const partial = flattenTree(
+      tree,
+      new Set([tree.id]),
+      new Map([[tree.id, CONTAINER_WINDOW + 2]]),
+    );
+    expect(partial.filter((r) => r.kind === "leaf")).toHaveLength(
+      CONTAINER_WINDOW + 2,
+    );
+    expect(partial.some((r) => r.kind === "show-more")).toBe(true);
+
+    const full = flattenTree(
+      tree,
+      new Set([tree.id]),
+      new Map([[tree.id, total]]),
+    );
+    expect(full.filter((r) => r.kind === "leaf")).toHaveLength(total);
+    expect(full.some((r) => r.kind === "show-more")).toBe(false);
   });
 });
 
