@@ -14,7 +14,7 @@
 // paired-vs-split content. The shared body view mode is read from the store
 // (session-only); BodySplit reads the same slice to render each pane (PRO-336).
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
@@ -50,17 +50,19 @@ export interface InspectorProps {
   isMsearch?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
-  onNextMatching?: () => void;
+  /** Called with the currently-displayed exchange so the container can read current store state at call time rather than closing over a rendered snapshot. */
+  onNextMatching?: (cur: Exchange) => void;
   onFilterTrace?: (id: string) => void;
   onCopyTrace?: (id: string) => void;
-  onNextInTrace?: (id: string) => void;
+  /** Called with the currently-displayed exchange and trace id. */
+  onNextInTrace?: (cur: Exchange, traceId: string) => void;
   /** Slots for the heavy content, kept out of this composition shell. */
   renderBodySplit: () => React.ReactNode;
   /** The msearch `Paired` layout (only invoked for msearch exchanges). */
   renderMsearch?: () => React.ReactNode;
 }
 
-export function Inspector({
+export const Inspector = memo(function Inspector({
   exchange: x,
   tz = "local",
   isMsearch = false,
@@ -181,7 +183,7 @@ export function Inspector({
       </Tabs>
     </div>
   );
-}
+});
 
 /* ── context bar ── */
 function ContextBar({
@@ -196,10 +198,10 @@ function ContextBar({
   x: Exchange;
   onPrev?: () => void;
   onNext?: () => void;
-  onNextMatching?: () => void;
+  onNextMatching?: (cur: Exchange) => void;
   onFilterTrace?: (id: string) => void;
   onCopyTrace?: (id: string) => void;
-  onNextInTrace?: (id: string) => void;
+  onNextInTrace?: (cur: Exchange, traceId: string) => void;
 }) {
   const hasError = x.error != null;
   return (
@@ -227,7 +229,10 @@ function ContextBar({
         </Button>
       </div>
       <MethodBadge method={x.method} size="md" />
-      <PathDisplay uri={x.uri ?? "/"} onNextMatching={onNextMatching} />
+      <PathDisplay
+        uri={x.uri ?? "/"}
+        onNextMatching={onNextMatching ? () => onNextMatching(x) : undefined}
+      />
       <StatusCode
         className="ml-auto shrink-0"
         status={x.status}
@@ -244,7 +249,9 @@ function ContextBar({
           traceId={x.traceId}
           onFilter={() => onFilterTrace?.(x.traceId!)}
           onCopy={() => onCopyTrace?.(x.traceId!)}
-          onNext={onNextInTrace ? () => onNextInTrace(x.traceId!) : undefined}
+          onNext={
+            onNextInTrace ? () => onNextInTrace(x, x.traceId!) : undefined
+          }
         />
       )}
     </div>

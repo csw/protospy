@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { useState } from "react";
+import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { Inspector } from "@ui/components/inspector";
 import { useStore } from "@ui/state/store";
@@ -91,9 +92,10 @@ describe("Inspector shell — context bar", () => {
     const onPrev = vi.fn();
     const onNext = vi.fn();
     const onNextMatching = vi.fn();
+    const ex = makeExchange();
     render(
       <Inspector
-        exchange={makeExchange()}
+        exchange={ex}
         renderBodySplit={body}
         onPrev={onPrev}
         onNext={onNext}
@@ -107,7 +109,9 @@ describe("Inspector shell — context bar", () => {
     );
     expect(onPrev).toHaveBeenCalledOnce();
     expect(onNext).toHaveBeenCalledOnce();
-    expect(onNextMatching).toHaveBeenCalledOnce();
+    // onNextMatching receives the current exchange so the container can read
+    // store state at call time rather than closing over a rendered snapshot.
+    expect(onNextMatching).toHaveBeenCalledWith(ex);
   });
 
   it("wraps path+query as a single truncation unit with a tooltip for the full URI", () => {
@@ -145,9 +149,10 @@ describe("Inspector shell — context bar", () => {
     const onCopyTrace = vi.fn();
     const onNextInTrace = vi.fn();
     const traceId = "abcdef0123456789abcdef0123456789";
+    const ex = makeExchange({ traceId });
     render(
       <Inspector
-        exchange={makeExchange({ traceId })}
+        exchange={ex}
         renderBodySplit={body}
         onFilterTrace={onFilterTrace}
         onCopyTrace={onCopyTrace}
@@ -157,7 +162,9 @@ describe("Inspector shell — context bar", () => {
     fireEvent.click(screen.getByLabelText("Copy trace id"));
     fireEvent.click(screen.getByLabelText("Next in trace"));
     expect(onCopyTrace).toHaveBeenCalledWith(traceId);
-    expect(onNextInTrace).toHaveBeenCalledWith(traceId);
+    // onNextInTrace receives the exchange then the trace id so the container
+    // reads store state at call time rather than closing over a rendered snapshot.
+    expect(onNextInTrace).toHaveBeenCalledWith(ex, traceId);
   });
 
   it("omits the next-in-trace action when there is no next target", () => {
@@ -172,6 +179,51 @@ describe("Inspector shell — context bar", () => {
     );
     expect(screen.getByLabelText("Copy trace id")).toBeInTheDocument();
     expect(screen.queryByLabelText("Next in trace")).not.toBeInTheDocument();
+  });
+});
+
+describe("Inspector shell — memo boundary", () => {
+  it("does not re-render when all stable props are unchanged", () => {
+    // renderBodySplit is called once per Inspector render; use it as a render counter.
+    const bodyRender = vi
+      .fn()
+      .mockReturnValue(<div data-testid="body-split">body</div>);
+    const ex = makeExchange();
+    // All props that InspectorPanel passes are represented here; they must all
+    // be stable references to hold the memo boundary.
+    const onPrev = vi.fn();
+    const onNext = vi.fn();
+    const onNextMatching = vi.fn();
+    const onFilterTrace = vi.fn();
+    const onCopyTrace = vi.fn();
+    const onNextInTrace = vi.fn();
+
+    // Wrapper that can re-render itself without touching Inspector's props.
+    let triggerRerender!: () => void;
+    function Wrapper() {
+      const [, setN] = useState(0);
+      triggerRerender = () => act(() => setN((c) => c + 1));
+      return (
+        <Inspector
+          exchange={ex}
+          renderBodySplit={bodyRender}
+          onPrev={onPrev}
+          onNext={onNext}
+          onNextMatching={onNextMatching}
+          onFilterTrace={onFilterTrace}
+          onCopyTrace={onCopyTrace}
+          onNextInTrace={onNextInTrace}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+    expect(bodyRender).toHaveBeenCalledTimes(1);
+
+    // Re-render the wrapper (simulates an unrelated store update in InspectorPanel);
+    // Inspector's props haven't changed so memo should suppress the re-render.
+    triggerRerender();
+    expect(bodyRender).toHaveBeenCalledTimes(1);
   });
 });
 
