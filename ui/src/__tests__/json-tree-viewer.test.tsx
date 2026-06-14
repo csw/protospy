@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { JsonTreeViewer } from "@ui/components/json-tree/json-tree-viewer";
+import {
+  JsonTreeViewer,
+  buildJsonTree,
+  computeDefaultExpanded,
+  flattenTree,
+} from "@ui/components/json-tree";
 
 /**
  * Render and let the virtualizer settle. It computes its visible range in a
@@ -128,7 +133,7 @@ describe("JsonTreeViewer", () => {
     expect(viewer).toHaveTextContent("1 key");
   });
 
-  it("resets expansion when a different value is rendered", async () => {
+  it("resets expansion when a different value is rendered (eager mode)", async () => {
     const { container, rerender } = await renderAndSettle(
       <JsonTreeViewer value={{ a: { b: 1 } }} />,
     );
@@ -144,5 +149,108 @@ describe("JsonTreeViewer", () => {
       rerender(<JsonTreeViewer value={{ x: { y: 2 } }} />);
     });
     expect(viewer).toHaveTextContent('"x"');
+  });
+});
+
+describe("JsonTreeViewer — lazy initialRows path (PRO-399 phase 2)", () => {
+  function makeInitial(value: unknown) {
+    const tree = buildJsonTree(value as Parameters<typeof buildJsonTree>[0]);
+    const expanded = computeDefaultExpanded(tree);
+    const rows = flattenTree(tree, expanded);
+    return { rows, expanded };
+  }
+
+  it("renders content from pre-built initialRows without a main-thread tree build", async () => {
+    const value = { a: 1, b: 2 };
+    const { rows, expanded } = makeInitial(value);
+    const { container } = await renderAndSettle(
+      <JsonTreeViewer
+        value={value}
+        initialRows={rows}
+        initialExpanded={expanded}
+      />,
+    );
+    const viewer = viewerOf(container);
+    expect(viewer).toHaveTextContent('"a"');
+    expect(viewer).toHaveTextContent('"b"');
+  });
+
+  it("builds the tree lazily on first toggle and reflects the new expansion state", async () => {
+    const value = { a: { nested: true } };
+    const { rows, expanded } = makeInitial(value);
+    const { container } = await renderAndSettle(
+      <JsonTreeViewer
+        value={value}
+        initialRows={rows}
+        initialExpanded={expanded}
+      />,
+    );
+    const viewer = viewerOf(container);
+    // Initially expanded — nested key visible.
+    expect(viewer).toHaveTextContent('"nested"');
+
+    // First interaction: collapse root — triggers ensureTree() lazy build.
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button")[0]);
+    });
+    expect(viewer).not.toHaveTextContent('"nested"');
+
+    // Expand again — tree is already built, re-expand should work.
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button")[0]);
+    });
+    expect(viewer).toHaveTextContent('"nested"');
+  });
+
+  it("resets tree and expansion when value changes with new initialRows", async () => {
+    const value1 = { x: 1 };
+    const { rows: rows1, expanded: exp1 } = makeInitial(value1);
+    const value2 = { y: 2 };
+    const { rows: rows2, expanded: exp2 } = makeInitial(value2);
+
+    const { container, rerender } = await renderAndSettle(
+      <JsonTreeViewer
+        value={value1}
+        initialRows={rows1}
+        initialExpanded={exp1}
+      />,
+    );
+    const viewer = viewerOf(container);
+    expect(viewer).toHaveTextContent('"x"');
+
+    await act(async () => {
+      rerender(
+        <JsonTreeViewer
+          value={value2}
+          initialRows={rows2}
+          initialExpanded={exp2}
+        />,
+      );
+    });
+    expect(viewer).toHaveTextContent('"y"');
+    expect(viewer).not.toHaveTextContent('"x"');
+  });
+
+  it("falls back to empty rows (not a crash) if initialRows is removed without a value change", async () => {
+    // Exercises the F2 guard: lazyTreeRef.current is null while treeReady=false,
+    // and initialRows becomes undefined — rows useMemo must return [] not throw.
+    const value = { safe: true };
+    const { rows, expanded } = makeInitial(value);
+    const { container, rerender } = await renderAndSettle(
+      <JsonTreeViewer
+        value={value}
+        initialRows={rows}
+        initialExpanded={expanded}
+      />,
+    );
+    expect(viewerOf(container)).toHaveTextContent('"safe"');
+
+    // Remove initialRows without changing value — treeReady stays false.
+    // The component should not throw; it renders an empty (not crashed) viewer.
+    await expect(
+      act(async () => {
+        rerender(<JsonTreeViewer value={value} />);
+      }),
+    ).resolves.not.toThrow();
   });
 });

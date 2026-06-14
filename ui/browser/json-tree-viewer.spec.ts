@@ -1,19 +1,11 @@
-import { test, expect, type ConsoleMessage } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { collectErrors } from "./helpers/errors";
 
 // Drives the dev/test-only standalone harness (`#json-tree-harness`, mounted by
 // main.tsx) so these assertions exercise the REAL production code path — the
 // @tanstack/react-virtual virtualizer and its dynamic `measureElement` in a real
 // browser, which the jsdom component tests cannot. See docs/agents/testing.md,
 // "Test the real production code path".
-
-function collectErrors(page: import("@playwright/test").Page): string[] {
-  const errors: string[] = [];
-  page.on("console", (msg: ConsoleMessage) => {
-    if (msg.type() === "error") errors.push(msg.text());
-  });
-  page.on("pageerror", (err) => errors.push(err.message));
-  return errors;
-}
 
 test.describe("JsonTreeViewer harness", () => {
   test("opens an ES response with hit content visible by default", async ({

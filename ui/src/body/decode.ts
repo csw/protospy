@@ -1,5 +1,8 @@
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
+import { parseJson } from "./json-parse";
+import type { JsonValue } from "../components/json-tree/model";
+import type { FlatRow } from "../components/json-tree/flatten";
 
 export interface DecodeResult {
   kind: "json" | "jsonl" | "text" | "binary";
@@ -21,11 +24,22 @@ export interface DecodeResult {
    */
   decodedBytes?: number;
   /**
-   * For `json` kind: the already-parsed JSON value, so downstream
-   * consumers (e.g. the JSON tree viewer) can skip re-parsing
-   * the pretty-printed text. `undefined` for all other kinds.
+   * For `json` kind: the already-parsed JSON value, available for lazy
+   * tree rebuild when the user expands/collapses nodes. `undefined` for
+   * all other kinds.
    */
-  parsed?: unknown;
+  parsed?: JsonValue;
+  /**
+   * For `json` kind: pre-built flat rows from the Worker (initial render
+   * uses these instead of re-building the tree on the main thread).
+   * `undefined` for all other kinds.
+   */
+  initialRows?: readonly FlatRow[];
+  /**
+   * For `json` kind: the default expanded node-ID set, computed off-thread
+   * alongside the initial rows. `undefined` for all other kinds.
+   */
+  initialExpanded?: ReadonlySet<number>;
   /**
    * The decompressed body decoded as UTF-8 text, with NO pretty-printing or
    * classification applied. Equals `text` for the `text` kind; for `json`/
@@ -211,15 +225,18 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 5: Detect JSON
+  // Step 5: Detect JSON — parse in a Web Worker so multi-MB bodies don't
+  // block the UI thread. Falls through to plain text on invalid JSON.
   if (contentType?.toLowerCase().includes("json")) {
     try {
-      const parsed: unknown = JSON.parse(text);
-      const prettyText = JSON.stringify(parsed, null, 2);
+      const { parsed, prettyText, rows, defaultExpanded } =
+        await parseJson(text);
       return {
         kind: "json",
         text: prettyText,
         parsed,
+        initialRows: rows,
+        initialExpanded: defaultExpanded,
         mediaType,
         wireBytes,
         decodedBytes,
@@ -227,7 +244,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         bytes,
       };
     } catch {
-      // fall through to plain text
+      // invalid JSON — fall through to plain text
     }
   }
 

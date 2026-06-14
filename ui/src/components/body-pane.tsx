@@ -11,9 +11,9 @@ import { CopyButton } from "./copy-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
+import { Skeleton } from "./ui/skeleton";
 import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
-import type { JsonValue } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
@@ -64,6 +64,29 @@ function LifecycleState({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Skeleton shown while the body is being decoded / parsed. Renders pulsing
+ * lines that suggest tree-structured content, giving the user a visual cue
+ * that content is on its way rather than a blank pane. Announced to assistive
+ * tech via `role="status"`.
+ */
+function BodySkeleton() {
+  return (
+    <div
+      role="status"
+      data-testid="body-skeleton"
+      className="flex flex-col gap-1.5 p-3"
+    >
+      <span className="sr-only">Loading…</span>
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-4 w-5/6" />
+      <Skeleton className="h-4 w-2/3" />
+      <Skeleton className="h-4 w-4/5" />
+    </div>
+  );
+}
+
+/**
  * The decoded body rendered per the active view mode. `parsed` keeps the
  * kind-switched smart rendering; `raw` and `hex` are kind-agnostic escape
  * hatches over the same decoded bytes (PRO-336).
@@ -86,7 +109,9 @@ function BodyContent({
     return (
       <div className="h-full pt-3 pl-3">
         <JsonTreeViewer
-          value={result.parsed as JsonValue}
+          value={result.parsed}
+          initialRows={result.initialRows}
+          initialExpanded={result.initialExpanded}
           aria-label="JSON viewer"
         />
       </div>
@@ -226,7 +251,7 @@ export function BodyPane({
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-card">
-        {loading && <LifecycleState>Decoding…</LifecycleState>}
+        {loading && <BodySkeleton />}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
           <LifecycleState>

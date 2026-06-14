@@ -1,6 +1,24 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
+import type { JsonParseResult } from "@ui/body/json-parse";
+import { parseAndFormat } from "@ui/body/json-parse-core";
+import { buildJsonTree } from "@ui/components/json-tree/model";
+import { computeDefaultExpanded } from "@ui/components/json-tree/expand";
+import { flattenTree } from "@ui/components/json-tree/flatten";
+
+// Mock the Worker client so decodeBody's JSON step runs without a real Worker
+// in the Node environment. The mock delegates to the same pure functions the
+// Worker uses, exercising the real logic through the same interface.
+vi.mock("@ui/body/json-parse", () => ({
+  parseJson: (text: string): Promise<JsonParseResult> => {
+    const { parsed, prettyText } = parseAndFormat(text);
+    const tree = buildJsonTree(parsed);
+    const defaultExpanded = computeDefaultExpanded(tree);
+    const rows = flattenTree(tree, defaultExpanded);
+    return Promise.resolve({ parsed, prettyText, rows, defaultExpanded });
+  },
+}));
 
 // Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
 // the Vitest node project config. That wrapper uses initSync() + readFileSync()
@@ -532,5 +550,84 @@ describe("decodeBody raw/hex fields", () => {
       '{"hello":"world","n":42}',
     );
     expect(result.bytes.length).toBe(24);
+  });
+});
+
+// Verify the parse → transfer → tree-construction round-trip at the decode
+// layer. The Worker boundary is mocked (see vi.mock above), so these tests run
+// in Node. The real Worker code path (including structured-clone transfer) is
+// exercised by the browser tests in browser/body-json-worker.spec.ts.
+describe("decodeBody JSON Worker round-trip", () => {
+  it("parsed value is the exact JS object JSON.parse returns", async () => {
+    const input = '{"id":1,"tags":["a","b"],"active":true}';
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.parsed).toEqual({ id: 1, tags: ["a", "b"], active: true });
+  });
+
+  it("prettyText (result.text) is 2-space indented JSON", async () => {
+    const input = '{"x":1}';
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.text).toBe('{\n  "x": 1\n}');
+  });
+
+  it("invalid JSON falls through to kind: text after the Worker rejects", async () => {
+    const input = "not json {{{";
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    // Should fall through to plain text, not throw.
+    expect(result.kind).toBe("text");
+    expect(result.text).toBe(input);
+  });
+
+  it("parsed object can be passed to buildJsonTree without error", async () => {
+    const input = JSON.stringify({ hits: [{ _id: "1", score: 0.9 }] });
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    // Tree construction must not throw for structured-clone-compatible values.
+    const tree = buildJsonTree(result.parsed!);
+    expect(tree).toBeDefined();
+    expect(tree.children).toBeDefined();
+  });
+
+  it("initialRows and initialExpanded are populated for JSON bodies", async () => {
+    const input = JSON.stringify({ x: 1, y: [2, 3] });
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.initialRows).toBeDefined();
+    expect(Array.isArray(result.initialRows)).toBe(true);
+    expect(result.initialRows!.length).toBeGreaterThan(0);
+    expect(result.initialExpanded).toBeDefined();
+    expect(result.initialExpanded).toBeInstanceOf(Set);
   });
 });

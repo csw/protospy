@@ -15,3 +15,6 @@ coverage/
 # genuine PNG asset directly at ui/ root can still be force-added with
 # `git add -f`. See PRO-348.
 /*.png
+
+# One-off performance bench scripts — not CI gates.
+browser/bench-*.spec.ts
