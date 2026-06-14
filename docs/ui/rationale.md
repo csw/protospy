@@ -50,11 +50,12 @@ non-size delta, and expose `useDensity().rowPx` for the one consumer that needs 
 number. You get the convenient surface of context+variants with the robustness of a
 single token swap underneath.
 
-## Why table is the default, and why react-table
+## Why react-table for the table view
 
-The implementation handoff promoted the dense **table** to the primary view (rows
-mode is the richer-but-sparser secondary). A six-column table wants column sizing,
-sorting, and visibility — exactly what **`@tanstack/react-table`** owns, *headlessly*.
+The two list views trade off: **rows** mode is the richer trace-rail presentation and
+is the **default** (PRO-402); the dense **table** is the alternate. A six-column table
+wants column sizing, sorting, and visibility — exactly what **`@tanstack/react-table`**
+owns, *headlessly*.
 It renders nothing itself, so our custom row markup and tokens are untouched; it just
 supplies column/sort/size state. It shares an author and mental model with
 **`@tanstack/react-virtual`**, so virtualized + sortable + resizable compose without
