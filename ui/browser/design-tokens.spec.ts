@@ -141,16 +141,48 @@ test.describe("design token fidelity", () => {
     expect(height).toBe("32px");
   });
 
-  test("chrome sub-header strip uses the h-strip token (32px)", async ({
+  test("chrome sub-header strips track the h-strip token, decoupled from h-tab", async ({
     page,
   }) => {
-    // The list toolbar is a representative sub-header strip; h-strip is the
-    // dedicated chrome-strip height token, distinct from the tab strip's h-tab.
-    const toolbar = page.locator('[data-testid="list-toolbar"]');
-    await expect(toolbar).toBeVisible();
+    // h-strip resolves to --strip-h (32px regular / 28px compact). Assert each
+    // strip's rendered height equals the resolved --strip-h *token* rather than a
+    // hardcoded pixel value: if --strip-h later diverges from the tab strip's
+    // --tab-h, this follows the token and a stale h-tab usage would fail. Cover
+    // two structural shapes (grid toolbar + flex pane head) and both densities.
+    await page.locator("button[role='option']").first().click();
 
-    const height = await toolbar.evaluate((el) => getComputedStyle(el).height);
-    expect(height).toBe("32px");
+    const readStrip = (testid: string) =>
+      page
+        .locator(`[data-testid="${testid}"]`)
+        .first()
+        .evaluate((el) => ({
+          height: getComputedStyle(el).height,
+          stripToken: getComputedStyle(document.documentElement)
+            .getPropertyValue("--strip-h")
+            .trim(),
+        }));
+
+    const toolbar = await readStrip("list-toolbar");
+    const paneHead = await readStrip("body-pane-subhead");
+    expect(toolbar.stripToken).toBe("32px");
+    expect(toolbar.height).toBe(toolbar.stripToken);
+    expect(paneHead.height).toBe(paneHead.stripToken);
+
+    await page.evaluate(() => {
+      (
+        window as unknown as {
+          __test_store: { getState: () => { setDensity: (d: string) => void } };
+        }
+      ).__test_store
+        .getState()
+        .setDensity("compact");
+    });
+
+    const toolbarCompact = await readStrip("list-toolbar");
+    const paneHeadCompact = await readStrip("body-pane-subhead");
+    expect(toolbarCompact.stripToken).toBe("28px");
+    expect(toolbarCompact.height).toBe(toolbarCompact.stripToken);
+    expect(paneHeadCompact.height).toBe(paneHeadCompact.stripToken);
   });
 
   test("filter input uses the scaffold's transparent chrome treatment", async ({

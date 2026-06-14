@@ -168,7 +168,7 @@
   --topbar-h: 40px;
   --filterbar-h: 36px;
   --statusbar-h: 24px;
-  --tab-h: 32px;
+  --tab-h: 32px; /* inspector tab-bar height; for pane-head strips use --strip-h */
   --strip-h: 32px; /* chrome sub-header strips (pane heads, list toolbar, trace-group header) */
   --ctxbar-h: 50px;
 
