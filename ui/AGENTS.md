@@ -49,10 +49,11 @@ change feels complex.
 
 **No `any` or `unknown` unless strictly necessary.** Use of `any` is forbidden;
 use of `unknown` is restricted to cases where it is genuinely unavoidable (e.g.
-`JSON.parse` return values, `Record<string, unknown>` for wire data whose shape
-isn't known statically, test-file casts through `unknown`). If you reach for
-either, justify it with a comment. The existing codebase is clean on this — keep
-it that way.
+`Record<string, unknown>` for wire data whose shape isn't known statically,
+test-file casts through `unknown`). For parsed JSON values, use `JsonValue` from
+`components/json-tree/model` — not `unknown`. If you reach for `unknown`
+anywhere else, justify it with a comment. The existing codebase is clean on
+this — keep it that way.
 
 **Use the existing component library — don't hand-roll.** Before you build any UI
 element — button, tooltip, toggle, input, dropdown, dialog, or the like — check
@@ -63,6 +64,22 @@ consistency, and it is a recurring failure mode for this UI (it has shipped bugs
 before). If a primitive's default sizing or spacing doesn't fit, override the
 specific dimensions via `className` (e.g. `className="size-4"`) — don't drop to raw
 elements just to get the size you want.
+
+**Dark-mode styling: tokens first, `dark:` variant for treatment only.**
+`@custom-variant dark (&:is(.dark *))` in `globals.css` overrides Tailwind's
+built-in `dark:` variant — all `dark:` utilities key off the `.dark` ancestor
+class, not `prefers-color-scheme`. Two paths to dark-mode styling, each for a
+different job:
+
+- **Semantic color → tokens.** Define values in `:root` / `.dark` in
+  `globals.css`, use via `bg-card`, `text-foreground`, etc. This is the design
+  system path and the default for app components.
+- **`dark:` variant → component treatment refinements in shadcn wrappers only.**
+  Opacity, shadow depth, border weight — where the dark-mode difference is how a
+  token is applied, not which color. Example: `dark:bg-input/30`,
+  `dark:bg-destructive/60`. Acceptable in `components/ui/`; avoid in app
+  components — if an app component needs dark-specific styling, that's a signal
+  a token is missing from the design system.
 
 **Invoke the convention skills — nothing preloads them.** Four skills are the
 convention checklists for this UI. You must invoke them yourself via the Skill tool

@@ -6,7 +6,7 @@ describe("EmptyState", () => {
   it("renders children with the base treatment and the xs size token by default", () => {
     render(<EmptyState>No body</EmptyState>);
     const text = screen.getByText("No body");
-    // Design-token sizes, not bare Tailwind defaults (design-system §2.4).
+    // Design-token sizes, not bare Tailwind defaults (design-system §2.5).
     expect(text).toHaveClass(
       "text-muted-foreground",
       "font-sans",

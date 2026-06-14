@@ -71,7 +71,24 @@ Sizing utilities: `h-row` `h-row-table` `h-topbar` `h-tab` `h-ctxbar`, `px-gutte
 `gap-gutter`, radii `rounded-sm|md|lg` (4/6/8). Fonts: `font-sans` (Inter),
 `font-mono` (JetBrains Mono).
 
-### 2.4 Density (hybrid)
+### 2.4 Dark-mode styling
+
+`@custom-variant dark (&:is(.dark *))` overrides Tailwind's built-in `dark:`
+variant. All `dark:` utilities fire on the `.dark` ancestor class (set by
+next-themes), not `prefers-color-scheme`.
+
+**Semantic color** lives in the token contract: `:root` / `.dark` blocks define
+per-theme values, components use token utilities (`bg-card`, `text-foreground`).
+This is the default path — app components must not use the `dark:` variant for
+color.
+
+**`dark:` variant** is reserved for **treatment refinements in shadcn wrappers**
+(`components/ui/`): opacity, shadow depth, border weight — where dark mode
+changes *how* a token is applied, not *which* color. Examples:
+`dark:bg-input/30`, `dark:bg-destructive/60`, `dark:data-[state=on]:shadow-sm`.
+If an app component needs dark-specific styling, add a token instead.
+
+### 2.5 Density (hybrid)
 
 `<DensityProvider>` sets `data-density` on `<html>`. That single attribute drives:
 1. **token swaps** (most sizing flips automatically — prefer this),

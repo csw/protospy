@@ -12,7 +12,7 @@ import { fmtBytes, fmtClock } from "./format";
  * The tokens are registered via the v4-idiomatic `theme` namespaces (mirroring
  * Tailwind's `@theme` keys 1:1 — font sizes under `text`, families under
  * `font`) rather than the lower-level `classGroups` form. See design-system
- * §2.4.
+ * §2.5.
  */
 const twMerge = extendTailwindMerge({
   extend: {
