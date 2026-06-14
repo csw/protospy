@@ -1,16 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
-import type { ParseResult } from "@ui/body/json-parse";
+import type { JsonParseResult } from "@ui/body/json-parse-worker";
 import { parseAndFormat } from "@ui/body/json-parse";
+import { buildJsonTree } from "@ui/components/json-tree/model";
+import { computeDefaultExpanded } from "@ui/components/json-tree/expand";
+import { flattenTree } from "@ui/components/json-tree/flatten";
+import type { JsonValue } from "@ui/components/json-tree/model";
 
 // Mock the Worker client so decodeBody's JSON step runs without a real Worker
-// in the Node environment. The mock delegates to parseAndFormat (the same pure
-// function the Worker itself calls), so the test exercises the real JSON parse
-// logic through the same interface as production.
+// in the Node environment. The mock delegates to the same pure functions the
+// Worker uses, exercising the real logic through the same interface.
 vi.mock("@ui/body/json-parse-worker", () => ({
-  parseJson: (text: string): Promise<ParseResult> =>
-    Promise.resolve(parseAndFormat(text)),
+  parseJson: (text: string): Promise<JsonParseResult> => {
+    const { parsed, prettyText } = parseAndFormat(text);
+    const tree = buildJsonTree(parsed as JsonValue);
+    const defaultExpanded = computeDefaultExpanded(tree);
+    const rows = flattenTree(tree, defaultExpanded);
+    return Promise.resolve({ parsed, prettyText, rows, defaultExpanded });
+  },
 }));
 
 // Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
@@ -592,7 +600,6 @@ describe("decodeBody JSON Worker round-trip", () => {
   });
 
   it("parsed object can be passed to buildJsonTree without error", async () => {
-    const { buildJsonTree } = await import("@ui/components/json-tree/model");
     const input = JSON.stringify({ hits: [{ _id: "1", score: 0.9 }] });
     const body: BodyState = {
       chunks: [{ text: input }],
@@ -603,10 +610,25 @@ describe("decodeBody JSON Worker round-trip", () => {
     const result = await decodeBody(body);
     expect(result.kind).toBe("json");
     // Tree construction must not throw for structured-clone-compatible values.
-    const tree = buildJsonTree(
-      result.parsed as import("@ui/components/json-tree/model").JsonValue,
-    );
+    const tree = buildJsonTree(result.parsed as JsonValue);
     expect(tree).toBeDefined();
     expect(tree.children).toBeDefined();
+  });
+
+  it("initialRows and initialExpanded are populated for JSON bodies", async () => {
+    const input = JSON.stringify({ x: 1, y: [2, 3] });
+    const body: BodyState = {
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.initialRows).toBeDefined();
+    expect(Array.isArray(result.initialRows)).toBe(true);
+    expect(result.initialRows!.length).toBeGreaterThan(0);
+    expect(result.initialExpanded).toBeDefined();
+    expect(result.initialExpanded).toBeInstanceOf(Set);
   });
 });

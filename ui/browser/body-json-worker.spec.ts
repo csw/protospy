@@ -109,6 +109,32 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
       jsonBody,
     });
 
+    // Observe whether the loading skeleton ever appears in the DOM. Start the
+    // observer before clicking so it's in place for the brief loading phase
+    // (Worker parse for ~150 KB takes 5–30 ms — too short for poll-based checks).
+    const skeletonObserved = page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          let seen = false;
+          const obs = new MutationObserver(() => {
+            if (
+              !seen &&
+              document.querySelector('[aria-label="Loading body…"]')
+            ) {
+              seen = true;
+              obs.disconnect();
+              resolve(true);
+            }
+          });
+          obs.observe(document.body, { childList: true, subtree: true });
+          // Resolve false if the skeleton never appears within 5 s.
+          setTimeout(() => {
+            obs.disconnect();
+            resolve(seen);
+          }, 5000);
+        }),
+    );
+
     // Select the exchange — Inspector defaults to Bodies tab.
     await page.getByText("/api/items").first().click();
 
@@ -118,6 +144,9 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
 
     // The tree must contain content from the parsed body.
     await expect(viewer).toContainText("items");
+
+    // The loading skeleton must have been visible during the Worker parse phase.
+    expect(await skeletonObserved).toBe(true);
 
     // No errors during the parse → transfer → render cycle.
     expect(errors).toEqual([]);
@@ -154,8 +183,15 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
     });
 
     await page.getByText("/api/bad-json").first().click();
-    // Should render as raw text, not crash.
-    await page.waitForTimeout(500);
+
+    // Invalid JSON falls through to plain text — assert on the rendered <pre>
+    // rather than sleeping; this is deterministic and fails fast if decode errors.
+    await expect(
+      page.locator("pre").filter({ hasText: "not valid json" }),
+    ).toBeVisible({
+      timeout: 10_000,
+    });
+
     expect(errors).toEqual([]);
   });
 
@@ -283,6 +319,94 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
     await page.getByText("/api/search").first().click();
     await expect(viewer).toBeVisible();
 
+    expect(errors).toEqual([]);
+  });
+});
+
+/**
+ * Separate describe so the Worker interception init script is added BEFORE the
+ * first navigation. The outer test.beforeEach (routes + goto) runs first, then
+ * this inner beforeEach adds the script and reloads — addInitScript fires on
+ * the subsequent navigation (page.reload), placing the hook before any module
+ * is evaluated by the app.
+ */
+test.describe("JSON-parse Web Worker — fatal error recovery", () => {
+  test.beforeEach(async ({ page }) => {
+    // Register the Worker interception script. It runs on the NEXT navigation
+    // (the reload below), before any app module is evaluated.
+    await page.addInitScript(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      const OriginalWorker = win.Worker as typeof Worker;
+      let jsonParseWorker: Worker | null = null;
+
+      // Exposed by the test to dispatch a synthetic fatal error on the Worker.
+      win.__crashJsonWorker = function () {
+        if (jsonParseWorker) {
+          jsonParseWorker.dispatchEvent(
+            new ErrorEvent("error", {
+              message: "Simulated Worker crash for test",
+            }),
+          );
+          jsonParseWorker = null;
+        }
+      };
+
+      // Wrap the Worker constructor so we can capture the json-parse instance.
+      // Returning the real Worker object from the wrapper makes `new` use it
+      // (JS allows constructors to return a different object).
+      win.Worker = function (url: string | URL, opts?: WorkerOptions): Worker {
+        const worker: Worker = new OriginalWorker(url as string, opts);
+        if (String(url).includes("json-parse")) {
+          jsonParseWorker = worker;
+        }
+        return worker;
+      };
+      win.Worker.prototype = OriginalWorker.prototype;
+    });
+
+    // Reload after adding the init script; routes set by the outer beforeEach
+    // persist across reload so no re-registration is needed.
+    await page.reload();
+    await waitForStore(page);
+    await resetStore(page);
+  });
+
+  test("recovers from fatal Worker error — next parse creates a fresh Worker", async ({
+    page,
+  }) => {
+    const errors = collectErrors(page);
+
+    // First exchange: parse succeeds normally (Worker is healthy).
+    await injectJsonExchange(page, {
+      id: 20,
+      uri: "/api/first",
+      jsonBody: JSON.stringify({ hello: "world" }),
+    });
+    await page.getByText("/api/first").first().click();
+    await expect(page.getByLabel("JSON viewer")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByLabel("JSON viewer")).toContainText('"hello"');
+
+    // Simulate a fatal Worker crash.
+    await page.evaluate(() =>
+      (window as unknown as { __crashJsonWorker(): void }).__crashJsonWorker(),
+    );
+
+    // Second exchange: must still parse and render after auto-recovery.
+    await injectJsonExchange(page, {
+      id: 21,
+      uri: "/api/second",
+      jsonBody: JSON.stringify({ recovered: true }),
+    });
+    await page.getByText("/api/second").first().click();
+    await expect(page.getByLabel("JSON viewer")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByLabel("JSON viewer")).toContainText('"recovered"');
+
+    // The simulated crash is handled internally; no unhandled page errors.
     expect(errors).toEqual([]);
   });
 });

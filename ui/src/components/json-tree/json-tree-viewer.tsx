@@ -3,9 +3,9 @@
  * phases 1a–1b).
  *
  * Renders a parsed JSON value as a collapse-by-default tree over a flattened,
- * virtualized row list. It builds the tree model internally but does *not* parse
- * text, so phase 2's worker can hand it a parsed value without an API change.
- * Wired into the body pane (phase 1b, PRO-398).
+ * virtualized row list. When `initialRows` / `initialExpanded` are provided
+ * (pre-built by the Web Worker, PRO-399 phase 2), the component uses them for
+ * the initial render and builds the tree lazily on the first user interaction.
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -61,50 +61,76 @@ function measureElement(el: Element): number {
 
 interface JsonTreeViewerProps {
   /**
-   * Parsed JSON value to render. The component builds the tree model from it; it
-   * does not parse text.
+   * Parsed JSON value to render. The component builds the tree model from it
+   * lazily (on first expand/collapse) when `initialRows` is provided, or
+   * eagerly on mount when it is not.
    */
   value: JsonValue;
+  /**
+   * Pre-built flat rows from the Web Worker (PRO-399 phase 2). When provided,
+   * used for the initial render to avoid a main-thread tree build. The tree
+   * is built lazily on the first user interaction (expand/collapse/show-more).
+   */
+  initialRows?: readonly FlatRow[];
+  /**
+   * Pre-computed default expanded set from the Worker, paired with
+   * `initialRows`. Ignored when `initialRows` is absent.
+   */
+  initialExpanded?: ReadonlySet<number>;
   className?: string;
   "aria-label"?: string;
 }
 
 export function JsonTreeViewer({
   value,
+  initialRows,
+  initialExpanded,
   className,
   "aria-label": ariaLabel = DEFAULT_LABEL,
 }: JsonTreeViewerProps) {
-  const tree = useMemo(() => {
-    const t0 = performance.now();
-    const result = buildJsonTree(value);
-    performance.measure("json-build-tree", {
-      start: t0,
-      duration: performance.now() - t0,
-    });
-    const tc = performance.now();
-    structuredClone(result);
-    performance.measure("json-tree-clone", {
-      start: tc,
-      duration: performance.now() - tc,
-    });
-    return result;
-  }, [value]);
-  const defaultExpanded = useMemo(() => computeDefaultExpanded(tree), [tree]);
+  // The JSON tree — built lazily when initialRows are provided, or eagerly
+  // on mount otherwise. Stored in a ref so mutations don't trigger re-renders.
+  const lazyTreeRef = useRef<JsonTreeNode | null>(null);
 
-  // Reset expansion when a different value is rendered. We track `value` identity
-  // (not tree.id, which always starts at 0) via the set-state-during-render
-  // pattern — the same approach json-viewer.tsx uses.
-  const [expanded, setExpanded] =
-    useState<ReadonlySet<number>>(defaultExpanded);
-  // Per-container reveal counts for windowed large containers; absent entries
-  // fall back to CONTAINER_WINDOW in the flattener.
+  // Always-fresh copy of `value` so the ensureTree closure stays current
+  // without adding value to every callback's dep array.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  // treeReady: false → use initialRows; true → flattenTree.
+  // The initializer may build the tree immediately (immediate mode).
+  const [treeReady, setTreeReady] = useState<boolean>(() => {
+    if (!initialRows) {
+      lazyTreeRef.current = buildJsonTree(value);
+      return true;
+    }
+    return false;
+  });
+
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => {
+    if (initialExpanded) return initialExpanded;
+    if (lazyTreeRef.current) return computeDefaultExpanded(lazyTreeRef.current);
+    return new Set<number>();
+  });
+
   const [limits, setLimits] = useState<ReadonlyMap<number, number>>(
     () => new Map(),
   );
+
+  // Reset expansion + tree when a different value is rendered.
   const [prevValue, setPrevValue] = useState(value);
   if (value !== prevValue) {
     setPrevValue(value);
-    setExpanded(defaultExpanded);
+    if (initialRows && initialExpanded !== undefined) {
+      lazyTreeRef.current = null;
+      setTreeReady(false);
+      setExpanded(initialExpanded);
+    } else {
+      const newTree = buildJsonTree(value);
+      lazyTreeRef.current = newTree;
+      setTreeReady(true);
+      setExpanded(computeDefaultExpanded(newTree));
+    }
     setLimits(new Map());
   }
 
@@ -114,54 +140,54 @@ export function JsonTreeViewer({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  const rows = useMemo(() => {
-    const t0 = performance.now();
-    const result = flattenTree(tree, expanded, limits);
-    performance.measure("json-flatten-tree", {
-      start: t0,
-      duration: performance.now() - t0,
-    });
-    const tc = performance.now();
-    structuredClone(result);
-    performance.measure("json-flat-clone", {
-      start: tc,
-      duration: performance.now() - tc,
-    });
-    return result;
-  }, [tree, expanded, limits]);
+  // Build the tree on demand and signal rows to switch from initialRows to
+  // flattenTree. Called from event handlers only (never during render).
+  function ensureTree(): JsonTreeNode {
+    if (!lazyTreeRef.current) {
+      lazyTreeRef.current = buildJsonTree(
+        valueRef.current as Parameters<typeof buildJsonTree>[0],
+      );
+      setTreeReady(true);
+    }
+    return lazyTreeRef.current;
+  }
 
-  const toggle = useCallback(
-    (nodeId: number) => {
-      const isCollapsing = expandedRef.current.has(nodeId);
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(nodeId)) {
-          next.delete(nodeId);
-        } else {
-          next.add(nodeId);
-        }
+  const rows = useMemo<readonly FlatRow[]>(() => {
+    if (!treeReady && initialRows) return initialRows;
+    return flattenTree(lazyTreeRef.current!, expanded, limits);
+  }, [treeReady, initialRows, expanded, limits]);
+
+  const toggle = useCallback((nodeId: number) => {
+    const isCollapsing = expandedRef.current.has(nodeId);
+    const tree = ensureTree();
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+    // On collapse: re-window the collapsed node and all its descendants so
+    // any "Show more" raise is forgotten and the next expand starts fresh.
+    if (isCollapsing) {
+      setLimits((prev) => {
+        if (prev.size === 0) return prev;
+        const node = findNodeById(tree, nodeId);
+        if (!node) return prev;
+        const toRemove = new Set<number>([nodeId]);
+        collectDescendantIds(node, toRemove);
+        if (![...toRemove].some((id) => prev.has(id))) return prev;
+        const next = new Map(prev);
+        for (const id of toRemove) next.delete(id);
         return next;
       });
-      // On collapse: re-window the collapsed node and all its descendants so
-      // any "Show more" raise is forgotten and the next expand starts fresh.
-      if (isCollapsing) {
-        setLimits((prev) => {
-          if (prev.size === 0) return prev;
-          const node = findNodeById(tree, nodeId);
-          if (!node) return prev;
-          const toRemove = new Set<number>([nodeId]);
-          collectDescendantIds(node, toRemove);
-          if (![...toRemove].some((id) => prev.has(id))) return prev;
-          const next = new Map(prev);
-          for (const id of toRemove) next.delete(id);
-          return next;
-        });
-      }
-    },
-    [tree],
-  );
+    }
+  }, []);
 
   const showMore = useCallback((nodeId: number, total: number) => {
+    ensureTree();
     setLimits((prev) => {
       const next = new Map(prev);
       const current = next.get(nodeId) ?? CONTAINER_WINDOW;
@@ -171,6 +197,7 @@ export function JsonTreeViewer({
   }, []);
 
   const showAll = useCallback((nodeId: number, total: number) => {
+    ensureTree();
     setLimits((prev) => new Map(prev).set(nodeId, total));
   }, []);
 

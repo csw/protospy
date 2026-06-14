@@ -1,10 +1,14 @@
 /**
  * Web Worker script: receives a JSON text string, parses and pretty-prints it,
- * and posts the result back to the main thread. Runs `JSON.parse` off the UI
- * thread so multi-MB bodies don't freeze the page.
+ * builds the JSON tree model, computes default expansion, and flattens the
+ * initial visible rows. Posts all results back to the main thread so this
+ * work runs off the UI thread for large bodies.
  */
 
 import { parseAndFormat } from "./json-parse";
+import { buildJsonTree } from "../components/json-tree/model";
+import { computeDefaultExpanded } from "../components/json-tree/expand";
+import { flattenTree, type FlatRow } from "../components/json-tree/flatten";
 
 type InMessage = { jobId: string; text: string };
 type OutMessage =
@@ -13,6 +17,8 @@ type OutMessage =
       status: "ok";
       parsed: unknown;
       prettyText: string;
+      rows: FlatRow[];
+      defaultExpandedIds: number[];
       workerParseMs: number;
     }
   | { jobId: string; status: "error"; message: string };
@@ -30,11 +36,18 @@ self.addEventListener("message", (event: MessageEvent<InMessage>) => {
     const t0 = self.performance.now();
     const { parsed, prettyText } = parseAndFormat(text);
     const workerParseMs = self.performance.now() - t0;
+
+    const tree = buildJsonTree(parsed as Parameters<typeof buildJsonTree>[0]);
+    const defaultExpanded = computeDefaultExpanded(tree);
+    const rows = flattenTree(tree, defaultExpanded);
+
     const out: OutMessage = {
       jobId,
       status: "ok",
       parsed,
       prettyText,
+      rows,
+      defaultExpandedIds: [...defaultExpanded],
       workerParseMs,
     };
     workerSelf.postMessage(out);

@@ -14,7 +14,7 @@ import { EmptyState } from "./ui/empty-state";
 import { Skeleton } from "./ui/skeleton";
 import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
-import type { JsonValue } from "./json-tree";
+import type { JsonValue, FlatRow } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
@@ -110,6 +110,8 @@ function BodyContent({
       <div className="h-full pt-3 pl-3">
         <JsonTreeViewer
           value={result.parsed as JsonValue}
+          initialRows={result.initialRows as FlatRow[] | undefined}
+          initialExpanded={result.initialExpanded}
           aria-label="JSON viewer"
         />
       </div>
@@ -249,7 +251,12 @@ export function BodyPane({
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-card">
-        {loading && <BodySkeleton />}
+        {loading &&
+          (body?.contentType?.toLowerCase().includes("json") ? (
+            <BodySkeleton />
+          ) : (
+            <LifecycleState>Decoding…</LifecycleState>
+          ))}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
           <LifecycleState>
