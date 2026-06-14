@@ -47,6 +47,13 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 Standing obligations on every UI change — not reference you reach for only when a
 change feels complex.
 
+**No `any` or `unknown` unless strictly necessary.** Use of `any` is forbidden;
+use of `unknown` is restricted to cases where it is genuinely unavoidable (e.g.
+`JSON.parse` return values, `Record<string, unknown>` for wire data whose shape
+isn't known statically, test-file casts through `unknown`). If you reach for
+either, justify it with a comment. The existing codebase is clean on this — keep
+it that way.
+
 **Use the existing component library — don't hand-roll.** Before you build any UI
 element — button, tooltip, toggle, input, dropdown, dialog, or the like — check
 whether a shadcn primitive already exists in `src/components/ui/` and use it. This
