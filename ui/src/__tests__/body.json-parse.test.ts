@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAndFormat } from "@ui/body/json-parse";
+import { parseAndFormat } from "@ui/body/json-parse-core";
 
 describe("parseAndFormat", () => {
   it("parses valid JSON and returns the parsed value", () => {

@@ -1,6 +1,7 @@
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
-import { parseJson } from "./json-parse-worker";
+import { parseJson } from "./json-parse";
+import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
 
 export interface DecodeResult {
@@ -27,7 +28,7 @@ export interface DecodeResult {
    * tree rebuild when the user expands/collapses nodes. `undefined` for
    * all other kinds.
    */
-  parsed?: unknown;
+  parsed?: JsonValue;
   /**
    * For `json` kind: pre-built flat rows from the Worker (initial render
    * uses these instead of re-building the tree on the main thread).

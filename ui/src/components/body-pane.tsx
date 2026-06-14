@@ -14,7 +14,6 @@ import { EmptyState } from "./ui/empty-state";
 import { Skeleton } from "./ui/skeleton";
 import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
-import type { JsonValue } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
@@ -110,7 +109,7 @@ function BodyContent({
     return (
       <div className="h-full pt-3 pl-3">
         <JsonTreeViewer
-          value={result.parsed as JsonValue}
+          value={result.parsed}
           initialRows={result.initialRows}
           initialExpanded={result.initialExpanded}
           aria-label="JSON viewer"

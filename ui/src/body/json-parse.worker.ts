@@ -5,8 +5,8 @@
  * work runs off the UI thread for large bodies.
  */
 
-import { parseAndFormat } from "./json-parse";
-import { buildJsonTree } from "../components/json-tree/model";
+import { parseAndFormat } from "./json-parse-core";
+import { buildJsonTree, type JsonValue } from "../components/json-tree/model";
 import { computeDefaultExpanded } from "../components/json-tree/expand";
 import { flattenTree, type FlatRow } from "../components/json-tree/flatten";
 
@@ -15,7 +15,7 @@ type OutMessage =
   | {
       jobId: string;
       status: "ok";
-      parsed: unknown;
+      parsed: JsonValue;
       prettyText: string;
       rows: FlatRow[];
       defaultExpandedIds: number[];
@@ -40,7 +40,7 @@ self.addEventListener("message", (event: MessageEvent<InMessage>) => {
     const workerParseMs = self.performance.now() - t0;
 
     const t1 = self.performance.now();
-    const tree = buildJsonTree(parsed as Parameters<typeof buildJsonTree>[0]);
+    const tree = buildJsonTree(parsed);
     const defaultExpanded = computeDefaultExpanded(tree);
     const workerTreeMs = self.performance.now() - t1;
 
