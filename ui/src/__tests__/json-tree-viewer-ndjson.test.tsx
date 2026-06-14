@@ -160,4 +160,28 @@ describe("JsonTreeViewer — copy value / copy path (PRO-400)", () => {
     });
     expect(writeText).toHaveBeenCalledWith("1");
   });
+
+  it("clears the target on an empty-space right-click (no stale copy)", async () => {
+    // Regression: the single menu is hoisted above the scroll container, so a
+    // right-click on empty space must not act on whichever row was targeted last.
+    const { container } = await renderAndSettle(
+      <JsonTreeViewer value={{ a: 1, b: 2 }} aria-label="JSON viewer" />,
+    );
+    // Target a row, then right-click the scroll container's empty space.
+    await openMenuOnRow('"a"');
+    const scroll = viewerOf(container, "JSON viewer");
+    await act(async () => {
+      fireEvent.contextMenu(scroll);
+    });
+    // The menu now reflects no target: copy items are disabled and selecting
+    // them is a no-op (before the fix the stale row's "$.a" would be copied).
+    const copyValue = screen
+      .getByText("Copy value")
+      .closest('[role="menuitem"]');
+    expect(copyValue).toHaveAttribute("aria-disabled", "true");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Copy path"));
+    });
+    expect(writeText).not.toHaveBeenCalled();
+  });
 });

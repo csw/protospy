@@ -231,6 +231,13 @@ export function JsonTreeViewer({
   // copy (e.g. a "show-more" control or empty space).
   const [menuRow, setMenuRow] = useState<FlatRow | null>(null);
 
+  // Set by a row's `onContextMenu` so the container's reset (which fires on the
+  // same bubbling contextmenu event) knows a row already claimed it and skips the
+  // null reset. A ref, not state — it's read and cleared within one event, never
+  // rendered. We can't `stopPropagation` in the row handler: Radix's trigger reads
+  // the same bubbled event to open the menu, so stopping it would suppress the menu.
+  const rowClaimedMenuRef = useRef(false);
+
   // Reset expansion + forest when a different body is rendered.
   const [prevInput, setPrevInput] = useState(input);
   if (input !== prevInput) {
@@ -256,7 +263,10 @@ export function JsonTreeViewer({
 
   // Build the forest on demand. Re-created every render (fresh closure over refs),
   // then stored in a ref so the zero-dep callbacks always call the latest version
-  // without adding ensureForest to their dep arrays (useLatest pattern).
+  // without adding ensureForest to their dep arrays (useLatest pattern). Unlike
+  // the useCallback-wrapped callbacks below, this is intentionally a plain
+  // function: it is only ever invoked through ensureForestRef, never passed as a
+  // prop or dependency, so memoizing its identity would buy nothing.
   const ensureForestRef = useRef<() => JsonTreeNode[]>(null!);
   function ensureForest(): JsonTreeNode[] {
     if (!lazyForestRef.current) {
@@ -370,6 +380,17 @@ export function JsonTreeViewer({
             // rather than getting cut off (deep nesting / long values).
             style={{ contain: "layout" }}
             aria-label={ariaLabel}
+            // Right-clicking empty space (below/between rows) clears the target so
+            // the shared menu shows disabled items instead of acting on whichever
+            // row was right-clicked last. A row's handler fires first (bubbling)
+            // and sets the claim flag, so a right-click on a row keeps that row.
+            onContextMenu={() => {
+              if (rowClaimedMenuRef.current) {
+                rowClaimedMenuRef.current = false;
+                return;
+              }
+              setMenuRow(null);
+            }}
           >
             <div
               style={{
@@ -395,9 +416,12 @@ export function JsonTreeViewer({
                     onClick={expandable ? () => toggle(row.nodeId) : undefined}
                     // Record the right-clicked row so the shared menu copies the
                     // right node. "show-more" rows have no node, so disable copy.
-                    onContextMenu={() =>
-                      setMenuRow(row.kind === "show-more" ? null : row)
-                    }
+                    // Claim the event so the container's reset (which sees the same
+                    // bubbled event) doesn't overwrite this row with null.
+                    onContextMenu={() => {
+                      rowClaimedMenuRef.current = true;
+                      setMenuRow(row.kind === "show-more" ? null : row);
+                    }}
                   >
                     {isForest ? <DocGutter row={row} /> : null}
                     <JsonTreeRow
