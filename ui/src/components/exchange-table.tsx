@@ -93,7 +93,7 @@ export function ExchangeTable({
       }),
       col.accessor("status", {
         header: "Status",
-        size: 54,
+        size: 46,
         cell: (c) => {
           const ex = c.row.original;
           return (
@@ -121,7 +121,7 @@ export function ExchangeTable({
       }),
       col.accessor("elapsedMs", {
         header: "Elapsed",
-        size: 62,
+        size: 54,
         cell: (c) => (
           <span className="min-w-0 whitespace-nowrap">
             {fmtMs(c.getValue() ?? null)}
@@ -131,12 +131,12 @@ export function ExchangeTable({
       col.display({
         id: "size",
         header: "Size",
-        size: 96,
+        size: 76,
         cell: (c) => <SizeCell x={c.row.original} />,
       }),
       col.accessor("timestamp", {
         header: "Time",
-        size: 104,
+        size: 92,
         cell: (c) => (
           <span className="min-w-0 whitespace-nowrap">
             {formatAbsoluteTime(c.getValue(), tz)}
@@ -216,7 +216,7 @@ export function ExchangeTable({
   }, [selectedId, rows, virtualizer]);
 
   // Grid template shared by header + rows. Path (col 3) is the only flexible one.
-  const gridCols = "56px 54px minmax(110px,480px) 62px 96px 104px";
+  const gridCols = "56px 46px minmax(110px,480px) 54px 76px 92px";
 
   return (
     <div className="flex min-h-0 flex-1">

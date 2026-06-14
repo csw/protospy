@@ -32,10 +32,10 @@ Cross-reference: tokens in `design-system.md §2`, code in `ui/src/components/pr
 | Toolbar | div + label + controls | label **"Requests"**; holds Local/UTC, order, rows/table |
 | Local/UTC toggle | ⬡ `ToggleGroup` | table mode; timestamps absolute either way |
 | Order toggle | ▣ `Button size="icon"` (Arrow) | default **newest-first** |
-| Rows/Table toggle | ⬡ `ToggleGroup` (Rows/Table icons) | **Table is default** |
+| Rows/Table toggle | ⬡ `ToggleGroup` (Rows/Table icons) | **Rows is default** |
 | Trace rail | ◆ `trace-rail.tsx` | lane-packed; fed virtualizer offsets; single-member traces excluded |
-| Table (default) | ◆ `exchange-table.tsx` (◷ react-table + react-virtual) | cols: Method·Status·Path·Elapsed·Size·Time |
-| Row (rows mode) | ◆ `exchange-row.tsx` | 3-line; full status line; trace left-border |
+| Exchange table | ◆ `exchange-table.tsx` (◷ react-table + react-virtual) | cols: Method·Status·Path·Elapsed·Size·Time |
+| Row (rows mode, default) | ◆ `exchange-row.tsx` | 3-line; full status line; trace left-border |
 | Trace group card | ◆ (group variant) | header + indented members when grouping on |
 | Empty — first run | ◆ `EmptyState` | "No requests yet" + traffic-flows hint |
 | Empty — filtered | ◆ `EmptyState kind="filtered"` | "No requests match your filter" |

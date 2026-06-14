@@ -91,7 +91,7 @@ test.describe("Virtualization", () => {
   }) => {
     const N = 200;
 
-    // Default is table mode; switch to rows first so the test can
+    // Start in rows mode (the default) so the test can
     // verify the rows→table→rows transition.
     await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(N));
@@ -119,7 +119,7 @@ test.describe("Virtualization", () => {
   test("density toggle updates virtualizer measurements", async ({ page }) => {
     const N = 200;
 
-    // Start in rows mode (default is table) so the test exercises
+    // Start in rows mode (the default) so the test exercises
     // the full rows→compact→table-compact→table-regular chain.
     await setListMode(page, "rows");
     await injectExchanges(page, makeLargeDataset(N));

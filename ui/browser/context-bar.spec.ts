@@ -253,6 +253,8 @@ test.describe("ContextBar — path display tooltip", () => {
   test("6.1 hovering the path display shows the full URI including query string", async ({
     page,
   }) => {
+    // Table mode (rows is the default) shows the path-only list cell to click.
+    await page.getByLabel("Table view").click();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/very/long/path?q=search&limit=20"),
       makeResponse(1, "200 OK"),

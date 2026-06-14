@@ -79,8 +79,9 @@ test.describe("Command palette — commands", () => {
       ...makeCompleteExchange(1, "GET", "/api/table", "200 OK"),
     ]);
 
-    // Default is table mode; switch to rows, then verify switching back
-    // to table via the palette restores table headers.
+    // Start in table mode (rows is the default), switch to rows, then verify
+    // switching back to table via the palette restores table headers.
+    await page.getByLabel("Table view").click();
     await page.keyboard.press("Meta+k");
     await page.getByRole("option", { name: /switch to rows view/i }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();

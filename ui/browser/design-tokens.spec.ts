@@ -82,7 +82,7 @@ test.describe("design token fidelity", () => {
   test("method badge uses mono font at correct weight and border-radius", async ({
     page,
   }) => {
-    // Method badge is a rows-mode element; switch from default table mode.
+    // Method badge is a rows-mode element; ensure rows (the default).
     await page.getByLabel("Rows view").click();
     const badge = page.locator('[data-testid="method-badge"]').first();
     await expect(badge).toBeVisible();
@@ -107,7 +107,7 @@ test.describe("design token fidelity", () => {
   test("status code uses design font size (text-sm = 11.5px)", async ({
     page,
   }) => {
-    // status-code testid is a rows-mode element; switch from default table mode.
+    // status-code testid is a rows-mode element; ensure rows (the default).
     await page.getByLabel("Rows view").click();
     const status = page.locator('[data-testid="status-code"]').first();
     await expect(status).toBeVisible();

@@ -115,16 +115,18 @@ describe("AppShell", () => {
       expect.any(Function),
     );
 
+    // Default list mode is "rows" (290px); at viewport 1440 the list panel takes
+    // its persisted width and the inspector gets the remainder.
     const panels = screen
       .getAllByTestId("panel-group")[0]
       .querySelectorAll("[data-panel]");
-    expect(panels[0]).toHaveAttribute("data-default-size", "720");
+    expect(panels[0]).toHaveAttribute("data-default-size", "290");
     expect(panels[0]).toHaveAttribute(
       "data-group-resize-behavior",
       "preserve-pixel-size",
     );
     expect(panels[0]).toHaveAttribute("data-min-size", "26");
-    expect(panels[1]).toHaveAttribute("data-default-size", "719");
+    expect(panels[1]).toHaveAttribute("data-default-size", "1149");
     expect(panels[1]).toHaveAttribute("data-min-size", "30");
     expect(screen.getByText("body 1 Elasticsearch")).toBeInTheDocument();
 

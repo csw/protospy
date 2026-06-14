@@ -91,11 +91,20 @@ function ShellInner({
   const connection = useStore((s) => s.connection);
   const listMode = useStore((s) => s.listMode);
   const setListWidth = useStore((s) => s.setListWidth);
-  const listWidth = useStore((s) => s.listWidth);
   const setHelpOpen = useStore((s) => s.setHelpOpen);
+  // The panel `defaultSize` must stay STABLE for the lifetime of each panel-group
+  // mount. The group remounts whenever `listMode` changes (key={listMode}), so we
+  // read the persisted width for the active mode once here, non-reactively.
+  //
+  // Crucially we do NOT depend on the live `listWidth` slice: `onResize` writes
+  // the dragged width back to the store during a drag, and if that fed back into
+  // `defaultSize`, the list Panel would re-register mid-drag (react-resizable-panels
+  // keys its registration effect on `defaultSize`), making the Group snap its layout
+  // back toward the default. That aborts the gesture after a few pixels — the
+  // first-drag stutter (PRO-402). Persisting still happens for the next mount/reload.
   const initialPanelSizes = useMemo(
-    () => getInitialPanelSizes(listWidth[listMode]),
-    [listMode, listWidth],
+    () => getInitialPanelSizes(useStore.getState().listWidth[listMode]),
+    [listMode],
   );
 
   useGlobalKeys(filterRef);

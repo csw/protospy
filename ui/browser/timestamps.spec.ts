@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Absolute timestamps (rows mode)", () => {
   test.beforeEach(async ({ page }) => {
-    // Default is now table mode; switch to rows.
+    // Default is now rows mode, but click to be explicit/robust.
     await page.getByLabel("Rows view").click();
   });
 
@@ -61,7 +61,10 @@ test.describe("Absolute timestamps (rows mode)", () => {
 });
 
 test.describe("Absolute timestamps (table mode)", () => {
-  // Table view is the default — no mode switch needed.
+  test.beforeEach(async ({ page }) => {
+    // Default list mode is now "rows"; switch to table for these checks.
+    await page.getByLabel("Table view").click();
+  });
 
   test("shows absolute HH:MM:SS.mmm timestamp", async ({ page }) => {
     const ts = new Date(FIXED_TIME).toISOString();

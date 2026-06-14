@@ -141,10 +141,13 @@ test.describe("Fixture matrix", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await applyScene(page, "dual-size");
+    // The dual-size scene leaves the (now rows) default mode; this test asserts
+    // the table Size cell, so switch to table view.
+    await page.getByLabel("Table view").click();
 
-    // 66 wire bytes → 58 decoded bytes, gzip. Table view (the default) shows
-    // the wire size inline with a compression marker; the wire/decoded
-    // breakdown lives in the cell tooltip.
+    // 66 wire bytes → 58 decoded bytes, gzip. Table view shows the wire size
+    // inline with a compression marker; the wire/decoded breakdown lives in the
+    // cell tooltip.
     const sizeCell = page
       .locator("button[role='option']")
       .first()

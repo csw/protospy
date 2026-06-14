@@ -24,8 +24,8 @@ describe("state/store", () => {
       expect(state.filter).toBe("");
       expect(state.traceFilter).toBeNull();
       expect(state.hoverTraceId).toBeNull();
-      expect(state.listMode).toBe("table");
-      expect(state.listWidth).toEqual({ rows: 340, table: 720 });
+      expect(state.listMode).toBe("rows");
+      expect(state.listWidth).toEqual({ rows: 290, table: 640 });
       expect(state.order).toBe("newest");
       expect(state.density).toBe("regular");
       expect(state.traceGroupOn).toBe(false);
@@ -292,7 +292,7 @@ describe("state/store", () => {
         order: "oldest",
         listMode: "table",
         traceGroupOn: true,
-        listWidth: { rows: 360, table: 720 },
+        listWidth: { rows: 360, table: 640 },
       });
     });
 

@@ -85,6 +85,9 @@ test.describe("Filter bar", () => {
   test("3. filter by status: 404 shows only 404 responses", async ({
     page,
   }) => {
+    // Switch to table mode (rows is the default); this test asserts on the
+    // numeric-code-only status cell.
+    await page.getByLabel("Table view").click();
     await injectMixedExchanges(page);
 
     const input = page.getByLabel("Filter requests");
@@ -92,8 +95,8 @@ test.describe("Filter bar", () => {
 
     const rows = page.locator("button[aria-selected]");
     await expect(rows).toHaveCount(1);
-    // Table view (default) shows numeric code only; verify the 404 row is
-    // visible and no 200/201 rows remain.
+    // Table view shows numeric code only; verify the 404 row is visible and no
+    // 200/201 rows remain.
     await expect(
       page.locator("button[role='option'] span", { hasText: /^404$/ }).first(),
     ).toBeVisible();

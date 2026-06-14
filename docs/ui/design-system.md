@@ -23,7 +23,7 @@ visual reference is `docs/ui/index.html`; the landed scaffold code is under
 | Command palette | `cmdk` (shadcn `Command`) |
 | Resizable split | `react-resizable-panels` (shadcn `Resizable`) |
 | List perf | `@tanstack/react-virtual` |
-| Table (default view) | `@tanstack/react-table` (headless) + react-virtual |
+| Exchange table | `@tanstack/react-table` (headless) + react-virtual |
 | Toasts | `sonner` |
 | Variants | `class-variance-authority` + `cn()` |
 
@@ -102,8 +102,8 @@ read `rowPx`.
 | Copy / connection toast | `sonner` | lib |
 | Awaiting-body placeholder | `Skeleton` | shadcn |
 | Divider | `Separator` | shadcn |
-| **Exchange table (default list)** | `exchange-table.tsx` (react-table + virtual) | custom |
-| **Exchange row (rows mode)** | `exchange-row.tsx` | custom |
+| **Exchange table (table mode)** | `exchange-table.tsx` (react-table + virtual) | custom |
+| **Exchange row (rows mode, default)** | `exchange-row.tsx` | custom |
 | **Trace rail** | `trace-rail.tsx` | custom |
 | **JSON/JSONL body** | `json-viewer.tsx` (your impl) | custom |
 | **msearch paired view** | `msearch-view.tsx` | custom |
@@ -131,8 +131,9 @@ above.
    app-owned.)
 5. **Body panes are lifecycle-aware.** `awaiting` (no status/headers) vs `streaming`
    (partial body) vs `complete` — symmetric on request/response. Not a flat "pending".
-6. **Table is the default list view.** Rows mode is secondary. Default order
-   **newest-first**.
+6. **Rows is the default list view.** Table mode is the alternate. Default order
+   **newest-first**. (PRO-402: rows is the more distinctive trace-rail
+   presentation; the chosen mode persists per user.)
 7. **Status display.** Table = numeric code only. Rows = full status line
    (`StatusCode full`).
 8. **Size = response wire size** + compression marker (tooltip `wire / decoded (enc)`),

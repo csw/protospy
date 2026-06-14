@@ -121,6 +121,13 @@ test.describe("localStorage persistence", () => {
     await page.goto("/");
     await waitForStore(page);
 
+    // The default list mode is now "rows"; this test asserts on `listWidth.table`,
+    // so drive table mode before dragging.
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setListMode("table");
+    });
+
     const handle = page.getByRole("separator");
     const listPanel = page.locator("[data-panel]").first();
     await expect(handle).toBeVisible();

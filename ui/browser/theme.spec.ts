@@ -140,7 +140,7 @@ test.describe("Anti-flash", () => {
 
 test.describe("Status text colors", () => {
   test("2.1 2xx status renders green", async ({ page }) => {
-    // Status text with full "200 OK" is rows-mode only; switch from default table mode.
+    // Status text with full "200 OK" is rows-mode only; ensure rows (the default).
     await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
@@ -170,8 +170,12 @@ test.describe("Status text colors", () => {
 });
 
 test.describe("Status text colors (table mode)", () => {
+  test.beforeEach(async ({ page }) => {
+    // Default list mode is now "rows"; switch to table for these checks.
+    await page.getByLabel("Table view").click();
+  });
+
   test("2.3 2xx status code renders green in table mode", async ({ page }) => {
-    // Table view is the default — no mode switch needed.
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/ok", "200 OK"),
     ]);
@@ -210,7 +214,7 @@ test.describe("Method badge colors", () => {
   test("3.1 GET and POST badges have distinct method-typed classes", async ({
     page,
   }) => {
-    // Method badges are rows-mode only; switch from default table mode.
+    // Method badges are rows-mode only; ensure rows (the default).
     await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
@@ -239,10 +243,14 @@ test.describe("Method badge colors", () => {
 });
 
 test.describe("Method badge colors (table mode)", () => {
+  test.beforeEach(async ({ page }) => {
+    // Default list mode is now "rows"; switch to table for these checks.
+    await page.getByLabel("Table view").click();
+  });
+
   test("3.2 GET and POST have distinct method-typed classes in table mode", async ({
     page,
   }) => {
-    // Table view is the default — no mode switch needed.
     await injectExchanges(page, [
       ...makeCompleteExchange(1, "GET", "/api/get", "200 OK", {
         ts: "2024-01-01T00:00:01Z",
