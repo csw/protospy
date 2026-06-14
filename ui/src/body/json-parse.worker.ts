@@ -8,7 +8,13 @@ import { parseAndFormat } from "./json-parse";
 
 type InMessage = { jobId: string; text: string };
 type OutMessage =
-  | { jobId: string; status: "ok"; parsed: unknown; prettyText: string }
+  | {
+      jobId: string;
+      status: "ok";
+      parsed: unknown;
+      prettyText: string;
+      workerParseMs: number;
+    }
   | { jobId: string; status: "error"; message: string };
 
 // The tsconfig uses the DOM lib, which types `self` as Window. In a Worker
@@ -21,8 +27,16 @@ const workerSelf = self as unknown as WorkerGlobal;
 self.addEventListener("message", (event: MessageEvent<InMessage>) => {
   const { jobId, text } = event.data;
   try {
+    const t0 = self.performance.now();
     const { parsed, prettyText } = parseAndFormat(text);
-    const out: OutMessage = { jobId, status: "ok", parsed, prettyText };
+    const workerParseMs = self.performance.now() - t0;
+    const out: OutMessage = {
+      jobId,
+      status: "ok",
+      parsed,
+      prettyText,
+      workerParseMs,
+    };
     workerSelf.postMessage(out);
   } catch (e) {
     const out: OutMessage = {

@@ -74,7 +74,21 @@ export function JsonTreeViewer({
   className,
   "aria-label": ariaLabel = DEFAULT_LABEL,
 }: JsonTreeViewerProps) {
-  const tree = useMemo(() => buildJsonTree(value), [value]);
+  const tree = useMemo(() => {
+    const t0 = performance.now();
+    const result = buildJsonTree(value);
+    performance.measure("json-build-tree", {
+      start: t0,
+      duration: performance.now() - t0,
+    });
+    const tc = performance.now();
+    structuredClone(result);
+    performance.measure("json-tree-clone", {
+      start: tc,
+      duration: performance.now() - tc,
+    });
+    return result;
+  }, [value]);
   const defaultExpanded = useMemo(() => computeDefaultExpanded(tree), [tree]);
 
   // Reset expansion when a different value is rendered. We track `value` identity
@@ -100,10 +114,21 @@ export function JsonTreeViewer({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  const rows = useMemo(
-    () => flattenTree(tree, expanded, limits),
-    [tree, expanded, limits],
-  );
+  const rows = useMemo(() => {
+    const t0 = performance.now();
+    const result = flattenTree(tree, expanded, limits);
+    performance.measure("json-flatten-tree", {
+      start: t0,
+      duration: performance.now() - t0,
+    });
+    const tc = performance.now();
+    structuredClone(result);
+    performance.measure("json-flat-clone", {
+      start: tc,
+      duration: performance.now() - tc,
+    });
+    return result;
+  }, [tree, expanded, limits]);
 
   const toggle = useCallback(
     (nodeId: number) => {

@@ -10,12 +10,19 @@
 import type { ParseResult } from "./json-parse";
 
 type OutMessage =
-  | { jobId: string; status: "ok"; parsed: unknown; prettyText: string }
+  | {
+      jobId: string;
+      status: "ok";
+      parsed: unknown;
+      prettyText: string;
+      workerParseMs: number;
+    }
   | { jobId: string; status: "error"; message: string };
 
 type PendingJob = {
   resolve: (result: ParseResult) => void;
   reject: (err: Error) => void;
+  startMs: number;
 };
 
 let _worker: Worker | null = null;
@@ -35,6 +42,15 @@ function getWorker(): Worker {
     if (!job) return;
     _pending.delete(msg.jobId);
     if (msg.status === "ok") {
+      const roundTripMs = performance.now() - job.startMs;
+      performance.measure("json-worker-roundtrip", {
+        start: job.startMs,
+        duration: roundTripMs,
+        detail: {
+          workerParseMs: msg.workerParseMs,
+          transferMs: roundTripMs - msg.workerParseMs,
+        },
+      });
       job.resolve({ parsed: msg.parsed, prettyText: msg.prettyText });
     } else {
       job.reject(new Error(msg.message));
@@ -65,7 +81,7 @@ function getWorker(): Worker {
 export function parseJson(text: string): Promise<ParseResult> {
   return new Promise<ParseResult>((resolve, reject) => {
     const jobId = String(_jobCounter++);
-    _pending.set(jobId, { resolve, reject });
+    _pending.set(jobId, { resolve, reject, startMs: performance.now() });
     getWorker().postMessage({ jobId, text });
   });
 }
