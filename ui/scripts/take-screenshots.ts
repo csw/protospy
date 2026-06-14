@@ -251,12 +251,23 @@ async function main(): Promise<void> {
     { timeout: 10_000 },
   );
 
-  // Force dark mode (the store's toggleDarkMode also updates data-theme on <html>)
+  // Force dark mode via the next-themes bridge (window.__test_theme.setTheme).
+  // Theme moved out of the Zustand store with the v2.3 next-themes swap.
+  await page.waitForFunction(
+    () => !!(window as any).__test_theme?.setTheme, // eslint-disable-line @typescript-eslint/no-explicit-any
+    undefined,
+    { timeout: 10_000 },
+  );
   await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const state = (window as any).__test_store.getState();
-    if (!state.darkMode) state.toggleDarkMode();
+    (window as any).__test_theme.setTheme("dark");
   });
+  // Wait for the .dark class to land on <html>
+  await page.waitForFunction(
+    () => document.documentElement.classList.contains("dark"),
+    undefined,
+    { timeout: 5_000 },
+  );
 
   // Brief pause to let the SSE useEffect connect before traffic arrives
   await sleep(500);
