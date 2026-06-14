@@ -96,10 +96,10 @@ export const Inspector = memo(function Inspector({
         x={x}
         onPrev={onPrev}
         onNext={onNext}
-        onNextMatching={onNextMatching ? () => onNextMatching(x) : undefined}
+        onNextMatching={onNextMatching}
         onFilterTrace={onFilterTrace}
         onCopyTrace={onCopyTrace}
-        onNextInTrace={onNextInTrace ? (id) => onNextInTrace(x, id) : undefined}
+        onNextInTrace={onNextInTrace}
       />
 
       <Tabs
@@ -198,10 +198,10 @@ function ContextBar({
   x: Exchange;
   onPrev?: () => void;
   onNext?: () => void;
-  onNextMatching?: () => void;
+  onNextMatching?: (cur: Exchange) => void;
   onFilterTrace?: (id: string) => void;
   onCopyTrace?: (id: string) => void;
-  onNextInTrace?: (id: string) => void;
+  onNextInTrace?: (cur: Exchange, traceId: string) => void;
 }) {
   const hasError = x.error != null;
   return (
@@ -229,7 +229,10 @@ function ContextBar({
         </Button>
       </div>
       <MethodBadge method={x.method} size="md" />
-      <PathDisplay uri={x.uri ?? "/"} onNextMatching={onNextMatching} />
+      <PathDisplay
+        uri={x.uri ?? "/"}
+        onNextMatching={onNextMatching ? () => onNextMatching(x) : undefined}
+      />
       <StatusCode
         className="ml-auto shrink-0"
         status={x.status}
@@ -246,7 +249,9 @@ function ContextBar({
           traceId={x.traceId}
           onFilter={() => onFilterTrace?.(x.traceId!)}
           onCopy={() => onCopyTrace?.(x.traceId!)}
-          onNext={onNextInTrace ? () => onNextInTrace(x.traceId!) : undefined}
+          onNext={
+            onNextInTrace ? () => onNextInTrace(x, x.traceId!) : undefined
+          }
         />
       )}
     </div>

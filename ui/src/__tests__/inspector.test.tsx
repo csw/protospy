@@ -183,14 +183,20 @@ describe("Inspector shell — context bar", () => {
 });
 
 describe("Inspector shell — memo boundary", () => {
-  it("does not re-render when stable props are unchanged", () => {
+  it("does not re-render when all stable props are unchanged", () => {
     // renderBodySplit is called once per Inspector render; use it as a render counter.
     const bodyRender = vi
       .fn()
       .mockReturnValue(<div data-testid="body-split">body</div>);
     const ex = makeExchange();
+    // All props that InspectorPanel passes are represented here; they must all
+    // be stable references to hold the memo boundary.
     const onPrev = vi.fn();
     const onNext = vi.fn();
+    const onNextMatching = vi.fn();
+    const onFilterTrace = vi.fn();
+    const onCopyTrace = vi.fn();
+    const onNextInTrace = vi.fn();
 
     // Wrapper that can re-render itself without touching Inspector's props.
     let triggerRerender!: () => void;
@@ -203,6 +209,10 @@ describe("Inspector shell — memo boundary", () => {
           renderBodySplit={bodyRender}
           onPrev={onPrev}
           onNext={onNext}
+          onNextMatching={onNextMatching}
+          onFilterTrace={onFilterTrace}
+          onCopyTrace={onCopyTrace}
+          onNextInTrace={onNextInTrace}
         />
       );
     }

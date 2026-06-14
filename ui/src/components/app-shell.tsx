@@ -505,6 +505,25 @@ function InspectorPanel({
     [setSelectedId],
   );
 
+  const onCopyTrace = useCallback(
+    (id: string) => void navigator.clipboard.writeText(id),
+    [],
+  );
+
+  const renderBodySplitCb = useCallback(
+    // selected is null-guarded before Inspector is rendered; the ! is safe
+    // because this callback is only passed to Inspector after the null check.
+    () => renderBodySplit(selected!, protocol),
+    [renderBodySplit, selected, protocol],
+  );
+
+  // Wraps the optional outer prop so the reference only changes when its deps
+  // change, not on every InspectorPanel render.
+  const renderMsearchCb = useCallback(
+    () => renderMsearch?.(selected!, protocol),
+    [renderMsearch, selected, protocol],
+  );
+
   if (!selected) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
@@ -524,12 +543,10 @@ function InspectorPanel({
         onNext={onNext}
         onNextMatching={onNextMatching}
         onFilterTrace={setTraceFilter}
-        onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
+        onCopyTrace={onCopyTrace}
         onNextInTrace={onNextInTrace}
-        renderBodySplit={() => renderBodySplit(selected, protocol)}
-        renderMsearch={
-          renderMsearch ? () => renderMsearch(selected, protocol) : undefined
-        }
+        renderBodySplit={renderBodySplitCb}
+        renderMsearch={renderMsearch ? renderMsearchCb : undefined}
       />
     </div>
   );
