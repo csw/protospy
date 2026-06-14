@@ -167,9 +167,9 @@ class HarnessArgsTests(unittest.TestCase):
             ["-c", 'model_reasoning_effort="high"'],
         )
 
-    def test_effort_is_codex_only(self) -> None:
-        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            ticket.parse_args(["--harness", "claude", "PRO-136", "-e", "high"])
+    def test_effort_for_claude_harness(self) -> None:
+        args = ticket.parse_args(["--harness", "claude", "PRO-136", "--effort", "high"])
+        self.assertEqual(ticket.harness_cli_args(args), ["--effort", "high"])
 
     def test_model_is_shared_across_harnesses(self) -> None:
         args = ticket.parse_args(["--harness", "claude", "PRO-136", "--model", "opus"])
