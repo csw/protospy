@@ -13,7 +13,14 @@
 // layer. It keeps the app-owned reducer/SSE/body plumbing but adopts the
 // scaffold chrome, keyboard map, and pixel-based panel behavior.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useShallow } from "zustand/react/shallow";
 import type { Protocol } from "@bindings/Protocol";
@@ -443,42 +450,60 @@ function InspectorPanel({
   const setSelectedId = useStore((s) => s.setSelectedId);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
 
-  // helpers close over store via getState (no extra subscriptions)
-  function stepSelection(delta: number) {
+  // Stable nav callbacks — read current store state at call time via getState()
+  // so they don't close over any rendered snapshot; only setSelectedId (Zustand
+  // stable) is in the deps, making the references stable across renders.
+  const onPrev = useCallback(() => {
     const s = useStore.getState();
     const ids = selectVisibleIds(s);
     const i = ids.indexOf(s.selectedId ?? -1);
-    const next = ids[Math.min(Math.max(i + delta, 0), ids.length - 1)];
+    const next = ids[Math.min(Math.max(i - 1, 0), ids.length - 1)];
     if (next != null) setSelectedId(next);
-  }
-  function stepMatching(cur: Exchange) {
+  }, [setSelectedId]);
+
+  const onNext = useCallback(() => {
     const s = useStore.getState();
     const ids = selectVisibleIds(s);
-    const start = ids.indexOf(cur.id);
-    for (let k = 1; k <= ids.length; k++) {
-      const cand = s.exchanges.get(ids[(start + k) % ids.length]);
-      if (
-        cand &&
-        cand.method === cur.method &&
-        (cand.uri ?? "").split("?")[0] === (cur.uri ?? "").split("?")[0]
-      ) {
-        setSelectedId(cand.id);
-        return;
+    const i = ids.indexOf(s.selectedId ?? -1);
+    const next = ids[Math.min(Math.max(i + 1, 0), ids.length - 1)];
+    if (next != null) setSelectedId(next);
+  }, [setSelectedId]);
+
+  const onNextMatching = useCallback(
+    (cur: Exchange) => {
+      const s = useStore.getState();
+      const ids = selectVisibleIds(s);
+      const start = ids.indexOf(cur.id);
+      for (let k = 1; k <= ids.length; k++) {
+        const cand = s.exchanges.get(ids[(start + k) % ids.length]);
+        if (
+          cand &&
+          cand.method === cur.method &&
+          (cand.uri ?? "").split("?")[0] === (cur.uri ?? "").split("?")[0]
+        ) {
+          setSelectedId(cand.id);
+          return;
+        }
       }
-    }
-  }
-  function stepInTrace(cur: Exchange, traceId: string) {
-    const s = useStore.getState();
-    const ids = selectVisibleIds(s);
-    const start = ids.indexOf(cur.id);
-    for (let k = 1; k <= ids.length; k++) {
-      const cand = s.exchanges.get(ids[(start + k) % ids.length]);
-      if (cand && cand.traceId === traceId) {
-        setSelectedId(cand.id);
-        return;
+    },
+    [setSelectedId],
+  );
+
+  const onNextInTrace = useCallback(
+    (cur: Exchange, traceId: string) => {
+      const s = useStore.getState();
+      const ids = selectVisibleIds(s);
+      const start = ids.indexOf(cur.id);
+      for (let k = 1; k <= ids.length; k++) {
+        const cand = s.exchanges.get(ids[(start + k) % ids.length]);
+        if (cand && cand.traceId === traceId) {
+          setSelectedId(cand.id);
+          return;
+        }
       }
-    }
-  }
+    },
+    [setSelectedId],
+  );
 
   if (!selected) {
     return (
@@ -495,12 +520,12 @@ function InspectorPanel({
         exchange={selected}
         tz={tz}
         isMsearch={isMsearch}
-        onPrev={() => stepSelection(-1)}
-        onNext={() => stepSelection(1)}
-        onNextMatching={() => stepMatching(selected)}
-        onFilterTrace={(id) => setTraceFilter(id)}
+        onPrev={onPrev}
+        onNext={onNext}
+        onNextMatching={onNextMatching}
+        onFilterTrace={setTraceFilter}
         onCopyTrace={(id) => void navigator.clipboard.writeText(id)}
-        onNextInTrace={(id) => stepInTrace(selected, id)}
+        onNextInTrace={onNextInTrace}
         renderBodySplit={() => renderBodySplit(selected, protocol)}
         renderMsearch={
           renderMsearch ? () => renderMsearch(selected, protocol) : undefined
