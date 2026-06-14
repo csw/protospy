@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildJsonTree,
+  buildJsonForest,
   type JsonTreeNode,
 } from "@ui/components/json-tree/model";
 import {
   flattenTree,
+  flattenForest,
   formatPrimitive,
   CONTAINER_WINDOW,
 } from "@ui/components/json-tree/flatten";
@@ -226,5 +228,50 @@ describe("formatPrimitive", () => {
 
   it("JSON-escapes strings", () => {
     expect(formatPrimitive('a"b\nc').text).toBe('"a\\"b\\nc"');
+  });
+});
+
+// ── flattenForest (NDJSON multi-document, PRO-400) ──
+
+describe("flattenForest", () => {
+  it("tags only the first row of each document with its docIndex", () => {
+    const roots = buildJsonForest([{ a: 1 }, { b: 2 }]);
+    // Both document roots expanded so each contributes open/leaf/close rows.
+    const expanded = new Set(roots.map((r) => r.id));
+    const rows = flattenForest(roots, expanded);
+
+    const tagged = rows
+      .map((r, i) => ({ i, docIndex: r.docIndex }))
+      .filter((r) => r.docIndex !== undefined);
+    // Exactly two tagged rows (one per document), at the document boundaries.
+    expect(tagged.map((t) => t.docIndex)).toEqual([0, 1]);
+    expect(tagged[0].i).toBe(0);
+    // The first document's rows (open, leaf, close) precede the second's first row.
+    expect(rows[tagged[1].i].kind).toBe("open");
+  });
+
+  it("collapses each document independently", () => {
+    const roots = buildJsonForest([{ a: 1 }, { b: 2 }]);
+    // Only the second document expanded; the first is a single collapsed row.
+    const rows = flattenForest(roots, new Set([roots[1].id]));
+
+    const doc0 = rows.find((r) => r.docIndex === 0)!;
+    expect(doc0.kind).toBe("collapsed");
+    expect(doc0.childCount).toBe(1);
+
+    const doc1 = rows.find((r) => r.docIndex === 1)!;
+    expect(doc1.kind).toBe("open");
+  });
+
+  it("never trails a document's root with a comma", () => {
+    const roots = buildJsonForest([{ a: 1 }, { b: 2 }]);
+    const rows = flattenForest(roots, new Set(roots.map((r) => r.id)));
+    for (const r of rows) {
+      if (r.docIndex !== undefined) expect(r.hasComma).toBe(false);
+    }
+  });
+
+  it("returns no rows for an empty forest", () => {
+    expect(flattenForest([], new Set())).toEqual([]);
   });
 });

@@ -12,7 +12,6 @@ import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
 import { Skeleton } from "./ui/skeleton";
-import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
@@ -112,15 +111,22 @@ function BodyContent({
           value={result.parsed}
           initialRows={result.initialRows}
           initialExpanded={result.initialExpanded}
+          truncated={result.truncated}
           aria-label="JSON viewer"
         />
       </div>
     );
   }
-  if (result.kind === "jsonl" && result.text != null) {
+  if (result.kind === "ndjson" && result.documents != null) {
     return (
       <div className="h-full pt-3 pl-3">
-        <JsonFlatView text={result.text} />
+        <JsonTreeViewer
+          documents={result.documents}
+          initialRows={result.initialRows}
+          initialExpanded={result.initialExpanded}
+          truncated={result.truncated}
+          aria-label="NDJSON viewer"
+        />
       </div>
     );
   }

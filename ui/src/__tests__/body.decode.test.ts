@@ -2,21 +2,69 @@ import { describe, it, expect, vi } from "vitest";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody } from "@ui/body/decode";
 import type { JsonParseResult } from "@ui/body/json-parse";
-import { parseAndFormat } from "@ui/body/json-parse-core";
-import { buildJsonTree } from "@ui/components/json-tree/model";
-import { computeDefaultExpanded } from "@ui/components/json-tree/expand";
-import { flattenTree } from "@ui/components/json-tree/flatten";
+import {
+  parseWithTruncation,
+  parseNdjson as parseNdjsonCore,
+} from "@ui/body/json-parse-core";
+import {
+  buildJsonTree,
+  buildJsonForest,
+  markTruncationPoint,
+} from "@ui/components/json-tree/model";
+import {
+  computeDefaultExpanded,
+  computeForestDefaultExpanded,
+} from "@ui/components/json-tree/expand";
+import { flattenTree, flattenForest } from "@ui/components/json-tree/flatten";
 
-// Mock the Worker client so decodeBody's JSON step runs without a real Worker
-// in the Node environment. The mock delegates to the same pure functions the
-// Worker uses, exercising the real logic through the same interface.
+// Mock the Worker client so decodeBody's JSON/NDJSON steps run without a real
+// Worker in the Node environment. The mock delegates to the same pure functions
+// the Worker uses, exercising the real logic through the same interface.
 vi.mock("@ui/body/json-parse", () => ({
   parseJson: (text: string): Promise<JsonParseResult> => {
-    const { parsed, prettyText } = parseAndFormat(text);
+    const { parsed, prettyText, truncated } = parseWithTruncation(text);
     const tree = buildJsonTree(parsed);
     const defaultExpanded = computeDefaultExpanded(tree);
+    if (truncated) {
+      for (const id of markTruncationPoint(tree).ancestorIds) {
+        defaultExpanded.add(id);
+      }
+    }
     const rows = flattenTree(tree, defaultExpanded);
-    return Promise.resolve({ parsed, prettyText, rows, defaultExpanded });
+    return Promise.resolve({
+      parsed,
+      documents: null,
+      prettyText,
+      rows,
+      defaultExpanded,
+      truncated,
+    });
+  },
+  parseNdjson: (text: string): Promise<JsonParseResult> => {
+    const { documents, truncatedDocIndex } = parseNdjsonCore(text);
+    if (documents.length === 0) {
+      return Promise.reject(new SyntaxError("no NDJSON documents"));
+    }
+    const roots = buildJsonForest(documents);
+    const defaultExpanded = computeForestDefaultExpanded(roots);
+    if (truncatedDocIndex != null) {
+      for (const id of markTruncationPoint(roots[truncatedDocIndex])
+        .ancestorIds) {
+        defaultExpanded.add(id);
+      }
+    }
+    const rows = flattenForest(roots, defaultExpanded);
+    const prettyText = documents
+      .map((doc) => JSON.stringify(doc, null, 2))
+      .join("\n\n");
+    return Promise.resolve({
+      parsed: null,
+      documents,
+      prettyText,
+      rows,
+      defaultExpanded,
+      truncated: truncatedDocIndex != null,
+    });
   },
 }));
 
@@ -284,8 +332,8 @@ describe("decodeBody", () => {
   });
 });
 
-describe("decodeBody JSONL", () => {
-  it("application/vnd.elasticsearch+x-ndjson returns kind jsonl", async () => {
+describe("decodeBody NDJSON", () => {
+  it("application/vnd.elasticsearch+x-ndjson returns kind ndjson with documents", async () => {
     const line1 = JSON.stringify({ index: { _id: "1" } });
     const line2 = JSON.stringify({ title: "Inception" });
     const ndjsonText = `${line1}\n${line2}`;
@@ -296,15 +344,18 @@ describe("decodeBody JSONL", () => {
       contentType: "application/vnd.elasticsearch+x-ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
+    expect(result.kind).toBe("ndjson");
     expect(result.mediaType).toBe("application/vnd.elasticsearch+x-ndjson");
-    expect(result.text).toContain('"_id"');
-    expect(result.text).toContain('"title"');
-    // Records separated by blank line
-    expect(result.text).toContain("}\n\n{");
+    expect(result.documents).toEqual([
+      { index: { _id: "1" } },
+      { title: "Inception" },
+    ]);
+    // Pre-built forest rows accompany the documents for the initial render.
+    expect(result.initialRows?.length).toBeGreaterThan(0);
+    expect(result.truncated).toBe(false);
   });
 
-  it("vnd.elasticsearch+x-ndjson with compatible-with param returns kind jsonl", async () => {
+  it("vnd.elasticsearch+x-ndjson with compatible-with param returns kind ndjson", async () => {
     const line = JSON.stringify({ query: { match_all: {} } });
     const body: BodyState = {
       chunks: [{ text: line }],
@@ -313,13 +364,13 @@ describe("decodeBody JSONL", () => {
       contentType: "application/vnd.elasticsearch+x-ndjson; compatible-with=9",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
+    expect(result.kind).toBe("ndjson");
     expect(result.mediaType).toBe(
       "application/vnd.elasticsearch+x-ndjson; compatible-with=9",
     );
   });
 
-  it("application/x-ndjson returns kind jsonl", async () => {
+  it("application/x-ndjson returns kind ndjson", async () => {
     const lines = [JSON.stringify({ a: 1 }), JSON.stringify({ b: 2 })].join(
       "\n",
     );
@@ -330,10 +381,11 @@ describe("decodeBody JSONL", () => {
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
+    expect(result.kind).toBe("ndjson");
+    expect(result.documents).toEqual([{ a: 1 }, { b: 2 }]);
   });
 
-  it("application/ndjson returns kind jsonl", async () => {
+  it("application/ndjson returns kind ndjson", async () => {
     const line = JSON.stringify({ ok: true });
     const body: BodyState = {
       chunks: [{ text: line }],
@@ -342,10 +394,11 @@ describe("decodeBody JSONL", () => {
       contentType: "application/ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
+    expect(result.kind).toBe("ndjson");
+    expect(result.documents).toEqual([{ ok: true }]);
   });
 
-  it("JSONL pretty-prints each record separated by a blank line", async () => {
+  it("provides a blank-line-separated pretty text for copy", async () => {
     const r1 = JSON.stringify({ id: 1 });
     const r2 = JSON.stringify({ id: 2 });
     const body: BodyState = {
@@ -355,12 +408,11 @@ describe("decodeBody JSONL", () => {
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
-    const expected = '{\n  "id": 1\n}\n\n{\n  "id": 2\n}';
-    expect(result.text).toBe(expected);
+    expect(result.kind).toBe("ndjson");
+    expect(result.text).toBe('{\n  "id": 1\n}\n\n{\n  "id": 2\n}');
   });
 
-  it("JSONL skips empty lines such as a trailing newline", async () => {
+  it("skips empty lines such as a trailing newline", async () => {
     const line = JSON.stringify({ a: 1 });
     const body: BodyState = {
       chunks: [{ text: `${line}\n` }],
@@ -369,23 +421,68 @@ describe("decodeBody JSONL", () => {
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
-    expect(result.text).toBe('{\n  "a": 1\n}');
+    expect(result.kind).toBe("ndjson");
+    expect(result.documents).toEqual([{ a: 1 }]);
   });
 
-  it("JSONL passes through lines that are not valid JSON", async () => {
+  it("recovers a truncated final document and flags truncation", async () => {
     const valid = JSON.stringify({ ok: true });
-    const invalid = "not-valid-json";
+    const truncatedLine = '{"hits":[1,2,3';
+    const text = `${valid}\n${truncatedLine}`;
     const body: BodyState = {
-      chunks: [{ text: `${valid}\n${invalid}` }],
+      chunks: [{ text }],
       atEnd: true,
-      wireBytes: valid.length + invalid.length + 1,
+      wireBytes: text.length,
       contentType: "application/x-ndjson",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("jsonl");
-    expect(result.text).toContain('"ok"');
-    expect(result.text).toContain("not-valid-json");
+    expect(result.kind).toBe("ndjson");
+    expect(result.truncated).toBe(true);
+    expect(result.documents).toEqual([{ ok: true }, { hits: [1, 2, 3] }]);
+  });
+
+  it("falls back to text when no NDJSON documents can be parsed", async () => {
+    const text = "\n   \n";
+    const body: BodyState = {
+      chunks: [{ text }],
+      atEnd: true,
+      wireBytes: text.length,
+      contentType: "application/x-ndjson",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("text");
+  });
+});
+
+describe("decodeBody truncated JSON", () => {
+  it("recovers the valid prefix of a truncated JSON body and flags it", async () => {
+    const text = '{"took":5,"hits":{"hits":[{"_id":"1"}';
+    const body: BodyState = {
+      chunks: [{ text }],
+      atEnd: true,
+      wireBytes: text.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.truncated).toBe(true);
+    expect(result.parsed).toEqual({
+      took: 5,
+      hits: { hits: [{ _id: "1" }] },
+    });
+  });
+
+  it("does not flag a complete JSON body as truncated", async () => {
+    const text = JSON.stringify({ ok: true });
+    const body: BodyState = {
+      chunks: [{ text }],
+      atEnd: true,
+      wireBytes: text.length,
+      contentType: "application/json",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("json");
+    expect(result.truncated).toBe(false);
   });
 });
 

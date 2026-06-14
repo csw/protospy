@@ -10,26 +10,41 @@
 import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
 
-/** What `parseJson()` resolves with. */
+type ParseMode = "json" | "ndjson";
+
+/** What `parseJson()` / `parseNdjson()` resolve with. */
 export interface JsonParseResult {
-  /** The parsed JavaScript value. Available for lazy tree rebuild on expand/collapse. */
-  parsed: JsonValue;
+  /**
+   * The parsed JavaScript value for single-document JSON, available for lazy tree
+   * rebuild on expand/collapse. `null` for NDJSON (see `documents`).
+   */
+  parsed: JsonValue | null;
+  /**
+   * The per-line documents for an NDJSON/JSONL body, available for lazy forest
+   * rebuild on interaction. `null` for single-document JSON (see `parsed`).
+   */
+  documents: JsonValue[] | null;
   /** The original value re-serialised with 2-space indentation. */
   prettyText: string;
   /** Pre-built flat rows for the initial render (avoids main-thread tree build). */
   rows: FlatRow[];
   /** Which node IDs are expanded in the initial render. */
   defaultExpanded: ReadonlySet<number>;
+  /** True when a truncated valid-prefix was recovered (drives the banner/marker). */
+  truncated: boolean;
 }
 
 type OutMessage =
   | {
       jobId: string;
       status: "ok";
-      parsed: JsonValue;
+      mode: ParseMode;
+      parsed: JsonValue | null;
+      documents: JsonValue[] | null;
       prettyText: string;
       rows: FlatRow[];
       defaultExpandedIds: number[];
+      truncated: boolean;
       workerParseMs: number;
       workerTreeMs: number;
       workerFlattenMs: number;
@@ -74,9 +89,11 @@ function getWorker(): Worker {
       });
       job.resolve({
         parsed: msg.parsed,
+        documents: msg.documents,
         prettyText: msg.prettyText,
         rows: msg.rows,
         defaultExpanded: new Set(msg.defaultExpandedIds),
+        truncated: msg.truncated,
       });
     } else {
       job.reject(new SyntaxError(msg.message));
@@ -97,12 +114,7 @@ function getWorker(): Worker {
   return _worker;
 }
 
-/**
- * Parse `text` as JSON in a Web Worker and return the parsed value, its
- * pretty-printed form, pre-built initial flat rows, and the default expanded
- * set. Rejects with a `SyntaxError` on invalid JSON.
- */
-export function parseJson(text: string): Promise<JsonParseResult> {
+function runJob(text: string, mode: ParseMode): Promise<JsonParseResult> {
   return new Promise<JsonParseResult>((resolve, reject) => {
     const jobId = String(_jobCounter++);
     let worker: Worker;
@@ -114,10 +126,30 @@ export function parseJson(text: string): Promise<JsonParseResult> {
     }
     _pending.set(jobId, { resolve, reject, startMs: performance.now() });
     try {
-      worker.postMessage({ jobId, text });
+      worker.postMessage({ jobId, text, mode });
     } catch (e) {
       _pending.delete(jobId);
       reject(e instanceof Error ? e : new Error(String(e)));
     }
   });
+}
+
+/**
+ * Parse `text` as a single JSON document in a Web Worker and return the parsed
+ * value, its pretty-printed form, pre-built initial flat rows, the default
+ * expanded set, and whether a truncated prefix was recovered. Rejects with a
+ * `SyntaxError` only when no valid prefix could be recovered.
+ */
+export function parseJson(text: string): Promise<JsonParseResult> {
+  return runJob(text, "json");
+}
+
+/**
+ * Parse `text` as an NDJSON/JSONL body (one document per line) in a Web Worker,
+ * returning the per-line `documents`, pre-built combined forest rows, the default
+ * expanded set, and whether the final document was truncated. Rejects when no
+ * documents could be parsed.
+ */
+export function parseNdjson(text: string): Promise<JsonParseResult> {
+  return runJob(text, "ndjson");
 }

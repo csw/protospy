@@ -204,16 +204,17 @@ describe("BodyPane view modes (PRO-336)", () => {
     expect(screen.queryByLabelText("Hex viewer")).not.toBeInTheDocument();
   });
 
-  it("parsed mode renders the flat viewer for JSONL bodies", async () => {
-    const jsonlResult: DecodeResult = {
-      kind: "jsonl",
+  it("parsed mode renders the NDJSON document viewer for NDJSON bodies", async () => {
+    const ndjsonResult: DecodeResult = {
+      kind: "ndjson",
       text: '{\n  "a": 1\n}\n\n{\n  "b": 2\n}',
+      documents: [{ a: 1 }, { b: 2 }],
       mediaType: "application/x-ndjson",
       wireBytes: 16,
       rawText: '{"a":1}\n{"b":2}',
       bytes: new TextEncoder().encode('{"a":1}\n{"b":2}'),
     };
-    decodeBodyMock.mockResolvedValueOnce(jsonlResult);
+    decodeBodyMock.mockResolvedValueOnce(ndjsonResult);
     render(
       <BodyPane
         title="Response"
@@ -221,10 +222,13 @@ describe("BodyPane view modes (PRO-336)", () => {
         viewMode="parsed"
       />,
     );
-    const viewer = await screen.findByLabelText("JSON viewer");
+    const viewer = await screen.findByLabelText("NDJSON viewer");
     expect(viewer).toBeInTheDocument();
-    expect(viewer).toHaveTextContent('"a"');
-    expect(viewer).toHaveTextContent('"b"');
+    // Each NDJSON document renders as its own collapsed tree (one count badge
+    // per document, numbered in the gutter).
+    expect(viewer.textContent).toContain("1 key");
+    expect(viewer.textContent).toContain("1");
+    expect(viewer.textContent).toContain("2");
   });
 
   it("raw mode renders the decoded text, not the pretty JSON", async () => {

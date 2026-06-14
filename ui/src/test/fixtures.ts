@@ -191,7 +191,10 @@ export function makeTextResponse(
   ]);
 }
 
-/** application/x-ndjson response with several JSON lines (JSONL flat view). */
+/**
+ * application/x-ndjson response with several JSON lines. Renders as a forest of
+ * independently-collapsible document trees (PRO-400).
+ */
 export function makeNDJsonResponse(id: number, ts?: string): Msg {
   const lines = [
     '{"id":1,"event":"login","user":"alice","ts":"2024-01-01T00:00:01Z"}',
@@ -201,6 +204,22 @@ export function makeNDJsonResponse(id: number, ts?: string): Msg {
   ].join("\n");
   return makeResponse(id, "200 OK", lines, ts, [
     { name: "Content-Type", value: "application/x-ndjson" },
+  ]);
+}
+
+/**
+ * application/json response whose body was truncated mid-structure (a size cap
+ * or interrupted capture). The viewer recovers the valid prefix with
+ * best-effort-json-parser and shows the truncation banner + in-tree cut-point
+ * marker (PRO-400).
+ */
+export function makeTruncatedJsonResponse(id: number, ts?: string): Msg {
+  const truncated =
+    '{"took":5,"timed_out":false,"hits":{"total":{"value":3},' +
+    '"hits":[{"_id":"1","_source":{"name":"alpha","tags":["a","b"]}},' +
+    '{"_id":"2","_source":{"name":"be';
+  return makeResponse(id, "200 OK", truncated, ts, [
+    { name: "Content-Type", value: "application/json" },
   ]);
 }
 

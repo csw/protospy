@@ -1,11 +1,11 @@
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
-import { parseJson } from "./json-parse";
+import { parseJson, parseNdjson } from "./json-parse";
 import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
 
 export interface DecodeResult {
-  kind: "json" | "jsonl" | "text" | "binary";
+  kind: "json" | "ndjson" | "text" | "binary";
   text?: string;
   mediaType: string;
   /**
@@ -30,16 +30,28 @@ export interface DecodeResult {
    */
   parsed?: JsonValue;
   /**
-   * For `json` kind: pre-built flat rows from the Worker (initial render
-   * uses these instead of re-building the tree on the main thread).
+   * For `ndjson` kind: the per-line parsed documents, available for lazy forest
+   * rebuild on interaction. `undefined` for all other kinds.
+   */
+  documents?: JsonValue[];
+  /**
+   * For `json` and `ndjson` kinds: pre-built flat rows from the Worker (initial
+   * render uses these instead of re-building the tree on the main thread).
    * `undefined` for all other kinds.
    */
   initialRows?: readonly FlatRow[];
   /**
-   * For `json` kind: the default expanded node-ID set, computed off-thread
-   * alongside the initial rows. `undefined` for all other kinds.
+   * For `json` and `ndjson` kinds: the default expanded node-ID set, computed
+   * off-thread alongside the initial rows. `undefined` for all other kinds.
    */
   initialExpanded?: ReadonlySet<number>;
+  /**
+   * For `json`/`ndjson` kinds: true when the body was truncated and only a valid
+   * prefix could be recovered (a size cap or interrupted capture). Drives the
+   * truncation banner and the in-tree cut-point marker. Never set for a body that
+   * parsed cleanly.
+   */
+  truncated?: boolean;
   /**
    * The decompressed body decoded as UTF-8 text, with NO pretty-printing or
    * classification applied. Equals `text` for the `text` kind; for `json`/
@@ -172,21 +184,6 @@ function isJsonlContentType(contentType: string): boolean {
   return JSONL_TYPES.has(base);
 }
 
-function formatJsonl(text: string): string {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l !== "");
-  const formatted = lines.map((line) => {
-    try {
-      return JSON.stringify(JSON.parse(line) as unknown, null, 2);
-    } catch {
-      return line;
-    }
-  });
-  return formatted.join("\n\n");
-}
-
 export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   const { chunks, wireBytes, contentType, contentEncoding } = body;
   const mediaType = contentType ?? "application/octet-stream";
@@ -211,32 +208,46 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   // Step 3: Decode bytes to text
   const text = new TextDecoder().decode(bytes);
 
-  // Step 4: Detect JSONL — must precede generic JSON check because ndjson
-  // MIME types contain the substring "json" and would otherwise be mishandled
+  // Step 4: Detect NDJSON/JSONL — must precede generic JSON check because ndjson
+  // MIME types contain the substring "json" and would otherwise be mishandled.
+  // Parsed in the Worker into a forest of per-line document trees; falls through
+  // to plain text when no documents could be recovered.
   if (contentType != null && isJsonlContentType(contentType)) {
-    return {
-      kind: "jsonl",
-      text: formatJsonl(text),
-      mediaType,
-      wireBytes,
-      decodedBytes,
-      rawText: text,
-      bytes,
-    };
+    try {
+      const { documents, prettyText, rows, defaultExpanded, truncated } =
+        await parseNdjson(text);
+      return {
+        kind: "ndjson",
+        text: prettyText,
+        documents: documents ?? undefined,
+        initialRows: rows,
+        initialExpanded: defaultExpanded,
+        truncated,
+        mediaType,
+        wireBytes,
+        decodedBytes,
+        rawText: text,
+        bytes,
+      };
+    } catch {
+      // no parseable NDJSON documents — fall through to plain text
+    }
   }
 
   // Step 5: Detect JSON — parse in a Web Worker so multi-MB bodies don't
-  // block the UI thread. Falls through to plain text on invalid JSON.
+  // block the UI thread. A truncated body is recovered to its valid prefix;
+  // only a wholly unparseable body falls through to plain text.
   if (contentType?.toLowerCase().includes("json")) {
     try {
-      const { parsed, prettyText, rows, defaultExpanded } =
+      const { parsed, prettyText, rows, defaultExpanded, truncated } =
         await parseJson(text);
       return {
         kind: "json",
         text: prettyText,
-        parsed,
+        parsed: parsed ?? undefined,
         initialRows: rows,
         initialExpanded: defaultExpanded,
+        truncated,
         mediaType,
         wireBytes,
         decodedBytes,

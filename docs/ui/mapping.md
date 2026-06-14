@@ -63,7 +63,7 @@ Cross-reference: tokens in `design-system.md §2`, code in `ui/src/components/pr
 | Headers | ◆ table, two columns | request + response side-by-side; **count in each pane subhead** |
 | Timing | ◆ facts table | "HTTP version / Request bytes / Response bytes…"; **no waterfall** |
 | Awaiting body | ▣ `Skeleton` / ◆ `BodyState` | lifecycle: awaiting-response vs awaiting-body |
-| JSON body | ◆ `json-viewer.tsx` | your custom impl; uses `text-json-*` tokens |
+| JSON / NDJSON body | ◆ `json-tree/` (`JsonTreeViewer`) | your custom impl; virtualized tree + NDJSON forest + truncation banner/marker + copy value/path; uses `text-json-*` / `text-truncation` tokens |
 
 ## Status bar  `h-statusbar`, `bg-card`, top `border`
 

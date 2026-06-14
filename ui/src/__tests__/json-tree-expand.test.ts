@@ -6,10 +6,12 @@ import {
 } from "@ui/components/json-tree/model";
 import {
   computeDefaultExpanded,
+  computeForestDefaultExpanded,
   DEFAULT_EXPAND_DEPTH,
   LARGE_CONTAINER_CHILD_COUNT,
   SMALL_TREE_NODE_COUNT,
 } from "@ui/components/json-tree/expand";
+import { buildJsonForest } from "@ui/components/json-tree/model";
 
 // ── Synthetic, controlled-depth builders (depth behavior is validated against
 //    these, not a realistic ES fixture — its depths aren't a contract) ──
@@ -120,5 +122,32 @@ describe("computeDefaultExpanded child-count cap", () => {
     const atCap = tree.children![0];
     expect(atCap.childCount).toBe(LARGE_CONTAINER_CHILD_COUNT);
     expect(expanded.has(atCap.id)).toBe(true);
+  });
+});
+
+// ── computeForestDefaultExpanded (NDJSON, PRO-400) ──
+
+describe("computeForestDefaultExpanded", () => {
+  it("collapses each document at its own root", () => {
+    const roots = buildJsonForest([{ a: { b: 1 } }, { c: 2 }]);
+    const expanded = computeForestDefaultExpanded(roots);
+    for (const root of roots) {
+      expect(expanded.has(root.id)).toBe(false);
+    }
+  });
+
+  it("still precomputes each document's inner expansion", () => {
+    // A small document expands fully on its own; in the forest its root is
+    // collapsed but the inner container `a` stays in the precomputed set so an
+    // expanded document opens already drilled in.
+    const roots = buildJsonForest([{ a: { b: 1 } }]);
+    const inner = roots[0].children![0]; // the `a` container
+    const expanded = computeForestDefaultExpanded(roots);
+    expect(expanded.has(roots[0].id)).toBe(false);
+    expect(expanded.has(inner.id)).toBe(true);
+  });
+
+  it("returns an empty set for an empty forest", () => {
+    expect(computeForestDefaultExpanded([]).size).toBe(0);
   });
 });

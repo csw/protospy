@@ -27,7 +27,7 @@ const VIEWER_LABEL = "Hex viewer";
 /**
  * Wrapper around the default observeElementRect that reports a fallback rect in
  * jsdom (where getBoundingClientRect is 0x0), so the virtualizer renders items
- * and component tests can assert on them. Mirrors the json-viewer pattern.
+ * and component tests can assert on them. Mirrors the json-tree viewer pattern.
  */
 const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
   return defaultObserveRect(instance, (rect) => {

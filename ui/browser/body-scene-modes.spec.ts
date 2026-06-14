@@ -34,17 +34,23 @@ test.describe("BodyPane — decode-failed render branch", () => {
   });
 });
 
-test.describe("BodyPane — NDJSON flat view", () => {
-  test("ndjson scene renders the JSONL flat view in the body pane", async ({
+test.describe("BodyPane — NDJSON document view", () => {
+  test("ndjson scene renders a forest of collapsible documents", async ({
     page,
   }) => {
     await applyScene(page, "ndjson");
 
-    // formatJsonl() pretty-prints each NDJSON line. Assert distinctive tokens
-    // from the makeNDJsonResponse fixture (id/event/user keys on each line).
-    await expect(page.getByText('"event"').first()).toBeVisible();
-    await expect(page.getByText('"login"').first()).toBeVisible();
-    await expect(page.getByText('"alice"').first()).toBeVisible();
+    const viewer = page.getByLabel("NDJSON viewer");
+    await expect(viewer).toBeVisible();
+
+    // Each NDJSON line is its own collapsed document tree (count badge shown,
+    // values hidden until expanded).
+    await expect(viewer).toContainText(/\d+ keys/);
+    await expect(viewer).not.toContainText('"login"');
+
+    // Expanding the first document reveals only its content.
+    await viewer.getByRole("button").first().click();
+    await expect(viewer).toContainText('"login"');
 
     // The media-type slug confirms the correct body pane is active.
     await expect(page.getByText("ndjson").first()).toBeVisible();

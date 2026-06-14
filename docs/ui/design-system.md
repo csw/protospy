@@ -59,6 +59,7 @@ density automatically.
 | Status | `text-ok` `text-redirect` `text-client` `text-server` `text-pending` `text-error` (+ `-bg`) | status codes, connection dot |
 | Method | `text-method-get` … `bg-method-get-bg` (get/post/put/patch/delete/head/options) | method badge only |
 | JSON | `text-json-key` `-string` `-number` `-boolean` `-null` `-punct` `-lineno` | body viewers |
+| Truncation | `text-truncation` `bg-truncation-bg` | truncated-body caution (JSON viewer banner + in-tree cut-point marker); a var() alias to the redirect amber, not the red error slot |
 | Trace | `--trace-1`…`--trace-7` (also `text-/bg-trace-N`) | rail, tags, group cards |
 
 Map a status to its kind with `statusClass()`; a trace id to its color with
@@ -122,7 +123,8 @@ read `rowPx`.
 | **Exchange table (table mode)** | `exchange-table.tsx` (react-table + virtual) | custom |
 | **Exchange row (rows mode, default)** | `exchange-row.tsx` | custom |
 | **Trace rail** | `trace-rail.tsx` | custom |
-| **JSON/JSONL body** | `json-viewer.tsx` (your impl) | custom |
+| **JSON / NDJSON body** | `json-tree/` subpackage (`JsonTreeViewer` — virtualized tree, NDJSON forest, truncation, copy value/path) | custom |
+| **Node copy menu** | `ContextMenu` | shadcn |
 | **msearch paired view** | `msearch-view.tsx` | custom |
 | **SSE stream view** | `stream-view.tsx` | custom |
 | Method badge / status / trace pill / connection dot | `protospy/*` atoms | custom |

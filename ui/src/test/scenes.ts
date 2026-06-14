@@ -21,7 +21,8 @@
 //   - state: empty, loading, error row, mid-stream error, selected, hover,
 //            SSE streams, body-pane terminal modes (awaiting, no-body, text,
 //            binary, decode-failed)
-//   - data:  long URI + query, long error, many rows, dual size, NDJSON
+//   - data:  long URI + query, long error, many rows, dual size, NDJSON,
+//            truncated body
 //   - view:  rows vs table, compact vs regular density, compact inspector,
 //            headers tab, timing tab
 //   - cross: view × data combinations (table/compact crossed with a data
@@ -51,6 +52,7 @@ import {
   makeSSEBodyData,
   makeSSEResponse,
   makeTextResponse,
+  makeTruncatedJsonResponse,
 } from "./fixtures";
 
 type Msg = Record<string, unknown>;
@@ -610,11 +612,22 @@ export const SCENES: Scene[] = [
   // ---- NDJSON / JSONL view ------------------------------------------------
   {
     id: "ndjson",
-    title: "NDJSON body (flat view)",
+    title: "NDJSON body (document trees)",
     axis: "data",
     description:
-      "An application/x-ndjson response with several JSON lines. Renders in flat (line-numbered) JSONL mode — each line pretty-printed sequentially rather than collapsed into a single tree.",
+      "An application/x-ndjson response with several JSON lines. Renders as a forest of independently-collapsible document trees in one virtualized stream — each line is its own collapsed tree with a numbered gutter and count badge. Expand a document to drill into it.",
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
+    config: { selectedId: 1 },
+  },
+
+  // ---- Truncated body -----------------------------------------------------
+  {
+    id: "body-truncated",
+    title: "Truncated JSON body",
+    axis: "data",
+    description:
+      "An application/json response whose body was cut off mid-structure. The viewer recovers the valid prefix (best-effort-json-parser), shows the amber truncation banner above the tree, and marks the cut point in-tree with a 'truncated here' annotation on the last parsed node. Verify the banner and marker in both themes.",
+    messages: [makeGetRequest(1, "/_search"), makeTruncatedJsonResponse(1)],
     config: { selectedId: 1 },
   },
 
