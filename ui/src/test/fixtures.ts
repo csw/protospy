@@ -223,6 +223,24 @@ export function makeTruncatedJsonResponse(id: number, ts?: string): Msg {
   ]);
 }
 
+/**
+ * application/x-ndjson response whose final line was truncated mid-structure (a
+ * size cap or interrupted capture). The leading lines parse strictly; the viewer
+ * recovers the valid prefix of the last line with best-effort-json-parser and
+ * shows the truncation banner + in-tree cut-point marker on the final document
+ * (PRO-400).
+ */
+export function makeTruncatedNdjsonResponse(id: number, ts?: string): Msg {
+  const lines = [
+    '{"id":1,"event":"login","user":"alice"}',
+    '{"id":2,"event":"view","user":"alice","path":"/dashboard"}',
+    '{"id":3,"event":"click","user":"alice","target":"btn-ex',
+  ].join("\n");
+  return makeResponse(id, "200 OK", lines, ts, [
+    { name: "Content-Type", value: "application/x-ndjson" },
+  ]);
+}
+
 export function makeBinaryResponse(
   id: number,
   base64: string,

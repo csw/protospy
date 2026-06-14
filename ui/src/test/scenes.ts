@@ -53,6 +53,7 @@ import {
   makeSSEResponse,
   makeTextResponse,
   makeTruncatedJsonResponse,
+  makeTruncatedNdjsonResponse,
 } from "./fixtures";
 
 type Msg = Record<string, unknown>;
@@ -628,6 +629,18 @@ export const SCENES: Scene[] = [
     description:
       "An application/json response whose body was cut off mid-structure. The viewer recovers the valid prefix (best-effort-json-parser), shows the amber truncation banner above the tree, and marks the cut point in-tree with a 'truncated here' annotation on the last parsed node. Verify the banner and marker in both themes.",
     messages: [makeGetRequest(1, "/_search"), makeTruncatedJsonResponse(1)],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-truncated-ndjson",
+    title: "Truncated NDJSON body",
+    axis: "data",
+    description:
+      "An application/x-ndjson response whose final line was cut off mid-structure. The leading documents parse cleanly; the viewer recovers the valid prefix of the last line (best-effort-json-parser), shows the amber truncation banner above the forest, and marks the cut point in-tree on the final document with a 'truncated here' annotation. Verify the banner and marker in both themes.",
+    messages: [
+      makeGetRequest(1, "/api/events/stream"),
+      makeTruncatedNdjsonResponse(1),
+    ],
     config: { selectedId: 1 },
   },
 

@@ -653,7 +653,10 @@ describe("decodeBody raw/hex fields", () => {
 // Verify the parse → transfer → tree-construction round-trip at the decode
 // layer. The Worker boundary is mocked (see vi.mock above), so these tests run
 // in Node. The real Worker code path (including structured-clone transfer) is
-// exercised by the browser tests in browser/body-json-worker.spec.ts.
+// exercised on the real path by browser tests: plain JSON by
+// browser/body-json-worker.spec.ts, and the NDJSON + truncation worker modes by
+// browser/body-scene-modes.spec.ts (the body-truncated, body-truncated-ndjson,
+// and ndjson scenes drive decode → worker and assert the rendered banner/marker).
 describe("decodeBody JSON Worker round-trip", () => {
   it("parsed value is the exact JS object JSON.parse returns", async () => {
     const input = '{"id":1,"tags":["a","b"],"active":true}';

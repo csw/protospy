@@ -182,6 +182,11 @@ export function JsonTreeViewer({
   // on mount otherwise. Stored in a ref so mutations don't trigger re-renders.
   const lazyForestRef = useRef<JsonTreeNode[] | null>(null);
 
+  // Truncation cut-point ancestors from an eager build, stashed so the `expanded`
+  // state initializer can keep the marker visible (the worker path ships these in
+  // `initialExpanded` instead).
+  const initialExpandAncestorsRef = useRef<number[]>([]);
+
   // Always-fresh copies so the ensureForest closure stays current without adding
   // the inputs to every callback's dep array.
   const inputsRef = useRef({ value, documents, truncated, isForest });
@@ -195,7 +200,9 @@ export function JsonTreeViewer({
   // The initializer may build the forest immediately (immediate mode).
   const [treeReady, setTreeReady] = useState<boolean>(() => {
     if (!initialRows) {
-      lazyForestRef.current = buildForest(value, documents, truncated).roots;
+      const built = buildForest(value, documents, truncated);
+      lazyForestRef.current = built.roots;
+      initialExpandAncestorsRef.current = built.expandAncestors;
       return true;
     }
     return false;
@@ -205,7 +212,10 @@ export function JsonTreeViewer({
     if (initialExpanded) return initialExpanded;
     if (lazyForestRef.current) {
       return defaultExpandedFor(
-        { roots: lazyForestRef.current, expandAncestors: [] },
+        {
+          roots: lazyForestRef.current,
+          expandAncestors: initialExpandAncestorsRef.current,
+        },
         isForest,
       );
     }
@@ -215,6 +225,11 @@ export function JsonTreeViewer({
   const [limits, setLimits] = useState<ReadonlyMap<number, number>>(
     () => new Map(),
   );
+
+  // The row last targeted by a right-click, read by the single shared context
+  // menu hoisted above the scroll container. Null when the target has no node to
+  // copy (e.g. a "show-more" control or empty space).
+  const [menuRow, setMenuRow] = useState<FlatRow | null>(null);
 
   // Reset expansion + forest when a different body is rendered.
   const [prevInput, setPrevInput] = useState(input);
@@ -339,65 +354,79 @@ export function JsonTreeViewer({
   return (
     <div className={cn("flex h-full w-full flex-col", className)}>
       {truncated ? <TruncationBanner multiDoc={isForest} /> : null}
-      <div
-        ref={parentRef}
-        className="min-h-0 flex-1 overflow-auto font-mono text-xs leading-5"
-        // `contain: layout` (not `strict`) keeps the perf isolation while leaving
-        // paint un-clipped, so rows wider than the viewport scroll horizontally
-        // rather than getting cut off (deep nesting / long values).
-        style={{ contain: "layout" }}
-        aria-label={ariaLabel}
-      >
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            position: "relative",
-            width: "100%",
-          }}
-        >
-          {virtualizer.getVirtualItems().map((vRow) => {
-            const row = rows[vRow.index];
-            const expandable = row.kind === "open" || row.kind === "collapsed";
-            const rowContent = (
-              <div
-                data-index={vRow.index}
-                ref={virtualizer.measureElement}
-                className={cn(
-                  "absolute top-0 left-0 flex w-max min-w-full items-center hover:bg-hover",
-                  expandable && "cursor-pointer",
-                )}
-                style={{ transform: `translateY(${vRow.start}px)` }}
-                onClick={expandable ? () => toggle(row.nodeId) : undefined}
-              >
-                <JsonTreeRow
-                  row={row}
-                  showDocGutter={isForest}
-                  onToggle={toggle}
-                  onShowMore={showMore}
-                  onShowAll={showAll}
-                />
-              </div>
-            );
-            // "show-more" rows are synthetic controls with no node to copy.
-            if (row.kind === "show-more") {
-              return <div key={vRow.key}>{rowContent}</div>;
-            }
-            return (
-              <ContextMenu key={vRow.key}>
-                <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
-                <ContextMenuContent>
-                  <ContextMenuItem onSelect={() => copyValue(row.nodeId)}>
-                    Copy value
-                  </ContextMenuItem>
-                  <ContextMenuItem onSelect={() => copyPath(row)}>
-                    Copy path
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            );
-          })}
-        </div>
-      </div>
+      {/*
+       * One context menu hoisted above the virtualizer rather than one per row:
+       * each row records itself as the target via `onContextMenu`, and the shared
+       * menu reads `menuRow`. This keeps a single Radix root regardless of how many
+       * rows are visible.
+       */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={parentRef}
+            className="min-h-0 flex-1 overflow-auto font-mono text-xs leading-5"
+            // `contain: layout` (not `strict`) keeps the perf isolation while leaving
+            // paint un-clipped, so rows wider than the viewport scroll horizontally
+            // rather than getting cut off (deep nesting / long values).
+            style={{ contain: "layout" }}
+            aria-label={ariaLabel}
+          >
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+                width: "100%",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((vRow) => {
+                const row = rows[vRow.index];
+                const expandable =
+                  row.kind === "open" || row.kind === "collapsed";
+                return (
+                  <div
+                    key={vRow.key}
+                    data-index={vRow.index}
+                    ref={virtualizer.measureElement}
+                    className={cn(
+                      "absolute top-0 left-0 flex w-max min-w-full items-center hover:bg-hover",
+                      expandable && "cursor-pointer",
+                    )}
+                    style={{ transform: `translateY(${vRow.start}px)` }}
+                    onClick={expandable ? () => toggle(row.nodeId) : undefined}
+                    // Record the right-clicked row so the shared menu copies the
+                    // right node. "show-more" rows have no node, so disable copy.
+                    onContextMenu={() =>
+                      setMenuRow(row.kind === "show-more" ? null : row)
+                    }
+                  >
+                    {isForest ? <DocGutter row={row} /> : null}
+                    <JsonTreeRow
+                      row={row}
+                      onToggle={toggle}
+                      onShowMore={showMore}
+                      onShowAll={showAll}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem
+            disabled={menuRow == null}
+            onSelect={() => menuRow && copyValue(menuRow.nodeId)}
+          >
+            Copy value
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={menuRow == null}
+            onSelect={() => menuRow && copyPath(menuRow)}
+          >
+            Copy path
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     </div>
   );
 }
@@ -415,7 +444,7 @@ async function copyToClipboard(text: string): Promise<void> {
 /**
  * Banner shown above the tree when the body was truncated and only a valid
  * prefix is rendered. Announced to assistive tech via `role="status"` so the
- * partial-data caveat is conveyed by more than color (design-system hard rule 5).
+ * partial-data caveat is conveyed by text, not color alone.
  */
 function TruncationBanner({ multiDoc }: { multiDoc: boolean }) {
   return (
@@ -434,49 +463,49 @@ function TruncationBanner({ multiDoc }: { multiDoc: boolean }) {
   );
 }
 
-/** A single rendered row: optional doc gutter + indent + toggle + key/value. */
+/**
+ * NDJSON document gutter: a fixed-width left column carrying the 1-based document
+ * number on each document's first row, blank otherwise so every row stays aligned
+ * (a line-number-style gutter). Rendered by the parent loop for forest bodies.
+ */
+function DocGutter({ row }: { row: FlatRow }) {
+  return (
+    <span
+      className="inline-flex w-10 shrink-0 justify-end pr-3 text-json-lineno select-none"
+      // Blank gutter cells carry no number — hide them from assistive tech.
+      // `|| undefined` drops the attribute entirely on numbered rows.
+      aria-hidden={row.docIndex == null || undefined}
+    >
+      {row.docIndex != null ? row.docIndex + 1 : null}
+    </span>
+  );
+}
+
+/** A single rendered row: indent + toggle + key/value (gutter is sibling). */
 function JsonTreeRow({
   row,
-  showDocGutter,
   onToggle,
   onShowMore,
   onShowAll,
 }: {
   row: FlatRow;
-  showDocGutter: boolean;
   onToggle: (nodeId: number) => void;
   onShowMore: (nodeId: number, total: number) => void;
   onShowAll: (nodeId: number, total: number) => void;
 }) {
-  // NDJSON document gutter: a fixed-width left column carrying the 1-based
-  // document number on each document's first row, blank otherwise so every row
-  // stays aligned (a line-number-style gutter).
-  const docGutter = showDocGutter ? (
-    <span
-      className="inline-flex w-10 shrink-0 justify-end pr-3 text-json-lineno select-none"
-      aria-hidden={row.docIndex == null}
-    >
-      {row.docIndex != null ? row.docIndex + 1 : null}
-    </span>
-  ) : null;
-
   if (row.kind === "show-more") {
     return (
-      <>
-        {docGutter}
-        <JsonTreeShowMore
-          row={row}
-          onShowMore={onShowMore}
-          onShowAll={onShowAll}
-        />
-      </>
+      <JsonTreeShowMore
+        row={row}
+        onShowMore={onShowMore}
+        onShowAll={onShowAll}
+      />
     );
   }
 
   const expandable = row.kind === "open" || row.kind === "collapsed";
   return (
     <>
-      {docGutter}
       {/* Indent + toggle column */}
       <span
         className="inline-flex shrink-0 items-center justify-end"
@@ -521,8 +550,7 @@ function JsonTreeRow({
 
 /**
  * In-tree cut-point marker appended to the last node parsed from a truncated
- * body. The text label (not just color) carries the meaning per design-system
- * hard rule 5.
+ * body. The text label ("truncated here"), not color alone, carries the meaning.
  */
 function TruncationMarker() {
   return (

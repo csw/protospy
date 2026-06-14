@@ -57,6 +57,42 @@ test.describe("BodyPane — NDJSON document view", () => {
   });
 });
 
+test.describe("BodyPane — truncated body render branch", () => {
+  // These drive the real decode → Web Worker path (the worker's truncation
+  // marking is otherwise only covered by the Node mock in body.decode.test.ts).
+  // The scene injects a truncated body; decodeBody runs the real worker, which
+  // best-effort-parses the prefix, marks the cut point, and ships the ancestor
+  // IDs that keep the marker expanded — so asserting the rendered banner +
+  // marker proves the whole path end-to-end.
+  test("body-truncated scene renders the banner and in-tree marker", async ({
+    page,
+  }) => {
+    await applyScene(page, "body-truncated");
+
+    await expect(page.getByTestId("json-truncation-banner")).toBeVisible();
+    await expect(page.getByTestId("json-truncation-marker")).toBeVisible();
+
+    // The single-document banner copy (not the multi-document NDJSON variant).
+    await expect(page.getByTestId("json-truncation-banner")).toContainText(
+      "valid prefix",
+    );
+  });
+
+  test("body-truncated-ndjson scene renders the banner and marker on the last doc", async ({
+    page,
+  }) => {
+    await applyScene(page, "body-truncated-ndjson");
+
+    await expect(page.getByTestId("json-truncation-banner")).toBeVisible();
+    await expect(page.getByTestId("json-truncation-marker")).toBeVisible();
+
+    // The multi-document banner copy for an NDJSON forest.
+    await expect(page.getByTestId("json-truncation-banner")).toContainText(
+      "documents parsed so far",
+    );
+  });
+});
+
 test.describe("BodyPane — plain text render branch", () => {
   test("body-text scene renders the plain text body in a <pre> block", async ({
     page,
