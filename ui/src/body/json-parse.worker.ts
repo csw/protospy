@@ -20,6 +20,8 @@ type OutMessage =
       rows: FlatRow[];
       defaultExpandedIds: number[];
       workerParseMs: number;
+      workerTreeMs: number;
+      workerFlattenMs: number;
     }
   | { jobId: string; status: "error"; message: string };
 
@@ -37,9 +39,14 @@ self.addEventListener("message", (event: MessageEvent<InMessage>) => {
     const { parsed, prettyText } = parseAndFormat(text);
     const workerParseMs = self.performance.now() - t0;
 
+    const t1 = self.performance.now();
     const tree = buildJsonTree(parsed as Parameters<typeof buildJsonTree>[0]);
     const defaultExpanded = computeDefaultExpanded(tree);
+    const workerTreeMs = self.performance.now() - t1;
+
+    const t2 = self.performance.now();
     const rows = flattenTree(tree, defaultExpanded);
+    const workerFlattenMs = self.performance.now() - t2;
 
     const out: OutMessage = {
       jobId,
@@ -49,6 +56,8 @@ self.addEventListener("message", (event: MessageEvent<InMessage>) => {
       rows,
       defaultExpandedIds: [...defaultExpanded],
       workerParseMs,
+      workerTreeMs,
+      workerFlattenMs,
     };
     workerSelf.postMessage(out);
   } catch (e) {

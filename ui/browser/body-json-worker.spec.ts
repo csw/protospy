@@ -86,72 +86,6 @@ async function injectJsonExchange(
 }
 
 test.describe("JSON-parse Web Worker — real browser path", () => {
-  test("skeleton renders while parsing, then transitions to the JSON tree", async ({
-    page,
-  }) => {
-    const errors = collectErrors(page);
-
-    // Build a moderately large JSON body (>100 KB) in the page context so it
-    // plausibly takes long enough for the skeleton to appear.
-    const jsonBody = await page.evaluate(() => {
-      const items = Array.from({ length: 2000 }, (_, i) => ({
-        id: i,
-        name: `item-${i}`,
-        value: i * 3.14,
-        tags: [`tag-${i % 5}`, `cat-${i % 3}`],
-      }));
-      return JSON.stringify({ items, meta: { total: 2000, page: 1 } });
-    });
-
-    await injectJsonExchange(page, {
-      id: 1,
-      uri: "/api/items",
-      jsonBody,
-    });
-
-    // Observe whether the loading skeleton ever appears in the DOM. Start the
-    // observer before clicking so it's in place for the brief loading phase
-    // (Worker parse for ~150 KB takes 5–30 ms — too short for poll-based checks).
-    const skeletonObserved = page.evaluate(
-      () =>
-        new Promise<boolean>((resolve) => {
-          let seen = false;
-          const obs = new MutationObserver(() => {
-            if (
-              !seen &&
-              document.querySelector('[aria-label="Loading body…"]')
-            ) {
-              seen = true;
-              obs.disconnect();
-              resolve(true);
-            }
-          });
-          obs.observe(document.body, { childList: true, subtree: true });
-          // Resolve false if the skeleton never appears within 5 s.
-          setTimeout(() => {
-            obs.disconnect();
-            resolve(seen);
-          }, 5000);
-        }),
-    );
-
-    // Select the exchange — Inspector defaults to Bodies tab.
-    await page.getByText("/api/items").first().click();
-
-    // The JSON tree must eventually appear.
-    const viewer = page.getByLabel("JSON viewer");
-    await expect(viewer).toBeVisible({ timeout: 15_000 });
-
-    // The tree must contain content from the parsed body.
-    await expect(viewer).toContainText("items");
-
-    // The loading skeleton must have been visible during the Worker parse phase.
-    expect(await skeletonObserved).toBe(true);
-
-    // No errors during the parse → transfer → render cycle.
-    expect(errors).toEqual([]);
-  });
-
   test("small JSON body renders correctly via the Worker path", async ({
     page,
   }) => {
@@ -329,6 +263,122 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
  * this inner beforeEach adds the script and reloads — addInitScript fires on
  * the subsequent navigation (page.reload), placing the hook before any module
  * is evaluated by the app.
+ *
+ * The intercept overrides the Worker constructor to wrap each json-parse Worker
+ * instance's addEventListener so responses can be held and released on demand.
+ * This gives deterministic control over the loading state without relying on
+ * payload size or timing.
+ */
+test.describe("JSON-parse Web Worker — loading skeleton", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      const OriginalWorker = win.Worker as typeof Worker;
+      let responseHeld = false;
+      const queuedDeliveries: Array<() => void> = [];
+
+      win.__holdJsonWorkerResponse = function () {
+        responseHeld = true;
+      };
+
+      win.__releaseJsonWorkerResponse = function () {
+        responseHeld = false;
+        for (const deliver of queuedDeliveries) deliver();
+        queuedDeliveries.length = 0;
+      };
+
+      win.Worker = function (url: string | URL, opts?: WorkerOptions): Worker {
+        const worker: Worker = new OriginalWorker(url as string, opts);
+        if (String(url).includes("json-parse")) {
+          // Shadow addEventListener on this instance so we can intercept the
+          // message channel from Worker → main thread. Own-property lookup
+          // takes precedence over the EventTarget prototype method.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const w = worker as any;
+          const orig = worker.addEventListener.bind(worker);
+          w.addEventListener = function (
+            type: string,
+            handler: EventListenerOrEventListenerObject,
+            options?: AddEventListenerOptions | boolean,
+          ): void {
+            if (type === "message") {
+              orig(
+                "message",
+                (event: Event) => {
+                  if (!responseHeld) {
+                    (handler as EventListener)(event);
+                  } else {
+                    queuedDeliveries.push(() =>
+                      (handler as EventListener)(event),
+                    );
+                  }
+                },
+                options,
+              );
+            } else {
+              orig(type, handler, options);
+            }
+          };
+        }
+        return worker;
+      };
+      win.Worker.prototype = OriginalWorker.prototype;
+    });
+
+    await page.reload();
+    await waitForStore(page);
+    await resetStore(page);
+  });
+
+  test("skeleton renders while parsing, then transitions to the JSON tree", async ({
+    page,
+  }) => {
+    const errors = collectErrors(page);
+
+    await injectJsonExchange(page, {
+      id: 1,
+      uri: "/api/items",
+      jsonBody: JSON.stringify({ items: [1, 2, 3], meta: { total: 3 } }),
+    });
+
+    // Hold the Worker response before selecting the exchange so the skeleton
+    // is deterministically visible (not a race against Worker parse time).
+    await page.evaluate(() =>
+      (
+        window as unknown as { __holdJsonWorkerResponse(): void }
+      ).__holdJsonWorkerResponse(),
+    );
+
+    await page.getByText("/api/items").first().click();
+
+    // Skeleton must appear — guaranteed because the Worker response is held.
+    await expect(page.getByTestId("body-skeleton")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Release the response — Worker delivers the parse result.
+    await page.evaluate(() =>
+      (
+        window as unknown as { __releaseJsonWorkerResponse(): void }
+      ).__releaseJsonWorkerResponse(),
+    );
+
+    // JSON tree must appear after the response is delivered.
+    const viewer = page.getByLabel("JSON viewer");
+    await expect(viewer).toBeVisible({ timeout: 15_000 });
+    await expect(viewer).toContainText("items");
+
+    expect(errors).toEqual([]);
+  });
+});
+
+/**
+ * Separate describe so the Worker interception init script is added BEFORE the
+ * first navigation. The outer test.beforeEach (routes + goto) runs first, then
+ * this inner beforeEach adds the script and reloads — addInitScript fires on
+ * the subsequent navigation (page.reload), placing the hook before any module
+ * is evaluated by the app.
  */
 test.describe("JSON-parse Web Worker — fatal error recovery", () => {
   test.beforeEach(async ({ page }) => {
@@ -339,6 +389,7 @@ test.describe("JSON-parse Web Worker — fatal error recovery", () => {
       const win = window as any;
       const OriginalWorker = win.Worker as typeof Worker;
       let jsonParseWorker: Worker | null = null;
+      let jsonParseWorkerCount = 0;
 
       // Exposed by the test to dispatch a synthetic fatal error on the Worker.
       win.__crashJsonWorker = function () {
@@ -352,6 +403,12 @@ test.describe("JSON-parse Web Worker — fatal error recovery", () => {
         }
       };
 
+      // Returns the total number of json-parse Workers spawned; used by the
+      // recovery test to verify a fresh Worker was created after the crash.
+      win.__getJsonParseWorkerCount = function () {
+        return jsonParseWorkerCount;
+      };
+
       // Wrap the Worker constructor so we can capture the json-parse instance.
       // Returning the real Worker object from the wrapper makes `new` use it
       // (JS allows constructors to return a different object).
@@ -359,6 +416,7 @@ test.describe("JSON-parse Web Worker — fatal error recovery", () => {
         const worker: Worker = new OriginalWorker(url as string, opts);
         if (String(url).includes("json-parse")) {
           jsonParseWorker = worker;
+          jsonParseWorkerCount++;
         }
         return worker;
       };
@@ -405,6 +463,14 @@ test.describe("JSON-parse Web Worker — fatal error recovery", () => {
       timeout: 10_000,
     });
     await expect(page.getByLabel("JSON viewer")).toContainText('"recovered"');
+
+    // Verify the recovery spawned a fresh Worker, not a fallback or stale one.
+    const spawnCount = await page.evaluate(() =>
+      (
+        window as unknown as { __getJsonParseWorkerCount(): number }
+      ).__getJsonParseWorkerCount(),
+    );
+    expect(spawnCount).toBe(2);
 
     // The simulated crash is handled internally; no unhandled page errors.
     expect(errors).toEqual([]);

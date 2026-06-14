@@ -74,7 +74,7 @@ function BodySkeleton() {
   return (
     <div
       role="status"
-      aria-label="Loading body…"
+      data-testid="body-skeleton"
       className="flex flex-col gap-1.5 p-3"
     >
       <Skeleton className="h-4 w-3/4" />
@@ -251,12 +251,7 @@ export function BodyPane({
           spacer) push the container to their full size and break scroll
           virtualization downstream. */}
       <div className="flex-1 min-h-0 overflow-auto bg-card">
-        {loading &&
-          (body?.contentType?.toLowerCase().includes("json") ? (
-            <BodySkeleton />
-          ) : (
-            <LifecycleState>Decoding…</LifecycleState>
-          ))}
+        {loading && <BodySkeleton />}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
           <LifecycleState>

@@ -124,7 +124,7 @@ export function JsonTreeViewer({
     if (initialRows && initialExpanded !== undefined) {
       lazyTreeRef.current = null;
       setTreeReady(false);
-      setExpanded(initialExpanded);
+      setExpanded(new Set(initialExpanded));
     } else {
       const newTree = buildJsonTree(value);
       lazyTreeRef.current = newTree;
@@ -140,26 +140,29 @@ export function JsonTreeViewer({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  // Build the tree on demand and signal rows to switch from initialRows to
-  // flattenTree. Called from event handlers only (never during render).
+  // Build the tree on demand. Stored in a ref so the empty-dep callbacks call
+  // the latest closure without adding ensureTree to every dep array.
+  const ensureTreeRef = useRef<() => JsonTreeNode>(null!);
   function ensureTree(): JsonTreeNode {
     if (!lazyTreeRef.current) {
       lazyTreeRef.current = buildJsonTree(
         valueRef.current as Parameters<typeof buildJsonTree>[0],
       );
-      setTreeReady(true);
     }
     return lazyTreeRef.current;
   }
+  ensureTreeRef.current = ensureTree;
 
   const rows = useMemo<readonly FlatRow[]>(() => {
     if (!treeReady && initialRows) return initialRows;
-    return flattenTree(lazyTreeRef.current!, expanded, limits);
+    if (!lazyTreeRef.current) return [];
+    return flattenTree(lazyTreeRef.current, expanded, limits);
   }, [treeReady, initialRows, expanded, limits]);
 
   const toggle = useCallback((nodeId: number) => {
     const isCollapsing = expandedRef.current.has(nodeId);
-    const tree = ensureTree();
+    const tree = ensureTreeRef.current();
+    setTreeReady(true);
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
@@ -187,7 +190,8 @@ export function JsonTreeViewer({
   }, []);
 
   const showMore = useCallback((nodeId: number, total: number) => {
-    ensureTree();
+    ensureTreeRef.current();
+    setTreeReady(true);
     setLimits((prev) => {
       const next = new Map(prev);
       const current = next.get(nodeId) ?? CONTAINER_WINDOW;
@@ -197,7 +201,8 @@ export function JsonTreeViewer({
   }, []);
 
   const showAll = useCallback((nodeId: number, total: number) => {
-    ensureTree();
+    ensureTreeRef.current();
+    setTreeReady(true);
     setLimits((prev) => new Map(prev).set(nodeId, total));
   }, []);
 

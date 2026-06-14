@@ -30,6 +30,8 @@ type OutMessage =
       rows: FlatRow[];
       defaultExpandedIds: number[];
       workerParseMs: number;
+      workerTreeMs: number;
+      workerFlattenMs: number;
     }
   | { jobId: string; status: "error"; message: string };
 
@@ -57,12 +59,16 @@ function getWorker(): Worker {
     _pending.delete(msg.jobId);
     if (msg.status === "ok") {
       const roundTripMs = performance.now() - job.startMs;
+      const workerTotalMs =
+        msg.workerParseMs + msg.workerTreeMs + msg.workerFlattenMs;
       performance.measure("json-worker-roundtrip", {
         start: job.startMs,
         duration: roundTripMs,
         detail: {
           workerParseMs: msg.workerParseMs,
-          transferMs: roundTripMs - msg.workerParseMs,
+          workerTreeMs: msg.workerTreeMs,
+          workerFlattenMs: msg.workerFlattenMs,
+          transferMs: roundTripMs - workerTotalMs,
         },
       });
       job.resolve({
@@ -106,6 +112,11 @@ export function parseJson(text: string): Promise<JsonParseResult> {
       return;
     }
     _pending.set(jobId, { resolve, reject, startMs: performance.now() });
-    worker.postMessage({ jobId, text });
+    try {
+      worker.postMessage({ jobId, text });
+    } catch (e) {
+      _pending.delete(jobId);
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
   });
 }
