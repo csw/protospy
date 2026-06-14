@@ -23,7 +23,7 @@ visual reference is `docs/ui/index.html`; the landed scaffold code is under
 | Command palette | `cmdk` (shadcn `Command`) |
 | Resizable split | `react-resizable-panels` (shadcn `Resizable`) |
 | List perf | `@tanstack/react-virtual` |
-| Table list view | `@tanstack/react-table` (headless) + react-virtual |
+| Exchange table | `@tanstack/react-table` (headless) + react-virtual |
 | Toasts | `sonner` |
 | Variants | `class-variance-authority` + `cn()` |
 

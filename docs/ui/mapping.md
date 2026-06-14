@@ -34,7 +34,7 @@ Cross-reference: tokens in `design-system.md §2`, code in `ui/src/components/pr
 | Order toggle | ▣ `Button size="icon"` (Arrow) | default **newest-first** |
 | Rows/Table toggle | ⬡ `ToggleGroup` (Rows/Table icons) | **Rows is default** |
 | Trace rail | ◆ `trace-rail.tsx` | lane-packed; fed virtualizer offsets; single-member traces excluded |
-| Table | ◆ `exchange-table.tsx` (◷ react-table + react-virtual) | cols: Method·Status·Path·Elapsed·Size·Time |
+| Exchange table | ◆ `exchange-table.tsx` (◷ react-table + react-virtual) | cols: Method·Status·Path·Elapsed·Size·Time |
 | Row (rows mode, default) | ◆ `exchange-row.tsx` | 3-line; full status line; trace left-border |
 | Trace group card | ◆ (group variant) | header + indented members when grouping on |
 | Empty — first run | ◆ `EmptyState` | "No requests yet" + traffic-flows hint |
