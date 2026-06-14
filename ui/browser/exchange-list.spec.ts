@@ -41,7 +41,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Exchange list — rows mode", () => {
   test.beforeEach(async ({ page }) => {
-    // Default is now table mode; switch to rows for these tests.
+    // Rows is the default; click to stay explicit for these rows-mode tests.
     await page.getByLabel("Rows view").click();
   });
 
@@ -571,7 +571,9 @@ test.describe("Sort order", () => {
 
 test.describe("Edge cases", () => {
   test("11.1 pending exchange shows dashes in table mode", async ({ page }) => {
-    // Table view is the default — dashes are visible in status/elapsed columns.
+    // Switch to table mode (rows is the default); dashes show in the
+    // status/elapsed columns.
+    await page.getByLabel("Table view").click();
     await injectExchanges(page, [makeGetRequest(1, "/api/pending")]);
 
     // Status should show "—" and elapsed should show "—"
@@ -580,13 +582,15 @@ test.describe("Edge cases", () => {
   });
 
   test("11.2 5xx errors show the server-status color", async ({ page }) => {
+    // Switch to table mode (rows is the default).
+    await page.getByLabel("Table view").click();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/fail"),
       makeResponse(1, "500 Internal Server Error"),
     ]);
 
-    // Table view (default) shows just the numeric code; look for "500"
-    // within a table row's status cell. v2.3 colours 5xx via text-server.
+    // Table view shows just the numeric code; look for "500" within a table
+    // row's status cell. v2.3 colours 5xx via text-server.
     const status = page
       .locator("button[role='option'] span", { hasText: /^500$/ })
       .first();
@@ -597,7 +601,7 @@ test.describe("Edge cases", () => {
   test("11.3 compact rows mode sizes wrapper to fit content without clipping", async ({
     page,
   }) => {
-    // This is a rows-mode test; switch from default table mode.
+    // This is a rows-mode test; rows is the default, click to stay explicit.
     await page.getByLabel("Rows view").click();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/test"),
@@ -625,7 +629,7 @@ test.describe("Edge cases", () => {
   });
 
   test("11.4 rows don't overlap at narrow viewport width", async ({ page }) => {
-    // This is a rows-mode test; switch from default table mode.
+    // This is a rows-mode test; rows is the default, click to stay explicit.
     await page.getByLabel("Rows view").click();
     await page.setViewportSize({ width: 420, height: 600 });
     await injectExchanges(page, [

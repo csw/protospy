@@ -56,9 +56,11 @@ test.describe("Compression display", () => {
   test("shows a compression marker + tooltip in table mode (not inline tag)", async ({
     page,
   }) => {
-    // Table view is the default. Unlike rows mode, the fixed-width SIZE column
-    // shows a compression icon with the encoding in the tooltip — no inline
-    // "(gzip)" text, which would overflow the narrow track (PRO-286).
+    // Switch to table mode (rows is the default). Unlike rows mode, the
+    // fixed-width SIZE column shows a compression icon with the encoding in the
+    // tooltip — no inline "(gzip)" text, which would overflow the narrow track
+    // (PRO-286).
+    await page.getByLabel("Table view").click();
     await injectExchanges(page, [
       makeGetRequest(1, "/api/compressed"),
       makeEncodedJsonResponse(1, GZIP_BASE64, GZIP_BYTES, "gzip"),

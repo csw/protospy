@@ -49,10 +49,57 @@ test.describe("Layout and resize", () => {
     expect(Math.abs(movedBox!.x - initialBox!.x)).toBeGreaterThan(20);
   });
 
+  test("9.8 first drag of the divider moves the full distance (PRO-402)", async ({
+    page,
+  }) => {
+    // Regression: the first drag used to move only a few pixels before snapping
+    // back (a second drag worked). Root cause: `onResize` wrote the dragged width
+    // to the store, that fed back into the Panel's `defaultSize`, and changing
+    // `defaultSize` re-registered the Panel mid-drag — react-resizable-panels then
+    // reset the layout toward the default. The bug is most visible when the
+    // persisted width exceeds 50% of the viewport, so the initial render clamps it
+    // (persisted 720 → rendered ~640 at 1280) and the very first onResize widens
+    // the gap. Drive that exact state, then assert the first drag moves fully.
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = (window as any).__test_store.getState();
+      s.setListMode("table");
+      s.setListWidth("table", 720);
+    });
+    await page.reload();
+    await waitForStore(page);
+
+    const handle = page.getByRole("separator");
+    const listPanel = page.locator("[data-panel]").first();
+    await expect(handle).toBeVisible();
+
+    const before = (await listPanel.boundingBox())!.width;
+    const box = (await handle.boundingBox())!;
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+
+    // A single, first drag narrowing the list by ~150px.
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX - 150, startY, { steps: 10 });
+    await page.mouse.up();
+
+    const after = (await listPanel.boundingBox())!.width;
+    // Pre-fix the first drag moved ~15px; post-fix it tracks the pointer (~150px).
+    expect(before - after).toBeGreaterThan(120);
+  });
+
   test("9.7 list pane starts bounded and stays fixed while the window resizes", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 960, height: 720 });
+    // Persist a width wider than the 50% first-render cap so the clamp is the
+    // thing under test (the rows default of 290px would not need bounding here).
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__test_store.getState().setListWidth("rows", 720);
+    });
     await page.reload();
     await waitForStore(page);
 

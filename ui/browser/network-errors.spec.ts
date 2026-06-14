@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 
   // The rows-mode list shows the full status line + an "Error" treatment;
-  // switch from the default table mode so list-level assertions work.
+  // ensure rows mode (the default) so list-level assertions work.
   await page.getByLabel("Rows view").click();
 });
 
