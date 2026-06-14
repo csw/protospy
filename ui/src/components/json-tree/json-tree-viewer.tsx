@@ -140,8 +140,9 @@ export function JsonTreeViewer({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  // Build the tree on demand. Stored in a ref so the empty-dep callbacks call
-  // the latest closure without adding ensureTree to every dep array.
+  // Build the tree on demand. Re-created every render (fresh closure over refs),
+  // then stored in a ref so the zero-dep callbacks always call the latest version
+  // without adding ensureTree to their dep arrays (useLatest pattern).
   const ensureTreeRef = useRef<() => JsonTreeNode>(null!);
   function ensureTree(): JsonTreeNode {
     if (!lazyTreeRef.current) {

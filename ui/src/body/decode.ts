@@ -33,7 +33,7 @@ export interface DecodeResult {
    * uses these instead of re-building the tree on the main thread).
    * `undefined` for all other kinds.
    */
-  initialRows?: FlatRow[];
+  initialRows?: readonly FlatRow[];
   /**
    * For `json` kind: the default expanded node-ID set, computed off-thread
    * alongside the initial rows. `undefined` for all other kinds.

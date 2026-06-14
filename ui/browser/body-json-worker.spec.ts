@@ -11,8 +11,10 @@
  * within a defined wall-clock budget with the UI thread remaining responsive.
  */
 
-import { test, expect, type ConsoleMessage } from "@playwright/test";
-import { waitForStore, resetStore } from "./helpers/inject";
+import { test, expect } from "@playwright/test";
+import { waitForStore, resetStore, injectExchanges } from "./helpers/inject";
+import { collectErrors } from "./helpers/errors";
+import { makeGetRequest, makeResponse } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -26,63 +28,15 @@ test.beforeEach(async ({ page }) => {
   await resetStore(page);
 });
 
-/** Collect browser-side errors for later assertion. */
-function collectErrors(page: import("@playwright/test").Page): string[] {
-  const errors: string[] = [];
-  page.on("console", (msg: ConsoleMessage) => {
-    if (msg.type() === "error") errors.push(msg.text());
-  });
-  page.on("pageerror", (err) => errors.push(err.message));
-  return errors;
-}
-
 /** Inject a GET + JSON response exchange via __test_store. */
 async function injectJsonExchange(
   page: import("@playwright/test").Page,
   opts: { id: number; uri: string; jsonBody: string },
 ) {
-  await page.evaluate(
-    ({ id, uri, body }) => {
-      type Store = { getState(): { applyEvent(msg: unknown): void } };
-      const store = (window as unknown as { __test_store: Store }).__test_store;
-      const apply = store.getState().applyEvent.bind(store.getState());
-      apply({
-        exchange: { exchange_id: id, timestamp: "2024-01-01T00:00:00Z" },
-        direction: "Request",
-        event: {
-          type: "Request",
-          method: "GET",
-          uri,
-          version: "HTTP/1.1",
-          headers: [],
-          body: { type: "NoBody" },
-        },
-      });
-      apply({
-        exchange: { exchange_id: id, timestamp: "2024-01-01T00:00:00Z" },
-        direction: "Response",
-        event: {
-          type: "Response",
-          status: "200 OK",
-          version: "HTTP/1.1",
-          headers: [{ name: "Content-Type", value: "application/json" }],
-          elapsed_ms: 42,
-          body: {
-            type: "Data",
-            content: {
-              offset: 0,
-              length: body.length,
-              payload: { text: body },
-            },
-            trailers: null,
-            at_end: true,
-            total_bytes: body.length,
-          },
-        },
-      });
-    },
-    { id: opts.id, uri: opts.uri, body: opts.jsonBody },
-  );
+  await injectExchanges(page, [
+    makeGetRequest(opts.id, opts.uri),
+    makeResponse(opts.id, "200 OK", opts.jsonBody),
+  ]);
 }
 
 test.describe("JSON-parse Web Worker — real browser path", () => {

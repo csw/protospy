@@ -14,7 +14,7 @@ import { EmptyState } from "./ui/empty-state";
 import { Skeleton } from "./ui/skeleton";
 import { JsonFlatView } from "./json-viewer";
 import { JsonTreeViewer } from "./json-tree";
-import type { JsonValue, FlatRow } from "./json-tree";
+import type { JsonValue } from "./json-tree";
 import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
@@ -77,6 +77,7 @@ function BodySkeleton() {
       data-testid="body-skeleton"
       className="flex flex-col gap-1.5 p-3"
     >
+      <span className="sr-only">Loading…</span>
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-4 w-1/2" />
       <Skeleton className="h-4 w-5/6" />
@@ -110,7 +111,7 @@ function BodyContent({
       <div className="h-full pt-3 pl-3">
         <JsonTreeViewer
           value={result.parsed as JsonValue}
-          initialRows={result.initialRows as FlatRow[] | undefined}
+          initialRows={result.initialRows}
           initialExpanded={result.initialExpanded}
           aria-label="JSON viewer"
         />
