@@ -209,7 +209,10 @@ export function BodyPane({
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
-      <div className="flex h-tab shrink-0 items-center gap-3 border-b border-border bg-secondary px-3">
+      <div
+        data-testid="body-pane-subhead"
+        className="flex h-strip shrink-0 items-center gap-3 border-b border-border bg-secondary px-3"
+      >
         <span className="shrink-0 font-sans text-xs font-semibold text-secondary-foreground">
           {title}
         </span>
