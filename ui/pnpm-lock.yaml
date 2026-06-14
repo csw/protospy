@@ -23,6 +23,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.24
         version: 3.14.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      best-effort-json-parser:
+        specifier: ^1.4.1
+        version: 1.4.1
       brotli-dec-wasm:
         specifier: ^2.3.2
         version: 2.3.2
@@ -1780,6 +1783,9 @@ packages:
     resolution: {integrity: sha512-QO/VHsXCQdnzADMfmkeOPvHdIAkoB7i0/rGjINPJEetLx75hNttVWGQ/jycHUDP9zZ9rupbm60WRxcwViB0MiA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
+
+  best-effort-json-parser@1.4.1:
+    resolution: {integrity: sha512-1e2yvg4LieOlqDw7rAOvHetMJeJ2sGezLX/2Ma0oykFd8TMfMxdDBzNUXjISPeMZAHe5CCvPRJtHmISoTC6MsA==}
 
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
@@ -4835,6 +4841,8 @@ snapshots:
   balanced-match@4.0.4: {}
 
   baseline-browser-mapping@2.10.25: {}
+
+  best-effort-json-parser@1.4.1: {}
 
   bidi-js@1.0.3:
     dependencies:

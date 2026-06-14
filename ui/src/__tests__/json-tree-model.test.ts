@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   buildJsonTree,
+  buildJsonForest,
+  nodeToValue,
+  markTruncationPoint,
   formatPath,
   countNodes,
   type JsonTreeNode,
@@ -156,5 +159,93 @@ describe("countNodes", () => {
 
   it("counts empty containers as a single node", () => {
     expect(countNodes(buildJsonTree({}))).toBe(1);
+  });
+});
+
+// ── buildJsonForest (NDJSON, PRO-400) ──
+
+describe("buildJsonForest", () => {
+  it("builds one tree per document, each rooted at the empty path", () => {
+    const roots = buildJsonForest([{ a: 1 }, [2, 3], "x"]);
+    expect(roots).toHaveLength(3);
+    expect(roots[0]).toMatchObject({ type: "object", depth: 0, path: [] });
+    expect(roots[1]).toMatchObject({ type: "array", depth: 0, path: [] });
+    expect(roots[2]).toMatchObject({ type: "string", value: "x", path: [] });
+  });
+
+  it("assigns globally unique IDs across documents", () => {
+    const roots = buildJsonForest([{ a: 1, b: 2 }, { c: 3 }]);
+    const ids: number[] = [];
+    const walk = (n: JsonTreeNode) => {
+      ids.push(n.id);
+      for (const c of n.children ?? []) walk(c);
+    };
+    roots.forEach(walk);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("returns an empty forest for no documents", () => {
+    expect(buildJsonForest([])).toEqual([]);
+  });
+});
+
+// ── nodeToValue (copy-value, PRO-400) ──
+
+describe("nodeToValue", () => {
+  it("round-trips a nested value through build + reconstruct", () => {
+    const value = { a: [1, { b: "two", c: null }], d: true };
+    expect(nodeToValue(buildJsonTree(value))).toEqual(value);
+  });
+
+  it("reconstructs a subtree node, not just the root", () => {
+    const tree = buildJsonTree({ outer: { x: 1, y: [2, 3] } });
+    const outer = tree.children![0];
+    expect(nodeToValue(outer)).toEqual({ x: 1, y: [2, 3] });
+  });
+
+  it("reconstructs primitive leaves", () => {
+    expect(nodeToValue(buildJsonTree(42))).toBe(42);
+    expect(nodeToValue(buildJsonTree("hi"))).toBe("hi");
+    expect(nodeToValue(buildJsonTree(null))).toBeNull();
+  });
+
+  it("preserves object key order", () => {
+    const value = { z: 1, a: 2, m: 3 };
+    expect(Object.keys(nodeToValue(buildJsonTree(value)) as object)).toEqual([
+      "z",
+      "a",
+      "m",
+    ]);
+  });
+});
+
+// ── markTruncationPoint (truncation, PRO-400) ──
+
+describe("markTruncationPoint", () => {
+  it("marks the deepest rightmost node and returns its ancestor containers", () => {
+    const tree = buildJsonTree({ a: 1, b: { c: [10, 20] } });
+    const { ancestorIds } = markTruncationPoint(tree);
+
+    // Deepest rightmost: root → b → c → 20. Only that node is flagged.
+    const flagged: JsonTreeNode[] = [];
+    const walk = (n: JsonTreeNode) => {
+      if (n.truncated) flagged.push(n);
+      for (const child of n.children ?? []) walk(child);
+    };
+    walk(tree);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]).toMatchObject({ type: "number", value: 20 });
+
+    // Ancestors are the containers on that path: root, b, c.
+    const b = tree.children![1];
+    const c = b.children![0];
+    expect(ancestorIds).toEqual([tree.id, b.id, c.id]);
+  });
+
+  it("marks the root itself when it is an empty container", () => {
+    const tree = buildJsonTree({});
+    const { ancestorIds } = markTruncationPoint(tree);
+    expect(tree.truncated).toBe(true);
+    expect(ancestorIds).toEqual([]);
   });
 });

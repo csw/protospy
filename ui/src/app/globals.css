@@ -89,6 +89,14 @@
   --sse-lifecycle: var(--redirect);
   --sse-lifecycle-bg: var(--redirect-bg);
 
+  /* Truncated / best-effort-parsed body caution (JSON viewer banner + in-tree
+     cut-point marker, PRO-400). A truncated body is incomplete, not an error, so
+     it gets the amber caution treatment rather than the red error slot. Declared
+     as var() indirections so it tracks the redirect amber across themes with no
+     .dark re-definition — same pattern as conn-connecting / sse-lifecycle. */
+  --truncation: var(--redirect);
+  --truncation-bg: var(--redirect-bg);
+
   /* HTTP method tints (fg / bg) — LIGHT */
   --method-get: #047857;
   --method-get-bg: #d1fae5;
@@ -310,6 +318,9 @@
   /* SSE event lifecycle → text-sse-lifecycle / bg-sse-lifecycle-bg */
   --color-sse-lifecycle: var(--sse-lifecycle);
   --color-sse-lifecycle-bg: var(--sse-lifecycle-bg);
+
+  --color-truncation: var(--truncation);
+  --color-truncation-bg: var(--truncation-bg);
 
   /* methods */
   --color-method-get: var(--method-get);

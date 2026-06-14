@@ -57,6 +57,13 @@ export interface FlatRow {
   hasComma: boolean;
   /** Mirrors the node's `truncated` flag (rendered in phase 3, not 1a). */
   truncated: boolean;
+  /**
+   * For NDJSON/JSONL bodies (phase 3, PRO-400): the 0-based document index this
+   * row's tree belongs to, set only on the *first* row of each document so the
+   * viewer can render a per-document gutter label. `undefined` for single-document
+   * JSON and for every non-leading row of a document.
+   */
+  docIndex?: number;
 }
 
 /** Shared empty map so the common no-windowing call avoids an allocation. */
@@ -76,6 +83,32 @@ export function flattenTree(
 ): FlatRow[] {
   const rows: FlatRow[] = [];
   flattenNode(root, true, expanded, limits, rows);
+  return rows;
+}
+
+/**
+ * Flatten a forest of document trees into one combined row list for NDJSON/JSONL
+ * bodies (phase 3, PRO-400). Each document is flattened independently (so its
+ * root collapses/expands on its own) and the first row of each document is tagged
+ * with its `docIndex`, which the viewer renders as a document gutter label. The
+ * combined list virtualizes as a single stream, giving per-document collapse and
+ * count badges without nesting scroll containers.
+ */
+export function flattenForest(
+  roots: readonly JsonTreeNode[],
+  expanded: ReadonlySet<number>,
+  limits: ReadonlyMap<number, number> = NO_LIMITS,
+): FlatRow[] {
+  const rows: FlatRow[] = [];
+  roots.forEach((root, docIndex) => {
+    const start = rows.length;
+    // Each document stands alone, so its root is the last (and only) value at
+    // its level — never trailed by a comma.
+    flattenNode(root, true, expanded, limits, rows);
+    if (rows.length > start) {
+      rows[start] = { ...rows[start], docIndex };
+    }
+  });
   return rows;
 }
 

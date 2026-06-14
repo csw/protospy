@@ -10,6 +10,9 @@ export { JsonTreeViewer } from "./json-tree-viewer";
 
 export {
   buildJsonTree,
+  buildJsonForest,
+  nodeToValue,
+  markTruncationPoint,
   formatPath,
   countNodes,
   type JsonPrimitive,
@@ -17,10 +20,12 @@ export {
   type JsonNodeType,
   type PathSegment,
   type JsonTreeNode,
+  type TruncationMark,
 } from "./model";
 
 export {
   flattenTree,
+  flattenForest,
   formatPrimitive,
   CONTAINER_WINDOW,
   type FlatRowKind,
@@ -29,6 +34,7 @@ export {
 
 export {
   computeDefaultExpanded,
+  computeForestDefaultExpanded,
   DEFAULT_EXPAND_DEPTH,
   LARGE_CONTAINER_CHILD_COUNT,
   SMALL_TREE_NODE_COUNT,

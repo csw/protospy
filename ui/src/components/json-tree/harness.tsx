@@ -19,7 +19,12 @@ import type { JsonValue } from "./model";
 interface Fixture {
   id: string;
   label: string;
-  value: JsonValue;
+  /** Single-document value. Omit when supplying `documents`. */
+  value?: JsonValue;
+  /** NDJSON/JSONL documents (one per line). Renders the forest view. */
+  documents?: JsonValue[];
+  /** Render with the truncation banner + in-tree cut-point marker. */
+  truncated?: boolean;
 }
 
 /** Source id for the "paste / load a file" custom-input mode. */
@@ -137,6 +142,30 @@ const FIXTURES: Fixture[] = [
       })),
     },
   },
+  {
+    id: "ndjson",
+    label: "NDJSON",
+    documents: [
+      { id: 1, event: "login", user: "alice" },
+      { id: 2, event: "view", user: "alice", path: "/dashboard" },
+      { id: 3, event: "click", user: "alice", target: "btn-export" },
+      { id: 4, event: "logout", user: "alice" },
+    ],
+  },
+  {
+    id: "truncated",
+    label: "Truncated",
+    truncated: true,
+    // The recovered valid prefix of a body cut off mid-structure; the viewer
+    // marks the deepest rightmost node (the cut point).
+    value: {
+      took: 5,
+      hits: {
+        total: { value: 3 },
+        hits: [{ _id: "1", _source: { name: "alpha", tags: ["a", "b"] } }],
+      },
+    },
+  },
 ];
 
 export function JsonTreeHarness() {
@@ -149,9 +178,10 @@ export function JsonTreeHarness() {
 
   const isCustom = sourceId === CUSTOM_ID;
   const fixture = FIXTURES.find((f) => f.id === sourceId) ?? FIXTURES[0];
+  // `parsed` only drives the custom-input mode; fixtures render directly below.
   const parsed: ParsedInput = isCustom
     ? parseJsonInput(customText)
-    : { status: "ok", value: fixture.value };
+    : { status: "empty" };
 
   const toggleTheme = () => {
     const next = !dark;
@@ -260,14 +290,23 @@ export function JsonTreeHarness() {
         className="min-h-0 flex-1 p-2"
         data-testid="json-tree-harness-viewport"
       >
-        {parsed.status === "ok" ? (
-          <JsonTreeViewer value={parsed.value} />
+        {isCustom ? (
+          parsed.status === "ok" ? (
+            <JsonTreeViewer value={parsed.value} />
+          ) : (
+            <p className="p-2 text-sm text-muted-foreground">
+              {parsed.status === "empty"
+                ? "Paste JSON or load a file above to preview it."
+                : "Fix the JSON above to preview it."}
+            </p>
+          )
+        ) : fixture.documents ? (
+          <JsonTreeViewer documents={fixture.documents} />
         ) : (
-          <p className="p-2 text-sm text-muted-foreground">
-            {parsed.status === "empty"
-              ? "Paste JSON or load a file above to preview it."
-              : "Fix the JSON above to preview it."}
-          </p>
+          <JsonTreeViewer
+            value={fixture.value ?? null}
+            truncated={fixture.truncated}
+          />
         )}
       </div>
     </div>

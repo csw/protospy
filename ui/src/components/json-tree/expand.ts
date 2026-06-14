@@ -80,6 +80,29 @@ export function computeDefaultExpanded(
   return expanded;
 }
 
+/**
+ * Compute the default-expanded set for an NDJSON/JSONL forest (phase 3, PRO-400).
+ *
+ * Each document's own root starts *collapsed* so the body opens as a scannable
+ * list of one-line document summaries (with count badges) that scales to
+ * thousands of documents. The inner expansion each document would get on its own
+ * (via {@link computeDefaultExpanded}) is still precomputed and included, so
+ * expanding a document reveals its tree already drilled to the normal depth
+ * rather than fully collapsed.
+ */
+export function computeForestDefaultExpanded(
+  roots: readonly JsonTreeNode[],
+  opts: DefaultExpandOptions = {},
+): Set<number> {
+  const expanded = new Set<number>();
+  for (const root of roots) {
+    for (const id of computeDefaultExpanded(root, opts)) expanded.add(id);
+    // Collapse the document at its own root regardless of the inner heuristic.
+    expanded.delete(root.id);
+  }
+  return expanded;
+}
+
 function collectExpanded(
   node: JsonTreeNode,
   maxDepth: number,

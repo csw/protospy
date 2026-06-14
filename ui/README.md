@@ -59,7 +59,7 @@ For the full deep dive (data flow, type shapes, patterns, per-directory map), se
 
 **Stack:** React 19 + TypeScript, built with Vite; Tailwind CSS v4 for styling (token contract in `app/globals.css`); next-themes for light/dark theming (`.dark` class on `<html>`); Zustand for state; TanStack Virtual for list/JSON virtualization; shadcn/ui (Radix + cmdk) for UI primitives; Vitest + Playwright for tests.
 
-**Data flow:** On mount the app fetches `/info` to discover services, then opens an SSE `EventSource` at `/service/<name>/events`. Each `exchange-report` event is parsed into an `EventMessage` and fed to the store's `applyEvent`, whose pure reducer (`state/reducer.ts`) reassembles request/response **exchanges** keyed by exchange id. Components subscribe to store slices and render a virtualized list of exchanges (left) and a detail inspector (right). Bodies are decoded lazily by `body/` (chunk concatenation, gzip/deflate/brotli/zstd decompression, JSON/JSONL/SSE detection) once complete.
+**Data flow:** On mount the app fetches `/info` to discover services, then opens an SSE `EventSource` at `/service/<name>/events`. Each `exchange-report` event is parsed into an `EventMessage` and fed to the store's `applyEvent`, whose pure reducer (`state/reducer.ts`) reassembles request/response **exchanges** keyed by exchange id. Components subscribe to store slices and render a virtualized list of exchanges (left) and a detail inspector (right). Bodies are decoded lazily by `body/` (chunk concatenation, gzip/deflate/brotli/zstd decompression, JSON/NDJSON/SSE detection) once complete.
 
 **Key patterns:** the store is a thin shell over a pure reducer; formatting/classification live as pure helpers in `lib/`; theme is owned by next-themes (the store's `subscribeWithSelector` subscription owns only `<html data-density>`); the visible list is derived (not stored); the v2.4 shell persists list pane pixel widths per mode and preserves that pixel width across viewport resizes; lists and JSON are virtualized; in dev the store is exposed on `window.__test_store` for the browser test harness, `window.__test_theme` bridges next-themes' control, and `window.__test_scenes` exposes the injectable fixture matrix (see `docs/fixture-matrix.md`).
 
@@ -68,7 +68,7 @@ For the full deep dive (data flow, type shapes, patterns, per-directory map), se
 ```
 src/
   api/          # /info fetch + SSE EventSource subscription
-  body/         # Body decoding (compression, JSON/JSONL) and SSE parsing
+  body/         # Body decoding (compression, JSON/NDJSON) and SSE parsing
   anthropic/    # Anthropic SSE → chat transcript extraction
   state/        # Zustand store + pure EventMessage reducer (Exchange shapes)
   protocol/     # Protocol-aware UI gating (ES/OpenSearch bulk ops)

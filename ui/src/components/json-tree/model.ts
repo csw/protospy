@@ -75,6 +75,19 @@ export function buildJsonTree(value: JsonValue): JsonTreeNode {
   return buildNode(value, undefined, [], 0, counter);
 }
 
+/**
+ * Build a forest of JSON trees from an ordered list of values — one tree per
+ * NDJSON/JSONL document (phase 3, PRO-400). IDs are assigned from a single
+ * shared counter so every node across the forest has a unique ID, which lets the
+ * viewer track expand/collapse state for all documents in one combined set and
+ * render them in a single virtualized row list. Each document's root keeps the
+ * empty path, so copy-path within a document is rooted at `$` per document.
+ */
+export function buildJsonForest(values: readonly JsonValue[]): JsonTreeNode[] {
+  const counter = { next: 0 };
+  return values.map((value) => buildNode(value, undefined, [], 0, counter));
+}
+
 function buildNode(
   value: JsonValue,
   key: string | undefined,
@@ -147,6 +160,66 @@ export function formatPath(path: readonly PathSegment[]): string {
     }
   }
   return out;
+}
+
+// ── Value reconstruction ──
+
+/**
+ * Reconstruct the JSON value of a subtree from its node (phase 3, PRO-400).
+ *
+ * Backs "copy value": for a leaf it is the primitive; for a container it is the
+ * nested object/array rebuilt from the children. Object key order is preserved
+ * because children are built in entry order. Used by the copy affordance so a
+ * node's value can be pretty-printed without re-walking the original source.
+ */
+export function nodeToValue(node: JsonTreeNode): JsonValue {
+  if (node.type === "array") {
+    return (node.children ?? []).map(nodeToValue);
+  }
+  if (node.type === "object") {
+    const obj: { [key: string]: JsonValue } = {};
+    for (const child of node.children ?? []) {
+      // An object child always carries its key; fall back defensively.
+      obj[child.key ?? ""] = nodeToValue(child);
+    }
+    return obj;
+  }
+  return node.value ?? null;
+}
+
+// ── Truncation marking ──
+
+/** Result of marking a tree's truncation point. */
+export interface TruncationMark {
+  /**
+   * Container node IDs along the path from the root down to the truncation
+   * point. Unioned into the default-expanded set so the in-tree marker is
+   * visible without the user having to drill in.
+   */
+  ancestorIds: number[];
+}
+
+/**
+ * Mark the truncation point of a best-effort-parsed tree (phase 3, PRO-400).
+ *
+ * A truncated body is recovered left-to-right, so the incomplete value is always
+ * the last child at each nesting level — the rightmost path from the root. This
+ * sets `truncated` on the single deepest node along that path (the cut point, so
+ * exactly one in-tree marker renders) and returns the container IDs above it so
+ * the viewer can auto-expand the path to that marker. Mutates `root` in place;
+ * called in the Worker on a freshly built tree before flattening.
+ */
+export function markTruncationPoint(root: JsonTreeNode): TruncationMark {
+  const ancestorIds: number[] = [];
+  let node = root;
+  while (true) {
+    const children = node.children;
+    if (children == null || children.length === 0) break;
+    ancestorIds.push(node.id);
+    node = children[children.length - 1];
+  }
+  node.truncated = true;
+  return { ancestorIds };
 }
 
 // ── Size helpers ──

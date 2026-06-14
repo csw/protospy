@@ -59,13 +59,15 @@ Inspect each cell at the four supported widths — **1024** (narrow), **1280**
 
 ### Data-size axis
 
-| Scene id     | Cell                    | Notes                                                                                                                      |
-| ------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `long-uri`   | Long URI + query        | Deep path + long query string; check truncation / `title` tooltip.                                                         |
-| `long-error` | Long error text         | Verbose hyper-style error chain.                                                                                           |
-| `many-rows`  | Many rows (120)         | Virtualization, scroll, status-bar count.                                                                                  |
-| `dual-size`  | Dual wire/decoded size  | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip.                   |
-| `ndjson`     | NDJSON body (flat view) | `application/x-ndjson` response with several JSON lines. JsonViewer renders in flat JSONL mode (each line pretty-printed). |
+| Scene id                | Cell                         | Notes                                                                                                                                                                                                                                                                       |
+| ----------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `long-uri`              | Long URI + query             | Deep path + long query string; check truncation / `title` tooltip.                                                                                                                                                                                                          |
+| `long-error`            | Long error text              | Verbose hyper-style error chain.                                                                                                                                                                                                                                            |
+| `many-rows`             | Many rows (120)              | Virtualization, scroll, status-bar count.                                                                                                                                                                                                                                   |
+| `dual-size`             | Dual wire/decoded size       | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip.                                                                                                                                                                    |
+| `ndjson`                | NDJSON body (document trees) | `application/x-ndjson` response with several JSON lines. Renders as a forest of independently-collapsible document trees (numbered gutter + count badge per line).                                                                                                          |
+| `body-truncated`        | Truncated JSON body          | `application/json` body cut off mid-structure. Valid prefix recovered; amber truncation banner above the tree + in-tree "truncated here" cut-point marker. Check both themes.                                                                                               |
+| `body-truncated-ndjson` | Truncated NDJSON body        | `application/x-ndjson` whose final line was cut off mid-structure. Leading docs parse cleanly; valid prefix of the last line recovered; amber multi-document truncation banner above the forest + in-tree "truncated here" marker on the final document. Check both themes. |
 
 There is intentionally **no long-status cell**. HTTP status phrases are short by
 design (200/302/404/500/502 dominate real traffic; even exotic codes carry short

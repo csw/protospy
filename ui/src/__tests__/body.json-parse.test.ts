@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseAndFormat } from "@ui/body/json-parse-core";
+import {
+  parseAndFormat,
+  parseWithTruncation,
+  parseNdjson,
+} from "@ui/body/json-parse-core";
 
 describe("parseAndFormat", () => {
   it("parses valid JSON and returns the parsed value", () => {
@@ -51,5 +55,73 @@ describe("parseAndFormat", () => {
   it("preserves numeric precision for integers in range", () => {
     const { parsed } = parseAndFormat("9007199254740991");
     expect(parsed).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe("parseWithTruncation", () => {
+  it("parses a complete body with truncated=false", () => {
+    const r = parseWithTruncation('{"a":1,"b":[2,3]}');
+    expect(r.truncated).toBe(false);
+    expect(r.parsed).toEqual({ a: 1, b: [2, 3] });
+  });
+
+  it("recovers the valid prefix of a truncated object/array", () => {
+    const r = parseWithTruncation('{"a":1,"b":[1,2,3');
+    expect(r.truncated).toBe(true);
+    expect(r.parsed).toEqual({ a: 1, b: [1, 2, 3] });
+  });
+
+  it("recovers a truncated string value", () => {
+    const r = parseWithTruncation('{"a":"hello wor');
+    expect(r.truncated).toBe(true);
+    expect(r.parsed).toEqual({ a: "hello wor" });
+  });
+
+  it("pretty-prints the recovered prefix", () => {
+    const r = parseWithTruncation('{"a":1');
+    expect(r.truncated).toBe(true);
+    expect(JSON.parse(r.prettyText)).toEqual({ a: 1 });
+  });
+
+  it("throws when recovery yields only a primitive (not a confident tree)", () => {
+    // A truncated top-level string recovers to a bare string — too weak to render
+    // as a tree, so the caller falls through to the raw text view.
+    expect(() => parseWithTruncation('"truncated str')).toThrow();
+  });
+
+  it("throws on non-JSON garbage so it falls through to text", () => {
+    expect(() => parseWithTruncation("not json at all")).toThrow();
+  });
+});
+
+describe("parseNdjson", () => {
+  it("parses one document per non-blank line", () => {
+    const r = parseNdjson('{"a":1}\n{"b":2}\n{"c":3}');
+    expect(r.documents).toEqual([{ a: 1 }, { b: 2 }, { c: 3 }]);
+    expect(r.truncatedDocIndex).toBeNull();
+  });
+
+  it("ignores blank lines and a trailing newline", () => {
+    const r = parseNdjson('{"a":1}\n\n{"b":2}\n');
+    expect(r.documents).toEqual([{ a: 1 }, { b: 2 }]);
+    expect(r.truncatedDocIndex).toBeNull();
+  });
+
+  it("recovers a truncated final document and reports its index", () => {
+    const r = parseNdjson('{"a":1}\n{"b":2}\n{"c":[1,2');
+    expect(r.documents).toEqual([{ a: 1 }, { b: 2 }, { c: [1, 2] }]);
+    expect(r.truncatedDocIndex).toBe(2);
+  });
+
+  it("returns no documents for an all-blank body", () => {
+    const r = parseNdjson("\n\n  \n");
+    expect(r.documents).toEqual([]);
+    expect(r.truncatedDocIndex).toBeNull();
+  });
+
+  it("handles a single complete document", () => {
+    const r = parseNdjson('{"only":true}');
+    expect(r.documents).toEqual([{ only: true }]);
+    expect(r.truncatedDocIndex).toBeNull();
   });
 });
