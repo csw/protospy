@@ -161,6 +161,26 @@ describe("JsonTreeViewer — copy value / copy path (PRO-400)", () => {
     expect(writeText).toHaveBeenCalledWith("1");
   });
 
+  it("opens the menu on a row right-click and keeps that row as the target", async () => {
+    // The single menu is hoisted above the scroll container, so each row's
+    // `onContextMenu` must claim the menu's target before the container's reset
+    // handler sees the same bubbled event — otherwise the reset would clobber it
+    // back to null. Pin that the row wins: the menu opens with copy enabled and
+    // acts on the right-clicked row.
+    await renderAndSettle(
+      <JsonTreeViewer value={{ a: 1, b: 2 }} aria-label="JSON viewer" />,
+    );
+    await openMenuOnRow('"a"');
+    const copyValue = screen
+      .getByText("Copy value")
+      .closest('[role="menuitem"]');
+    expect(copyValue).not.toHaveAttribute("aria-disabled", "true");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Copy value"));
+    });
+    expect(writeText).toHaveBeenCalledWith("1");
+  });
+
   it("clears the target on an empty-space right-click (no stale copy)", async () => {
     // Regression: the single menu is hoisted above the scroll container, so a
     // right-click on empty space must not act on whichever row was targeted last.
