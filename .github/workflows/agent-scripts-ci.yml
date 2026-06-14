@@ -1,0 +1,33 @@
+name: agent-scripts-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/agents/**"
+      - ".claude/agents/**"
+      - ".claude/skills/handle-ticket/**"
+      - ".agents/skills/handle-ticket/**"
+      - ".github/workflows/agent-scripts-ci.yml"
+  pull_request:
+    paths:
+      - "scripts/agents/**"
+      - ".claude/agents/**"
+      - ".claude/skills/handle-ticket/**"
+      - ".agents/skills/handle-ticket/**"
+      - ".github/workflows/agent-scripts-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Install prettier
+        run: npm install -g prettier@^3.8.3
+      - name: Run agent-script tests
+        run: python -m unittest discover -v -s scripts/agents -p 'test_*.py'
