@@ -141,6 +141,18 @@ test.describe("design token fidelity", () => {
     expect(height).toBe("32px");
   });
 
+  test("chrome sub-header strip uses the h-strip token (32px)", async ({
+    page,
+  }) => {
+    // The list toolbar is a representative sub-header strip; h-strip is the
+    // dedicated chrome-strip height token, distinct from the tab strip's h-tab.
+    const toolbar = page.locator('[data-testid="list-toolbar"]');
+    await expect(toolbar).toBeVisible();
+
+    const height = await toolbar.evaluate((el) => getComputedStyle(el).height);
+    expect(height).toBe("32px");
+  });
+
   test("filter input uses the scaffold's transparent chrome treatment", async ({
     page,
   }) => {

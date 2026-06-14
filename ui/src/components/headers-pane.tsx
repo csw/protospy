@@ -103,7 +103,7 @@ export function HeadersPane({
       className="flex min-h-0 flex-col overflow-hidden bg-card"
     >
       {/* Subhead — title + count (design-system §10) */}
-      <div className="flex h-tab shrink-0 items-center gap-2 border-b px-3 text-xs text-muted-foreground">
+      <div className="flex h-strip shrink-0 items-center gap-2 border-b px-3 text-xs text-muted-foreground">
         <span className="font-semibold text-secondary-foreground">{title}</span>
         <span className="font-mono">
           {headers.length} {headers.length === 1 ? "header" : "headers"}

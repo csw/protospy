@@ -1,9 +1,20 @@
-# protospy UI — Design System (v2.3)
+# protospy UI — Design System (v2.4)
 
 Agent-facing rules for building protospy's UI. Terse and prescriptive. Rationale
 lives in `rationale.md`; the UI-region → component map lives in `mapping.md`; the
 visual reference is `docs/ui/index.html`; the landed scaffold code is under
 `ui/src/components/protospy/` and `ui/src/lib/`.
+
+> **Changelog**
+>
+> - **v2.4** — Shipped the interactive surfaces: shortcuts overlay (store `helpOpen`),
+>   group-by-trace cards w/ collapse, full ⌘K command set + jump-to-trace, and
+>   conformed the legacy Anthropic `ChatStreamView` to v2.3 (shared `LiveIndicator`
+>   on `--conn-*` tokens, segmented control, no replay/counter). Promoted
+>   `EmptyState` and `BodyState` to scaffolds; added `@keyframes caret`.
+> - **v2.3** — App shell + chrome scaffolds, store-connected (`@ui/state/store`);
+>   `--conn-*` connection tokens.
+> - **v2.2** — Content components (table, rows, rail, inspector, viewers).
 
 > **Prime directive:** reach for a stock **shadcn/Radix** primitive first. Build a
 > custom component only for the content-centric core (list, trace rail, body
@@ -13,19 +24,19 @@ visual reference is `docs/ui/index.html`; the landed scaffold code is under
 
 ## 1. Stack
 
-| Concern | Choice |
-|---|---|
-| Framework | React 19 + TypeScript (non-negotiable) |
-| Styling | Tailwind v4 (CSS-first `@theme`) |
-| Primitives | shadcn/ui (Radix under the hood) |
-| Icons | `lucide-react` |
-| Dark mode | `next-themes`, `class` strategy (`.dark` on `<html>`) |
-| Command palette | `cmdk` (shadcn `Command`) |
-| Resizable split | `react-resizable-panels` (shadcn `Resizable`) |
-| List perf | `@tanstack/react-virtual` |
-| Exchange table | `@tanstack/react-table` (headless) + react-virtual |
-| Toasts | `sonner` |
-| Variants | `class-variance-authority` + `cn()` |
+| Concern         | Choice                                                |
+| --------------- | ----------------------------------------------------- |
+| Framework       | React 19 + TypeScript (non-negotiable)                |
+| Styling         | Tailwind v4 (CSS-first `@theme`)                      |
+| Primitives      | shadcn/ui (Radix under the hood)                      |
+| Icons           | `lucide-react`                                        |
+| Dark mode       | `next-themes`, `class` strategy (`.dark` on `<html>`) |
+| Command palette | `cmdk` (shadcn `Command`)                             |
+| Resizable split | `react-resizable-panels` (shadcn `Resizable`)         |
+| List perf       | `@tanstack/react-virtual`                             |
+| Exchange table  | `@tanstack/react-table` (headless) + react-virtual    |
+| Toasts          | `sonner`                                              |
+| Variants        | `class-variance-authority` + `cn()`                   |
 
 Use Radix directly only where shadcn ships no wrapper.
 
@@ -39,13 +50,13 @@ density automatically.
 
 ### 2.1 Semantic slots (shadcn standard — stock components inherit these)
 
-| Token | Role | Token | Role |
-|---|---|---|---|
-| `background` / `foreground` | app canvas / primary text | `border` / `input` | hairlines / field borders |
-| `card` / `card-foreground` | panels, popovers | `ring` | focus ring (= brand blue) |
-| `popover` / `popover-foreground` | overlays | `muted` / `muted-foreground` | muted surface / **secondary text** |
-| `primary` / `primary-foreground` | **brand blue**, actions | `secondary` / `secondary-foreground` | subtle fills, toolbars |
-| `accent` / `accent-foreground` | **selected/hover surface** | `destructive` | destructive actions |
+| Token                            | Role                       | Token                                | Role                               |
+| -------------------------------- | -------------------------- | ------------------------------------ | ---------------------------------- |
+| `background` / `foreground`      | app canvas / primary text  | `border` / `input`                   | hairlines / field borders          |
+| `card` / `card-foreground`       | panels, popovers           | `ring`                               | focus ring (= brand blue)          |
+| `popover` / `popover-foreground` | overlays                   | `muted` / `muted-foreground`         | muted surface / **secondary text** |
+| `primary` / `primary-foreground` | **brand blue**, actions    | `secondary` / `secondary-foreground` | subtle fills, toolbars             |
+| `accent` / `accent-foreground`   | **selected/hover surface** | `destructive`                        | destructive actions                |
 
 > ⚠️ **`accent` is NOT the brand color.** `primary` is the blue; `accent` is the
 > soft surface behind a hovered menu item / selected row. Wiring the blue into
@@ -54,13 +65,13 @@ density automatically.
 
 ### 2.2 Domain namespaces (layered on top)
 
-| Namespace | Utilities | Use |
-|---|---|---|
-| Status | `text-ok` `text-redirect` `text-client` `text-server` `text-pending` `text-error` (+ `-bg`) | status codes, connection dot |
-| Method | `text-method-get` … `bg-method-get-bg` (get/post/put/patch/delete/head/options) | method badge only |
-| JSON | `text-json-key` `-string` `-number` `-boolean` `-null` `-punct` `-lineno` | body viewers |
-| Truncation | `text-truncation` `bg-truncation-bg` | truncated-body caution (JSON viewer banner + in-tree cut-point marker); a var() alias to the redirect amber, not the red error slot |
-| Trace | `--trace-1`…`--trace-7` (also `text-/bg-trace-N`) | rail, tags, group cards |
+| Namespace  | Utilities                                                                                   | Use                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Status     | `text-ok` `text-redirect` `text-client` `text-server` `text-pending` `text-error` (+ `-bg`) | status codes, connection dot                                                                                                        |
+| Method     | `text-method-get` … `bg-method-get-bg` (get/post/put/patch/delete/head/options)             | method badge only                                                                                                                   |
+| JSON       | `text-json-key` `-string` `-number` `-boolean` `-null` `-punct` `-lineno`                   | body viewers                                                                                                                        |
+| Truncation | `text-truncation` `bg-truncation-bg`                                                        | truncated-body caution (JSON viewer banner + in-tree cut-point marker); a var() alias to the redirect amber, not the red error slot |
+| Trace      | `--trace-1`…`--trace-7` (also `text-/bg-trace-N`)                                           | rail, tags, group cards                                                                                                             |
 
 Map a status to its kind with `statusClass()`; a trace id to its color with
 `traceColorVar()` / `traceTokenIndex()` (deterministic `hash(id) % 7`).
@@ -68,9 +79,15 @@ Map a status to its kind with `statusClass()`; a trace id to its color with
 ### 2.3 Type & size tokens (density-aware)
 
 `text-ui` (13/12.5) · `text-mono` (12.5/12) · `text-sm` (11.5/11) · `text-xs` (10.5/10).
-Sizing utilities: `h-row` `h-row-table` `h-topbar` `h-tab` `h-ctxbar`, `px-gutter-x`,
-`gap-gutter`, radii `rounded-sm|md|lg` (4/6/8). Fonts: `font-sans` (Inter),
-`font-mono` (JetBrains Mono).
+Sizing utilities: `h-row` `h-row-table` `h-topbar` `h-tab` `h-strip` `h-ctxbar`,
+`px-gutter-x`, `gap-gutter`, radii `rounded-sm|md|lg` (4/6/8). Fonts: `font-sans`
+(Inter), `font-mono` (JetBrains Mono).
+
+`h-tab` sizes the inspector tab strip; `h-strip` is the shared height for chrome
+sub-header strips (pane heads, list toolbar, trace-group header). They are
+separate tokens — currently the same value, but the strips must not be coupled to
+the tab strip's height. Reach for the density-aware token, never a literal like
+`h-[30px]`.
 
 ### 2.4 Dark-mode styling
 
@@ -85,13 +102,14 @@ color.
 
 **`dark:` variant** is reserved for **treatment refinements in shadcn wrappers**
 (`components/ui/`): opacity, shadow depth, border weight — where dark mode
-changes *how* a token is applied, not *which* color. Examples:
+changes _how_ a token is applied, not _which_ color. Examples:
 `dark:bg-input/30`, `dark:bg-destructive/60`, `dark:data-[state=on]:shadow-sm`.
 If an app component needs dark-specific styling, add a token instead.
 
 ### 2.5 Density (hybrid)
 
 `<DensityProvider>` sets `data-density` on `<html>`. That single attribute drives:
+
 1. **token swaps** (most sizing flips automatically — prefer this),
 2. the **`compact:`** Tailwind variant (only for a delta a token can't express, e.g. hiding an element),
 3. **`useDensity().rowPx`** — numeric px for the virtualizer (CSS can't give JS a number).
@@ -103,31 +121,35 @@ read `rowPx`.
 
 ## 3. Component selection (decision table)
 
-| Need | Use | Kind |
-|---|---|---|
-| Button / action | `Button` (variants: default/secondary/outline/ghost/destructive/link) | shadcn |
-| Icon-only control | `Button size="icon"` + lucide icon | shadcn |
-| Filter input | `Input` | shadcn |
-| Protocol tag / count | `Badge` | shadcn |
-| Segmented toggle (rows/table, transcript/events, density, Local/UTC) | `ToggleGroup type="single"` | Radix |
-| On/off (group-by-trace, paired) | `Switch` | Radix |
-| Inspector tab strip | `Tabs` (underline variant) | Radix |
-| Hover hint, abbreviated media type | `Tooltip` | Radix |
-| Service picker | `DropdownMenu` | shadcn |
-| ⌘K palette (commands only) | `Command` (cmdk) | lib |
-| Disclosure (headers, msearch responses) | `Collapsible` | Radix |
-| List ↔ inspector divider | `ResizablePanelGroup` | lib |
-| Copy / connection toast | `sonner` | lib |
-| Awaiting-body placeholder | `Skeleton` | shadcn |
-| Divider | `Separator` | shadcn |
-| **Exchange table (table mode)** | `exchange-table.tsx` (react-table + virtual) | custom |
-| **Exchange row (rows mode, default)** | `exchange-row.tsx` | custom |
-| **Trace rail** | `trace-rail.tsx` | custom |
-| **JSON / NDJSON body** | `json-tree/` subpackage (`JsonTreeViewer` — virtualized tree, NDJSON forest, truncation, copy value/path) | custom |
-| **Node copy menu** | `ContextMenu` | shadcn |
-| **msearch paired view** | `msearch-view.tsx` | custom |
-| **SSE stream view** | `stream-view.tsx` | custom |
-| Method badge / status / trace pill / connection dot | `protospy/*` atoms | custom |
+| Need                                                                 | Use                                                                                                       | Kind   |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
+| Button / action                                                      | `Button` (variants: default/secondary/outline/ghost/destructive/link)                                     | shadcn |
+| Icon-only control                                                    | `Button size="icon"` + lucide icon                                                                        | shadcn |
+| Filter input                                                         | `Input`                                                                                                   | shadcn |
+| Protocol tag / count                                                 | `Badge`                                                                                                   | shadcn |
+| Segmented toggle (rows/table, transcript/events, density, Local/UTC) | `ToggleGroup type="single"`                                                                               | Radix  |
+| On/off (group-by-trace, paired)                                      | `Switch`                                                                                                  | Radix  |
+| Inspector tab strip                                                  | `Tabs` (underline variant)                                                                                | Radix  |
+| Hover hint, abbreviated media type                                   | `Tooltip`                                                                                                 | Radix  |
+| Service picker                                                       | `DropdownMenu`                                                                                            | shadcn |
+| ⌘K palette (commands only)                                           | `Command` (cmdk)                                                                                          | lib    |
+| Keyboard help / shortcuts sheet                                      | `Dialog` → `shortcuts-overlay.tsx`                                                                        | shadcn |
+| Disclosure (headers, msearch responses)                              | `Collapsible`                                                                                             | Radix  |
+| List ↔ inspector divider                                             | `ResizablePanelGroup`                                                                                     | lib    |
+| Copy / connection toast                                              | `sonner`                                                                                                  | lib    |
+| Awaiting-body placeholder                                            | `Skeleton`                                                                                                | shadcn |
+| Divider                                                              | `Separator`                                                                                               | shadcn |
+| **Exchange table (table mode)**                                      | `exchange-table.tsx` (react-table + virtual)                                                              | custom |
+| **Exchange row (rows mode, default)**                                | `exchange-row.tsx`                                                                                        | custom |
+| **Trace rail**                                                       | `trace-rail.tsx`                                                                                          | custom |
+| **JSON / NDJSON body**                                               | `json-tree/` subpackage (`JsonTreeViewer` — virtualized tree, NDJSON forest, truncation, copy value/path) | custom |
+| **Node copy menu**                                                   | `ContextMenu`                                                                                             | shadcn |
+| **msearch paired view**                                              | `msearch-view.tsx`                                                                                        | custom |
+| **SSE stream view**                                                  | `stream-view.tsx`                                                                                         | custom |
+| **Chat stream view (Anthropic)**                                     | `chat-stream-view.tsx`                                                                                    | custom |
+| **Trace group card (grouped mode)**                                  | `trace-group.tsx`                                                                                         | custom |
+| **List empty / body lifecycle**                                      | `empty-state.tsx` / `body-state.tsx`                                                                      | custom |
+| Method badge / status / trace pill / connection dot                  | `protospy/*` atoms                                                                                        | custom |
 
 This table is illustrative, not exhaustive. If a need isn't listed and a shadcn
 or Radix primitive fits → use it. Custom is only for the content-centric core
