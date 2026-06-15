@@ -140,6 +140,40 @@ a `general-purpose` subagent via the Agent tool for a fresh perspective.
 In Codex, use `model: gpt-5.5` with high or xhigh reasoning.
 Brief it on what you've tried and what's not working.
 
+### 3a — Capture before screenshots (UI-touching tickets)
+
+Check whether the ticket has a `UI` label:
+
+```bash
+linear issue view $ticket --json \
+  | jq -r '.labels.nodes[].name' \
+  | grep -qi '^ui$' && echo yes || echo no
+```
+
+If yes, you must capture baseline screenshots **before any implementation
+begins**. From the ticket description, identify the views and scenes that will
+change. Start a dev server:
+
+```bash
+cd ui && pnpm dev --port 5174 &
+```
+
+Use `playwright-cli` to screenshot the affected views at the relevant widths
+and themes. Save to `.playwright-cli/before/` (e.g.
+`--filename .playwright-cli/before/light-1280.png`). Then upload:
+
+```bash
+scripts/agents/upload-screenshot .playwright-cli/before/
+```
+
+Store the printed Markdown embed strings — step 6 needs them as the "before"
+set in the PR description. Kill the dev server after capture
+(`kill %1` or `pkill -f 'pnpm dev'`).
+
+If the ticket has no `UI` label, skip this sub-step.
+
+### 3b — Implement
+
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
 Run the subproject's quality checks as listed in its `AGENTS.md`. Any
@@ -187,6 +221,14 @@ Give it this prompt (substitute components and port):
 If the subagent reports problems, fix them, re-run quality checks, and
 re-verify. Capture a one-line summary for the PR description.
 
+Upload the subagent's screenshots as the "after" set:
+
+```bash
+scripts/agents/upload-screenshot .playwright-cli/
+```
+
+Store the printed Markdown embed strings for step 6.
+
 ---
 
 ## 5 — Commit and push
@@ -213,6 +255,24 @@ ticket ID unless the user names them.
 
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
+
+If before or after screenshots were uploaded (steps 3a / 4), append a
+`## Visual diff` section to the PR body:
+
+```markdown
+## Visual diff
+
+### Before
+
+<before embed strings, one per line>
+
+### After
+
+<after embed strings, one per line>
+```
+
+Omit the section (or omit the half that has no images) if no screenshots were
+taken for that set.
 
 ---
 
