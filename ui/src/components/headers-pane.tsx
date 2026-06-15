@@ -23,6 +23,7 @@ import {
 } from "@ui/lib/utils";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
+import { Toggle } from "@ui/components/ui/toggle";
 
 /** The representation an Authorization value is currently shown in. */
 type HeaderView = "raw" | "decoded";
@@ -215,21 +216,16 @@ export function HeadersPane({
                                 )}
                               </Button>
                             )}
-                            {/* Decode toggle: Basic credentials only, once revealed.
-                                A Button (with aria-pressed) rather than the Toggle
-                                primitive: it pairs visually with the adjacent eye
-                                Button, and Toggle has no icon-xs size yet. Adopting
-                                the Toggle primitive here is a tracked follow-up. */}
                             {isMaskable &&
                               decoded !== null &&
                               view !== null && (
-                                <Button
-                                  variant="ghost"
+                                <Toggle
                                   size="icon-xs"
-                                  onClick={() =>
+                                  pressed={isDecoded}
+                                  onPressedChange={(on) =>
                                     setReveal({
                                       row: origIdx,
-                                      view: isDecoded ? "raw" : "decoded",
+                                      view: on ? "decoded" : "raw",
                                     })
                                   }
                                   aria-label={
@@ -237,15 +233,10 @@ export function HeadersPane({
                                       ? "Show raw value"
                                       : "Decode value"
                                   }
-                                  aria-pressed={isDecoded}
-                                  className={
-                                    isDecoded
-                                      ? "shrink-0 text-primary"
-                                      : "shrink-0 text-muted-foreground"
-                                  }
+                                  className="shrink-0"
                                 >
                                   <Braces className="size-3" />
-                                </Button>
+                                </Toggle>
                               )}
                             <Button
                               variant="ghost"
