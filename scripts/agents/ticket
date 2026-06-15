@@ -218,13 +218,19 @@ def ensure_worktree(root: Path, branch: str, base: str, worktree_path: Path) -> 
         return worktree_path
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
-    if local_branch_exists(root, branch):
-        run(["git", "worktree", "add", str(worktree_path), branch], cwd=root)
-    else:
-        run(
-            ["git", "worktree", "add", "-b", branch, str(worktree_path), base],
-            cwd=root,
-        )
+    try:
+        if local_branch_exists(root, branch):
+            run(["git", "worktree", "add", str(worktree_path), branch], cwd=root)
+        else:
+            run(
+                ["git", "worktree", "add", "-b", branch, str(worktree_path), base],
+                cwd=root,
+            )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"git worktree add failed for branch {branch!r} at {worktree_path}\n"
+            f"  (exit {exc.returncode}; git output is above)"
+        ) from None
     return worktree_path
 
 
