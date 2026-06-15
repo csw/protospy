@@ -100,12 +100,17 @@ mkdir -p ~/obsidian/protospy/Claude/Reviews/screenshots/sweep-$(date +%Y-%m-%d)
 ```
 
 Spawn the `visual-review` agent with `name: "visual-review"` so it stays
-addressable for follow-ups. Append the screenshots directory to the prompt:
+addressable for follow-ups. Append the screenshots directory and S3 prefix
+to the prompt:
 
 > Screenshots directory:
 > `~/obsidian/protospy/Claude/Reviews/screenshots/sweep-YYYY-MM-DD/`
+>
+> S3 prefix: `reviews/sweep-YYYY-MM-DD`
 
-The agent returns a findings report as its final text.
+The agent uploads the screenshots after capture and returns a findings
+report as its final text. Extract the catalog URL from the `## Catalog`
+section of the report.
 
 ### 4 — Write the report to Obsidian
 
@@ -125,6 +130,13 @@ Where `<scope-slug>` is a short kebab-case summary of what was scoped (e.g.
 `selected-1024`, `stream-scenes`, `light-mode`).
 
 If a file already exists at that path, append a sequence number.
+
+If the visual-review agent returned a catalog URL (from its `## Catalog`
+section), append it at the top of the Obsidian report:
+
+```markdown
+**Catalog**: [Browse screenshots](https://protospy-dev-data.s3.amazonaws.com/reviews/sweep-YYYY-MM-DD/index.html)
+```
 
 ### 5 — Write a PM inbox note
 
@@ -170,6 +182,7 @@ Tell the user:
 
 - Where the full report was written
 - The finding counts by severity
+- The catalog URL (if uploaded) so they can browse screenshots in the browser
 - That a PM inbox note was created for ticket triage
 - Any coverage gaps (scenes that couldn't be tested, fixture limitations)
 - That the visual-review agent is still addressable for follow-ups

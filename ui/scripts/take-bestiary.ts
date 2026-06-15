@@ -20,7 +20,7 @@
  */
 
 import { chromium, type Browser, type Page } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
@@ -46,8 +46,15 @@ import {
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const UI_DIR = path.resolve(__dirname, "..");
+const REPO_ROOT = path.resolve(UI_DIR, "..");
 const VITE_BIN = path.join(UI_DIR, "node_modules", ".bin", "vite");
 const VITE_CONFIG = path.join(UI_DIR, "scripts", "vite.screenshots.config.ts");
+const UPLOAD_SCRIPT = path.join(
+  REPO_ROOT,
+  "scripts",
+  "agents",
+  "upload-screenshot",
+);
 
 const DEFAULT_OUT = path.join(
   os.homedir(),
@@ -712,6 +719,13 @@ async function main(): Promise<void> {
   const catalogPath = path.join(OUT_DIR, "bestiary.md");
   await writeFile(catalogPath, md, "utf8");
   console.log(`\n✓ Catalog: ${catalogPath}`);
+
+  console.log("\n▸ Uploading to S3…");
+  execFileSync(
+    UPLOAD_SCRIPT,
+    [OUT_DIR, "--prefix", `bestiary/${today}`, "--catalog"],
+    { stdio: "inherit", cwd: REPO_ROOT },
+  );
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────

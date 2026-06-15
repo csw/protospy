@@ -16,27 +16,50 @@ linear issue view PRO-NNN --json \
 ## upload-screenshot
 
 `scripts/agents/upload-screenshot` uploads image files to S3 and prints one
-Markdown image embed per file:
+Markdown image embed per file. Two path-building modes:
 
-```
-![filename](https://protospy-dev-data.s3.amazonaws.com/screenshots/pr-BRANCH/filename)
-```
-
-Usage:
+**`--branch BRANCH`** (PR before/after workflow) — builds the key as
+`screenshots/pr-<slug>/<subdir>/<file>`. The directory name is appended as
+a subdir so `before/` and `after/` directories don't collide.
 
 ```bash
-# Upload a directory of images (non-recursive — only direct children)
 scripts/agents/upload-screenshot .playwright-cli/before/ \
   --branch "$(git branch --show-current)"
-
-# Upload a single file
 scripts/agents/upload-screenshot shot.png --branch feature/pro-225-my-change
 ```
 
-`--branch` is required. The bucket (`protospy-dev-data`) and IAM credentials
-are provisioned in the container environment.
+**`--prefix PREFIX`** (review and bestiary workflows) — uses `<PREFIX>/<file>`
+as the key verbatim; does not append the directory name. Use structured
+prefixes for non-PR content:
 
-Supported types: `.png`, `.jpg`, `.jpeg`, `.webp`.
+```bash
+# visual-review / design-sweep screenshots
+scripts/agents/upload-screenshot <screenshots-dir> \
+  --prefix "reviews/PRO-408-PR-123/round-1" --catalog
+
+# bestiary run
+scripts/agents/upload-screenshot <bestiary-dir> \
+  --prefix "bestiary/2026-06-15" --catalog
+```
+
+**`--catalog`** (optional, works with both modes) — after uploading images,
+generates a self-contained HTML catalog page and uploads it to
+`<prefix>/index.html`. Prints one extra line:
+
+```
+Catalog: https://protospy-dev-data.s3.amazonaws.com/<prefix>/index.html
+```
+
+The catalog viewer shows screenshots by scene (left panel), with independent
+theme (light/dark) and width (1280/1440/1920) selectors. It defaults to dark
+theme at 1440px. It parses filenames automatically: `{scene}-{width}-{theme}.ext`
+is treated as a review screenshot; anything else shows as a flat catalog.
+
+`--branch` and `--prefix` are mutually exclusive. The bucket
+(`protospy-dev-data`) and IAM credentials are provisioned in the container
+environment.
+
+Supported image types: `.png`, `.jpg`, `.jpeg`, `.webp`.
 
 ## S3 access requirement
 
