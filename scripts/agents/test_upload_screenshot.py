@@ -181,7 +181,7 @@ class MainTests(unittest.TestCase):
     def test_main_no_images_exits_one(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch("sys.stderr", new_callable=io.StringIO):
-                result = upload_screenshot.main([tmp])
+                result = upload_screenshot.main([tmp, "--branch", "main"])
         self.assertEqual(result, 1)
 
     def test_main_uploads_and_prints(self) -> None:
@@ -202,6 +202,12 @@ class MainTests(unittest.TestCase):
             self.assertIn("shot.png", output)
             self.assertIn("protospy-dev-data.s3.amazonaws.com", output)
             self.assertIn("feature-pro-225", output)
+
+    def test_main_branch_required(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit) as cm:
+                upload_screenshot.main([tmp])
+            self.assertNotEqual(cm.exception.code, 0)
 
 
 if __name__ == "__main__":

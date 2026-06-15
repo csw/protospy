@@ -26,29 +26,37 @@ Usage:
 
 ```bash
 # Upload a directory of images (non-recursive — only direct children)
-scripts/agents/upload-screenshot .playwright-cli/before/
+scripts/agents/upload-screenshot .playwright-cli/before/ \
+  --branch "$(git branch --show-current)"
 
 # Upload a single file
 scripts/agents/upload-screenshot shot.png --branch feature/pro-225-my-change
 ```
 
-The branch defaults to `git branch --show-current`. The bucket
-(`protospy-dev-data`) and IAM credentials are provisioned in the container
-environment.
+`--branch` is required. The bucket (`protospy-dev-data`) and IAM credentials
+are provisioned in the container environment.
 
 Supported types: `.png`, `.jpg`, `.jpeg`, `.webp`.
+
+## S3 access requirement
+
+The embed URLs (`https://protospy-dev-data.s3.amazonaws.com/...`) only render
+as images in GitHub PR descriptions if the objects are publicly readable. The
+bucket must be configured with a public-read policy (or per-object ACL) for
+the embeds to work. If images show as broken links in a PR, check the bucket's
+public access settings.
 
 ## Before / after workflow
 
 The `handle-ticket` skill wires this automatically for UI-touching tickets:
 
-1. **Before (step 3a)** — before any implementation, start a dev server and
-   use `playwright-cli` to screenshot the views/scenes identified in the ticket
-   description. Save to `.playwright-cli/before/` and upload. Store the printed
-   embed strings for the PR description.
+1. **Before (step 3a)** — before any implementation, start a dev server on a
+   free port and use `playwright-cli` to screenshot the views/scenes identified
+   in the ticket description. Save to `.playwright-cli/before/` and upload.
+   Store the printed embed strings for the PR description.
 
-2. **After (step 4)** — the qa-explorer subagent captures scoped screenshots
-   during visual verify. Upload those and store the embed strings.
+2. **After (step 4)** — the qa-explorer subagent saves scoped screenshots to
+   `.playwright-cli/after/`. Upload those and store the embed strings.
 
 3. **PR description (step 6)** — append a `## Visual diff` section containing
    both sets of embed strings under `### Before` / `### After` headings.

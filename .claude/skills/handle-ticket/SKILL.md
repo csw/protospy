@@ -149,10 +149,11 @@ linear issue view $ticket --json \
 
 If yes, you must capture baseline screenshots **before any implementation
 begins**. From the ticket description, identify the views and scenes that will
-change. Start a dev server:
+change. Pick a free port (default is 5173; use a different one) and start a
+dev server:
 
 ```bash
-cd ui && pnpm dev --port 5174 &
+cd ui && pnpm dev --port <port> &
 ```
 
 Use `playwright-cli` to screenshot the affected views at the relevant widths
@@ -160,7 +161,8 @@ and themes. Save to `.playwright-cli/before/` (e.g.
 `--filename .playwright-cli/before/light-1280.png`). Then upload:
 
 ```bash
-scripts/agents/upload-screenshot .playwright-cli/before/
+scripts/agents/upload-screenshot .playwright-cli/before/ \
+  --branch "$(git branch --show-current)"
 ```
 
 Store the printed Markdown embed strings — step 6 needs them as the "before"
@@ -201,10 +203,10 @@ Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use
-> `playwright-cli` to drive the app. **Save screenshots to a gitignored path** —
-> omit `--filename` to use the default `.playwright-cli/` location, or pass an
-> explicit gitignored path. **Never pass a bare relative `--filename`** like
-> `--filename=after.png`. Inject fixture state via
+> `playwright-cli` to drive the app. **Save screenshots to `.playwright-cli/after/`**
+> — pass `--filename .playwright-cli/after/<name>.png` for each shot.
+> **Never pass a bare relative `--filename`** like `--filename=after.png`.
+> Inject fixture state via
 > `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
@@ -221,7 +223,8 @@ re-verify. Capture a one-line summary for the PR description.
 Upload the subagent's screenshots as the "after" set:
 
 ```bash
-scripts/agents/upload-screenshot .playwright-cli/
+scripts/agents/upload-screenshot .playwright-cli/after/ \
+  --branch "$(git branch --show-current)"
 ```
 
 Store the printed Markdown embed strings for step 6.
