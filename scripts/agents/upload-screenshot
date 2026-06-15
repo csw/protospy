@@ -46,31 +46,39 @@ def s3_url(bucket: str, key: str) -> str:
     return f"https://{bucket}.s3.amazonaws.com/{key}"
 
 
-def collect_images(path: Path) -> list[Path]:
+def collect_images(path: Path) -> tuple[list[Path], str | None]:
+    """Return (images, subdir) where subdir is the directory name when path is a
+    directory, used to namespace the S3 key so that before/ and after/ don't
+    collide under the same branch prefix."""
     if path.is_file():
         if path.suffix.lower() in IMAGE_EXTS:
-            return [path]
+            return [path], None
         print(
             f"warning: {path} is not a recognised image type, skipping",
             file=sys.stderr,
         )
-        return []
+        return [], None
     if path.is_dir():
-        return sorted(
+        images = sorted(
             p
             for p in path.iterdir()
             if p.is_file() and p.suffix.lower() in IMAGE_EXTS
         )
+        return images, path.name
     raise SystemExit(f"error: {path}: no such file or directory")
 
 
-def upload(images: list[Path], slug: str) -> list[str]:
+def upload(images: list[Path], slug: str, subdir: str | None) -> list[str]:
     import boto3  # noqa: PLC0415
 
     s3 = boto3.client("s3")
     embeds = []
     for image in images:
-        key = f"{KEY_PREFIX}/pr-{slug}/{image.name}"
+        key_parts = [KEY_PREFIX, f"pr-{slug}"]
+        if subdir:
+            key_parts.append(subdir)
+        key_parts.append(image.name)
+        key = "/".join(key_parts)
         content_type = CONTENT_TYPES.get(image.suffix.lower(), "image/png")
         s3.upload_file(
             str(image),
@@ -96,12 +104,12 @@ def main(argv: list[str] | None = None) -> int:
 
     path = Path(args.path)
     slug = branch_slug(args.branch)
-    images = collect_images(path)
+    images, subdir = collect_images(path)
     if not images:
         print("no images found", file=sys.stderr)
         return 1
 
-    embeds = upload(images, slug)
+    embeds = upload(images, slug, subdir)
     for embed in embeds:
         print(embed)
     return 0

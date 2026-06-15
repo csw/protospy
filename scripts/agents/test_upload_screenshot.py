@@ -57,16 +57,18 @@ class CollectImagesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "shot.png"
             p.write_bytes(b"")
-            images = upload_screenshot.collect_images(p)
+            images, subdir = upload_screenshot.collect_images(p)
             self.assertEqual(images, [p])
+            self.assertIsNone(subdir)
 
     def test_skips_non_image_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "report.txt"
             p.write_bytes(b"")
             with patch("sys.stderr", new_callable=io.StringIO):
-                images = upload_screenshot.collect_images(p)
+                images, subdir = upload_screenshot.collect_images(p)
             self.assertEqual(images, [])
+            self.assertIsNone(subdir)
 
     def test_directory_collects_images(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -75,10 +77,11 @@ class CollectImagesTests(unittest.TestCase):
             (root / "b.jpg").write_bytes(b"")
             (root / "c.webp").write_bytes(b"")
             (root / "d.txt").write_bytes(b"")
-            images = upload_screenshot.collect_images(root)
+            images, subdir = upload_screenshot.collect_images(root)
             self.assertEqual(
                 sorted(p.name for p in images), ["a.png", "b.jpg", "c.webp"]
             )
+            self.assertEqual(subdir, root.name)
 
     def test_directory_non_recursive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -87,8 +90,17 @@ class CollectImagesTests(unittest.TestCase):
             sub.mkdir()
             (root / "top.png").write_bytes(b"")
             (sub / "nested.png").write_bytes(b"")
-            images = upload_screenshot.collect_images(root)
+            images, _ = upload_screenshot.collect_images(root)
             self.assertEqual([p.name for p in images], ["top.png"])
+
+    def test_directory_subdir_in_key(self) -> None:
+        """Directory name is returned as subdir so before/ and after/ don't collide."""
+        with tempfile.TemporaryDirectory() as tmp:
+            before = Path(tmp) / "before"
+            before.mkdir()
+            (before / "shot.png").write_bytes(b"")
+            _, subdir = upload_screenshot.collect_images(before)
+            self.assertEqual(subdir, "before")
 
     def test_missing_path_exits(self) -> None:
         with self.assertRaises(SystemExit):
@@ -99,7 +111,7 @@ class CollectImagesTests(unittest.TestCase):
             root = Path(tmp)
             for ext in (".png", ".jpg", ".jpeg", ".webp"):
                 (root / f"img{ext}").write_bytes(b"")
-            images = upload_screenshot.collect_images(root)
+            images, _ = upload_screenshot.collect_images(root)
             self.assertEqual(len(images), 4)
 
 
@@ -110,13 +122,13 @@ class UploadTests(unittest.TestCase):
         mock_boto3.client.return_value = mock_client
         return mock_boto3, mock_client
 
-    def test_upload_single_image(self) -> None:
+    def test_upload_single_image_no_subdir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.png"
             img.write_bytes(b"")
             mock_boto3, mock_client = self._make_mock_s3()
             with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "pro-225")
+                embeds = upload_screenshot.upload([img], "pro-225", None)
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -131,6 +143,22 @@ class UploadTests(unittest.TestCase):
                 ],
             )
 
+    def test_upload_with_subdir_in_key(self) -> None:
+        """Directory name is included in the S3 key so before/ and after/ don't collide."""
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "shot.png"
+            img.write_bytes(b"")
+            mock_boto3, mock_client = self._make_mock_s3()
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                embeds = upload_screenshot.upload([img], "pro-225", "before")
+            mock_client.upload_file.assert_called_once_with(
+                str(img),
+                "protospy-dev-data",
+                "screenshots/pr-pro-225/before/shot.png",
+                ExtraArgs={"ContentType": "image/png"},
+            )
+            self.assertIn("before/shot.png", embeds[0])
+
     def test_upload_multiple_images(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -140,7 +168,7 @@ class UploadTests(unittest.TestCase):
             b.write_bytes(b"")
             mock_boto3, mock_client = self._make_mock_s3()
             with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([a, b], "my-branch")
+                embeds = upload_screenshot.upload([a, b], "my-branch", None)
             self.assertEqual(len(embeds), 2)
             calls = mock_client.upload_file.call_args_list
             self.assertEqual(calls[0], call(
@@ -162,7 +190,7 @@ class UploadTests(unittest.TestCase):
             img.write_bytes(b"")
             mock_boto3, mock_client = self._make_mock_s3()
             with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch")
+                upload_screenshot.upload([img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
@@ -172,7 +200,7 @@ class UploadTests(unittest.TestCase):
             img.write_bytes(b"")
             mock_boto3, mock_client = self._make_mock_s3()
             with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch")
+                upload_screenshot.upload([img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
