@@ -32,7 +32,7 @@ export function FilterBar({ inputRef }: FilterBarProps) {
           ref={inputRef}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter by path, method, status…"
+          placeholder="Filter by path, method, status, host…"
           className="h-7 border-0 bg-transparent pl-8 font-mono text-sm shadow-none focus-visible:ring-0"
           aria-label="Filter requests"
         />
