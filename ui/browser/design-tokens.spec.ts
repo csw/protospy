@@ -670,15 +670,17 @@ test.describe("pure transport error badge (PRO-391)", () => {
   });
 });
 
-test.describe("headers decode Toggle on-state (PRO-403)", () => {
-  test("decode Toggle pressed state applies non-transparent background via aria-pressed", async ({
+test.describe("headers decode Toggle (PRO-403)", () => {
+  test("decode Toggle manages aria-pressed and stays ghost in both states", async ({
     page,
   }) => {
-    // The headers decode control is a standalone Toggle (icon-xs size, default
-    // variant). Its on-state is keyed off aria-pressed:bg-primary/10 — the same
-    // selector the density toggle uses. This guards that the selector fires on
-    // the icon-xs size specifically and that the class-string coverage in the
-    // component test is backed by real browser CSS evaluation.
+    // The headers decode control is a standalone Toggle (icon-xs size). It uses
+    // aria-pressed:bg-transparent to stay visually consistent with the adjacent
+    // eye-reveal Button — no background fill in either state. This guards that:
+    // (a) Radix Toggle correctly sets aria-pressed from the controlled `pressed`
+    //     prop (not managed manually), and
+    // (b) the aria-pressed:bg-transparent override wins over the default
+    //     variant's aria-pressed:bg-primary/10 in real browser CSS.
     //
     // "Basic dXNlcjpwYXNz" = Basic user:pass
     await injectExchanges(page, [
@@ -711,18 +713,12 @@ test.describe("headers decode Toggle on-state (PRO-403)", () => {
     const pressedToggle = reqPanel.getByLabel("Show raw value");
     await expect(pressedToggle).toHaveAttribute("aria-pressed", "true");
 
-    // Read the expected color from the token so the assertion is
-    // theme-independent and tracks actual CSS rather than a hardcoded string.
-    const expected = await page.evaluate(() => {
-      const probe = document.createElement("div");
-      probe.style.cssText =
-        "position:fixed;top:-9999px;background-color:color-mix(in oklab,var(--color-primary) 10%,transparent)";
-      document.body.appendChild(probe);
-      const val = getComputedStyle(probe).backgroundColor;
-      probe.remove();
-      return val;
-    });
-    await expect(pressedToggle).toHaveCSS("background-color", expected);
+    // Pressed: background stays transparent (ghost override wins over the
+    // default variant's aria-pressed:bg-primary/10).
+    await expect(pressedToggle).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
   });
 });
 

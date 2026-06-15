@@ -233,9 +233,9 @@ export function HeadersPane({
                                       ? "Show raw value"
                                       : "Decode value"
                                   }
-                                  className="shrink-0"
+                                  className="shrink-0 text-muted-foreground aria-pressed:bg-transparent aria-pressed:text-muted-foreground"
                                 >
-                                  <Braces className="size-3" />
+                                  <Braces />
                                 </Toggle>
                               )}
                             <Button
