@@ -1,0 +1,119 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "boto3>=1.43,<2",
+# ]
+# ///
+"""Upload screenshots to S3 and print Markdown image embeds.
+
+Usage:
+    upload-screenshot <path> --branch BRANCH
+
+<path> may be a single image file or a directory. For a directory, all
+image files (*.png, *.jpg, *.jpeg, *.webp) directly inside it are uploaded
+(non-recursive). Prints one Markdown image embed string per file:
+
+    ![filename](https://protospy-dev-data.s3.amazonaws.com/screenshots/pr-BRANCH/filename)
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+
+BUCKET = "protospy-dev-data"
+KEY_PREFIX = "screenshots"
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+
+
+def branch_slug(branch: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
+    return slug.strip("-") or "unknown"
+
+
+def s3_url(bucket: str, key: str) -> str:
+    return f"https://{bucket}.s3.amazonaws.com/{key}"
+
+
+def collect_images(path: Path) -> tuple[list[Path], str | None]:
+    """Return (images, subdir) where subdir is the directory name when path is a
+    directory, used to namespace the S3 key so that before/ and after/ don't
+    collide under the same branch prefix."""
+    if path.is_file():
+        if path.suffix.lower() in IMAGE_EXTS:
+            return [path], None
+        print(
+            f"warning: {path} is not a recognised image type, skipping",
+            file=sys.stderr,
+        )
+        return [], None
+    if path.is_dir():
+        images = sorted(
+            p
+            for p in path.iterdir()
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTS
+        )
+        return images, path.name
+    raise SystemExit(f"error: {path}: no such file or directory")
+
+
+def upload(images: list[Path], slug: str, subdir: str | None) -> list[str]:
+    import boto3  # noqa: PLC0415
+
+    s3 = boto3.client("s3")
+    embeds = []
+    for image in images:
+        key_parts = [KEY_PREFIX, f"pr-{slug}"]
+        if subdir:
+            key_parts.append(subdir)
+        key_parts.append(image.name)
+        key = "/".join(key_parts)
+        content_type = CONTENT_TYPES.get(image.suffix.lower(), "image/png")
+        s3.upload_file(
+            str(image),
+            BUCKET,
+            key,
+            ExtraArgs={"ContentType": content_type},
+        )
+        embeds.append(f"![{image.name}]({s3_url(BUCKET, key)})")
+    return embeds
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Upload screenshot(s) to S3 and print Markdown image embeds."
+    )
+    parser.add_argument("path", help="image file or directory of images to upload")
+    parser.add_argument(
+        "--branch",
+        required=True,
+        help="branch/PR identifier for the S3 key prefix",
+    )
+    args = parser.parse_args(argv)
+
+    path = Path(args.path)
+    slug = branch_slug(args.branch)
+    images, subdir = collect_images(path)
+    if not images:
+        print("no images found", file=sys.stderr)
+        return 1
+
+    embeds = upload(images, slug, subdir)
+    for embed in embeds:
+        print(embed)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

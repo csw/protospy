@@ -121,6 +121,8 @@ usually applies to a single task.
 - `docs/agents/tldr-maintenance.md`: when changing a subproject's architecture,
   stack, data flow, directory structure, or README architecture section
 - `docs/agents/token-economics.md`: when measuring token cost
+- `docs/agents/screenshots.md`: when implementing UI-touching tickets (taking
+  before/after screenshots and uploading to S3 for PR descriptions)
 
 ## Review and Visual-Quality Tooling
 
