@@ -88,7 +88,10 @@ jobs:
         run: pnpm run build
         working-directory: ui
 
-      - run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ${{ matrix.packages }}
+          version: 1.0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -150,6 +153,8 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: protospy-flix:latest
+          cache-from: type=gha,scope=flix
+          cache-to: type=gha,mode=max,scope=flix
 
       - name: Image sizes (loaded)
         run: |
