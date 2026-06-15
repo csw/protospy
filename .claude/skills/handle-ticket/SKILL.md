@@ -158,8 +158,8 @@ cd ui && pnpm dev --port <port> &
 
 Use `playwright-cli` to screenshot the affected views at the relevant widths
 and themes. Inject fixture state first if needed to make the changed area
-visible — use `window.__test_scenes.apply('<scene-id>')` (same scenes as
-the qa-explorer uses in step 4). An empty-state screenshot rarely shows
+visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs
+the visual-verify step uses). An empty-state screenshot rarely shows
 anything useful; pick a scene that puts data in the view the ticket changes.
 Save to `.playwright-cli/before/` (e.g.
 `--filename .playwright-cli/before/light-1280.png`). Then upload:
