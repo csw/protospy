@@ -671,16 +671,15 @@ test.describe("pure transport error badge (PRO-391)", () => {
 });
 
 test.describe("headers decode Toggle (PRO-403)", () => {
-  test("decode Toggle manages aria-pressed and stays ghost in both states", async ({
+  test("decode Toggle manages aria-pressed with ghost inactive and filled active state", async ({
     page,
   }) => {
-    // The headers decode control is a standalone Toggle (icon-xs size). It uses
-    // aria-pressed:bg-transparent to stay visually consistent with the adjacent
-    // eye-reveal Button — no background fill in either state. This guards that:
+    // The headers decode control is a standalone Toggle (icon-xs size) using the
+    // default variant. This guards that:
     // (a) Radix Toggle correctly sets aria-pressed from the controlled `pressed`
     //     prop (not managed manually), and
-    // (b) the aria-pressed:bg-transparent override wins over the default
-    //     variant's aria-pressed:bg-primary/10 in real browser CSS.
+    // (b) the default variant's aria-pressed:bg-primary/10 fires in real browser
+    //     CSS when pressed (not suppressed by an override).
     //
     // "Basic dXNlcjpwYXNz" = Basic user:pass
     await injectExchanges(page, [
@@ -702,7 +701,7 @@ test.describe("headers decode Toggle (PRO-403)", () => {
     await expect(decodeToggle).toBeVisible();
     await expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
 
-    // Unpressed: transparent ghost background.
+    // Unpressed: transparent ghost background (inactive, matches eye-reveal Button).
     await expect(decodeToggle).toHaveCSS(
       "background-color",
       "rgba(0, 0, 0, 0)",
@@ -713,12 +712,18 @@ test.describe("headers decode Toggle (PRO-403)", () => {
     const pressedToggle = reqPanel.getByLabel("Show raw value");
     await expect(pressedToggle).toHaveAttribute("aria-pressed", "true");
 
-    // Pressed: background stays transparent (ghost override wins over the
-    // default variant's aria-pressed:bg-primary/10).
-    await expect(pressedToggle).toHaveCSS(
-      "background-color",
-      "rgba(0, 0, 0, 0)",
-    );
+    // Pressed: bg-primary/10 fill via the default variant's aria-pressed selector.
+    // Probe the token before toHaveCSS so the probe is not evaluated mid-transition.
+    const expected = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;top:-9999px;background-color:color-mix(in oklab,var(--color-primary) 10%,transparent)";
+      document.body.appendChild(probe);
+      const val = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return val;
+    });
+    await expect(pressedToggle).toHaveCSS("background-color", expected);
   });
 });
 
