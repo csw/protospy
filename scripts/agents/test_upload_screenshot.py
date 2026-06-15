@@ -126,9 +126,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.png"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "screenshots/pr-pro-225", None)
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "screenshots/pr-pro-225", None)
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -148,9 +147,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.png"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "screenshots/pr-pro-225", "before")
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "screenshots/pr-pro-225", "before")
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -166,9 +164,8 @@ class UploadTests(unittest.TestCase):
             b = root / "b.webp"
             a.write_bytes(b"")
             b.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([a, b], "screenshots/pr-my-branch", None)
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [a, b], "screenshots/pr-my-branch", None)
             self.assertEqual(len(embeds), 2)
             calls = mock_client.upload_file.call_args_list
             self.assertEqual(calls[0], call(
@@ -189,9 +186,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "requests-1280-dark.png"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "reviews/PRO-408", None)
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "reviews/PRO-408", None)
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -204,9 +200,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.jpg"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch", None)
+            _, mock_client = self._make_mock_s3()
+            upload_screenshot.upload(mock_client, [img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
@@ -214,9 +209,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.jpeg"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch", None)
+            _, mock_client = self._make_mock_s3()
+            upload_screenshot.upload(mock_client, [img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
@@ -247,10 +241,16 @@ class MainTests(unittest.TestCase):
             self.assertIn("protospy-dev-data.s3.amazonaws.com", output)
             self.assertIn("feature-pro-225", output)
 
-    def test_main_branch_required(self) -> None:
+    def test_main_neither_flag_exits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(SystemExit) as cm:
                 upload_screenshot.main([tmp])
+            self.assertNotEqual(cm.exception.code, 0)
+
+    def test_main_both_flags_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit) as cm:
+                upload_screenshot.main([tmp, "--branch", "main", "--prefix", "reviews/x"])
             self.assertNotEqual(cm.exception.code, 0)
 
 
@@ -343,6 +343,14 @@ class GenerateCatalogHtmlTests(unittest.TestCase):
         html = upload_screenshot.generate_catalog_html([], "t")
         self.assertTrue(html.strip().startswith("<!DOCTYPE html>"))
         self.assertIn("</html>", html)
+
+    def test_html_script_tag_safe(self) -> None:
+        """</script> in a value must not break the embedding script block."""
+        entries = [{"type": "other", "label": "</script><script>alert(1)</script>",
+                    "url": "https://example.com/x.png", "filename": "x.png"}]
+        html = upload_screenshot.generate_catalog_html(entries, "t")
+        self.assertNotIn("</script><script>", html)
+        self.assertIn("\\u003c/script\\u003e", html)
 
 
 class UploadCatalogTests(unittest.TestCase):

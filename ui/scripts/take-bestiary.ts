@@ -677,9 +677,18 @@ async function runScenario(
   };
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Subcommands ──────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
+function uploadToS3(date: string): void {
+  console.log("\n▸ Uploading to S3…");
+  execFileSync(
+    UPLOAD_SCRIPT,
+    [OUT_DIR, "--prefix", `bestiary/${date}`, "--catalog"],
+    { stdio: "inherit", cwd: REPO_ROOT },
+  );
+}
+
+async function runGenerate(doUpload: boolean): Promise<void> {
   await mkdir(OUT_DIR, { recursive: true });
   console.log(`Output directory: ${OUT_DIR}`);
 
@@ -720,12 +729,27 @@ async function main(): Promise<void> {
   await writeFile(catalogPath, md, "utf8");
   console.log(`\n✓ Catalog: ${catalogPath}`);
 
-  console.log("\n▸ Uploading to S3…");
-  execFileSync(
-    UPLOAD_SCRIPT,
-    [OUT_DIR, "--prefix", `bestiary/${today}`, "--catalog"],
-    { stdio: "inherit", cwd: REPO_ROOT },
-  );
+  if (doUpload) {
+    uploadToS3(today);
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const subcommand = args.find((a) => !a.startsWith("--")) ?? "generate";
+
+  if (subcommand === "upload") {
+    const dateArg = args.find((a) => a.startsWith("--date="))?.slice(7);
+    const date = dateArg ?? new Date().toISOString().slice(0, 10);
+    uploadToS3(date);
+  } else if (subcommand === "generate") {
+    await runGenerate(args.includes("--upload"));
+  } else {
+    console.error(
+      `Unknown subcommand: ${subcommand}. Use 'generate' or 'upload'.`,
+    );
+    process.exit(1);
+  }
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────

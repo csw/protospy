@@ -268,9 +268,25 @@ def build_catalog_entries(
     return entries
 
 
+def _html_safe_json(obj) -> str:
+    """Serialize to JSON safe for embedding in an HTML <script> tag.
+
+    json.dumps does not escape '<', '>', or '&', so a value containing
+    '</script>' would prematurely terminate the script block.  Unicode-escaping
+    those three characters keeps the output valid JSON (JavaScript also accepts
+    \\uXXXX literals) without requiring an HTML-aware post-processor.
+    """
+    return (
+        json.dumps(obj, separators=(",", ":"))
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
 def generate_catalog_html(entries: list[dict], title: str) -> str:
     safe_title = html_module.escape(title)
-    data_json = json.dumps(entries, separators=(",", ":"))
+    data_json = _html_safe_json(entries)
     return (
         HTML_TEMPLATE
         .replace("__TITLE__", safe_title)
@@ -290,15 +306,12 @@ def upload_catalog(s3_client, prefix: str, entries: list[dict], title: str) -> s
     return s3_url(BUCKET, key)
 
 
-def upload(images: list[Path], prefix: str, subdir: str | None) -> list[str]:
-    import boto3  # noqa: PLC0415
-
-    s3 = boto3.client("s3")
+def upload(s3_client, images: list[Path], prefix: str, subdir: str | None) -> list[str]:
     embeds = []
     for image in images:
         key = image_key(prefix, subdir, image.name)
         content_type = CONTENT_TYPES.get(image.suffix.lower(), "image/png")
-        s3.upload_file(
+        s3_client.upload_file(
             str(image),
             BUCKET,
             key,
@@ -343,14 +356,14 @@ def main(argv: list[str] | None = None) -> int:
         prefix = f"{KEY_PREFIX}/pr-{slug}"
         effective_subdir = subdir
 
-    embeds = upload(images, prefix, effective_subdir)
+    import boto3  # noqa: PLC0415
+
+    s3 = boto3.client("s3")
+    embeds = upload(s3, images, prefix, effective_subdir)
     for embed in embeds:
         print(embed)
 
     if args.catalog:
-        import boto3  # noqa: PLC0415
-
-        s3 = boto3.client("s3")
         title = prefix.replace("/", " · ")
         entries = build_catalog_entries(images, prefix, effective_subdir)
         cat_url = upload_catalog(s3, prefix, entries, title)
