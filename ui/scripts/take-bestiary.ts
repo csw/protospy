@@ -75,8 +75,6 @@ const OUT_DIR = process.env.BESTIARY_OUT || DEFAULT_OUT;
 interface StoreLike {
   getState: () => {
     applyEvent: (msg: unknown) => void;
-    darkMode: boolean;
-    toggleDarkMode: () => void;
   };
   getInitialState: () => unknown;
   setState: (s: unknown, replace?: boolean) => void;
@@ -618,11 +616,25 @@ async function setupPage(page: Page): Promise<void> {
     s.setState(s.getInitialState(), true);
   });
 
-  // Force dark mode to match the hero-screenshot baseline.
+  // Force dark mode via the next-themes bridge (window.__test_theme.setTheme).
+  // Theme moved out of the Zustand store with the v2.3 next-themes swap.
+  interface WindowWithTheme extends Window {
+    __test_theme: { setTheme: (theme: string) => void };
+  }
+  await page.waitForFunction(
+    () => !!(window as unknown as WindowWithTheme).__test_theme?.setTheme,
+    undefined,
+    { timeout: 10_000 },
+  );
   await page.evaluate(() => {
-    const st = (window as unknown as WindowWithStore).__test_store.getState();
-    if (!st.darkMode) st.toggleDarkMode();
+    (window as unknown as WindowWithTheme).__test_theme.setTheme("dark");
   });
+  // Wait for the .dark class to land on <html>
+  await page.waitForFunction(
+    () => document.documentElement.classList.contains("dark"),
+    undefined,
+    { timeout: 5_000 },
+  );
 }
 
 async function runScenario(
