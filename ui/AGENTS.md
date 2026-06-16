@@ -180,6 +180,17 @@ below.
 
 When a change spans categories, cover _each_ distinct observable behavior with the cheapest test that exercises it — prefer unit over component, component over browser per behavior. A single cheap test that covers only one layer of a multi-layer change is not sufficient. But if a behavior under test requires the real DOM or layout, don't force it into a unit test.
 
+**New user-facing capabilities need browser tests.** If you add a new interactive
+affordance (a button, a toggle, a new rendering mode), a new content display (image
+rendering, syntax highlighting, a new view mode), or a new user-triggerable action
+(download, copy-to-clipboard), that capability needs a `browser/*.spec.ts` test
+that exercises it through the real DOM — not just a jsdom component test. A component
+test can verify the component renders the right elements, but it cannot verify that
+an image actually displays, a download actually triggers, or a layout actually holds
+at a given viewport width. The browser suite is the production-fidelity layer; unit
+and component tests are the fast-feedback layer. Both are required for new
+capabilities, not one or the other.
+
 ### What "covered" means
 
 - New exported functions or components must have at least one test exercising their primary behavior.
