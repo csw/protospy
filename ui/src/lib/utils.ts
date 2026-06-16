@@ -123,24 +123,6 @@ export function statusChipClass(
   return "border-error text-error";
 }
 
-const TRACE_PALETTE = [
-  "oklch(0.66 0.17 30)", // orange
-  "oklch(0.66 0.14 95)", // gold
-  "oklch(0.66 0.17 150)", // green
-  "oklch(0.66 0.13 210)", // cyan
-  "oklch(0.60 0.18 260)", // blue
-  "oklch(0.58 0.21 300)", // purple
-  "oklch(0.64 0.20 350)", // magenta
-];
-
-export function traceColor(traceId: string): string {
-  let hash = 0;
-  for (let i = 0; i < traceId.length; i++) {
-    hash = ((hash << 5) - hash + traceId.charCodeAt(i)) | 0;
-  }
-  return TRACE_PALETTE[((hash % 7) + 7) % 7];
-}
-
 export function formatRelative(
   timestamp: string,
   now: number = Date.now(),
@@ -213,13 +195,6 @@ export function parseQueryParams(
   } catch {
     return [];
   }
-}
-
-export function shortenTraceId(id: string): string {
-  if (id.length >= 8) {
-    return `${id.slice(0, 4)}…${id.slice(-4)}`;
-  }
-  return id;
 }
 
 export function isBulkOperation(uri: string | undefined | null): boolean {

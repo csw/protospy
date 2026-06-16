@@ -14,13 +14,11 @@ import {
   methodBadgeClass,
   parseQueryParams,
   shortEncoding,
-  shortenTraceId,
   sortHeadersByPin,
   splitUri,
   statusChipClass,
   statusClass,
   statusTextClass,
-  traceColor,
 } from "../lib/utils";
 
 describe("formatSize", () => {
@@ -254,29 +252,6 @@ describe("statusChipClass", () => {
   });
 });
 
-describe("traceColor", () => {
-  it("is deterministic for the same trace ID", () => {
-    const id = "abc123def456";
-    expect(traceColor(id)).toBe(traceColor(id));
-  });
-
-  it("handles the empty string", () => {
-    // No throw, and result is consistent between calls.
-    expect(() => traceColor("")).not.toThrow();
-    expect(traceColor("")).toBe(traceColor(""));
-  });
-
-  it("covers all 7 palette colors over 100 random IDs", () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      // Pseudo-random hex-ish IDs.
-      const id = Math.random().toString(36).slice(2) + i.toString(36);
-      seen.add(traceColor(id));
-    }
-    expect(seen.size).toBe(7);
-  });
-});
-
 describe("formatTime", () => {
   it("formats an ISO timestamp as HH:MM:SS", () => {
     expect(formatTime("2024-01-01T12:34:56Z")).toMatch(/^\d{2}:\d{2}:\d{2}$/);
@@ -419,25 +394,6 @@ describe("parseQueryParams", () => {
   it("URL-decodes values", () => {
     // URLSearchParams decodes %20 → space.
     expect(parseQueryParams("/foo?a=%20")).toEqual([{ key: "a", value: " " }]);
-  });
-});
-
-describe("shortenTraceId", () => {
-  it("returns short IDs (< 8) as-is", () => {
-    expect(shortenTraceId("abc")).toBe("abc");
-    expect(shortenTraceId("1234567")).toBe("1234567");
-  });
-
-  it("shortens IDs of length 8", () => {
-    expect(shortenTraceId("12345678")).toBe("1234…5678");
-  });
-
-  it("shortens long IDs to first4 + ellipsis + last4", () => {
-    expect(shortenTraceId("abcdef1234567890abcdef")).toBe("abcd…cdef");
-  });
-
-  it("handles the empty string", () => {
-    expect(shortenTraceId("")).toBe("");
   });
 });
 
