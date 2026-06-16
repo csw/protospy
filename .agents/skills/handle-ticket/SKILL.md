@@ -164,11 +164,11 @@ and themes. Inject fixture state first if needed to make the changed area
 visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs
 the visual-verify step uses). An empty-state screenshot rarely shows
 anything useful; pick a scene that puts data in the view the ticket changes.
-Save to `.playwright-cli/before/` (e.g.
-`--filename .playwright-cli/before/light-1280.png`). Then upload:
+Save to `scratch/before/` (e.g.
+`--filename scratch/before/light-1280.png`). Then upload:
 
 ```bash
-scripts/agents/upload-screenshot .playwright-cli/before/ \
+scripts/agents/upload-screenshot scratch/before/ \
   --branch "$(git branch --show-current)"
 ```
 
@@ -210,8 +210,8 @@ Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use
-> `playwright-cli` to drive the app. **Save screenshots to `.playwright-cli/after/`**
-> — pass `--filename .playwright-cli/after/<name>.png` for each shot.
+> `playwright-cli` to drive the app. **Save screenshots to `scratch/after/`**
+> — pass `--filename scratch/after/<name>.png` for each shot.
 > **Never pass a bare relative `--filename`** like `--filename=after.png`.
 > Inject fixture state via
 > `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
@@ -230,7 +230,7 @@ re-verify. Capture a one-line summary for the PR description.
 Upload the subagent's screenshots as the "after" set:
 
 ```bash
-scripts/agents/upload-screenshot .playwright-cli/after/ \
+scripts/agents/upload-screenshot scratch/after/ \
   --branch "$(git branch --show-current)"
 ```
 

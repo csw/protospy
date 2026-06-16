@@ -23,7 +23,7 @@ Markdown image embed per file. Two path-building modes:
 a subdir so `before/` and `after/` directories don't collide.
 
 ```bash
-scripts/agents/upload-screenshot .playwright-cli/before/ \
+scripts/agents/upload-screenshot scratch/before/ \
   --branch "$(git branch --show-current)"
 scripts/agents/upload-screenshot shot.png --branch feature/pro-225-my-change
 ```
@@ -75,11 +75,11 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
 
 1. **Before (step 3a)** — before any implementation, start a dev server on a
    free port and use `playwright-cli` to screenshot the views/scenes identified
-   in the ticket description. Save to `.playwright-cli/before/` and upload.
+   in the ticket description. Save to `scratch/before/` and upload.
    Store the printed embed strings for the PR description.
 
 2. **After (step 4)** — the qa-explorer subagent saves scoped screenshots to
-   `.playwright-cli/after/`. Upload those and store the embed strings.
+   `scratch/after/`. Upload those and store the embed strings.
 
 3. **PR description (step 6)** — append a `## Visual diff` section containing
    both sets of embed strings under `### Before` / `### After` headings.

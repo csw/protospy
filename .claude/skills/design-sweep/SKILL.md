@@ -96,7 +96,7 @@ Always include the screenshots directory path (see step 3).
 Create the screenshots directory:
 
 ```bash
-mkdir -p ~/obsidian/protospy/Claude/Reviews/screenshots/sweep-$(date +%Y-%m-%d)
+mkdir -p "$(git rev-parse --show-toplevel)/scratch/screenshots/sweep-$(date +%Y-%m-%d)"
 ```
 
 Spawn the `visual-review` agent with `name: "visual-review"` so it stays
@@ -104,7 +104,7 @@ addressable for follow-ups. Append the screenshots directory and S3 prefix
 to the prompt:
 
 > Screenshots directory:
-> `~/obsidian/protospy/Claude/Reviews/screenshots/sweep-YYYY-MM-DD/`
+> `<worktree-root>/scratch/screenshots/sweep-YYYY-MM-DD/`
 >
 > S3 prefix: `reviews/sweep-YYYY-MM-DD`
 

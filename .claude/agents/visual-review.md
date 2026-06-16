@@ -273,9 +273,9 @@ theme" for the next batch's target theme.
 
 Save screenshots to the **screenshots directory the caller gives you** in the
 spawn prompt. It is ticket-scoped and temporary (screenshots are scratch for
-the review, not round artifacts):
-`~/obsidian/protospy/Claude/Reviews/screenshots/<ticket>/`. This is the value
-referred to as `<screenshots-dir>` throughout this document.
+the review, not round artifacts), stored under `scratch/screenshots/<ticket>/`
+in the worktree root. This is the value referred to as `<screenshots-dir>`
+throughout this document.
 
 If the caller did not provide one, compute it with the shared path helper —
 which also creates the directory and prints `screenshots=<dir>`:
@@ -284,9 +284,9 @@ which also creates the directory and prints `screenshots=<dir>`:
 scripts/agents/review-paths <ticket> --screenshots   # with a ticket
 ```
 
-For an ad-hoc run with no ticket, fall back to
-`~/obsidian/protospy/Claude/Reviews/screenshots/_adhoc/` and `mkdir -p` it
-yourself. Name files within the directory:
+For an ad-hoc run with no ticket, fall back to `scratch/screenshots/_adhoc/`
+(relative to the git root) and `mkdir -p` it yourself. Name files within the
+directory:
 
 ```
 <scene-id>-<width>-dark.png     # e.g. selected-1440-dark.png
