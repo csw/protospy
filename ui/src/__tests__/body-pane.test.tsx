@@ -234,10 +234,8 @@ describe("BodyPane download button (PRO-413)", () => {
       <BodyPane
         title="Response"
         body={makeBody()}
-        downloadHint={{
-          uri: "/api/data",
-          contentDisposition: 'attachment; filename="report.json"',
-        }}
+        downloadUri="/api/data"
+        downloadContentDisposition='attachment; filename="report.json"'
       />,
     );
 

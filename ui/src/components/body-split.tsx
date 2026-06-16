@@ -53,7 +53,7 @@ export function BodySplit({ exchange, protocol }: Props) {
           body={exchange.requestBody}
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
           viewMode={viewMode}
-          downloadHint={{ uri: exchange.uri }}
+          downloadUri={exchange.uri}
         />
       </div>
       <Separator
@@ -80,13 +80,11 @@ export function BodySplit({ exchange, protocol }: Props) {
             awaiting={awaitingResponse}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
             viewMode={viewMode}
-            downloadHint={{
-              uri: exchange.uri,
-              contentDisposition: getHeader(
-                exchange.responseHeaders,
-                "content-disposition",
-              ),
-            }}
+            downloadUri={exchange.uri}
+            downloadContentDisposition={getHeader(
+              exchange.responseHeaders,
+              "content-disposition",
+            )}
           />
         )}
       </div>

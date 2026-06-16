@@ -9,7 +9,7 @@ import { mediaTypeSlug } from "@ui/lib/format";
 import { hexDumpText } from "@ui/lib/hex";
 import { deriveFilename } from "@ui/lib/download";
 import { CopyButton } from "./copy-button";
-import { DownloadButton } from "./download-button";
+import { DownloadButton, DownloadIconButton } from "./download-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
@@ -153,7 +153,6 @@ function BodyContent({
           bytes={result.bytes}
           filename={downloadFilename}
           mimeType={result.mediaType}
-          size="sm"
         />
       </LifecycleState>
     );
@@ -195,12 +194,17 @@ interface Props {
    */
   viewMode?: ContentMode;
   /**
-   * Hints used to derive the download filename (PRO-413). `uri` is the request
-   * path; `contentDisposition` is the Content-Disposition response header value.
-   * When absent, filename falls back to "body" + extension inferred from
-   * content-type.
+   * Request URI used to derive the download filename (PRO-413). Filename falls
+   * back to the last path segment when it has an extension, then to
+   * "body.<ext>" inferred from content-type, then "body.bin".
    */
-  downloadHint?: { uri?: string; contentDisposition?: string };
+  downloadUri?: string;
+  /**
+   * Content-Disposition response header value (PRO-413). Takes priority over
+   * `downloadUri` when both are present, following the standard browser
+   * filename-derivation algorithm.
+   */
+  downloadContentDisposition?: string;
 }
 
 export function BodyPane({
@@ -210,7 +214,8 @@ export function BodyPane({
   awaiting,
   cacheTo,
   viewMode = "parsed",
-  downloadHint,
+  downloadUri,
+  downloadContentDisposition,
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
@@ -234,36 +239,42 @@ export function BodyPane({
   }, [result, viewMode]);
 
   // image/* bodies in parsed mode: copy raw bytes as image data via ClipboardItem.
+  // Deps narrow to the two fields actually read so the callback stays stable across
+  // renders that return a new DecodeResult object with unchanged kind/mediaType.
+  const resultKind = result?.kind;
+  const resultMediaType = result?.mediaType;
+  const resultBytes = result?.bytes;
   const imageCopyHandler = useCallback(async () => {
-    if (result?.kind !== "binary" || !result.mediaType.startsWith("image/")) {
+    if (resultKind !== "binary" || !resultMediaType?.startsWith("image/")) {
       return;
     }
     // Slice to ensure a concrete ArrayBuffer (TS6 Blob requires ArrayBuffer, not ArrayBufferLike).
-    const blob = new Blob([result.bytes.slice()], { type: result.mediaType });
+    const blob = new Blob([resultBytes!.slice()], { type: resultMediaType });
     await navigator.clipboard.write([
-      new ClipboardItem({ [result.mediaType]: blob }),
+      new ClipboardItem({ [resultMediaType]: blob }),
     ]);
-  }, [result]);
+  }, [resultKind, resultMediaType, resultBytes]);
 
   // Only expose the image copy handler when in parsed mode for image/* bodies.
   const activeCopyHandler =
     viewMode === "parsed" &&
-    result?.kind === "binary" &&
-    result.mediaType.startsWith("image/")
+    resultKind === "binary" &&
+    resultMediaType?.startsWith("image/")
       ? imageCopyHandler
       : undefined;
 
-  // Derive the download filename from available hints + the resolved media type.
+  // Derive the download filename from primitive props + the resolved media type.
+  // Props are primitives so this memo only recomputes when they actually change.
   const downloadFilename = useMemo(
     () =>
       result != null
         ? deriveFilename({
-            uri: downloadHint?.uri,
-            contentDisposition: downloadHint?.contentDisposition,
+            uri: downloadUri,
+            contentDisposition: downloadContentDisposition,
             mediaType: result.mediaType,
           })
         : undefined,
-    [result, downloadHint],
+    [result, downloadUri, downloadContentDisposition],
   );
 
   return (
@@ -314,7 +325,7 @@ export function BodyPane({
             <CopyButton value={copyValue} onCopy={activeCopyHandler} />
           )}
           {body != null && (
-            <DownloadButton
+            <DownloadIconButton
               bytes={result?.bytes}
               filename={downloadFilename}
               mimeType={result?.mediaType}

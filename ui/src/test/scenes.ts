@@ -598,6 +598,18 @@ export const SCENES: Scene[] = [
     config: { selectedId: 1 },
   },
   {
+    id: "body-binary-download",
+    title: "Binary body — download button",
+    axis: "state",
+    description:
+      'An application/octet-stream binary response where the request URI carries a filename extension. BodyPane shows the "Binary data · N bytes" lifecycle state with a prominent Download button; the header also shows the download icon button.',
+    messages: [
+      makeGetRequest(1, "/api/export/artifact.bin"),
+      makeBinaryResponse(1, "AAECAwQFBgcICQoLDA0ODw==", 12),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
     id: "body-decode-failed",
     title: "Decode failed",
     axis: "state",
