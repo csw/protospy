@@ -136,4 +136,33 @@ describe("CopyButton", () => {
     expect(mockWriteText).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
   });
+
+  describe("onCopy override", () => {
+    it("is enabled when onCopy is provided even without value", () => {
+      const handler = vi.fn().mockResolvedValue(undefined);
+      render(<CopyButton onCopy={handler} />);
+      expect(screen.getByRole("button")).not.toBeDisabled();
+    });
+
+    it("calls onCopy instead of writeText on click", async () => {
+      const handler = vi.fn().mockResolvedValue(undefined);
+      render(<CopyButton onCopy={handler} />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button"));
+      });
+      expect(handler).toHaveBeenCalledOnce();
+      expect(mockWriteText).not.toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalled();
+    });
+
+    it("fires error toast when onCopy rejects", async () => {
+      const handler = vi.fn().mockRejectedValueOnce(new Error("denied"));
+      render(<CopyButton onCopy={handler} />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button"));
+      });
+      expect(toast.error).toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+    });
+  });
 });

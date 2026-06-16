@@ -4,6 +4,7 @@ import { render } from "@ui/test/render";
 import { BodyPane } from "@ui/components/body-pane";
 import type { BodyState } from "@ui/state/reducer";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
+import * as downloadLib from "@ui/lib/download";
 
 // Stub decodeBody so the test can drive the dual-size display logic
 // directly. The decode pipeline itself is covered in body.decode.test.ts;
@@ -174,6 +175,106 @@ describe("BodyPane error display (PRO-220)", () => {
     );
     const msgEl = screen.getByText(longError);
     expect(msgEl).toHaveClass("wrap-anywhere");
+  });
+});
+
+describe("BodyPane download button (PRO-413)", () => {
+  beforeEach(() => {
+    decodeBodyMock.mockReset();
+  });
+
+  const bytes = new TextEncoder().encode('{"ok":true}');
+  const jsonResult: DecodeResult = {
+    kind: "json",
+    text: '{\n  "ok": true\n}',
+    parsed: { ok: true },
+    mediaType: "application/json",
+    wireBytes: bytes.length,
+    rawText: '{"ok":true}',
+    bytes,
+  };
+
+  it("renders a download button in the header when body is present", async () => {
+    decodeBodyMock.mockResolvedValueOnce(jsonResult);
+    render(<BodyPane title="Response" body={makeBody()} />);
+    const btn = await screen.findByRole("button", { name: /download/i });
+    expect(btn).toBeInTheDocument();
+  });
+
+  it("download button is disabled while result is not yet decoded", () => {
+    // body present but decodeBody never resolves → loading state
+    decodeBodyMock.mockReturnValue(new Promise(() => {}));
+    render(<BodyPane title="Response" body={makeBody()} />);
+    // Button is present because body != null, but disabled (no bytes yet)
+    const btn = screen.getByRole("button", { name: /download/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it("download button is enabled once the body is decoded", async () => {
+    decodeBodyMock.mockResolvedValueOnce(jsonResult);
+    render(<BodyPane title="Response" body={makeBody()} />);
+    const btn = await screen.findByRole("button", { name: /download/i });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+  });
+
+  it("uses Content-Disposition filename when downloadHint is provided", async () => {
+    const downloadBytesSpy = vi
+      .spyOn(downloadLib, "downloadBytes")
+      .mockReturnValue(undefined);
+
+    // jsdom has no real URL.createObjectURL; stub it.
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:fake"),
+      revokeObjectURL: vi.fn(),
+    });
+
+    decodeBodyMock.mockResolvedValueOnce(jsonResult);
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody()}
+        downloadHint={{
+          uri: "/api/data",
+          contentDisposition: 'attachment; filename="report.json"',
+        }}
+      />,
+    );
+
+    const btn = await screen.findByRole("button", { name: /download/i });
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    btn.click();
+    expect(downloadBytesSpy).toHaveBeenCalledOnce();
+    const [, calledFilename, calledMime] = downloadBytesSpy.mock.calls[0];
+    expect(calledFilename).toBe("report.json");
+    expect(calledMime).toBe("application/json");
+
+    downloadBytesSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows a prominent download button in the binary empty state", async () => {
+    const binaryResult: DecodeResult = {
+      kind: "binary",
+      mediaType: "application/octet-stream",
+      wireBytes: 1024,
+      rawText: "",
+      bytes: new Uint8Array(1024),
+    };
+    decodeBodyMock.mockResolvedValueOnce(binaryResult);
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ contentType: "application/octet-stream" })}
+      />,
+    );
+    // Wait for decode to resolve and both buttons to appear
+    await screen.findByText(/binary data/i);
+    const downloadBtns = await screen.findAllByRole("button", {
+      name: /download/i,
+    });
+    // Header download button + prominent binary-state download button
+    expect(downloadBtns.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -16,6 +16,14 @@ function isSSE(exchange: Exchange): boolean {
   return ct.startsWith("text/event-stream");
 }
 
+function getHeader(
+  headers: Exchange["responseHeaders"] | Exchange["requestHeaders"],
+  name: string,
+): string | undefined {
+  return headers?.find((h) => h.name.toLowerCase() === name.toLowerCase())
+    ?.value;
+}
+
 export function BodySplit({ exchange, protocol }: Props) {
   // Determine error message for the response pane. A Request-direction error
   // means "no response was ever produced"; a Response-direction error means
@@ -45,6 +53,7 @@ export function BodySplit({ exchange, protocol }: Props) {
           body={exchange.requestBody}
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
           viewMode={viewMode}
+          downloadHint={{ uri: exchange.uri }}
         />
       </div>
       <Separator
@@ -71,6 +80,13 @@ export function BodySplit({ exchange, protocol }: Props) {
             awaiting={awaitingResponse}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
             viewMode={viewMode}
+            downloadHint={{
+              uri: exchange.uri,
+              contentDisposition: getHeader(
+                exchange.responseHeaders,
+                "content-disposition",
+              ),
+            }}
           />
         )}
       </div>

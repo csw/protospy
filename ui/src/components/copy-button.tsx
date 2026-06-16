@@ -29,15 +29,23 @@ interface CopyButtonProps {
    * Text to copy. Optional so a caller can render the control before its text
    * is ready (e.g. a body still decoding); the button is disabled until `value`
    * is present, preserving the prior CopyButton's disabled-when-empty behavior.
+   * When `onCopy` is also provided, `value` is unused and may be omitted.
    */
   value?: string;
+  /**
+   * Custom async copy handler. When provided, overrides the default
+   * `navigator.clipboard.writeText(value)` behavior — used for non-text
+   * clipboard writes (e.g. image/* bodies copied via `ClipboardItem`). The
+   * button is enabled when `onCopy` is set even if `value` is absent.
+   */
+  onCopy?: () => Promise<void>;
   className?: string;
 }
 
 /**
  * Copy-to-clipboard button with copied-state feedback and a `sonner` toast.
  */
-export function CopyButton({ value, className }: CopyButtonProps) {
+export function CopyButton({ value, onCopy, className }: CopyButtonProps) {
   const [hasCopied, setHasCopied] = React.useState(false);
 
   // Revert the copied state after 2s. Kept as an effect — the reui upstream
@@ -53,15 +61,19 @@ export function CopyButton({ value, className }: CopyButtonProps) {
   }, [hasCopied]);
 
   const handleCopy = React.useCallback(async () => {
-    if (value == null) return;
     try {
-      await navigator.clipboard.writeText(value);
+      if (onCopy != null) {
+        await onCopy();
+      } else {
+        if (value == null) return;
+        await navigator.clipboard.writeText(value);
+      }
       setHasCopied(true);
       notifyCopied();
     } catch {
       notifyCopyFailed();
     }
-  }, [value]);
+  }, [value, onCopy]);
 
   return (
     <Tooltip>
@@ -70,7 +82,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
           data-slot="copy-button"
           size="icon-xs"
           variant="ghost"
-          disabled={value == null}
+          disabled={value == null && onCopy == null}
           className={className}
           onClick={handleCopy}
         >

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { BodyState } from "@ui/state/reducer";
 import type { ContentMode } from "@ui/state/store";
@@ -7,7 +7,9 @@ import type { DecodeResult } from "@ui/body/decode";
 import { formatSize } from "@ui/lib/utils";
 import { mediaTypeSlug } from "@ui/lib/format";
 import { hexDumpText } from "@ui/lib/hex";
+import { deriveFilename } from "@ui/lib/download";
 import { CopyButton } from "./copy-button";
+import { DownloadButton } from "./download-button";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
@@ -93,9 +95,11 @@ function BodySkeleton() {
 function BodyContent({
   result,
   viewMode,
+  downloadFilename,
 }: {
   result: DecodeResult;
   viewMode: ContentMode;
+  downloadFilename?: string;
 }) {
   if (viewMode === "hex") return <HexView bytes={result.bytes} />;
   if (viewMode === "raw") return <RawView text={result.rawText} />;
@@ -140,7 +144,17 @@ function BodyContent({
   if (result.kind === "binary") {
     return (
       <LifecycleState>
-        Binary data · {formatSize(result.wireBytes)}
+        <span>Binary data · {formatSize(result.wireBytes)}</span>
+        {/* Downloading is the primary useful action for unrenderable binary content.
+            For image/* types the header copy button copies as image data; for all
+            other binary types (archives, proprietary formats, etc.) clipboard copy
+            is not useful, so we surface download prominently here instead. */}
+        <DownloadButton
+          bytes={result.bytes}
+          filename={downloadFilename}
+          mimeType={result.mediaType}
+          size="sm"
+        />
       </LifecycleState>
     );
   }
@@ -180,6 +194,13 @@ interface Props {
    * omit it.
    */
   viewMode?: ContentMode;
+  /**
+   * Hints used to derive the download filename (PRO-413). `uri` is the request
+   * path; `contentDisposition` is the Content-Disposition response header value.
+   * When absent, filename falls back to "body" + extension inferred from
+   * content-type.
+   */
+  downloadHint?: { uri?: string; contentDisposition?: string };
 }
 
 export function BodyPane({
@@ -189,6 +210,7 @@ export function BodyPane({
   awaiting,
   cacheTo,
   viewMode = "parsed",
+  downloadHint,
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
@@ -200,12 +222,49 @@ export function BodyPane({
 
   // Copy the content of the active view: parsed text, raw decoded text, or the
   // hex dump. hexDumpText is memoized since it walks every byte.
+  //
+  // For binary bodies in parsed mode, result.text is absent:
+  // - image/*: use imageCopyHandler (ClipboardItem) — copy enabled via onCopy.
+  // - Other binary: no useful clipboard representation → button stays disabled.
   const copyValue = useMemo(() => {
     if (result == null) return undefined;
     if (viewMode === "hex") return hexDumpText(result.bytes);
     if (viewMode === "raw") return result.rawText;
     return result.text;
   }, [result, viewMode]);
+
+  // image/* bodies in parsed mode: copy raw bytes as image data via ClipboardItem.
+  const imageCopyHandler = useCallback(async () => {
+    if (result?.kind !== "binary" || !result.mediaType.startsWith("image/")) {
+      return;
+    }
+    // Slice to ensure a concrete ArrayBuffer (TS6 Blob requires ArrayBuffer, not ArrayBufferLike).
+    const blob = new Blob([result.bytes.slice()], { type: result.mediaType });
+    await navigator.clipboard.write([
+      new ClipboardItem({ [result.mediaType]: blob }),
+    ]);
+  }, [result]);
+
+  // Only expose the image copy handler when in parsed mode for image/* bodies.
+  const activeCopyHandler =
+    viewMode === "parsed" &&
+    result?.kind === "binary" &&
+    result.mediaType.startsWith("image/")
+      ? imageCopyHandler
+      : undefined;
+
+  // Derive the download filename from available hints + the resolved media type.
+  const downloadFilename = useMemo(
+    () =>
+      result != null
+        ? deriveFilename({
+            uri: downloadHint?.uri,
+            contentDisposition: downloadHint?.contentDisposition,
+            mediaType: result.mediaType,
+          })
+        : undefined,
+    [result, downloadHint],
+  );
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
@@ -251,7 +310,16 @@ export function BodyPane({
               </span>
             </SimpleTooltip>
           )}
-          {body != null && <CopyButton value={copyValue} />}
+          {body != null && (
+            <CopyButton value={copyValue} onCopy={activeCopyHandler} />
+          )}
+          {body != null && (
+            <DownloadButton
+              bytes={result?.bytes}
+              filename={downloadFilename}
+              mimeType={result?.mediaType}
+            />
+          )}
         </div>
       </div>
 
@@ -293,7 +361,11 @@ export function BodyPane({
         )}
 
         {!loading && result != null && (
-          <BodyContent result={result} viewMode={viewMode} />
+          <BodyContent
+            result={result}
+            viewMode={viewMode}
+            downloadFilename={downloadFilename}
+          />
         )}
 
         {/* Mid-stream error: body completed but the exchange has an error.
