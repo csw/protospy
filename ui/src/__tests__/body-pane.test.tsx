@@ -281,13 +281,13 @@ describe("BodyPane image rendering (PRO-412)", () => {
     expect(img).toHaveAttribute("src", dataUri);
   });
 
-  it("raw mode renders rawText even for image bodies", async () => {
+  it("raw mode renders the raw bytes as text even for image bodies", async () => {
     const imageResult: DecodeResult = {
       kind: "image",
       dataUri: "data:image/png;base64,AAEC",
       mediaType: "image/png",
       wireBytes: 3,
-      rawText: "\x00\x01\x02",
+      rawText: "raw-image-bytes",
       bytes: new Uint8Array([0x00, 0x01, 0x02]),
     };
     decodeBodyMock.mockResolvedValueOnce(imageResult);
@@ -302,5 +302,6 @@ describe("BodyPane image rendering (PRO-412)", () => {
 
     const raw = await screen.findByLabelText("Raw body viewer");
     expect(raw).toBeInTheDocument();
+    expect(raw).toHaveTextContent("raw-image-bytes");
   });
 });

@@ -1,3 +1,4 @@
+import { fromByteArray, toByteArray } from "base64-js";
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseJson, parseNdjson } from "./json-parse";
@@ -75,13 +76,7 @@ function chunkToBytes(chunk: BodyChunk): Uint8Array {
   if ("text" in chunk) {
     return new TextEncoder().encode(chunk.text);
   } else {
-    // base64 decode
-    const raw = atob(chunk.binary);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) {
-      bytes[i] = raw.charCodeAt(i);
-    }
-    return bytes;
+    return toByteArray(chunk.binary);
   }
 }
 
@@ -178,15 +173,6 @@ async function decompress(
   return concatenate(chunks);
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
 const JSONL_TYPES = new Set([
   "application/vnd.elasticsearch+x-ndjson",
   "application/x-ndjson",
@@ -277,7 +263,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   // Must precede the generic binary check because image/* is a subset of
   // what was previously lumped into "binary".
   if (contentType?.toLowerCase().startsWith("image/")) {
-    const dataUri = `data:${mediaType};base64,${bytesToBase64(bytes)}`;
+    const dataUri = `data:${mediaType};base64,${fromByteArray(bytes)}`;
     return {
       kind: "image",
       dataUri,

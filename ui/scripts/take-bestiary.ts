@@ -21,6 +21,7 @@
 
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
@@ -114,11 +115,14 @@ const BROTLI_B64 =
   "ixyAeyJpdGVtcyI6W3siaWQiOjEsIm5hbWUiOiJhbHBoYSJ9LHsiaWQiOjIsIm5hbWUiOiJiZXRhIn1dfQM=";
 const BROTLI_WIRE_BYTES = 62;
 
-// A small PNG-ish binary blob — same magic bytes the body decoder uses
-// to classify as binary in browser/body-binary.spec.ts.
-const BINARY_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAWk1v8QAAAABJRU5ErkJggg==";
-const BINARY_WIRE_BYTES = 67;
+// Utah Teapot PNG — a real image large enough to confirm the inline render
+// path works visually (1280×847, ~311 KB). Loaded at script start so the
+// bestiary screenshot shows an actual recognisable image.
+const _teapotBuf = readFileSync(
+  path.join(UI_DIR, "src", "test", "assets", "Utah_teapot_simple_2.png"),
+);
+const BINARY_BASE64 = _teapotBuf.toString("base64");
+const BINARY_WIRE_BYTES = _teapotBuf.length;
 
 // Build a moderately large JSON body — large enough to trigger the body pane's
 // virtualization path but not so large the script becomes slow.
@@ -381,11 +385,11 @@ const SCENARIOS: Scenario[] = [
       "The decoder classifies the bytes as `image` and the body pane renders " +
       "the PNG inline. Confirms the image render path works end-to-end.",
     messages: [
-      makeGetRequest(1, "/images/pixel.png", t(2)),
+      makeGetRequest(1, "/images/teapot.png", t(2)),
       makeImageResponse(1, BINARY_BASE64, BINARY_WIRE_BYTES, "image/png", t(2)),
     ],
     interact: async (page) => {
-      await page.getByText("/images/pixel.png").first().click();
+      await page.getByText("/images/teapot.png").first().click();
     },
     captures: [
       {

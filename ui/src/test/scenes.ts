@@ -591,14 +591,15 @@ export const SCENES: Scene[] = [
     title: "Image body (PNG)",
     axis: "state",
     description:
-      "An image/png response. BodyPane renders the image inline in the parsed view (1×1 pixel PNG fixture). Raw and hex views remain available.",
-    // 1×1 pixel PNG (67 bytes), base64-encoded.
+      "An image/png response. BodyPane renders the image inline in the parsed view. Raw and hex views remain available.",
+    // 128×128 solid-blue PNG (257 bytes) — small enough to embed, clearly
+    // visible as a coloured block to confirm the inline render path works.
     messages: [
-      makeGetRequest(1, "/images/pixel.png"),
+      makeGetRequest(1, "/images/teapot.png"),
       makeImageResponse(
         1,
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAWk1v8QAAAABJRU5ErkJggg==",
-        67,
+        "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAAyElEQVR42u3RQQ0AAAjEsNOHOuzhBhnwaDIFa6pHh8UCAAAEAIAAABAAAAIAQAAACAAAAQAgAAAEAIAAABAAAAIAQAAACAAAAQAgAAAEAIAAABAAAAIAQAAACAAAAQAgAAAEAIAAABAAAAIAQAAACAAAAQAAwAUAAAQAgAAAEAAAAgBAAAAIAAABACAAAAQAgAAAEAAAAgBAAAAIAAABACAAAAQAgAAAEAAAAgBAAAAIAAABACAAAAQAgAAAEAAAAgBAAAAIwIcWci7GVTSnS4cAAAAASUVORK5CYII=",
+        257,
       ),
     ],
     config: { selectedId: 1 },

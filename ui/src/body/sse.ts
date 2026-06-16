@@ -1,3 +1,4 @@
+import { toByteArray } from "base64-js";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import type { BodyState } from "@ui/state/reducer";
 
@@ -86,12 +87,7 @@ export function chunksToText(body: BodyState): string {
     if ("text" in chunk) {
       return new TextEncoder().encode(chunk.text);
     } else {
-      const raw = atob(chunk.binary);
-      const bytes = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) {
-        bytes[i] = raw.charCodeAt(i);
-      }
-      return bytes;
+      return toByteArray(chunk.binary);
     }
   });
 

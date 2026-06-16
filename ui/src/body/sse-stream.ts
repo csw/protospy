@@ -1,3 +1,4 @@
+import { toByteArray } from "base64-js";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseSSEBlock } from "./sse";
 import type { SSEEvent } from "./sse";
@@ -32,12 +33,7 @@ export function createSSEStreamState(): SSEStreamState {
  */
 export function chunkToText(chunk: BodyChunk): string {
   if ("text" in chunk) return chunk.text;
-  const raw = atob(chunk.binary);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) {
-    bytes[i] = raw.charCodeAt(i);
-  }
-  return new TextDecoder().decode(bytes);
+  return new TextDecoder().decode(toByteArray(chunk.binary));
 }
 
 /**

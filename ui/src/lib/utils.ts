@@ -1,3 +1,4 @@
+import { toByteArray } from "base64-js";
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
@@ -264,7 +265,7 @@ export function maskHeaderValue(name: string, value: string): string {
 export function decodeBasicAuth(value: string): string | null {
   if (!value.toLowerCase().startsWith("basic ")) return null;
   try {
-    return atob(value.slice(6).trim());
+    return new TextDecoder().decode(toByteArray(value.slice(6).trim()));
   } catch {
     return null;
   }

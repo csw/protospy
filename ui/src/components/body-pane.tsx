@@ -139,7 +139,7 @@ function BodyContent({
   }
   if (result.kind === "image" && result.dataUri != null) {
     return (
-      <div className="overflow-auto p-3">
+      <div className="p-3">
         <img src={result.dataUri} alt={result.mediaType} />
       </div>
     );
