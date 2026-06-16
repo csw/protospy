@@ -225,6 +225,24 @@ class HarnessArgsTests(unittest.TestCase):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             ticket.parse_args(["PRO-136", "--branch=codex/pro-136-a", "--version", "2"])
 
+    def test_plan_flag_adds_permission_mode_for_claude(self) -> None:
+        args = ticket.parse_args(["--harness", "claude", "PRO-136", "--plan"])
+        self.assertEqual(ticket.harness_cli_args(args), ["--permission-mode", "plan"])
+
+    def test_plan_flag_errors_for_codex(self) -> None:
+        args = ticket.parse_args(["PRO-136", "--plan"])
+        with self.assertRaises(SystemExit):
+            ticket.harness_cli_args(args)
+
+    def test_plan_flag_combines_with_model_for_claude(self) -> None:
+        args = ticket.parse_args(
+            ["--harness", "claude", "PRO-136", "--plan", "--model", "opus"]
+        )
+        self.assertEqual(
+            ticket.harness_cli_args(args),
+            ["--permission-mode", "plan", "--model", "opus"],
+        )
+
     def test_ui_install_command_uses_root_just_recipe(self) -> None:
         self.assertEqual(ticket.ui_install_command(), ["just", "ui::install"])
 
