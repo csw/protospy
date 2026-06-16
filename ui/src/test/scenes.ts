@@ -39,6 +39,7 @@ import {
   LONG_ERROR_MESSAGE,
   LONG_URI,
   makeBinaryResponse,
+  makeImageResponse,
   makeCompleteExchange,
   makeDualSizeResponse,
   makeEncodedJsonResponse,
@@ -583,6 +584,23 @@ export const SCENES: Scene[] = [
     description:
       "A text/plain response body. BodyPane renders the content in a <pre> block (the text render branch, distinct from JSON tree and binary).",
     messages: [makeGetRequest(1, "/api/health"), makeTextResponse(1)],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-image",
+    title: "Image body (PNG)",
+    axis: "state",
+    description:
+      "An image/png response. BodyPane renders the image inline in the parsed view (1×1 pixel PNG fixture). Raw and hex views remain available.",
+    // 1×1 pixel PNG (67 bytes), base64-encoded.
+    messages: [
+      makeGetRequest(1, "/images/pixel.png"),
+      makeImageResponse(
+        1,
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAWk1v8QAAAABJRU5ErkJggg==",
+        67,
+      ),
+    ],
     config: { selectedId: 1 },
   },
   {

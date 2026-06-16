@@ -5,7 +5,7 @@ import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
 
 export interface DecodeResult {
-  kind: "json" | "ndjson" | "text" | "binary";
+  kind: "json" | "ndjson" | "text" | "binary" | "image";
   text?: string;
   mediaType: string;
   /**
@@ -64,6 +64,11 @@ export interface DecodeResult {
    * The decompressed body bytes. Backs the `hex` view-mode dump (PRO-336).
    */
   bytes: Uint8Array;
+  /**
+   * For `image` kind: a `data:<mediaType>;base64,...` URI suitable for use as
+   * an `<img src>`. `undefined` for all other kinds.
+   */
+  dataUri?: string;
 }
 
 function chunkToBytes(chunk: BodyChunk): Uint8Array {
@@ -173,6 +178,15 @@ async function decompress(
   return concatenate(chunks);
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 const JSONL_TYPES = new Set([
   "application/vnd.elasticsearch+x-ndjson",
   "application/x-ndjson",
@@ -259,13 +273,24 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     }
   }
 
-  // Step 6: Detect binary content types
-  const binaryPrefixes = [
-    "image/",
-    "audio/",
-    "video/",
-    "application/octet-stream",
-  ];
+  // Step 6: Detect image content types — render inline via <img>.
+  // Must precede the generic binary check because image/* is a subset of
+  // what was previously lumped into "binary".
+  if (contentType?.toLowerCase().startsWith("image/")) {
+    const dataUri = `data:${mediaType};base64,${bytesToBase64(bytes)}`;
+    return {
+      kind: "image",
+      dataUri,
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
+  }
+
+  // Step 7: Detect other binary content types
+  const binaryPrefixes = ["audio/", "video/", "application/octet-stream"];
   if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
     return {
       kind: "binary",
@@ -277,7 +302,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 7: Default to text
+  // Step 8: Default to text
   return {
     kind: "text",
     text,

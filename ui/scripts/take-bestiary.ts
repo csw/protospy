@@ -33,9 +33,9 @@ import {
   type ScenarioMeta,
 } from "./bestiary-catalog";
 import {
-  makeBinaryResponse,
   makeEncodedJsonResponse,
   makeGetRequest,
+  makeImageResponse,
   makePostRequest,
   makeProxyError,
   makeResponse,
@@ -376,14 +376,13 @@ const SCENARIOS: Scenario[] = [
   {
     family: "Binary bodies",
     slug: "binary-png",
-    title: "Binary (PNG) response",
+    title: "Image (PNG) response",
     description:
-      "The decoder classifies the bytes as `binary` and the body pane shows a " +
-      "hex/preview view rather than text. Useful for confirming we don't try " +
-      "to render bytes as UTF-8 text.",
+      "The decoder classifies the bytes as `image` and the body pane renders " +
+      "the PNG inline. Confirms the image render path works end-to-end.",
     messages: [
       makeGetRequest(1, "/images/pixel.png", t(2)),
-      makeBinaryResponse(1, BINARY_BASE64, BINARY_WIRE_BYTES, t(2)),
+      makeImageResponse(1, BINARY_BASE64, BINARY_WIRE_BYTES, "image/png", t(2)),
     ],
     interact: async (page) => {
       await page.getByText("/images/pixel.png").first().click();
@@ -391,7 +390,7 @@ const SCENARIOS: Scenario[] = [
     captures: [
       {
         slug: "body-pane",
-        description: "Body pane only — binary classification.",
+        description: "Body pane only — inline image render.",
         componentSelector: '[role="tabpanel"][data-state="active"]',
       },
     ],

@@ -190,7 +190,7 @@ describe("decodeBody", () => {
     expect(result.text).toContain("You Know, for Search");
   });
 
-  it("binary content-type returns kind binary with no text", async () => {
+  it("image content-type returns kind image with a data URI", async () => {
     const body: BodyState = {
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
@@ -198,10 +198,24 @@ describe("decodeBody", () => {
       contentType: "image/png",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("binary");
+    expect(result.kind).toBe("image");
     expect(result.text).toBeUndefined();
     expect(result.mediaType).toBe("image/png");
     expect(result.wireBytes).toBe(3);
+    expect(result.dataUri).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("application/octet-stream returns kind binary", async () => {
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "application/octet-stream",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("binary");
+    expect(result.text).toBeUndefined();
+    expect(result.dataUri).toBeUndefined();
   });
 
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
@@ -583,6 +597,60 @@ describe("decodeBody edge cases", () => {
   });
 });
 
+describe("decodeBody image kind", () => {
+  it.each([
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "image/x-icon",
+  ])("%s returns kind image with a base64 data URI", async (contentType) => {
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType,
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("image");
+    expect(result.dataUri).toMatch(
+      new RegExp(
+        `^data:${contentType.replace("/", "\\/").replace("+", "\\+")};base64,`,
+      ),
+    );
+    expect(result.bytes).toEqual(new Uint8Array([0x00, 0x01, 0x02]));
+  });
+
+  it("data URI bytes round-trip correctly", async () => {
+    // "AAEC" base64 decodes to 0x00 0x01 0x02; the data URI must re-encode them.
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "image/png",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("image");
+    const encoded = result.dataUri!.split(",")[1];
+    expect(atob(encoded)).toBe("\x00\x01\x02");
+  });
+
+  it("audio/* and video/* still return kind binary, not image", async () => {
+    for (const contentType of ["audio/mpeg", "video/mp4"]) {
+      const body: BodyState = {
+        chunks: [{ binary: "AAEC" }],
+        atEnd: true,
+        wireBytes: 3,
+        contentType,
+      };
+      const result = await decodeBody(body);
+      expect(result.kind).toBe("binary");
+      expect(result.dataUri).toBeUndefined();
+    }
+  });
+});
+
 // rawText (the un-pretty decoded source) and bytes (the decompressed bytes)
 // back the raw/hex view modes (PRO-336); both are always present.
 describe("decodeBody raw/hex fields", () => {
@@ -618,7 +686,7 @@ describe("decodeBody raw/hex fields", () => {
     );
   });
 
-  it("binary: bytes carry the decoded bytes even though text is absent", async () => {
+  it("image: bytes carry the decoded bytes and rawText is always a string", async () => {
     const body: BodyState = {
       chunks: [{ binary: "AAEC" }], // 0x00 0x01 0x02
       atEnd: true,
@@ -626,7 +694,7 @@ describe("decodeBody raw/hex fields", () => {
       contentType: "image/png",
     };
     const result = await decodeBody(body);
-    expect(result.kind).toBe("binary");
+    expect(result.kind).toBe("image");
     expect(result.text).toBeUndefined();
     expect(Array.from(result.bytes)).toEqual([0x00, 0x01, 0x02]);
     // rawText is always a string (the bytes decoded as UTF-8).

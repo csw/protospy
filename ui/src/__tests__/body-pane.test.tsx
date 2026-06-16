@@ -249,3 +249,58 @@ describe("BodyPane view modes (PRO-336)", () => {
     expect(screen.queryByLabelText("JSON viewer")).not.toBeInTheDocument();
   });
 });
+
+describe("BodyPane image rendering (PRO-412)", () => {
+  beforeEach(() => {
+    decodeBodyMock.mockReset();
+  });
+
+  it("parsed mode renders an <img> with the data URI for image bodies", async () => {
+    const dataUri =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAWk1v8QAAAABJRU5ErkJggg==";
+    const imageResult: DecodeResult = {
+      kind: "image",
+      dataUri,
+      mediaType: "image/png",
+      wireBytes: 67,
+      rawText: "",
+      bytes: new Uint8Array(67),
+    };
+    decodeBodyMock.mockResolvedValueOnce(imageResult);
+
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ contentType: "image/png" })}
+        viewMode="parsed"
+      />,
+    );
+
+    const img = await screen.findByRole("img", { name: "image/png" });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", dataUri);
+  });
+
+  it("raw mode renders rawText even for image bodies", async () => {
+    const imageResult: DecodeResult = {
+      kind: "image",
+      dataUri: "data:image/png;base64,AAEC",
+      mediaType: "image/png",
+      wireBytes: 3,
+      rawText: "\x00\x01\x02",
+      bytes: new Uint8Array([0x00, 0x01, 0x02]),
+    };
+    decodeBodyMock.mockResolvedValueOnce(imageResult);
+
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ contentType: "image/png" })}
+        viewMode="raw"
+      />,
+    );
+
+    const raw = await screen.findByLabelText("Raw body viewer");
+    expect(raw).toBeInTheDocument();
+  });
+});

@@ -271,6 +271,37 @@ export function makeBinaryResponse(
   };
 }
 
+export function makeImageResponse(
+  id: number,
+  base64: string,
+  wireBytes: number,
+  contentType = "image/png",
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction: "Response",
+    event: {
+      type: "Response",
+      status: "200 OK",
+      version: "HTTP/1.1",
+      headers: [{ name: "Content-Type", value: contentType }],
+      elapsed_ms: 12,
+      body: {
+        type: "Data",
+        content: {
+          offset: 0,
+          length: wireBytes,
+          payload: { binary: base64 },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: wireBytes,
+      },
+    },
+  };
+}
+
 export function makeGzipJsonResponse(
   id: number,
   gzippedBase64: string,

@@ -137,6 +137,13 @@ function BodyContent({
       </pre>
     );
   }
+  if (result.kind === "image" && result.dataUri != null) {
+    return (
+      <div className="overflow-auto p-3">
+        <img src={result.dataUri} alt={result.mediaType} />
+      </div>
+    );
+  }
   if (result.kind === "binary") {
     return (
       <LifecycleState>
