@@ -14,7 +14,11 @@ import {
   setTheme,
   waitForStore,
 } from "./helpers/inject";
-import { makeCompleteExchange } from "./fixtures/exchanges";
+import {
+  makeCompleteExchange,
+  makeGetRequest,
+  makeResponse,
+} from "./fixtures/exchanges";
 import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 
 test.beforeEach(async ({ page }) => {
@@ -663,6 +667,63 @@ test.describe("pure transport error badge (PRO-391)", () => {
         `transport error badge should use --color-error in ${theme} theme`,
       ).toBe(expected);
     }
+  });
+});
+
+test.describe("headers decode Toggle (PRO-403)", () => {
+  test("decode Toggle manages aria-pressed with ghost inactive and filled active state", async ({
+    page,
+  }) => {
+    // The headers decode control is a standalone Toggle (icon-xs size) using the
+    // default variant. This guards that:
+    // (a) Radix Toggle correctly sets aria-pressed from the controlled `pressed`
+    //     prop (not managed manually), and
+    // (b) the default variant's aria-pressed:bg-primary/10 fires in real browser
+    //     CSS when pressed (not suppressed by an override).
+    //
+    // "Basic dXNlcjpwYXNz" = Basic user:pass
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/secure", undefined, [
+        { name: "Authorization", value: "Basic dXNlcjpwYXNz" },
+      ]),
+      makeResponse(1, "200 OK"),
+    ]);
+
+    // Select the exchange so the inspector renders.
+    await page.locator("button[role='option']").first().click();
+    await page.getByRole("tab", { name: "Headers" }).click();
+
+    // Reveal the masked Authorization value so the decode Toggle appears.
+    const reqPanel = page.locator('[data-testid="headers-panel-request"]');
+    await reqPanel.getByLabel("Reveal value").click();
+
+    const decodeToggle = reqPanel.getByLabel("Decode value");
+    await expect(decodeToggle).toBeVisible();
+    await expect(decodeToggle).toHaveAttribute("aria-pressed", "false");
+
+    // Unpressed: transparent ghost background (inactive, matches eye-reveal Button).
+    await expect(decodeToggle).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+
+    // Activate decode mode.
+    await decodeToggle.click();
+    const pressedToggle = reqPanel.getByLabel("Show raw value");
+    await expect(pressedToggle).toHaveAttribute("aria-pressed", "true");
+
+    // Pressed: bg-primary/10 fill via the default variant's aria-pressed selector.
+    // Probe the token before toHaveCSS so the probe is not evaluated mid-transition.
+    const expected = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;top:-9999px;background-color:color-mix(in oklab,var(--color-primary) 10%,transparent)";
+      document.body.appendChild(probe);
+      const val = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return val;
+    });
+    await expect(pressedToggle).toHaveCSS("background-color", expected);
   });
 });
 

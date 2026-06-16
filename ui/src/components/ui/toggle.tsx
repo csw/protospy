@@ -28,6 +28,7 @@ const toggleVariants = cva(
         default: "h-9 min-w-9 px-2",
         sm: "h-[27px] min-w-[27px] px-0",
         lg: "h-10 min-w-10 px-2.5",
+        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-chrome": "size-7 rounded-md [&_svg:not([class*='size-'])]:size-4",
       },
     },
