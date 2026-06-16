@@ -126,9 +126,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.png"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "pro-225", None)
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "screenshots/pr-pro-225", None)
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -148,9 +147,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.png"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([img], "pro-225", "before")
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "screenshots/pr-pro-225", "before")
             mock_client.upload_file.assert_called_once_with(
                 str(img),
                 "protospy-dev-data",
@@ -166,9 +164,8 @@ class UploadTests(unittest.TestCase):
             b = root / "b.webp"
             a.write_bytes(b"")
             b.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                embeds = upload_screenshot.upload([a, b], "my-branch", None)
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [a, b], "screenshots/pr-my-branch", None)
             self.assertEqual(len(embeds), 2)
             calls = mock_client.upload_file.call_args_list
             self.assertEqual(calls[0], call(
@@ -184,13 +181,27 @@ class UploadTests(unittest.TestCase):
                 ExtraArgs={"ContentType": "image/webp"},
             ))
 
+    def test_upload_explicit_prefix_no_subdir(self) -> None:
+        """--prefix suppresses the subdir so the prefix is the full path."""
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "requests-1280-dark.png"
+            img.write_bytes(b"")
+            _, mock_client = self._make_mock_s3()
+            embeds = upload_screenshot.upload(mock_client, [img], "reviews/PRO-408", None)
+            mock_client.upload_file.assert_called_once_with(
+                str(img),
+                "protospy-dev-data",
+                "reviews/PRO-408/requests-1280-dark.png",
+                ExtraArgs={"ContentType": "image/png"},
+            )
+            self.assertIn("reviews/PRO-408/requests-1280-dark.png", embeds[0])
+
     def test_jpeg_content_type(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.jpg"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch", None)
+            _, mock_client = self._make_mock_s3()
+            upload_screenshot.upload(mock_client, [img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
@@ -198,9 +209,8 @@ class UploadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             img = Path(tmp) / "shot.jpeg"
             img.write_bytes(b"")
-            mock_boto3, mock_client = self._make_mock_s3()
-            with patch.dict("sys.modules", {"boto3": mock_boto3}):
-                upload_screenshot.upload([img], "branch", None)
+            _, mock_client = self._make_mock_s3()
+            upload_screenshot.upload(mock_client, [img], "branch", None)
             _, kwargs = mock_client.upload_file.call_args
             self.assertEqual(kwargs["ExtraArgs"]["ContentType"], "image/jpeg")
 
@@ -231,11 +241,228 @@ class MainTests(unittest.TestCase):
             self.assertIn("protospy-dev-data.s3.amazonaws.com", output)
             self.assertIn("feature-pro-225", output)
 
-    def test_main_branch_required(self) -> None:
+    def test_main_neither_flag_exits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(SystemExit) as cm:
                 upload_screenshot.main([tmp])
             self.assertNotEqual(cm.exception.code, 0)
+
+    def test_main_both_flags_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit) as cm:
+                upload_screenshot.main([tmp, "--branch", "main", "--prefix", "reviews/x"])
+            self.assertNotEqual(cm.exception.code, 0)
+
+
+class ParseMetaTests(unittest.TestCase):
+    def test_review_format_simple(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("requests-1280-light.png")
+        self.assertEqual(m["type"], "review")
+        self.assertEqual(m["scene"], "requests")
+        self.assertEqual(m["width"], "1280")
+        self.assertEqual(m["theme"], "light")
+
+    def test_review_format_hyphenated_scene(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("sse-streaming-1440-dark.png")
+        self.assertEqual(m["type"], "review")
+        self.assertEqual(m["scene"], "sse-streaming")
+        self.assertEqual(m["width"], "1440")
+        self.assertEqual(m["theme"], "dark")
+
+    def test_review_format_1920_width(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("selected-1920-light.png")
+        self.assertEqual(m["type"], "review")
+        self.assertEqual(m["scene"], "selected")
+        self.assertEqual(m["width"], "1920")
+        self.assertEqual(m["theme"], "light")
+
+    def test_other_format_uses_stem_as_label(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("network-errors-list.png")
+        self.assertEqual(m["type"], "other")
+        self.assertEqual(m["label"], "network-errors-list")
+
+    def test_other_format_no_theme_suffix(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("my-scenario-overview.png")
+        self.assertEqual(m["type"], "other")
+        self.assertNotIn("scene", m)
+
+    def test_other_format_wrong_theme(self) -> None:
+        m = upload_screenshot.parse_screenshot_meta("foo-1280-purple.png")
+        self.assertEqual(m["type"], "other")
+
+
+class BuildCatalogEntriesTests(unittest.TestCase):
+    def test_review_entries_parsed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            imgs = [Path(tmp) / "requests-1280-dark.png"]
+            for p in imgs:
+                p.write_bytes(b"")
+            entries = upload_screenshot.build_catalog_entries(
+                imgs, "reviews/PRO-408", None
+            )
+        self.assertEqual(len(entries), 1)
+        e = entries[0]
+        self.assertEqual(e["type"], "review")
+        self.assertEqual(e["scene"], "requests")
+        self.assertEqual(e["width"], "1280")
+        self.assertEqual(e["theme"], "dark")
+        self.assertIn("reviews/PRO-408/requests-1280-dark.png", e["url"])
+
+    def test_entries_url_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            imgs = [Path(tmp) / "shot.png"]
+            imgs[0].write_bytes(b"")
+            entries = upload_screenshot.build_catalog_entries(
+                imgs, "bestiary/2026-06-15", None
+            )
+        self.assertEqual(
+            entries[0]["url"],
+            "https://protospy-dev-data.s3.amazonaws.com/bestiary/2026-06-15/shot.png",
+        )
+
+
+class GenerateCatalogHtmlTests(unittest.TestCase):
+    def test_html_contains_title(self) -> None:
+        html = upload_screenshot.generate_catalog_html([], "reviews · PRO-408")
+        self.assertIn("reviews · PRO-408", html)
+
+    def test_html_no_unresolved_placeholders(self) -> None:
+        html = upload_screenshot.generate_catalog_html([], "test")
+        self.assertNotIn("__TITLE__", html)
+        self.assertNotIn("__DATA_JSON__", html)
+
+    def test_html_embeds_entries_as_json(self) -> None:
+        entries = [{"type": "review", "scene": "foo", "width": "1280",
+                    "theme": "dark", "url": "https://example.com/foo.png",
+                    "filename": "foo-1280-dark.png"}]
+        html = upload_screenshot.generate_catalog_html(entries, "t")
+        self.assertIn('"scene"', html)
+        self.assertIn('"foo"', html)
+
+    def test_html_is_valid_document(self) -> None:
+        html = upload_screenshot.generate_catalog_html([], "t")
+        self.assertTrue(html.strip().startswith("<!DOCTYPE html>"))
+        self.assertIn("</html>", html)
+
+    def test_html_script_tag_safe(self) -> None:
+        """</script> in a value must not break the embedding script block."""
+        entries = [{"type": "other", "label": "</script><script>alert(1)</script>",
+                    "url": "https://example.com/x.png", "filename": "x.png"}]
+        html = upload_screenshot.generate_catalog_html(entries, "t")
+        self.assertNotIn("</script><script>", html)
+        self.assertIn("\\u003c/script\\u003e", html)
+
+
+class UploadCatalogTests(unittest.TestCase):
+    def test_catalog_uploads_to_index_html(self) -> None:
+        mock_client = MagicMock()
+        url = upload_screenshot.upload_catalog(
+            mock_client, "reviews/PRO-408", [], "test"
+        )
+        mock_client.put_object.assert_called_once()
+        call_kwargs = mock_client.put_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Bucket"], "protospy-dev-data")
+        self.assertEqual(call_kwargs["Key"], "reviews/PRO-408/index.html")
+        self.assertIn("text/html", call_kwargs["ContentType"])
+        self.assertEqual(
+            url,
+            "https://protospy-dev-data.s3.amazonaws.com/reviews/PRO-408/index.html",
+        )
+
+    def test_catalog_html_body_contains_title(self) -> None:
+        mock_client = MagicMock()
+        upload_screenshot.upload_catalog(mock_client, "b/date", [], "my title")
+        body = mock_client.put_object.call_args.kwargs["Body"]
+        self.assertIn(b"my title", body)
+
+
+class MainPrefixTests(unittest.TestCase):
+    def test_prefix_without_branch_succeeds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "shot.png"
+            img.write_bytes(b"")
+            mock_boto3 = MagicMock()
+            mock_boto3.client.return_value = MagicMock()
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    result = upload_screenshot.main([tmp, "--prefix", "reviews/PRO-408"])
+            self.assertEqual(result, 0)
+
+    def test_prefix_key_no_subdir(self) -> None:
+        """With --prefix, directory name is not appended to the S3 key."""
+        with tempfile.TemporaryDirectory() as tmp:
+            before_dir = Path(tmp) / "before"
+            before_dir.mkdir()
+            img = before_dir / "shot.png"
+            img.write_bytes(b"")
+            mock_boto3 = MagicMock()
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    upload_screenshot.main(
+                        [str(before_dir), "--prefix", "reviews/PRO-408"]
+                    )
+            uploaded_key = mock_client.upload_file.call_args.args[2]
+            self.assertEqual(uploaded_key, "reviews/PRO-408/shot.png")
+            self.assertNotIn("before", uploaded_key)
+
+    def test_branch_still_appends_subdir(self) -> None:
+        """--branch retains the subdir-in-key behavior for before/after namespacing."""
+        with tempfile.TemporaryDirectory() as tmp:
+            before_dir = Path(tmp) / "before"
+            before_dir.mkdir()
+            img = before_dir / "shot.png"
+            img.write_bytes(b"")
+            mock_boto3 = MagicMock()
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                with patch("sys.stdout", new_callable=io.StringIO):
+                    upload_screenshot.main(
+                        [str(before_dir), "--branch", "my-branch"]
+                    )
+            uploaded_key = mock_client.upload_file.call_args.args[2]
+            self.assertIn("before", uploaded_key)
+
+
+class MainCatalogTests(unittest.TestCase):
+    def test_catalog_flag_uploads_html_and_prints_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "requests-1280-dark.png"
+            img.write_bytes(b"")
+            mock_boto3 = MagicMock()
+            mock_client = MagicMock()
+            mock_boto3.client.return_value = mock_client
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                with patch("sys.stdout", new_callable=io.StringIO) as mock_out:
+                    result = upload_screenshot.main(
+                        [tmp, "--prefix", "reviews/PRO-408", "--catalog"]
+                    )
+            self.assertEqual(result, 0)
+            output = mock_out.getvalue()
+            self.assertIn("Catalog:", output)
+            self.assertIn("index.html", output)
+            # HTML uploaded via put_object
+            mock_client.put_object.assert_called_once()
+
+    def test_catalog_url_in_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "shot.png"
+            img.write_bytes(b"")
+            mock_boto3 = MagicMock()
+            mock_boto3.client.return_value = MagicMock()
+            with patch.dict("sys.modules", {"boto3": mock_boto3}):
+                with patch("sys.stdout", new_callable=io.StringIO) as mock_out:
+                    upload_screenshot.main(
+                        [tmp, "--prefix", "bestiary/2026-06-15", "--catalog"]
+                    )
+            output = mock_out.getvalue()
+            self.assertIn(
+                "https://protospy-dev-data.s3.amazonaws.com"
+                "/bestiary/2026-06-15/index.html",
+                output,
+            )
 
 
 if __name__ == "__main__":

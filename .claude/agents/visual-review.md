@@ -62,22 +62,22 @@ full sweep.
 
 Map changed files to components, scenes, widths, and rubric categories:
 
-| Changed files | Scenes to check | Widths | Rubric emphasis |
-|---------------|-----------------|--------|-----------------|
-| `src/components/ExchangeList*` | all list-visible scenes (most of them); especially `many-rows`, `table-mode`, `compact-rows`, `compact-table` | all 3 | layout, typography, responsive |
-| `src/components/Inspector*`, `src/components/BodySplit*`, `src/components/HeadersSplit*` | scenes with `selectedId` (`selected`, `error-row`, `long-uri`, `long-status`, `long-error`, `dual-size`) | 1440 baseline + 1280 if layout-sensitive | layout, typography |
-| `src/components/TopBar*`, `src/components/FilterBar*`, `src/components/CommandPalette*` | `empty`, `selected`, `many-rows` (toolbar always visible) | all 3 | layout, spacing, responsive |
-| `src/components/ContextBar*`, `src/components/StatusBar*` | scenes with `selectedId` (ContextBar); `empty`, `loading`, `many-rows` (StatusBar) | all 3 | layout, spacing, responsive |
-| `src/components/StreamView*`, `src/components/JsonViewer*`, `src/components/TimingView*` | scenes with `selectedId` and relevant body/tab content | 1440 baseline | layout, typography |
-| `src/theme/tailwind.css`, `src/theme/applyTheme*` | all scenes (global tokens) | all 3 | colour, contrast |
-| `src/lib/utils.ts` (formatters, matchers) | scenes that exercise the changed formatter (e.g. size formatting → `dual-size`; status formatting → `long-status`) | 1440 baseline | typography |
-| `src/components/ui/*` (shadcn primitives) | all scenes using the changed primitive | all 3 | component consistency |
-| `src/body/*`, `src/hooks/useDecodeBody*` | `selected`, `dual-size` | 1440 baseline | layout |
-| `src/state/*` | all scenes (store affects everything) | 1440 baseline | — (focus on render correctness) |
-| `src/api/*` | `empty`, `loading` | 1440 baseline | — (connection states) |
-| `src/components/anthropic/*`, stream/trace logic | `stream-anthropic`, `stream-anthropic-error`, `stream-live`, `stream-error` | 1440 baseline | layout, typography |
-| trace grouping / filtering changes | `trace-group`, `trace-filtered` | all 3 | layout, colour |
-| any other `src/components/*` | scenes most likely to render the component; when uncertain, **scan the full scene list** (`window.__test_scenes.list()`) and include every scene whose description plausibly exercises the change, falling back to `selected` + `empty` only if none clearly apply | 1440 baseline | layout, component consistency |
+| Changed files                                                                            | Scenes to check                                                                                                                                                                                                                                                    | Widths                                   | Rubric emphasis                 |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- | ------------------------------- |
+| `src/components/ExchangeList*`                                                           | all list-visible scenes (most of them); especially `many-rows`, `table-mode`, `compact-rows`, `compact-table`                                                                                                                                                      | all 3                                    | layout, typography, responsive  |
+| `src/components/Inspector*`, `src/components/BodySplit*`, `src/components/HeadersSplit*` | scenes with `selectedId` (`selected`, `error-row`, `long-uri`, `long-status`, `long-error`, `dual-size`)                                                                                                                                                           | 1440 baseline + 1280 if layout-sensitive | layout, typography              |
+| `src/components/TopBar*`, `src/components/FilterBar*`, `src/components/CommandPalette*`  | `empty`, `selected`, `many-rows` (toolbar always visible)                                                                                                                                                                                                          | all 3                                    | layout, spacing, responsive     |
+| `src/components/ContextBar*`, `src/components/StatusBar*`                                | scenes with `selectedId` (ContextBar); `empty`, `loading`, `many-rows` (StatusBar)                                                                                                                                                                                 | all 3                                    | layout, spacing, responsive     |
+| `src/components/StreamView*`, `src/components/JsonViewer*`, `src/components/TimingView*` | scenes with `selectedId` and relevant body/tab content                                                                                                                                                                                                             | 1440 baseline                            | layout, typography              |
+| `src/theme/tailwind.css`, `src/theme/applyTheme*`                                        | all scenes (global tokens)                                                                                                                                                                                                                                         | all 3                                    | colour, contrast                |
+| `src/lib/utils.ts` (formatters, matchers)                                                | scenes that exercise the changed formatter (e.g. size formatting → `dual-size`; status formatting → `long-status`)                                                                                                                                                 | 1440 baseline                            | typography                      |
+| `src/components/ui/*` (shadcn primitives)                                                | all scenes using the changed primitive                                                                                                                                                                                                                             | all 3                                    | component consistency           |
+| `src/body/*`, `src/hooks/useDecodeBody*`                                                 | `selected`, `dual-size`                                                                                                                                                                                                                                            | 1440 baseline                            | layout                          |
+| `src/state/*`                                                                            | all scenes (store affects everything)                                                                                                                                                                                                                              | 1440 baseline                            | — (focus on render correctness) |
+| `src/api/*`                                                                              | `empty`, `loading`                                                                                                                                                                                                                                                 | 1440 baseline                            | — (connection states)           |
+| `src/components/anthropic/*`, stream/trace logic                                         | `stream-anthropic`, `stream-anthropic-error`, `stream-live`, `stream-error`                                                                                                                                                                                        | 1440 baseline                            | layout, typography              |
+| trace grouping / filtering changes                                                       | `trace-group`, `trace-filtered`                                                                                                                                                                                                                                    | all 3                                    | layout, colour                  |
+| any other `src/components/*`                                                             | scenes most likely to render the component; when uncertain, **scan the full scene list** (`window.__test_scenes.list()`) and include every scene whose description plausibly exercises the change, falling back to `selected` + `empty` only if none clearly apply | 1440 baseline                            | layout, component consistency   |
 
 This table is an emphasis map, not an exhaustive scope filter. If a changed
 file matches no row, or matches only the catch-all, scan the full scene list and
@@ -85,12 +85,14 @@ pick every scene that plausibly renders the changed code — do not skip a chang
 just because no row names it.
 
 **Width rules:**
+
 - Changes to layout, responsive, or split-pane code → all 3 widths
 - Changes to a single component that doesn't vary with viewport → 1440
   baseline only
 - When uncertain → include 1280 (minimum supported) and 1440
 
 **Rubric rules:**
+
 - Spacing/layout changes → emphasize layout, spacing, responsive
 - Colour/token changes → emphasize colour, contrast, dark mode
 - Typography/font changes → emphasize typography, hierarchy
@@ -148,6 +150,7 @@ playwright-cli goto http://localhost:<port>/  # navigate to the app
 ### Dev server vs preview build
 
 The fixture matrix requires `window.__test_scenes`, which is available in:
+
 - **Dev server** (`pnpm dev` from `ui/`): test hooks enabled by default
 - **Test-mode preview** (`pnpm build:test && pnpm preview --port <port>`):
   test hooks enabled via `VITE_EXPOSE_TEST_HOOKS=true`
@@ -164,11 +167,11 @@ The fixture matrix is exposed on the page as `window.__test_scenes`:
 
 ```typescript
 interface SceneHarness {
-  list(): SceneMeta[];           // all scenes in matrix order
-  widths: readonly number[];     // [1280, 1440, 1920]
-  apply(id: string): boolean;    // reset store + inject scene; false if unknown
+  list(): SceneMeta[]; // all scenes in matrix order
+  widths: readonly number[]; // [1280, 1440, 1920]
+  apply(id: string): boolean; // reset store + inject scene; false if unknown
   applyAndSettle(id: string, settleMs?: number): Promise<boolean>;
-    // apply + wait in a single async call (saves an IPC round-trip)
+  // apply + wait in a single async call (saves an IPC round-trip)
 }
 ```
 
@@ -235,6 +238,7 @@ For each scene within a batch, use `applyAndSettle` — it combines
 subprocess round-trip per scene:
 
 1. **Apply the scene and wait for render:**
+
    ```bash
    playwright-cli eval "window.__test_scenes.applyAndSettle('<scene-id>')"
    ```
@@ -269,9 +273,9 @@ theme" for the next batch's target theme.
 
 Save screenshots to the **screenshots directory the caller gives you** in the
 spawn prompt. It is ticket-scoped and temporary (screenshots are scratch for
-the review, not round artifacts):
-`~/obsidian/protospy/Claude/Reviews/screenshots/<ticket>/`. This is the value
-referred to as `<screenshots-dir>` throughout this document.
+the review, not round artifacts), stored under `scratch/screenshots/<ticket>/`
+in the worktree root. This is the value referred to as `<screenshots-dir>`
+throughout this document.
 
 If the caller did not provide one, compute it with the shared path helper —
 which also creates the directory and prints `screenshots=<dir>`:
@@ -280,9 +284,9 @@ which also creates the directory and prints `screenshots=<dir>`:
 scripts/agents/review-paths <ticket> --screenshots   # with a ticket
 ```
 
-For an ad-hoc run with no ticket, fall back to
-`~/obsidian/protospy/Claude/Reviews/screenshots/_adhoc/` and `mkdir -p` it
-yourself. Name files within the directory:
+For an ad-hoc run with no ticket, fall back to `scratch/screenshots/_adhoc/`
+(relative to the git root) and `mkdir -p` it yourself. Name files within the
+directory:
 
 ```
 <scene-id>-<width>-dark.png     # e.g. selected-1440-dark.png
@@ -302,6 +306,7 @@ injecting the scene, perform the interaction before screenshotting:
 ### Listing scenes
 
 To get the full scene list from the running page:
+
 ```bash
 playwright-cli eval "JSON.stringify(window.__test_scenes.list(), null, 2)"
 ```
@@ -311,6 +316,7 @@ playwright-cli eval "JSON.stringify(window.__test_scenes.list(), null, 2)"
 Apply the in-scope rubric categories plus the DoD requirements:
 
 ### DoD checks (protospy-specific) — always apply
+
 - **Clipping affordances**: any truncated text must have a tooltip or expand
   affordance. Silent cut-off is a defect.
 - **Pane bounds**: list pane respects min/max width. No wasted space at
@@ -321,6 +327,7 @@ Apply the in-scope rubric categories plus the DoD requirements:
 - **Keyboard/focus**: focus rings visible, focus order sane.
 
 ### Design-review rubric (apply in-scope categories)
+
 1. Layout and spacing — consistent gaps, alignment, breathing room
 2. Typography — hierarchy, line length, font sizes, weight usage, truncation
 3. Colour and contrast — semantic tokens, contrast ratio, dark mode
@@ -330,10 +337,36 @@ Apply the in-scope rubric categories plus the DoD requirements:
 7. Responsive quality — split ratio, column sizing, status bar
 
 ### What to note
+
 - Scene-specific issues (does the cell render what its `description` says?)
 - Cross-cell issues (inconsistency between scenes or widths)
 - Regression signals (something that looks wrong compared to what the
   description expects)
+
+## Upload screenshots to S3
+
+After Phase 1 completes (all screenshots on disk) and before dispatching
+Phase 2 assessment subagents, check whether the calling prompt includes an
+S3 prefix directive of the form:
+
+> S3 prefix: `<prefix>`
+
+If a prefix is present, run:
+
+```bash
+scripts/agents/upload-screenshot <screenshots-dir> \
+  --prefix "<prefix>" --catalog
+```
+
+Capture the output. The last line will be:
+
+```
+Catalog: https://protospy-dev-data.s3.amazonaws.com/<prefix>/index.html
+```
+
+Store the catalog URL — include it in the findings report under a
+`## Catalog` heading (see Output format below). If no prefix is given,
+skip this step; do not upload.
 
 ## Output format
 
@@ -388,7 +421,7 @@ themes: [dark, light]
 ## Scene Coverage
 
 | Scene | <width1> | <width2> | ... | Notes |
-|-------|----------|----------|-----|-------|
+| ----- | -------- | -------- | --- | ----- |
 | ...   | ✓/✗/—    | ✓/✗/—    |     |       |
 
 (Use — for scenes/widths that were out of scope.)
@@ -402,6 +435,10 @@ themes: [dark, light]
 1. [highest visual impact change]
 2. [second]
 3. [third]
+
+## Catalog
+
+[Catalog URL from upload step, or omit section if no S3 prefix was provided]
 ```
 
 ## Managing context — batch screenshots to subagents
@@ -515,7 +552,7 @@ On a follow-up message (received via `SendMessage` after the initial run):
    is asking about something specific — honour that directly. Do not
    re-derive scope from `git diff`. The "both themes are always checked"
    invariant still holds unless the follow-up explicitly narrows to one theme:
-   a follow-up that names a scene/width but not a theme means *both* themes at
+   a follow-up that names a scene/width but not a theme means _both_ themes at
    that scene/width.
 2. **Do not re-read references.** The DoD, scenes, and architecture are
    already in context from the initial run.

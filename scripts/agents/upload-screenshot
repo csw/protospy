@@ -8,18 +8,32 @@
 """Upload screenshots to S3 and print Markdown image embeds.
 
 Usage:
-    upload-screenshot <path> --branch BRANCH
+    upload-screenshot <path> --branch BRANCH [--catalog]
+    upload-screenshot <path> --prefix PREFIX [--catalog]
 
 <path> may be a single image file or a directory. For a directory, all
 image files (*.png, *.jpg, *.jpeg, *.webp) directly inside it are uploaded
-(non-recursive). Prints one Markdown image embed string per file:
+(non-recursive).
 
-    ![filename](https://protospy-dev-data.s3.amazonaws.com/screenshots/pr-BRANCH/filename)
+--branch BRANCH   Use 'screenshots/pr-<BRANCH>/<subdir>/<file>' as the S3 key.
+                  The directory name is appended as a subdir so that before/
+                  and after/ uploads don't collide under the same branch.
+--prefix PREFIX   Use '<PREFIX>/<file>' as the S3 key. Suppresses the subdir —
+                  the prefix already encodes the full path. Mutually exclusive
+                  with --branch.
+--catalog         After uploading images, also generate and upload a self-
+                  contained HTML catalog page to '<prefix>/index.html'.
+                  Prints 'Catalog: <url>' after the per-file embed strings.
+
+Prints one Markdown image embed string per file:
+    ![filename](https://protospy-dev-data.s3.amazonaws.com/<key>)
 """
 
 from __future__ import annotations
 
 import argparse
+import html as html_module
+import json
 import re
 import sys
 from pathlib import Path
@@ -35,6 +49,155 @@ CONTENT_TYPES = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
 }
+
+# Matches {scene}-{width}-{theme}.ext  (review screenshot convention)
+_REVIEW_RE = re.compile(
+    r"^(?P<scene>.+)-(?P<width>\d{3,4})-(?P<theme>light|dark)\.[^.]+$"
+)
+
+# HTML template — placeholders replaced via str.replace, not str.format,
+# so JS template literals (${...}) are safe inside this string.
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f0f;--surface:#181818;--border:#282828;
+  --text:#e2e2e2;--muted:#555;
+  --accent:#e8a020;--accent-dim:rgba(232,160,32,.08);
+  --mono:'Cascadia Code','Fira Code','SF Mono',ui-monospace,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{display:flex;align-items:center;padding:0 1rem;height:44px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;gap:1.5rem}
+.site-title{font-family:var(--mono);font-size:.71rem;color:var(--muted);
+  letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+.controls{display:flex;align-items:center;gap:1.25rem;margin-left:auto;flex-shrink:0}
+.ctrl{display:flex;align-items:center;gap:.4rem}
+.ctrl-label{font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.pill{padding:.2rem .55rem;border:1px solid var(--border);border-radius:3px;
+  background:transparent;color:var(--muted);font-family:var(--mono);font-size:.7rem;
+  cursor:pointer;transition:border-color .1s,color .1s,background .1s;white-space:nowrap}
+.pill:hover{border-color:var(--accent);color:var(--text)}
+.pill.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.layout{display:flex;flex:1;min-height:0}
+nav{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;padding:.4rem 0}
+.s-item{display:block;width:100%;padding:.38rem .875rem;background:none;border:none;
+  border-left:2px solid transparent;color:var(--muted);font-family:var(--mono);
+  font-size:.72rem;text-align:left;cursor:pointer;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:color .1s}
+.s-item:hover{color:var(--text)}
+.s-item.on{border-left-color:var(--accent);color:var(--text);background:var(--accent-dim)}
+main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:1.25rem;overflow:auto}
+#viewer-img{max-width:100%;max-height:100%;object-fit:contain;
+  border:1px solid var(--border);border-radius:4px;cursor:zoom-in}
+.none-msg{font-family:var(--mono);font-size:.78rem;color:var(--muted);
+  border:1px dashed var(--border);padding:1.5rem 2.5rem;border-radius:4px;text-align:center}
+.lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;
+  cursor:zoom-out;align-items:center;justify-content:center}
+.lb.open{display:flex}
+.lb img{max-width:98vw;max-height:98vh;object-fit:contain}
+.off{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <span class="site-title">__TITLE__</span>
+  <div class="controls">
+    <div class="ctrl" id="theme-ctrl">
+      <span class="ctrl-label">Theme</span>
+      <button class="pill" data-d="theme" data-v="light">light</button>
+      <button class="pill on" data-d="theme" data-v="dark">dark</button>
+    </div>
+    <div class="ctrl" id="width-ctrl">
+      <span class="ctrl-label">Width</span>
+    </div>
+  </div>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main>
+    <img id="viewer-img" class="off" src="" alt="">
+    <div id="none-msg" class="none-msg off">not captured</div>
+  </main>
+</div>
+<div class="lb" id="lb"><img id="lb-img" src="" alt=""></div>
+<script>
+const DATA = __DATA_JSON__;
+const idx = new Map(), scenes = [], widths = new Set();
+let isReview = false;
+for (const e of DATA) {
+  if (e.type === 'review') {
+    isReview = true;
+    idx.set(`${e.scene}|${e.width}|${e.theme}`, e.url);
+    if (!scenes.includes(e.scene)) scenes.push(e.scene);
+    widths.add(e.width);
+  } else {
+    idx.set(e.label, e.url);
+    if (!scenes.includes(e.label)) scenes.push(e.label);
+  }
+}
+let scene = scenes[0] ?? null, theme = 'dark';
+let width = widths.has('1440') ? '1440' : [...widths].sort()[0] ?? '';
+const nav = document.getElementById('nav');
+for (const s of scenes) {
+  const b = document.createElement('button');
+  b.className = 's-item'; b.textContent = s; b.dataset.scene = s;
+  b.addEventListener('click', () => { scene = s; render(); });
+  nav.appendChild(b);
+}
+const wCtrl = document.getElementById('width-ctrl');
+if (!isReview || widths.size === 0) {
+  wCtrl.style.display = 'none';
+} else {
+  for (const w of [...widths].sort()) {
+    const b = document.createElement('button');
+    b.className = 'pill' + (w === width ? ' on' : '');
+    b.dataset.d = 'width'; b.dataset.v = w; b.textContent = w;
+    wCtrl.appendChild(b);
+  }
+}
+if (!isReview) document.getElementById('theme-ctrl').style.display = 'none';
+document.querySelector('.controls').addEventListener('click', e => {
+  const b = e.target.closest('[data-d]'); if (!b) return;
+  if (b.dataset.d === 'theme') theme = b.dataset.v;
+  if (b.dataset.d === 'width') width = b.dataset.v;
+  document.querySelectorAll(`[data-d="${b.dataset.d}"]`).forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); render();
+});
+const imgEl = document.getElementById('viewer-img');
+const noneEl = document.getElementById('none-msg');
+const lb = document.getElementById('lb'), lbImg = document.getElementById('lb-img');
+imgEl.addEventListener('click', () => { lbImg.src = imgEl.src; lb.classList.add('open'); });
+lb.addEventListener('click', () => lb.classList.remove('open'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('open'); });
+function render() {
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('on', b.dataset.scene === scene));
+  const url = isReview ? idx.get(`${scene}|${width}|${theme}`) : idx.get(scene);
+  if (url) {
+    imgEl.src = url; imgEl.alt = scene;
+    imgEl.classList.remove('off'); noneEl.classList.add('off');
+  } else {
+    imgEl.classList.add('off'); noneEl.classList.remove('off');
+    noneEl.textContent = isReview
+      ? `not captured: ${scene} @ ${width}px ${theme}`
+      : 'not captured';
+  }
+}
+render();
+</script>
+</body>
+</html>
+"""
 
 
 def branch_slug(branch: str) -> str:
@@ -68,19 +231,87 @@ def collect_images(path: Path) -> tuple[list[Path], str | None]:
     raise SystemExit(f"error: {path}: no such file or directory")
 
 
-def upload(images: list[Path], slug: str, subdir: str | None) -> list[str]:
-    import boto3  # noqa: PLC0415
+def parse_screenshot_meta(filename: str) -> dict:
+    """Parse scene metadata from a screenshot filename.
 
-    s3 = boto3.client("s3")
+    Review format:  {scene}-{width}-{theme}.ext  → type=review, scene, width, theme
+    Other format:   anything else                 → type=other, label=stem
+    """
+    m = _REVIEW_RE.match(filename)
+    if m:
+        return {
+            "type": "review",
+            "scene": m.group("scene"),
+            "width": m.group("width"),
+            "theme": m.group("theme"),
+        }
+    return {"type": "other", "label": Path(filename).stem}
+
+
+def image_key(prefix: str, subdir: str | None, filename: str) -> str:
+    parts = [prefix]
+    if subdir:
+        parts.append(subdir)
+    parts.append(filename)
+    return "/".join(parts)
+
+
+def build_catalog_entries(
+    images: list[Path], prefix: str, subdir: str | None
+) -> list[dict]:
+    entries = []
+    for image in images:
+        key = image_key(prefix, subdir, image.name)
+        url = s3_url(BUCKET, key)
+        meta = parse_screenshot_meta(image.name)
+        entries.append({"url": url, "filename": image.name, **meta})
+    return entries
+
+
+def _html_safe_json(obj) -> str:
+    """Serialize to JSON safe for embedding in an HTML <script> tag.
+
+    json.dumps does not escape '<', '>', or '&', so a value containing
+    '</script>' would prematurely terminate the script block.  Unicode-escaping
+    those three characters keeps the output valid JSON (JavaScript also accepts
+    \\uXXXX literals) without requiring an HTML-aware post-processor.
+    """
+    return (
+        json.dumps(obj, separators=(",", ":"))
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
+def generate_catalog_html(entries: list[dict], title: str) -> str:
+    safe_title = html_module.escape(title)
+    data_json = _html_safe_json(entries)
+    return (
+        HTML_TEMPLATE
+        .replace("__TITLE__", safe_title)
+        .replace("__DATA_JSON__", data_json)
+    )
+
+
+def upload_catalog(s3_client, prefix: str, entries: list[dict], title: str) -> str:
+    html = generate_catalog_html(entries, title)
+    key = f"{prefix}/index.html"
+    s3_client.put_object(
+        Bucket=BUCKET,
+        Key=key,
+        Body=html.encode("utf-8"),
+        ContentType="text/html; charset=utf-8",
+    )
+    return s3_url(BUCKET, key)
+
+
+def upload(s3_client, images: list[Path], prefix: str, subdir: str | None) -> list[str]:
     embeds = []
     for image in images:
-        key_parts = [KEY_PREFIX, f"pr-{slug}"]
-        if subdir:
-            key_parts.append(subdir)
-        key_parts.append(image.name)
-        key = "/".join(key_parts)
+        key = image_key(prefix, subdir, image.name)
         content_type = CONTENT_TYPES.get(image.suffix.lower(), "image/png")
-        s3.upload_file(
+        s3_client.upload_file(
             str(image),
             BUCKET,
             key,
@@ -95,23 +326,49 @@ def main(argv: list[str] | None = None) -> int:
         description="Upload screenshot(s) to S3 and print Markdown image embeds."
     )
     parser.add_argument("path", help="image file or directory of images to upload")
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--branch",
-        required=True,
-        help="branch/PR identifier for the S3 key prefix",
+        help="branch/PR identifier — builds key 'screenshots/pr-<slug>/<subdir>/<file>'",
+    )
+    group.add_argument(
+        "--prefix",
+        help="explicit S3 key prefix — builds key '<prefix>/<file>' (suppresses subdir)",
+    )
+    parser.add_argument(
+        "--catalog",
+        action="store_true",
+        help="also generate and upload an HTML catalog page to '<prefix>/index.html'",
     )
     args = parser.parse_args(argv)
 
     path = Path(args.path)
-    slug = branch_slug(args.branch)
     images, subdir = collect_images(path)
     if not images:
         print("no images found", file=sys.stderr)
         return 1
 
-    embeds = upload(images, slug, subdir)
+    if args.prefix:
+        prefix = args.prefix
+        effective_subdir = None  # prefix encodes the full path; don't append dir name
+    else:
+        slug = branch_slug(args.branch)
+        prefix = f"{KEY_PREFIX}/pr-{slug}"
+        effective_subdir = subdir
+
+    import boto3  # noqa: PLC0415
+
+    s3 = boto3.client("s3")
+    embeds = upload(s3, images, prefix, effective_subdir)
     for embed in embeds:
         print(embed)
+
+    if args.catalog:
+        title = prefix.replace("/", " · ")
+        entries = build_catalog_entries(images, prefix, effective_subdir)
+        cat_url = upload_catalog(s3, prefix, entries, title)
+        print(f"Catalog: {cat_url}")
+
     return 0
 
 

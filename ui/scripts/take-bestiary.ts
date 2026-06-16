@@ -20,7 +20,7 @@
  */
 
 import { chromium, type Browser, type Page } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
@@ -46,8 +46,15 @@ import {
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const UI_DIR = path.resolve(__dirname, "..");
+const REPO_ROOT = path.resolve(UI_DIR, "..");
 const VITE_BIN = path.join(UI_DIR, "node_modules", ".bin", "vite");
 const VITE_CONFIG = path.join(UI_DIR, "scripts", "vite.screenshots.config.ts");
+const UPLOAD_SCRIPT = path.join(
+  REPO_ROOT,
+  "scripts",
+  "agents",
+  "upload-screenshot",
+);
 
 const DEFAULT_OUT = path.join(
   os.homedir(),
@@ -670,9 +677,18 @@ async function runScenario(
   };
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Subcommands ──────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
+function uploadToS3(date: string): void {
+  console.log("\n▸ Uploading to S3…");
+  execFileSync(
+    UPLOAD_SCRIPT,
+    [OUT_DIR, "--prefix", `bestiary/${date}`, "--catalog"],
+    { stdio: "inherit", cwd: REPO_ROOT },
+  );
+}
+
+async function runGenerate(doUpload: boolean): Promise<void> {
   await mkdir(OUT_DIR, { recursive: true });
   console.log(`Output directory: ${OUT_DIR}`);
 
@@ -712,6 +728,28 @@ async function main(): Promise<void> {
   const catalogPath = path.join(OUT_DIR, "bestiary.md");
   await writeFile(catalogPath, md, "utf8");
   console.log(`\n✓ Catalog: ${catalogPath}`);
+
+  if (doUpload) {
+    uploadToS3(today);
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const subcommand = args.find((a) => !a.startsWith("--")) ?? "generate";
+
+  if (subcommand === "upload") {
+    const dateArg = args.find((a) => a.startsWith("--date="))?.slice(7);
+    const date = dateArg ?? new Date().toISOString().slice(0, 10);
+    uploadToS3(date);
+  } else if (subcommand === "generate") {
+    await runGenerate(args.includes("--upload"));
+  } else {
+    console.error(
+      `Unknown subcommand: ${subcommand}. Use 'generate' or 'upload'.`,
+    );
+    process.exit(1);
+  }
 }
 
 // ─── Entry point ──────────────────────────────────────────────────────────────

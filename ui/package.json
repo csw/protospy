@@ -21,7 +21,7 @@
     "test:browser": "playwright test",
     "test:browser:headed": "playwright test --headed",
     "screenshots": "tsx scripts/take-screenshots.ts",
-    "screenshots:bestiary": "tsx scripts/take-bestiary.ts",
+    "screenshots:bestiary": "tsx scripts/take-bestiary.ts generate --upload",
     "coverage:ratchet": "tsx scripts/ratchet-coverage.ts"
   },
   "dependencies": {

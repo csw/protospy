@@ -100,7 +100,9 @@ max_round() {
 }
 
 screenshots_dir() {
-	printf '%s/screenshots/%s' "$REVIEWS_BASE" "$1"
+	local repo_root
+	repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+	printf '%s/scratch/screenshots/%s' "$repo_root" "$1"
 }
 
 emit_round() {
