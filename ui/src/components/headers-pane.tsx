@@ -193,29 +193,6 @@ export function HeadersPane({
                             <span className="min-w-0 flex-1 [font-variant-ligatures:none]">
                               {shown}
                             </span>
-                            {isMaskable && (
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={() =>
-                                  setReveal(
-                                    view === null
-                                      ? { row: origIdx, view: "raw" }
-                                      : null,
-                                  )
-                                }
-                                aria-label={
-                                  view === null ? "Reveal value" : "Hide value"
-                                }
-                                className="shrink-0 text-muted-foreground"
-                              >
-                                {view === null ? (
-                                  <Eye className="size-3" />
-                                ) : (
-                                  <EyeOff className="size-3" />
-                                )}
-                              </Button>
-                            )}
                             {isMaskable &&
                               decoded !== null &&
                               view !== null && (
@@ -238,12 +215,29 @@ export function HeadersPane({
                                   <Braces />
                                 </Toggle>
                               )}
+                            {isMaskable && (
+                              <Toggle
+                                size="icon-xs"
+                                pressed={view !== null}
+                                onPressedChange={(on) =>
+                                  setReveal(
+                                    on ? { row: origIdx, view: "raw" } : null,
+                                  )
+                                }
+                                aria-label={
+                                  view === null ? "Reveal value" : "Hide value"
+                                }
+                                className="shrink-0"
+                              >
+                                {view === null ? <Eye /> : <EyeOff />}
+                              </Toggle>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon-xs"
                               onClick={() => copyValue(origIdx, copyTarget)}
                               aria-label={`Copy ${h.name} value`}
-                              className="invisible shrink-0 text-muted-foreground group-hover:visible focus-visible:visible"
+                              className="invisible shrink-0 text-muted-foreground transition-none group-hover:visible focus-visible:visible"
                             >
                               {copiedRow === origIdx ? (
                                 <Check className="size-3 text-ok" />
