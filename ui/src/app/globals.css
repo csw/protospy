@@ -170,6 +170,9 @@
   --statusbar-h: 24px;
   --tab-h: 32px; /* inspector tab-bar height; for pane-head strips use --strip-h */
   --strip-h: 32px; /* chrome sub-header strips (pane heads, list toolbar, trace-group header) */
+  --toggle-item-h: calc(
+    var(--strip-h) - 14px
+  ); /* strip-hosted toggle item: leaves a 7px margin top+bottom, tracks --strip-h across densities */
   --ctxbar-h: 50px;
 
   --pad-x: 12px;
@@ -376,6 +379,7 @@
   --spacing-statusbar: var(--statusbar-h);
   --spacing-tab: var(--tab-h);
   --spacing-strip: var(--strip-h);
+  --spacing-toggle-item: var(--toggle-item-h);
   --spacing-ctxbar: var(--ctxbar-h);
   --spacing-gutter-x: var(--pad-x);
   --spacing-gutter-y: var(--pad-y);

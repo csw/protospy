@@ -6,9 +6,10 @@
 // including the two-mode kinds (image, text, JSON-without-text) and binary,
 // whose lone selectable mode is `hex` (summary is the implicit default, so the
 // group renders a single deselectable "Hex" item: pressing it shows hex,
-// pressing again returns to the summary default). The group sits on a `bg-input`
-// track so it reads as a control against the `bg-secondary` header strip rather
-// than blending into it.
+// pressing again returns to the summary default). The group overrides
+// ToggleGroup's default `bg-secondary` with a `bg-border` track so it reads as a
+// recessed control against the `bg-secondary` header strip rather than blending
+// into it.
 //
 // Overflow collapsing (spec §"Overflow"): NOT implemented yet, by design. Every
 // content kind in scope tops out at three short toggles (Tree·Text·Hex), and in
@@ -61,16 +62,17 @@ export function BodyModeSelector({
       onValueChange={(v) => onSelect((v as ViewMode) || null)}
       size="sm"
       aria-label="Body view mode"
-      className={cn("bg-input", className)}
+      className={cn("bg-border", className)}
     >
       {modes.map((mode) => (
         <ToggleGroupItem
           key={mode}
           value={mode}
-          // Shorter than the default sm height so the `bg-input` track clears
-          // the 32px strip with visible margin top and bottom — without it the
-          // group nearly fills the strip and the recess reads as flush.
-          className="h-[18px] min-w-0 px-2 text-xs"
+          // Shorter than the default sm height so the `bg-border` track clears
+          // the strip with visible margin top and bottom — without it the group
+          // nearly fills the strip and the recess reads as flush. `h-toggle-item`
+          // tracks `--strip-h` across densities (see globals.css).
+          className="h-toggle-item min-w-0 px-2 text-xs"
         >
           {MODE_LABELS[mode]}
         </ToggleGroupItem>

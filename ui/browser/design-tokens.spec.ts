@@ -189,6 +189,50 @@ test.describe("design token fidelity", () => {
     expect(paneHeadCompact.height).toBe(paneHeadCompact.stripToken);
   });
 
+  test("body view-mode toggle item tracks the --toggle-item-h token across densities", async ({
+    page,
+  }) => {
+    // The selector item height is h-toggle-item → --toggle-item-h = calc(
+    // --strip-h - 14px) (18px regular / 14px compact). Derive the expectation
+    // from the resolved --strip-h rather than a literal, so the assertion follows
+    // the strip if it diverges or density changes — the coupling the review
+    // flagged. (getPropertyValue returns the unresolved calc() string for the
+    // token itself, so we compute the expected value from --strip-h.)
+    await applyScene(page, "selected");
+
+    const readItem = () =>
+      page.getByText("Tree", { exact: true }).evaluate((el) => {
+        const strip = parseInt(
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--strip-h")
+            .trim(),
+          10,
+        );
+        return {
+          height: getComputedStyle(el).height,
+          expected: `${strip - 14}px`,
+        };
+      });
+
+    const regular = await readItem();
+    expect(regular.expected).toBe("18px");
+    expect(regular.height).toBe(regular.expected);
+
+    await page.evaluate(() => {
+      (
+        window as unknown as {
+          __test_store: { getState: () => { setDensity: (d: string) => void } };
+        }
+      ).__test_store
+        .getState()
+        .setDensity("compact");
+    });
+
+    const compact = await readItem();
+    expect(compact.expected).toBe("14px");
+    expect(compact.height).toBe(compact.expected);
+  });
+
   test("filter input uses the scaffold's transparent chrome treatment", async ({
     page,
   }) => {

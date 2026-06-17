@@ -250,13 +250,15 @@ export function BodyPane({
     return result.rawText;
   }, [result, resolved]);
 
-  // Image (non-hex) copies the raw bytes as an image; non-image binary has
-  // nothing meaningful to copy; everything else copies the active view's text.
+  // Hex mode copies the dump for any kind; otherwise an image copies its raw
+  // bytes, non-image binary has nothing meaningful to copy, and everything else
+  // copies the active view's text.
   const copyButton =
-    result == null || body == null ? null : resolved !== "hex" &&
-      result.kind === "image" ? (
+    result == null || body == null ? null : resolved === "hex" ? (
+      <CopyButton value={copyText} />
+    ) : result.kind === "image" ? (
       <CopyButton image={{ bytes: result.bytes, type: result.mediaType }} />
-    ) : resolved !== "hex" && result.kind === "binary" ? null : (
+    ) : result.kind === "binary" ? null : (
       <CopyButton value={copyText} />
     );
 
