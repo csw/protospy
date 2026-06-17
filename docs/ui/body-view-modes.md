@@ -20,9 +20,6 @@ supertype — the set is small enough that a union is clearer.
 | `tree`      | Tree         | JSON/NDJSON collapsible tree viewer (virtualized)                  |
 | `formatted` | Formatted    | Syntax-highlighted, indented source (HTML, XML)                    |
 | `rendered`  | Rendered     | Inline media rendering (images; eventually PDF, SVG)               |
-| `paired`    | Paired       | Elasticsearch msearch request/response pairing                     |
-| `sse`       | Events       | SSE event list (generic `text/event-stream`)                       |
-| `anthropic` | Transcript   | Anthropic-protocol chat transcript view                            |
 | `text`      | Text         | Plain decoded Unicode text with line numbers (virtualized)         |
 | `hex`       | Hex          | Hex + ASCII dump, 16 bytes/row (virtualized)                       |
 | `summary`   | _(no label)_ | Content-type + size + download button; the "nothing to show" state |
@@ -46,12 +43,13 @@ existing kinds (json, ndjson, text, binary) expand to:
 | xml    | `text/xml`, `application/xml`, `application/soap+xml`, `application/rss+xml`, `application/atom+xml`, and similar                                      |
 | image  | `image/*`                                                                                                                                              |
 | text   | All `text/*` not classified above, plus known textual `application/*` types (csv, javascript, yaml, toml, graphql, x-www-form-urlencoded); see PRO-415 |
-| sse    | `text/event-stream`                                                                                                                                    |
 | binary | Everything else                                                                                                                                        |
 
-Protocol-level overrides (msearch detection, Anthropic stream detection) layer
-on top of content-kind classification — they add modes to the available set
-rather than changing the kind.
+SSE responses (`text/event-stream`) and msearch paired views are **not** covered
+by this spec — they use separate rendering paths (`StreamView`/`ChatStreamView`
+and the Inspector-level Pairs tab respectively) that bypass BodyPane entirely.
+The mode selector does not appear on those response panes. The request side of
+an SSE or msearch exchange is a normal body and gets the mode selector.
 
 ### Text predicate
 
@@ -85,26 +83,12 @@ availability depends on the text predicate above.
 | xml    | formatted, text\*, hex | formatted |
 | image  | rendered, hex          | rendered  |
 | text   | text, hex              | text      |
-| sse    | sse, text\*, hex       | sse       |
 | binary | summary, hex           | summary   |
 
 \* Text is available when the text predicate is satisfied (almost always true
 for these kinds, since they arrive as text chunks from the proxy; the predicate
 matters for edge cases like a `text/html` body with a non-UTF-8 charset sent as
 binary chunks).
-
-### Protocol-specific mode additions
-
-Protocol detection adds modes to the base set — it does not replace it:
-
-| Protocol signal                 | Added mode  | Condition                                              |
-| ------------------------------- | ----------- | ------------------------------------------------------ |
-| ES msearch URI (`_msearch`)     | `paired`    | Body kind is json or ndjson                            |
-| Anthropic SSE content detection | `anthropic` | Body kind would be sse; Anthropic event types detected |
-
-When protocol modes are added, the base modes remain available. An ES msearch
-body offers: tree, paired, text, hex. An Anthropic SSE body offers: sse,
-anthropic, text, hex.
 
 ---
 
@@ -117,15 +101,12 @@ explicit selection.
 
 | Mode      | Precedence | Rationale                                                   |
 | --------- | ---------- | ----------------------------------------------------------- |
-| tree      | 10         | The natural view for structured data                        |
-| formatted | 10         | The natural view for markup                                 |
-| rendered  | 10         | The natural view for media                                  |
-| sse       | 10         | The natural view for event streams                          |
-| paired    | 20         | Specialized; tree is more expected as a default for JSON    |
-| anthropic | 20         | Specialized; generic SSE view is more expected as a default |
-| text      | 30         | Fallback for "it's text but we don't have a richer view"    |
-| hex       | 40         | Power-user opt-in                                           |
-| summary   | 50         | Implicit; wins only when nothing else is available          |
+| tree      | 10         | The natural view for structured data                     |
+| formatted | 10         | The natural view for markup                              |
+| rendered  | 10         | The natural view for media                               |
+| text      | 30         | Fallback for "it's text but we don't have a richer view" |
+| hex       | 40         | Power-user opt-in                                        |
+| summary   | 50         | Implicit; wins only when nothing else is available       |
 
 Tie-breaking (precedence 10 ties): not expected in practice — each content kind
 enables at most one precedence-10 mode. If a tie occurs, the mode listed first
@@ -142,7 +123,7 @@ selections. The store holds mode state per direction.
 ### Store shape
 
 ```typescript
-// Replaces the current single `bodyViewMode: BodyViewMode`
+// Replaces the current single `bodyViewMode: BodyViewMode` (session state, not persisted)
 interface BodyModeState {
   requestViewMode: ViewMode | null; // null = use default for content kind
   responseViewMode: ViewMode | null;
@@ -152,9 +133,6 @@ type ViewMode =
   | "tree"
   | "formatted"
   | "rendered"
-  | "paired"
-  | "sse"
-  | "anthropic"
   | "text"
   | "hex";
 // "summary" is not in ViewMode — it is the implicit fallback, not a user selection
@@ -175,8 +153,8 @@ strip. The selector shows only the modes available for that pane's content kind.
 
 ### Overflow
 
-When space is constrained (e.g. ES msearch with four available modes: tree,
-paired, text, hex), the selector should collapse lower-precedence modes behind
+When space is constrained (e.g. a content kind with four available modes), the
+selector should collapse lower-precedence modes behind
 an overflow menu (ellipsis or similar affordance). The first N modes that fit are
 shown as direct toggle buttons; the rest are in the overflow dropdown. The exact
 breakpoint is an implementation detail, but the pattern is: **primary modes
