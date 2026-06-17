@@ -24,6 +24,10 @@ const SKEW_THRESHOLD = 0.6;
  * - viewMode is null (default) AND the content type is a plain text type that
  *   defaults to text view (text/* excluding event-stream, html, xml — those
  *   have richer dedicated modes).
+ *
+ * Keep in sync with the actual default-mode selection in BodyPane/useDecodeBody:
+ * if a new content type gains a dedicated renderer, add it to the exclusion list
+ * here so the split heuristic doesn't over-allocate space for it.
  */
 export function isTextMode(
   body: BodyState | undefined,

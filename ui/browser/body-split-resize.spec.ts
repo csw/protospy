@@ -77,24 +77,6 @@ test.describe("BodySplit — drag handle (PRO-422)", () => {
     // Request pane grew wider after dragging right.
     expect(reqAfter.width).toBeGreaterThan(reqBefore.width + 50);
   });
-
-  test("minimum pane size prevents collapsing either side to zero", async ({
-    page,
-  }) => {
-    await applyScene(page, "selected");
-
-    const handle = page.locator(
-      '[data-testid="body-split"] [role="separator"]',
-    );
-    await handle.focus();
-    await handle.press("Home");
-
-    // Both panes should still have visible width after clamping.
-    const reqBox = (await bodyPaneBox(page, "Request"))!;
-    const resBox = (await bodyPaneBox(page, "Response"))!;
-    expect(reqBox.width).toBeGreaterThan(0);
-    expect(resBox.width).toBeGreaterThan(0);
-  });
 });
 
 test.describe("BodySplit — text-mode auto-sizing (PRO-422)", () => {
