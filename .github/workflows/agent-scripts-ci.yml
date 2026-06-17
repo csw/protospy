@@ -32,4 +32,7 @@ jobs:
       - name: Install prettier
         run: npm install -g prettier@3.8.3
       - name: Run agent-script tests
-        run: python -m unittest discover -v -s scripts/agents -p 'test_*.py'
+        run: |
+          for f in scripts/agents/test_*.py; do
+            uv run "$f" -v
+          done

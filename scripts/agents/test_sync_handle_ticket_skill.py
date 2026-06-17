@@ -167,6 +167,45 @@ class BehavioralInvariantTests(unittest.TestCase):
                 f"{label} skill missing explicit 'do not enter step 10'",
             )
 
+    def test_matrix_manifest_in_both_skills(self) -> None:
+        """Both skills must instruct the agent to record the shot matrix to
+        scratch/matrix.txt before taking before screenshots."""
+        for label, generated in [
+            ("claude", sync_handle_ticket_skill.generate_claude_skill()),
+            ("codex", sync_handle_ticket_skill.generate_codex_skill()),
+        ]:
+            self.assertIn(
+                "scratch/matrix.txt",
+                generated,
+                f"{label} skill missing scratch/matrix.txt manifest reference",
+            )
+
+    def test_screenshot_diff_in_both_skills(self) -> None:
+        """Both skills must reference screenshot-diff for the pixel self-check."""
+        for label, generated in [
+            ("claude", sync_handle_ticket_skill.generate_claude_skill()),
+            ("codex", sync_handle_ticket_skill.generate_codex_skill()),
+        ]:
+            self.assertIn(
+                "screenshot-diff",
+                generated,
+                f"{label} skill missing screenshot-diff reference",
+            )
+
+    def test_selfcheck_stop_before_pushing(self) -> None:
+        """Both skills must tell agents to stop before pushing when the pixel
+        self-check detects unexpected differences."""
+        for label, generated in [
+            ("claude", sync_handle_ticket_skill.generate_claude_skill()),
+            ("codex", sync_handle_ticket_skill.generate_codex_skill()),
+        ]:
+            normalized = " ".join(generated.split())
+            self.assertRegex(
+                normalized,
+                re.compile(r"stop before pushing", re.IGNORECASE),
+                f"{label} skill missing 'stop before pushing' directive for self-check",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -154,20 +154,39 @@ linear api "{ issue(id: \"$ticket\") { labels { nodes { name } } } }" \
 
 If yes, you must capture baseline screenshots **before any implementation
 begins**. From the ticket description, identify the views and scenes that will
-change. Pick a free port (default is 5173; use a different one) and start a
-dev server:
+change.
+
+**Decide the shot matrix first.** Before starting the dev server, choose the
+minimal set of shots:
+
+- **Width**: default to 1280 unless the ticket explicitly touches horizontal
+  layout across widths; add 1440 only when necessary.
+- **Theme**: default to dark unless the ticket touches theme-specific styling;
+  add light only when necessary.
+
+Record the matrix in `scratch/matrix.txt` — one filename per line, following
+the `{scene}-{width}-{theme}.png` convention:
+
+```
+exchanges-active-1280-dark.png
+detail-panel-1280-dark.png
+```
+
+This manifest drives both the before and after steps — the after step (step 4)
+uses the same filenames so the two sets pair cleanly for pixel comparison.
+
+Pick a free port (default is 5173; use a different one) and start a dev server:
 
 ```bash
 cd ui && pnpm dev --port <port> &
 ```
 
-Use `playwright-cli` to screenshot the affected views at the relevant widths
-and themes. Inject fixture state first if needed to make the changed area
-visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs
-the visual-verify step uses). An empty-state screenshot rarely shows
-anything useful; pick a scene that puts data in the view the ticket changes.
-Save to `scratch/before/` (e.g.
-`--filename scratch/before/light-1280.png`). Then upload:
+Use `playwright-cli` to screenshot the affected views. Inject fixture state
+first if needed to make the changed area visible — use
+`window.__test_scenes.apply('<scene-id>')` (same scene IDs the visual-verify
+step uses). An empty-state screenshot rarely shows anything useful; pick a scene
+that puts data in the view the ticket changes. **Save screenshots with the exact
+filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then upload:
 
 ```bash
 scripts/agents/upload-screenshot scratch/before/ \
@@ -208,13 +227,16 @@ cd ui && pnpm dev --port <port> &
 
 Spawn a **`general-purpose`** subagent. In Codex, use `model: gpt-5.4-mini`
 with medium reasoning. Never pass Claude model names.
-Give it this prompt (substitute components and port):
+Give it this prompt (substitute components, port, and the filenames from
+`scratch/matrix.txt` if step 3a ran):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use
 > `playwright-cli` to drive the app. **Save screenshots to `scratch/after/`**
 > — pass `--filename scratch/after/<name>.png` for each shot.
 > **Never pass a bare relative `--filename`** like `--filename=after.png`.
+> **Use exactly these filenames** (from `scratch/matrix.txt`):
+> `<list filenames from matrix.txt, one per line>`
 > Inject fixture state via
 > `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
 >
@@ -225,6 +247,9 @@ Give it this prompt (substitute components and port):
 > - **No new console errors** (`playwright-cli console`).
 >
 > Report briefly: what you checked, what looks right, any issues.
+
+If step 3a did not run (no UI label), the matrix isn't constrained — use the
+standard spot-check widths and themes from the subagent prompt above.
 
 If the subagent reports problems, fix them, re-run quality checks, and
 re-verify. Capture a one-line summary for the PR description.
@@ -237,6 +262,26 @@ scripts/agents/upload-screenshot scratch/after/ \
 ```
 
 Store the printed Markdown embed strings for step 6.
+
+**Pixel self-check.** After the upload, determine whether this ticket is expected
+to produce visual changes:
+
+- **No expected visual change** (refactor, code cleanup, internal rewiring):
+  run the comparison:
+
+  ```bash
+  scripts/agents/screenshot-diff scratch/before/ scratch/after/
+  ```
+
+  Capture the printed summary line (e.g. `4/4 identical` or
+  `2/4 differ: shot-1280-dark.png (0.3% changed)`). Store it for step 6.
+
+  If the script exits non-zero (unexpected differences), **stop before
+  pushing**. Investigate the diff and either fix the visual regression or
+  explicitly confirm with the user that the change is intentional.
+
+- **Expected visual change** (new feature, redesign, styling update): skip the
+  self-check — visual review covers the result.
 
 ---
 
@@ -283,6 +328,13 @@ If before or after screenshots were uploaded (steps 3a / 4), append a
 
 Omit the section (or omit the half that has no images) if no screenshots were
 taken for that set.
+
+If a pixel self-check summary was produced in step 4, add a line to the PR body
+(inside or after the `## Visual diff` section):
+
+```
+**Visual self-check:** 4/4 shots identical
+```
 
 ---
 
