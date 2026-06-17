@@ -37,6 +37,26 @@ for (const scene of interactScenes) {
 }
 
 // ---------------------------------------------------------------------------
+// Behavioral assertions — Exchange list row hover
+// ---------------------------------------------------------------------------
+
+test.describe("Exchange list — row hover", () => {
+  test("hover scene — row enters :hover state", async ({ page }) => {
+    const scene = SCENES.find((s) => s.id === "hover")!;
+    await applyScene(page, scene.id);
+
+    await scene.interact!(page);
+
+    // querySelector('[role="option"]:hover') queries the browser's live
+    // pseudo-class state — more reliable than getComputedStyle for :hover.
+    const rowIsHovered = await page.evaluate(
+      () => document.querySelector('[role="option"]:hover') !== null,
+    );
+    expect(rowIsHovered).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Behavioral assertions — StreamView play/pause
 // ---------------------------------------------------------------------------
 
