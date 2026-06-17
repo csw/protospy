@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
@@ -245,6 +246,26 @@ export const selectVisibleIds = (s: StoreState): number[] => {
   const ordered = s.order === "newest" ? [...visible].reverse() : visible;
   return ordered.map((ex) => ex.id);
 };
+
+const selectVisibleExchanges = (s: StoreState): Exchange[] => {
+  const visible = s.ids
+    .map((id) => s.exchanges.get(id))
+    .filter((ex): ex is Exchange => ex != null)
+    .filter((ex) => matchesFilter(ex, s.filter))
+    .filter((ex) => s.traceFilter == null || ex.traceId === s.traceFilter);
+  return s.order === "newest" ? [...visible].reverse() : visible;
+};
+
+/**
+ * React hook: the filtered, sorted visible exchanges as Exchange objects.
+ * Single definition consumed by ListPanel (the rendered list) and FilterBar
+ * (match count) — a filter-semantics change requires editing one selector,
+ * not multiple call sites (PRO-261). Inspector navigation uses selectVisibleIds
+ * directly since those reads are imperative (getState()), not reactive.
+ */
+export function useVisibleExchanges(): Exchange[] {
+  return useStore(useShallow(selectVisibleExchanges));
+}
 
 /** The selected exchange, or null when nothing is selected / it's gone. */
 export const selectSelected = (s: StoreState): Exchange | null =>
