@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
@@ -245,6 +246,20 @@ export const selectVisibleIds = (s: StoreState): number[] => {
   const ordered = s.order === "newest" ? [...visible].reverse() : visible;
   return ordered.map((ex) => ex.id);
 };
+
+/**
+ * React hook: the filtered, sorted visible exchanges as Exchange objects.
+ * Single definition consumed by ExchangeList (the rendered list), Inspector
+ * (navigation bounds), and FilterBar (match count) — a filter-semantics change
+ * requires editing selectVisibleIds once, not three places (PRO-261).
+ */
+export function useVisibleExchanges(): Exchange[] {
+  const visibleIds = useStore(useShallow(selectVisibleIds));
+  const exchanges = useStore((s) => s.exchanges);
+  return visibleIds
+    .map((id) => exchanges.get(id))
+    .filter((x): x is Exchange => x != null);
+}
 
 /** The selected exchange, or null when nothing is selected / it's gone. */
 export const selectSelected = (s: StoreState): Exchange | null =>

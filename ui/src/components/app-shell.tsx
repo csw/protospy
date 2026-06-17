@@ -22,7 +22,6 @@ import {
   type ReactNode,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useShallow } from "zustand/react/shallow";
 import type { Protocol } from "@bindings/Protocol";
 import type { Service } from "@bindings/Service";
 import { fetchInfo } from "@ui/api/info";
@@ -34,7 +33,12 @@ import { useDensity } from "@ui/lib/density";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
 import type { TimeZone } from "@ui/lib/utils";
 import { connDotStatus } from "./connection-dot";
-import { useStore, selectVisibleIds, selectSelected } from "@ui/state/store";
+import {
+  useStore,
+  selectVisibleIds,
+  selectSelected,
+  useVisibleExchanges,
+} from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 import { showPairsTab } from "@ui/protocol";
 import { TopBar, type ServiceInfo } from "./top-bar";
@@ -276,8 +280,7 @@ function getInitialPanelSizes(listWidth: number): {
 
 /* ── list panel: feeds the prop-driven list components from store slices ── */
 function ListPanel() {
-  const visibleIds = useStore(useShallow(selectVisibleIds));
-  const exchanges = useStore((s) => s.exchanges);
+  const visibleExchanges = useVisibleExchanges();
   const total = useStore((s) => s.ids.length);
   const listMode = useStore((s) => s.listMode);
   const tz = useStore((s) => s.timeZone);
@@ -304,13 +307,11 @@ function ListPanel() {
   if (total === 0) {
     return <EmptyState kind={showConnecting ? "connecting" : "first-run"} />;
   }
-  if (visibleIds.length === 0) {
+  if (visibleExchanges.length === 0) {
     return <EmptyState kind="filtered" />;
   }
 
-  const rowsForList = visibleIds
-    .map((id) => exchanges.get(id))
-    .filter((x): x is Exchange => x != null);
+  const rowsForList = visibleExchanges;
 
   // grouped display mode — own presentation, independent of rows/table
   if (grouped) {

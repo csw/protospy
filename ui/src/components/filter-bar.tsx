@@ -7,7 +7,7 @@
 import { Search, X } from "lucide-react";
 import { cn } from "@ui/lib/utils";
 import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
-import { useStore, selectVisibleIds } from "@ui/state/store";
+import { useStore, useVisibleExchanges } from "@ui/state/store";
 import { Input } from "@ui/components/ui/input";
 
 export interface FilterBarProps {
@@ -20,7 +20,7 @@ export function FilterBar({ inputRef }: FilterBarProps) {
   const setFilter = useStore((s) => s.setFilter);
   const traceFilter = useStore((s) => s.traceFilter);
   const setTraceFilter = useStore((s) => s.setTraceFilter);
-  const visible = useStore((s) => selectVisibleIds(s).length);
+  const visible = useVisibleExchanges().length;
   const total = useStore((s) => s.ids.length);
   const filtered = visible !== total;
 

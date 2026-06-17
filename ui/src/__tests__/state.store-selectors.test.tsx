@@ -4,12 +4,14 @@
 // (connDotStatus) the chrome uses to feed the design-vocabulary ConnectionDot.
 
 import { describe, it, expect, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
 import {
   useStore,
   selectVisibleIds,
   selectSelected,
   selectTraceCount,
+  useVisibleExchanges,
 } from "@ui/state/store";
 import { connDotStatus } from "@ui/components/connection-dot";
 import { makeGetRequest, makeRequestWithTrace } from "@ui/test/fixtures";
@@ -93,6 +95,80 @@ describe("state/store selectors (PRO-363)", () => {
       useStore.getState().setHelpOpen(true);
       const persisted = localStorage.getItem("protospy-ui-prefs") ?? "";
       expect(persisted).not.toContain("helpOpen");
+    });
+  });
+
+  describe("useVisibleExchanges", () => {
+    it("returns Exchange objects newest-first by default", () => {
+      act(() => {
+        apply(makeGetRequest(1, "/api/alpha"));
+        apply(makeGetRequest(2, "/api/beta"));
+        apply(makeGetRequest(3, "/api/gamma"));
+      });
+
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current.map((x) => x.id)).toEqual([3, 2, 1]);
+      expect(result.current[0]).toHaveProperty("uri", "/api/gamma");
+    });
+
+    it("returns Exchange objects oldest-first when ordered", () => {
+      act(() => {
+        apply(makeGetRequest(1, "/api/alpha"));
+        apply(makeGetRequest(2, "/api/beta"));
+        useStore.getState().setOrder("oldest");
+      });
+
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current.map((x) => x.id)).toEqual([1, 2]);
+    });
+
+    it("applies the text filter", () => {
+      act(() => {
+        apply(makeGetRequest(1, "/api/alpha"));
+        apply(makeGetRequest(2, "/api/beta"));
+        useStore.getState().setFilter("beta");
+      });
+
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0]).toHaveProperty("uri", "/api/beta");
+    });
+
+    it("restricts to the active trace filter", () => {
+      act(() => {
+        apply(makeRequestWithTrace(1, "aaa", "/one"));
+        apply(makeRequestWithTrace(2, "bbb", "/two"));
+        apply(makeRequestWithTrace(3, "aaa", "/three"));
+        useStore.getState().setTraceFilter("aaa");
+      });
+
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current.map((x) => x.id)).toEqual([3, 1]);
+    });
+
+    it("combines filter and trace filter", () => {
+      act(() => {
+        apply(makeRequestWithTrace(1, "aaa", "/api/foo"));
+        apply(makeRequestWithTrace(2, "aaa", "/api/bar"));
+        apply(makeRequestWithTrace(3, "bbb", "/api/foo"));
+        useStore.getState().setTraceFilter("aaa");
+        useStore.getState().setFilter("foo");
+      });
+
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current.map((x) => x.id)).toEqual([1]);
+    });
+
+    it("updates reactively when store changes", () => {
+      const { result } = renderHook(() => useVisibleExchanges());
+      expect(result.current).toHaveLength(0);
+
+      act(() => {
+        apply(makeGetRequest(1, "/api/alpha"));
+        apply(makeGetRequest(2, "/api/beta"));
+      });
+
+      expect(result.current).toHaveLength(2);
     });
   });
 
