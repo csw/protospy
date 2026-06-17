@@ -104,6 +104,18 @@ test.describe("Fixture matrix", () => {
             page.locator('[data-testid="status-code"][data-error]').first(),
           ).toBeVisible();
         }
+        if (scene.id === "cmdk-open") {
+          // CommandPalette: check the input and that the "Jump to trace" group
+          // is populated (the backdrop carries two distinct traces).
+          await expect(page.getByPlaceholder("Run a command…")).toBeVisible();
+          await expect(page.getByText("Jump to trace").first()).toBeVisible();
+        }
+        if (scene.id === "help-open") {
+          await expect(
+            page.getByRole("dialog").filter({ hasText: "Keyboard shortcuts" }),
+          ).toBeVisible();
+          await expect(page.getByText("Navigate").first()).toBeVisible();
+        }
 
         expectNoErrors(label);
       }

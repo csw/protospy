@@ -98,6 +98,10 @@ export interface SceneConfig {
   }>;
   /** Protocol for SSE rendering (e.g. "Anthropic" for ChatStreamView). */
   protocol?: Protocol | null;
+  /** Open the ⌘K command palette. */
+  cmdKOpen?: boolean;
+  /** Open the `?` keyboard-shortcuts overlay. */
+  helpOpen?: boolean;
 }
 
 export interface Scene {
@@ -727,6 +731,31 @@ export const SCENES: Scene[] = [
     ],
     config: { selectedId: 1 },
   },
+
+  // ---- overlay / dialog states --------------------------------------------
+  // These scenes exercise modal UI states — the ⌘K command palette and the
+  // `?` keyboard-shortcuts overlay — that sit in front of the main layout and
+  // are toggled by store flags (`cmdKOpen` / `helpOpen`). The backdrop below
+  // provides enough data to populate the command palette's "Jump to trace"
+  // group (trace A and trace B, same ids as the trace-group scene).
+  {
+    id: "cmdk-open",
+    title: "Command palette open",
+    axis: "state",
+    description:
+      "The ⌘K command palette rendered over the main layout. The backdrop carries two distinct traces so the 'Jump to trace' command group is populated. Verify the dialog frame, input, command list (View / Filter / Jump to trace / Theme / Help groups), and the overlay backdrop.",
+    messages: tracedTraffic(),
+    config: { cmdKOpen: true, selectedId: 5 },
+  },
+  {
+    id: "help-open",
+    title: "Keyboard-shortcuts overlay open",
+    axis: "state",
+    description:
+      "The `?` keyboard-shortcuts Dialog rendered over the main layout. Verify the dialog frame, title ('Keyboard shortcuts'), the three shortcut groups (Navigate / Search & filter / View), the <kbd> key chips, and the overlay backdrop.",
+    messages: backdrop(),
+    config: { helpOpen: true, selectedId: 2 },
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */
@@ -781,6 +810,8 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
   for (const d of c?.decoded ?? []) {
     s.setBodyDecodedBytes(d.id, d.direction, d.bytes);
   }
+  if (c?.cmdKOpen) s.setCmdKOpen(true);
+  if (c?.helpOpen) s.setHelpOpen(true);
   // Selection last so it isn't clobbered by anything above.
   if (c?.selectedId !== undefined) s.setSelectedId(c.selectedId);
 }
