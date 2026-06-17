@@ -9,18 +9,15 @@
  * Every concrete view mode. `summary` is the binary "nothing richer to show"
  * state (content-type + size + download); it is a real selectable mode and the
  * default for binary bodies, so every kind's default renders as a pressed
- * segment in the selector (no lone deselectable toggle). The `paired`, `sse`,
- * and `anthropic` values are part of the contract for future protocol
- * integration but PRO-420 does not wire them into the selector: no content kind
- * below produces them, so they never appear in a selectable set.
+ * segment in the selector (no lone deselectable toggle). SSE and msearch paired
+ * views are intentionally absent: per docs/ui/body-view-modes.md they bypass
+ * BodyPane via separate rendering paths (StreamView/ChatStreamView and the
+ * Inspector Pairs tab), so they are not view modes here.
  */
 export type ViewMode =
   | "tree"
   | "formatted"
   | "rendered"
-  | "paired"
-  | "sse"
-  | "anthropic"
   | "text"
   | "summary"
   | "hex";
@@ -47,9 +44,6 @@ export const MODE_LABELS: Record<ViewMode, string> = {
   tree: "Tree",
   formatted: "Formatted",
   rendered: "Rendered",
-  paired: "Paired",
-  sse: "Events",
-  anthropic: "Transcript",
   text: "Text",
   summary: "Summary",
   hex: "Hex",
@@ -64,9 +58,6 @@ export const MODE_PRECEDENCE: Record<ResolvedMode, number> = {
   tree: 10,
   formatted: 10,
   rendered: 10,
-  sse: 10,
-  paired: 20,
-  anthropic: 20,
   text: 30,
   hex: 40,
   summary: 50,

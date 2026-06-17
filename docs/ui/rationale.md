@@ -1,6 +1,6 @@
 # protospy UI — Design Rationale & Principles
 
-Companion to `design-system.md`. That doc says *what*; this one says *why*, for
+Companion to `design-system.md`. That doc says _what_; this one says _why_, for
 human contributors deciding whether a rule still applies to a new situation.
 
 ## Guiding principle: content over chrome
@@ -29,7 +29,7 @@ comboboxes glow. This is the single most common way to get the theme wrong.
 
 Domain colors stay as their own namespaces (rather than, say, reusing `chart-*`)
 because they carry semantics a reader decodes instantly: a method's tint, a status
-class, a JSON token type. `--trace-1..7` is the exception that *is* chart-like — an
+class, a JSON token type. `--trace-1..7` is the exception that _is_ chart-like — an
 arbitrary categorical palette assigned by hashing the trace id, so the same trace is
 always the same color within a session.
 
@@ -55,7 +55,7 @@ single token swap underneath.
 The two list views trade off: **rows** mode is the richer trace-rail presentation and
 is the **default** (PRO-402); the dense **table** is the alternate. A six-column table
 wants column sizing, sorting, and visibility — exactly what **`@tanstack/react-table`**
-owns, *headlessly*.
+owns, _headlessly_.
 It renders nothing itself, so our custom row markup and tokens are untouched; it just
 supplies column/sort/size state. It shares an author and mental model with
 **`@tanstack/react-virtual`**, so virtualized + sortable + resizable compose without
@@ -82,12 +82,12 @@ row's left border already marks them; a lane would waste horizontal space.
   visually distinct treatments (we own the look; app code owns the exact words).
 - **Lifecycle-aware bodies.** Data arrives incrementally over SSE: request start,
   body chunks, response start, response chunks. A flat "pending" hides where in that
-  lifecycle an exchange is. Distinct *awaiting-response* vs *awaiting-body* states (on
+  lifecycle an exchange is. Distinct _awaiting-response_ vs _awaiting-body_ states (on
   both sides) make the live state legible.
 
 ## Why "Exchange" in code but "Request" in the UI
 
-The precise internal entity is an exchange (a request *and* its response). But users
+The precise internal entity is an exchange (a request _and_ its response). But users
 think and speak in "requests." Keeping component/type names on `Exchange` while the
 surface noun is "Request" matches the live app and keeps the two vocabularies from
 bleeding into each other — rename the label without touching the model, and vice
@@ -102,6 +102,33 @@ the exchange list/table, the trace rail, the JSON/JSONL viewer, the msearch pair
 view, and the SSE stream view — plus the small domain atoms (method badge, status,
 trace tag) that those compose from. The atoms still build on tokens + `cva` + `cn`,
 so they read as part of the same system.
+
+## Why a documented convention, not a lint rule, for modifier-scoping (PRO-339)
+
+tailwind-merge only de-duplicates classes within the same variant scope, so an
+unprefixed override silently loses to a variant-prefixed base class (`cn("md:text-sm",
+"text-xs")` keeps both; `md:` wins at desktop), and a low-specificity class loses to a
+higher-specificity arbitrary variant (`p-0` vs `has-[>svg]:px-1.5`). We evaluated
+catching this at author time with ESLint and **chose a documented convention plus a
+convention-review guardrail over a lint rule.**
+
+No off-the-shelf rule detects it. Every conflict rule in the ecosystem
+(`eslint-plugin-tailwindcss`'s `no-contradicting-classname`,
+`eslint-plugin-better-tailwindcss`, `oxlint-tailwindcss`) flags only _same-property,
+same-variant_ duplication — and treats unprefixed-vs-prefixed (`p-1 lg:p-4`) as
+_correct by design_, which is exactly our footgun. `eslint-plugin-tailwindcss` also has
+no Tailwind v4 support outside a partial alpha and expects a JS config we don't have
+(CSS-first v4). A correct custom rule would need a real CSS model — breakpoint-overlap
+reasoning for the variant case and selector-specificity computation (including `:has()`
+under v4 cascade layers) for the specificity case — not a string heuristic; the mature
+plugin's open specificity bug (#164) shows even that is unsolved upstream. A narrow
+hardcoded smell-detector for one known pair is writable but wouldn't generalize.
+
+The footgun has bitten twice and both times during _review_ (a class wrongly called
+redundant), not authoring, so the guardrail belongs where review happens: the
+modifier-scoping rule in design-system.md §4 (rule 16) and the convention-review agent.
+Revisit a lint rule if `eslint-plugin-better-tailwindcss` or oxlint ships
+specificity-aware cross-variant detection.
 
 ## Open items — recommendations (deferred, not decided)
 
