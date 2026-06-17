@@ -38,24 +38,28 @@ Inspect each cell at the four supported widths — **1024** (narrow), **1280**
 
 ### State axis
 
-| Scene id                 | Cell                         | Notes                                                                                                                                    |
-| ------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `empty`                  | Empty list                   | "No requests yet" empty state; status bar shows `connected`.                                                                             |
-| `loading`                | Loading                      | No exchanges, connection `connecting` (amber pulse).                                                                                     |
-| `error-row`              | Error row                    | Upstream failure → red `Error` badge; selected so inspector shows the error message in context bar and body pane.                        |
-| `error-midstream`        | Mid-stream error             | Response received (200 OK) but interrupted mid-stream; shows both status and `Error` badge. Context bar shows status + error message.    |
-| `selected`               | Selected                     | Populated list, one row selected; inspector populated.                                                                                   |
-| `hover`                  | Row hover                    | Populated list; **hover a row** (CSS `:hover`, not store-injectable).                                                                    |
-| `stream-complete`        | SSE stream (complete)        | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                                  |
-| `stream-live`            | SSE stream (live)            | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                              |
-| `stream-anthropic`       | Anthropic SSE stream         | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`. Default tab is events.             |
-| `stream-error`           | SSE stream (error)           | Generic SSE interrupted by Response error. Red "disconnected" indicator + StreamErrorBanner with error message.                          |
-| `stream-anthropic-error` | Anthropic SSE stream (error) | Anthropic SSE interrupted by Response error. ChatStreamView with "disconnected" indicator + StreamErrorBanner. Protocol = `"Anthropic"`. |
-| `body-awaiting`          | Awaiting response            | Request sent, no response yet. Status badge shows pulsing `···`; response body pane shows "Awaiting response…".                          |
-| `body-no-body`           | No body (204)                | 204 No Content response. Response body pane shows "No body" (distinct from "Awaiting response…").                                        |
-| `body-text`              | Plain text body              | `text/plain` response. Body pane renders content in `<pre>` block (text branch, distinct from JSON tree and binary).                     |
-| `body-binary`            | Binary body                  | `application/octet-stream` response. Body pane shows "Binary data · N bytes" lifecycle state.                                            |
-| `body-decode-failed`     | Decode failed                | `Content-Encoding: gzip` response with corrupt payload. Decode pipeline throws; body pane shows "Could not decode body".                 |
+| Scene id                      | Cell                              | Notes                                                                                                                                                             |
+| ----------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `empty`                       | Empty list                        | "No requests yet" empty state; status bar shows `connected`.                                                                                                      |
+| `loading`                     | Loading                           | No exchanges, connection `connecting` (amber pulse).                                                                                                              |
+| `error-row`                   | Error row                         | Upstream failure → red `Error` badge; selected so inspector shows the error message in context bar and body pane.                                                 |
+| `error-midstream`             | Mid-stream error                  | Response received (200 OK) but interrupted mid-stream; shows both status and `Error` badge. Context bar shows status + error message.                             |
+| `selected`                    | Selected                          | Populated list, one row selected; inspector populated.                                                                                                            |
+| `hover`                       | Row hover                         | Populated list. `interact`: hover the first row — triggers CSS `:hover` background.                                                                               |
+| `stream-complete`             | SSE stream (complete)             | Generic SSE with several events, `atEnd: true`. StreamView + gray "complete" indicator.                                                                           |
+| `stream-live`                 | SSE stream (live)                 | Generic SSE with `atEnd: false`. Green pulsing "live" indicator. Initial + BodyData chunks.                                                                       |
+| `stream-paused`               | SSE stream (paused)               | Same messages as `stream-live`. `interact`: click "Pause stream" button — freezes event list, shows paused indicator.                                             |
+| `stream-anthropic`            | Anthropic SSE stream              | Anthropic-protocol SSE (complete). ChatStreamView transcript/events toggle. Protocol = `"Anthropic"`. Default tab is events.                                      |
+| `stream-anthropic-transcript` | Anthropic SSE stream (transcript) | Same messages as `stream-anthropic`. `interact`: click "transcript" radio — renders assembled text output with model metadata and token usage.                    |
+| `stream-error`                | SSE stream (error)                | Generic SSE interrupted by Response error. Red "disconnected" indicator + StreamErrorBanner with error message.                                                   |
+| `stream-anthropic-error`      | Anthropic SSE stream (error)      | Anthropic SSE interrupted by Response error. ChatStreamView with "disconnected" indicator + StreamErrorBanner. Protocol = `"Anthropic"`.                          |
+| `body-awaiting`               | Awaiting response                 | Request sent, no response yet. Status badge shows pulsing `···`; response body pane shows "Awaiting response…".                                                   |
+| `body-no-body`                | No body (204)                     | 204 No Content response. Response body pane shows "No body" (distinct from "Awaiting response…").                                                                 |
+| `body-text`                   | Plain text body                   | `text/plain` response. Body pane renders content in `<pre>` block (text branch, distinct from JSON tree and binary).                                              |
+| `body-binary`                 | Binary body                       | `application/octet-stream` response. Body pane shows "Binary data · N bytes" lifecycle state.                                                                     |
+| `body-decode-failed`          | Decode failed                     | `Content-Encoding: gzip` response with corrupt payload. Decode pipeline throws; body pane shows "Could not decode body".                                          |
+| `cmdk-open`                   | Command palette open              | ⌘K dialog over the main layout. Backdrop carries two traces so "Jump to trace" is populated. Check dialog frame, input, all command groups, and overlay backdrop. |
+| `help-open`                   | Keyboard-shortcuts overlay        | `?` shortcut Dialog over the main layout. Check dialog frame, title, the three shortcut groups (Navigate / Search & filter / View), and `<kbd>` key chips.        |
 
 ### Data-size axis
 
@@ -66,6 +70,7 @@ Inspect each cell at the four supported widths — **1024** (narrow), **1280**
 | `many-rows`             | Many rows (120)              | Virtualization, scroll, status-bar count.                                                                                                                                                                                                                                   |
 | `dual-size`             | Dual wire/decoded size       | gzip response; table Size cell shows wire size + compression marker; hover for the wire/decoded tooltip.                                                                                                                                                                    |
 | `ndjson`                | NDJSON body (document trees) | `application/x-ndjson` response with several JSON lines. Renders as a forest of independently-collapsible document trees (numbered gutter + count badge per line).                                                                                                          |
+| `ndjson-text`           | NDJSON body (text view)      | Same NDJSON body as `ndjson` with `responseViewMode: "text"`. Body pane renders the raw newline-delimited text in TextView (Tree/Text/Hex selector shown; Text tab active). Exercises the view-mode selector and text rendering path at all widths, including 1024.         |
 | `body-truncated`        | Truncated JSON body          | `application/json` body cut off mid-structure. Valid prefix recovered; amber truncation banner above the tree + in-tree "truncated here" cut-point marker. Check both themes.                                                                                               |
 | `body-truncated-ndjson` | Truncated NDJSON body        | `application/x-ndjson` whose final line was cut off mid-structure. Leading docs parse cleanly; valid prefix of the last line recovered; amber multi-document truncation banner above the forest + in-tree "truncated here" marker on the final document. Check both themes. |
 
@@ -79,14 +84,14 @@ invented long phrase. See the note near the data-extreme fixtures in
 
 ### View axis
 
-| Scene id            | Cell                        | Notes                                                                                                                |
-| ------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `table-mode`        | Table mode                  | Columnar list (table is the default mode since PRO-222; explicit config still exercised here).                       |
-| `compact-rows`      | Compact density (rows)      | Tighter row height.                                                                                                  |
-| `compact-table`     | Compact density (table)     | Tightest row height.                                                                                                 |
-| `compact-inspector` | Compact density + inspector | Compact density with a selected exchange that has a JSON body — verifies inspector content at compact density.       |
-| `headers-selected`  | Headers tab                 | Exchange with many request + response headers. **Interaction:** click the Headers tab to see the side-by-side panel. |
-| `timing-selected`   | Timing tab                  | Slow traced exchange. **Interaction:** click the Timing tab to see elapsed time, Trace ID, and other timing facts.   |
+| Scene id            | Cell                        | Notes                                                                                                                         |
+| ------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `table-mode`        | Table mode                  | Columnar list (table is the default mode since PRO-222; explicit config still exercised here).                                |
+| `compact-rows`      | Compact density (rows)      | Tighter row height.                                                                                                           |
+| `compact-table`     | Compact density (table)     | Tightest row height.                                                                                                          |
+| `compact-inspector` | Compact density + inspector | Compact density with a selected exchange that has a JSON body — verifies inspector content at compact density.                |
+| `headers-selected`  | Headers tab                 | Exchange with many request + response headers. `interact`: click "Headers" tab — shows side-by-side request/response columns. |
+| `timing-selected`   | Timing tab                  | Slow traced exchange. `interact`: click "Timing" tab — shows elapsed time, Trace ID, and other timing facts.                  |
 
 ### Cross-axis (view × data combinations)
 

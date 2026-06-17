@@ -31,8 +31,10 @@
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
+import type { Page } from "@playwright/test";
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { AppStore } from "@ui/state/store";
+import type { ViewMode } from "@ui/body/view-modes";
 import type { Protocol } from "@bindings/Protocol";
 import {
   GZIP_JSON_DECODED_BYTES,
@@ -98,6 +100,14 @@ export interface SceneConfig {
   }>;
   /** Protocol for SSE rendering (e.g. "Anthropic" for ChatStreamView). */
   protocol?: Protocol | null;
+  /** Open the ⌘K command palette. */
+  cmdKOpen?: boolean;
+  /** Open the `?` keyboard-shortcuts overlay. */
+  helpOpen?: boolean;
+  /** Override the stored request-body view mode (null = kind default). */
+  requestViewMode?: ViewMode | null;
+  /** Override the stored response-body view mode (null = kind default). */
+  responseViewMode?: ViewMode | null;
 }
 
 export interface Scene {
@@ -109,11 +119,12 @@ export interface Scene {
   /** What this cell demonstrates / what to look for. */
   description: string;
   /**
-   * Whether reaching this cell needs a follow-up interaction beyond store
-   * injection (e.g. a row `:hover` or a separator drag). Documented so the
-   * reviewer knows injection alone is not the whole picture.
+   * Playwright steps to reach the visual state this scene documents. Store
+   * injection alone delivers the pre-interaction snapshot; calling `interact`
+   * drives the page to the claimed state. Consumed by `scene-interactions.spec.ts`
+   * and the bestiary runner — no LLM interpretation needed.
    */
-  interaction?: string;
+  interact?: (page: Page) => Promise<void>;
   messages: Msg[];
   config?: SceneConfig;
 }
@@ -241,7 +252,7 @@ export const SCENES: Scene[] = [
     axis: "state",
     description:
       "Populated list with nothing selected; hover a row to see the hover background.",
-    interaction: "Hover an exchange row (CSS :hover; not store-injectable).",
+    interact: (page) => page.getByText("/api/users").first().hover(),
     messages: backdrop(),
     config: { selectedId: null },
   },
@@ -490,11 +501,59 @@ export const SCENES: Scene[] = [
     config: { selectedId: 1 },
   },
   {
+    id: "stream-paused",
+    title: "SSE stream (paused)",
+    axis: "state",
+    description:
+      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot.",
+    interact: (page) =>
+      page.getByRole("button", { name: "Pause stream" }).click(),
+    messages: [
+      makePostRequest(1, "/api/stream"),
+      makeSSEResponse(
+        1,
+        "event: ping\ndata: keepalive\n\nevent: message\ndata: first event\n\n",
+        undefined,
+        false,
+      ),
+      makeSSEBodyData(
+        1,
+        "event: update\ndata: streaming chunk\n\n",
+        false,
+        120,
+      ),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
     id: "stream-anthropic",
     title: "Anthropic SSE stream",
     axis: "state",
     description:
       "An Anthropic-protocol SSE stream (complete). ChatStreamView renders transcript/events toggle. Protocol set to 'Anthropic'.",
+    messages: [
+      makePostRequest(1, "/v1/messages"),
+      makeSSEResponse(
+        1,
+        [
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","model":"claude-3-5-sonnet-20241022","role":"assistant","content":[],"stop_reason":null,"usage":{"input_tokens":25,"output_tokens":1}}}\n\n',
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello! How can I help you today?"}}\n\n',
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}\n\n',
+          'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ].join(""),
+      ),
+    ],
+    config: { selectedId: 1, protocol: "Anthropic" },
+  },
+  {
+    id: "stream-anthropic-transcript",
+    title: "Anthropic SSE stream (transcript mode)",
+    axis: "state",
+    description:
+      "The same Anthropic SSE stream as 'stream-anthropic' but with the transcript tab active. ChatStreamView renders the assembled text output with model/message-id metadata, stop_reason, and token usage. Protocol = 'Anthropic'.",
+    interact: (page) => page.getByRole("radio", { name: "transcript" }).click(),
     messages: [
       makePostRequest(1, "/v1/messages"),
       makeSSEResponse(
@@ -620,6 +679,15 @@ export const SCENES: Scene[] = [
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
     config: { selectedId: 1 },
   },
+  {
+    id: "ndjson-text",
+    title: "NDJSON body (text view)",
+    axis: "data",
+    description:
+      "The same NDJSON body as 'ndjson' but with the response view-mode set to 'text'. Body pane renders the raw newline-delimited text in TextView instead of the parsed tree forest. Verify the text block, the Tree/Text/Hex mode selector tabs, and that the Text tab is active. Exercises the view-mode selector and text rendering path at all widths, including 1024.",
+    messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
+    config: { selectedId: 1, responseViewMode: "text" },
+  },
 
   // ---- Truncated body -----------------------------------------------------
   {
@@ -660,7 +728,7 @@ export const SCENES: Scene[] = [
     axis: "view",
     description:
       "An exchange with many request and response headers selected. Verify the Headers tab: side-by-side request/response columns, header names and values, overflow and wrapping.",
-    interaction: "Click the Headers tab in the inspector.",
+    interact: (page) => page.getByRole("tab", { name: "Headers" }).click(),
     messages: [
       {
         exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
@@ -717,7 +785,7 @@ export const SCENES: Scene[] = [
     axis: "view",
     description:
       "A slow exchange with a traceparent header selected. Verify the Timing tab: Started timestamp, HTTP version, method, status, elapsed time, request/response sizes, and Trace ID row.",
-    interaction: "Click the Timing tab in the inspector.",
+    interact: (page) => page.getByRole("tab", { name: "Timing" }).click(),
     messages: [
       ...makeCompleteExchange(1, "POST", "/api/v1/search", "200 OK", {
         traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
@@ -726,6 +794,31 @@ export const SCENES: Scene[] = [
       }),
     ],
     config: { selectedId: 1 },
+  },
+
+  // ---- overlay / dialog states --------------------------------------------
+  // These scenes exercise modal UI states — the ⌘K command palette and the
+  // `?` keyboard-shortcuts overlay — that sit in front of the main layout and
+  // are toggled by store flags (`cmdKOpen` / `helpOpen`). The backdrop below
+  // provides enough data to populate the command palette's "Jump to trace"
+  // group (trace A and trace B, same ids as the trace-group scene).
+  {
+    id: "cmdk-open",
+    title: "Command palette open",
+    axis: "state",
+    description:
+      "The ⌘K command palette rendered over the main layout. The backdrop carries two distinct traces so the 'Jump to trace' command group is populated. Verify the dialog frame, input, command list (View / Filter / Jump to trace / Theme / Help groups), and the overlay backdrop.",
+    messages: tracedTraffic(),
+    config: { cmdKOpen: true, selectedId: 5 },
+  },
+  {
+    id: "help-open",
+    title: "Keyboard-shortcuts overlay open",
+    axis: "state",
+    description:
+      "The `?` keyboard-shortcuts Dialog rendered over the main layout. Verify the dialog frame, title ('Keyboard shortcuts'), the three shortcut groups (Navigate / Search & filter / View), the <kbd> key chips, and the overlay backdrop.",
+    messages: backdrop(),
+    config: { helpOpen: true, selectedId: 2 },
   },
 ];
 
@@ -781,6 +874,11 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
   for (const d of c?.decoded ?? []) {
     s.setBodyDecodedBytes(d.id, d.direction, d.bytes);
   }
+  if (c?.cmdKOpen !== undefined) s.setCmdKOpen(c.cmdKOpen);
+  if (c?.helpOpen !== undefined) s.setHelpOpen(c.helpOpen);
+  if (c?.requestViewMode !== undefined) s.setRequestViewMode(c.requestViewMode);
+  if (c?.responseViewMode !== undefined)
+    s.setResponseViewMode(c.responseViewMode);
   // Selection last so it isn't clobbered by anything above.
   if (c?.selectedId !== undefined) s.setSelectedId(c.selectedId);
 }
@@ -791,7 +889,8 @@ export interface SceneMeta {
   title: string;
   axis: SceneAxis;
   description: string;
-  interaction?: string;
+  /** Whether the scene carries an `interact` function (not serializable itself). */
+  hasInteract: boolean;
 }
 
 function toMeta(scene: Scene): SceneMeta {
@@ -800,7 +899,7 @@ function toMeta(scene: Scene): SceneMeta {
     title: scene.title,
     axis: scene.axis,
     description: scene.description,
-    interaction: scene.interaction,
+    hasInteract: scene.interact != null,
   };
 }
 
