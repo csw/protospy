@@ -472,6 +472,15 @@ ready, or run another round until the user says what to do.
 Start only after the user has responded to step 9 with explicit direction.
 Make changes, commit, and push. The open PR picks up the commits automatically.
 
+### Update after screenshots
+
+If this ticket has before/after screenshots (step 3a / step 4) and the fixes
+changed anything visually (UI code, styles, layout), retake the "after"
+screenshots, re-upload them (`scripts/agents/upload-screenshot scratch/after/
+--prefix $ticket/after`), and update the PR description's screenshot section
+with the new URLs. Do this after every push that changes visual output — not
+just the first one.
+
 ### Run another review round
 
 After pushing fixes, start CI in the background again (same as step 5), then
