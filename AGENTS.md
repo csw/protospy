@@ -48,8 +48,10 @@ need an allowed write, attempt it rather than assuming it is blocked.
 
 After any push that can trigger CI - a new branch, a new PR, or follow-up commits
 to an existing PR branch - watch that run to completion with
-`scripts/agents/ci-watch`; see `docs/agents/ci.md`. Never use the Checks API as
-a fallback. Query CI through the Actions API by commit SHA (`gh run list
+`scripts/agents/ci-watch`; see `docs/agents/ci.md`. The `handle-ticket` skill
+runs CI in the background concurrently with reviews — that is the one exception
+to blocking on CI immediately after push. Never use the Checks API as a
+fallback. Query CI through the Actions API by commit SHA (`gh run list
 --commit <sha>`), exactly as `ci-watch` does.
 
 ## Documentation

@@ -252,7 +252,16 @@ Commit with a Conventional Commits message:
 - Keep under 72 characters; trim the description if needed, not the ticket ID
 - Implementation notes go in the body, not the subject
 
-Push the branch.
+Push the branch. **Start CI watch in the background** — CI runs concurrently
+with the review round (steps 7–9) rather than blocking here:
+
+```bash
+Bash(command: "scripts/agents/ci-watch", run_in_background: true, description: "watch CI run")
+```
+
+Do **not** wait for CI to complete before proceeding to step 6. The review round
+typically takes longer than CI; you will check the CI result at close-out
+(step 10).
 
 ---
 
@@ -404,7 +413,13 @@ type: <named per report>
 - **PR**: [#<PR-number>](https://github.com/csw/protospy/pull/<PR-number>)
 ```
 
-### Write the reports
+### Write reports and synthesize
+
+Write reports to Obsidian and spawn synthesis **concurrently** — do not
+serialize them. The synthesis agent receives review content in its prompt
+(not from Obsidian), so it can run in parallel with the file writes.
+
+In a **single parallel message**, do all of:
 
 - **Code review** (always): write verbatim to `code_review` path. Prepend front
   matter with `type: code-review`.
@@ -413,6 +428,15 @@ type: <named per report>
   missing, then insert the links list.
 - **DS conformance review** (if 7c ran): write to `ds_review` path. Same merge
   logic as convention review.
+- **Synthesis** (if two or more reviews ran): spawn
+  **`review-synthesis`** (`subagent_type: "review-synthesis"`) with the ticket
+  ID, PR number, round `N`, which reviews ran, and **the full text of each
+  review report** in the prompt. The agent does not need to read from Obsidian —
+  give it the content directly.
+  See `.codex/agents/review-synthesis.toml`.
+
+If synthesis fails, retry once. If it still fails, stop and present the
+blocker. Do not hand-roll a replacement.
 
 ---
 
@@ -420,19 +444,10 @@ type: <named per report>
 
 Triage **every** review that ran.
 
-### 9a — Synthesize (when two or more reviews ran)
+### 9a — Record synthesis
 
-Spawn **`review-synthesis`** (`subagent_type: "review-synthesis"`) with the
-ticket ID, PR number, round `N`, and which reviews ran. It reads this round's
-reports from Obsidian and returns a single merged triage: deduplicated, with
-same-root-cause links, conflicts surfaced, and everything re-ranked on one
-blocking/advisory scale. See `.codex/agents/review-synthesis.toml`.
-
-If synthesis fails, retry once. If it still fails, stop and present the
-blocker. Do not hand-roll a replacement.
-
-Write the synthesis **verbatim** to this round's `synthesis` path, prepending
-front matter (`type: synthesis`) and links list.
+Write the synthesis output **verbatim** to this round's `synthesis` path,
+prepending front matter (`type: synthesis`) and links list.
 
 If only **one** review ran, skip synthesis — present that review's findings
 directly.
@@ -469,11 +484,11 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 
 ### Run another review round
 
-After pushing fixes, ask whether to re-review. Re-review if: fixes changed
-program behavior, touched more than trivial lines, or addressed a blocking
-finding. A pure comment/rename/formatting fix does not require a new round.
-To re-review, go **back to step 7**. `review-paths` returns the next round
-number automatically.
+After pushing fixes, start CI in the background again (same as step 5), then
+ask whether to re-review. Re-review if: fixes changed program behavior, touched
+more than trivial lines, or addressed a blocking finding. A pure
+comment/rename/formatting fix does not require a new round. To re-review, go
+**back to step 7**. `review-paths` returns the next round number automatically.
 
 ### Close out
 
@@ -485,8 +500,11 @@ When nothing is left to act on:
    gh pr ready <PR-number>
    ```
 
-   Watch CI to completion per `docs/agents/ci.md`. If CI fails, fix, push,
-   re-watch. Proceed only when green.
+   CI was started in the background at step 5. Check whether the background
+   `ci-watch` has already completed (it usually finishes during the review
+   round). If it reported success, proceed. If it reported failure, fix, push,
+   and re-watch. If it is still running, wait for it to finish before
+   proceeding.
 
 2. **Post a summary comment** to $ticket (`docs/agents/linear.md`, "Post a
    summary comment when you finish"):
