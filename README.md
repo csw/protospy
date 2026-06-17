@@ -1,48 +1,56 @@
 # protospy
 
-This is a Rust monitoring proxy for development use, to give a live view of HTTP traffic between services with OpenTelemetry integration.
+protospy is an HTTP monitoring reverse proxy for development. It sits
+transparently between your services and their upstreams, and provides a live
+web UI to inspect the traffic. The use case that inspired it was inspecting
+complex, dynamic Elasticsearch requests and responses which were very
+inconvenient to pull out of application logs. It features OpenTelemetry
+integration for associating multiple backend requests resulting from the same
+incoming request.
 
 It currently contains:
 
 - protospy itself, a Rust application; see `src/`.
 - a Python demo application, ElasticFlix (see [its README.md](flix/README.md)), in `flix/`, which searches a movie database in Elasticsearch.
+- a React UI in `ui/`.
 - a Docker Compose configuration to run the demo application, Elasticsearch, and Jaeger.
-- an HTTP proxy conformance test suite to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
+- an HTTP proxy conformance test suite in `conformance/` to validate proxy behavior, intended for protospy and using Caddy and HAProxy as reference points. See [docs](docs/conformance-tests.md).
+
+There's also a demo instance at https://demo.protospy.io/.
 
 ![Body inspector showing a rich Elasticsearch request and response](docs/screenshots/03-body.png)
 
-## Demo usage
+## Status
+
+**v0.2, pre-release.** protospy is early and rough, and not yet
+announced. It works, but interfaces, configuration, and behavior may change
+without notice, and rough edges are expected. Feedback is welcome; polish
+is the next stage.
+
+## Local demo usage
+
+This is a self-contained Docker Compose-based demo environment sufficient
+to see protospy in action. It has a toy application, Elasticflix, which
+searches a movie database in Elasticsearch, proxied via protospy, with OpenTelemetry activity reporting to Jaeger.
 
 ### Start services
 
 First, bring up the container services:
 
 ```shell
-docker compose up -d elasticsearch jaeger flix
+docker compose up -d
 ```
 
-Load the movie data into Elasticsearch (one-time):
+When running this for the first time, load the movie data into Elasticsearch:
 
 ```shell
 docker compose run --rm flix python loader.py
 ```
 
-Then bring up protospy:
-
-```shell
-just run
-```
-
-And its UI:
-
-```shell
-just ui
-```
-
 ### Observe traffic
 
 1. Go to the protospy interface at http://localhost:3101/.
-2. In another window, go to the demo Elasticflix application at http://localhost:8001/.
+2. In another tab, go to the demo Elasticflix application at http://localhost:8001/.
 3. Search for movies in Elasticflix and observe that traffic appears in protospy.
 4. Select HTTP exchanges and see their request and response bodies, as well as headers.
 
@@ -51,6 +59,14 @@ OpenTelemetry data is available in Jaeger at http://localhost:16686/.
 ## Configuration
 
 protospy is designed to run containerized, with environment-variable-based 12-factor configuration. It can run multiple proxy services, each listening on its own port and forwarding traffic to its own target; these are named, with their settings under the `PROXY__<name>__` prefix, with double underscores.
+
+A simple example for a single service:
+
+```text
+PROXY__ES__PORT=3000
+PROXY__ES__TARGET=elasticsearch:9200
+PROXY__ES__PROTOCOL=Elasticsearch
+```
 
 Proxy settings:
 
@@ -156,3 +172,11 @@ just publish           # build UI, dry-run, confirm, then upload
 ```
 
 `just publish` runs a dry-run first, then prompts for confirmation before uploading. Pass `just --yes publish` to skip the prompt.
+
+## AI usage
+
+The protospy proxy itself is a Rust application written entirely by hand,
+with no AI usage. (Aside from figuring out the occasional type error.)
+
+The rest of the project (web UI, demo app, conformance suite, and tooling)
+has been written largely by AI agents, with careful direction and review.
