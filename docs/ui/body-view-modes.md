@@ -15,17 +15,22 @@ HTML/XML, text detection, virtualization).
 A single flat enum covers every concrete view mode. No abstract "structured"
 supertype — the set is small enough that a union is clearer.
 
-| Mode        | Label        | What it shows                                                      |
-| ----------- | ------------ | ------------------------------------------------------------------ |
-| `tree`      | Tree         | JSON/NDJSON collapsible tree viewer (virtualized)                  |
-| `formatted` | Formatted    | Syntax-highlighted, indented source (HTML, XML)                    |
-| `rendered`  | Rendered     | Inline media rendering (images; eventually PDF, SVG)               |
-| `text`      | Text         | Plain decoded Unicode text with line numbers (virtualized)         |
-| `hex`       | Hex          | Hex + ASCII dump, 16 bytes/row (virtualized)                       |
-| `summary`   | _(no label)_ | Content-type + size + download button; the "nothing to show" state |
+| Mode        | Label     | What it shows                                                      |
+| ----------- | --------- | ------------------------------------------------------------------ |
+| `tree`      | Tree      | JSON/NDJSON collapsible tree viewer (virtualized)                  |
+| `formatted` | Formatted | Syntax-highlighted, indented source (HTML, XML)                    |
+| `rendered`  | Rendered  | Inline media rendering (images; eventually PDF, SVG)               |
+| `text`      | Text      | Plain decoded Unicode text with line numbers (virtualized)         |
+| `hex`       | Hex       | Hex + ASCII dump, 16 bytes/row (virtualized)                       |
+| `summary`   | Summary   | Content-type + size + download button; the "nothing to show" state |
 
-`summary` is not a user-selectable mode — it is the implicit default when no
-richer view is available. It does not appear in the mode selector.
+`summary` is the default for binary bodies and is a selectable segment like any
+other default, so it appears in the selector as `Summary` (alongside `Hex`).
+Implementation note (PRO-420): the original design made `summary` label-less and
+non-selectable, leaving binary with a lone deselectable `Hex` toggle. Once every
+selector became a single `ToggleGroup`, that lone-toggle shape was inconsistent
+with the multi-mode groups (whose default renders as a pressed segment), so
+`summary` was promoted to a labeled, selectable mode for uniform behavior.
 
 ---
 
@@ -38,7 +43,7 @@ existing kinds (json, ndjson, text, binary) expand to:
 | Kind   | Detection rule                                                                                                                                         |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | json   | Content-Type contains `json` (excluding ndjson variants)                                                                                               |
-| ndjson | Content-Type is `application/x-ndjson`, `application/ndjson`, `application/jsonl`, or ES NDJSON                                                                             |
+| ndjson | Content-Type is `application/x-ndjson`, `application/ndjson`, `application/jsonl`, or ES NDJSON                                                        |
 | html   | `text/html`, `application/xhtml+xml`                                                                                                                   |
 | xml    | `text/xml`, `application/xml`, `application/soap+xml`, `application/rss+xml`, `application/atom+xml`, and similar                                      |
 | image  | `image/*`                                                                                                                                              |
@@ -72,8 +77,9 @@ This predicate is computed once per body decode, not per mode switch.
 ## Available modes per content kind
 
 Each content kind declares which modes are available. `hex` is always available.
-`summary` is only present for binary (and is implicit, not selectable). `text`
-availability depends on the text predicate above.
+`summary` is only present for binary, where it is the default and a selectable
+segment (`Summary | Hex`). `text` availability depends on the text predicate
+above.
 
 | Kind   | Available modes        | Default   |
 | ------ | ---------------------- | --------- |
@@ -99,14 +105,14 @@ one with the lowest precedence value is the default. Precedence values are not
 user-visible; they determine only the initial mode when the user has not made an
 explicit selection.
 
-| Mode      | Precedence | Rationale                                                   |
-| --------- | ---------- | ----------------------------------------------------------- |
+| Mode      | Precedence | Rationale                                                |
+| --------- | ---------- | -------------------------------------------------------- |
 | tree      | 10         | The natural view for structured data                     |
 | formatted | 10         | The natural view for markup                              |
 | rendered  | 10         | The natural view for media                               |
 | text      | 30         | Fallback for "it's text but we don't have a richer view" |
 | hex       | 40         | Power-user opt-in                                        |
-| summary   | 50         | Implicit; wins only when nothing else is available       |
+| summary   | 50         | Binary default; wins only when nothing else is available |
 
 Tie-breaking (precedence 10 ties): not expected in practice — each content kind
 enables at most one precedence-10 mode. If a tie occurs, the mode listed first
@@ -129,13 +135,8 @@ interface BodyModeState {
   responseViewMode: ViewMode | null;
 }
 
-type ViewMode =
-  | "tree"
-  | "formatted"
-  | "rendered"
-  | "text"
-  | "hex";
-// "summary" is not in ViewMode — it is the implicit fallback, not a user selection
+type ViewMode = "tree" | "formatted" | "rendered" | "text" | "summary" | "hex";
+// "summary" is a real selectable mode (the binary default), so it is in ViewMode
 ```
 
 `null` means "use the default for whatever this body's content kind is." An
@@ -160,17 +161,20 @@ shown as direct toggle buttons; the rest are in the overflow dropdown. The exact
 breakpoint is an implementation detail, but the pattern is: **primary modes
 visible, overflow for the rest**.
 
-### Single-mode and two-mode cases
+### Two-mode cases
 
-- **Binary (summary + hex):** The selector shows only a "Hex" toggle. Summary
-  is the implicit default; clicking "Hex" switches to hex; clicking it again
-  returns to summary. No multi-button toggle group needed.
-- **Image (rendered + hex):** Same pattern — "Hex" toggle only, rendered is the
-  default.
-- **Text (text + hex):** Same — "Hex" toggle only.
+Every kind — including the two-mode ones — renders its default as a selectable
+segment, so all selectors share one `ToggleGroup` shape and the active mode is
+always a pressed segment:
 
-When there are only two modes and one is the obvious default, a single toggle
-button is cleaner than a two-item toggle group.
+- **Binary (summary + hex):** `Summary | Hex`, Summary pressed by default.
+- **Image (rendered + hex):** `Rendered | Hex`, Rendered the default.
+- **Text (text + hex):** `Text | Hex`, Text the default.
+
+(An earlier revision modeled the default as an absent button, leaving a lone
+deselectable "Hex" toggle; that was inconsistent with the multi-mode groups once
+all selectors became a single `ToggleGroup`, so the default is now always an
+explicit segment — see the `summary` note under the mode enum.)
 
 ### Label source
 

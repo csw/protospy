@@ -31,13 +31,20 @@ interface CopyButtonProps {
    * is present, preserving the prior CopyButton's disabled-when-empty behavior.
    */
   value?: string;
+  /**
+   * Image body to copy as image data via `ClipboardItem` (PRO-420), instead of
+   * text. When set, takes precedence over `value`. Used for `image/*` bodies,
+   * where copying the decoded bytes as text would be meaningless.
+   */
+  image?: { bytes: Uint8Array; type: string };
   className?: string;
 }
 
 /**
  * Copy-to-clipboard button with copied-state feedback and a `sonner` toast.
+ * Copies `value` as text, or — when `image` is given — the body as image data.
  */
-export function CopyButton({ value, className }: CopyButtonProps) {
+export function CopyButton({ value, image, className }: CopyButtonProps) {
   const [hasCopied, setHasCopied] = React.useState(false);
 
   // Revert the copied state after 2s. Kept as an effect — the reui upstream
@@ -53,15 +60,25 @@ export function CopyButton({ value, className }: CopyButtonProps) {
   }, [hasCopied]);
 
   const handleCopy = React.useCallback(async () => {
-    if (value == null) return;
     try {
-      await navigator.clipboard.writeText(value);
+      if (image != null) {
+        const blob = new Blob([new Uint8Array(image.bytes)], {
+          type: image.type,
+        });
+        await navigator.clipboard.write([
+          new ClipboardItem({ [image.type]: blob }),
+        ]);
+      } else if (value != null) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        return;
+      }
       setHasCopied(true);
       notifyCopied();
     } catch {
       notifyCopyFailed();
     }
-  }, [value]);
+  }, [value, image]);
 
   return (
     <Tooltip>
@@ -70,7 +87,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
           data-slot="copy-button"
           size="icon-xs"
           variant="ghost"
-          disabled={value == null}
+          disabled={value == null && image == null}
           className={className}
           onClick={handleCopy}
         >

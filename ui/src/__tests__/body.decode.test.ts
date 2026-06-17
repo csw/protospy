@@ -195,13 +195,94 @@ describe("decodeBody", () => {
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
       wireBytes: 3,
-      contentType: "image/png",
+      contentType: "application/octet-stream",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("binary");
     expect(result.text).toBeUndefined();
-    expect(result.mediaType).toBe("image/png");
+    expect(result.mediaType).toBe("application/octet-stream");
     expect(result.wireBytes).toBe(3);
+    // Binary chunks with no declared charset → text view unavailable.
+    expect(result.textAvailable).toBe(false);
+  });
+
+  it("image content-type returns kind image", async () => {
+    const body: BodyState = {
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "image/png",
+    };
+    const result = await decodeBody(body);
+    expect(result.kind).toBe("image");
+    expect(result.text).toBeUndefined();
+    expect(result.mediaType).toBe("image/png");
+  });
+
+  it("text/html returns kind html, application/xml returns kind xml", async () => {
+    const html = await decodeBody({
+      chunks: [{ text: "<html><body>hi</body></html>" }],
+      atEnd: true,
+      wireBytes: 28,
+      contentType: "text/html; charset=utf-8",
+    });
+    expect(html.kind).toBe("html");
+    expect(html.text).toContain("<body>");
+    expect(html.textAvailable).toBe(true);
+
+    const xml = await decodeBody({
+      chunks: [{ text: "<note><to>x</to></note>" }],
+      atEnd: true,
+      wireBytes: 23,
+      contentType: "application/xml",
+    });
+    expect(xml.kind).toBe("xml");
+
+    // The generic `application/*+xml` suffix also classifies as xml.
+    const soap = await decodeBody({
+      chunks: [{ text: "<env/>" }],
+      atEnd: true,
+      wireBytes: 6,
+      contentType: "application/soap+xml",
+    });
+    expect(soap.kind).toBe("xml");
+  });
+
+  it("binary chunks with a supported charset (UTF-16 + BOM) make text available", async () => {
+    // A real UTF-16LE body with a BOM and non-ASCII content ("café ☃\n").
+    // The proxy sent it as binary chunks (it failed the UTF-8 check), but the
+    // declared charset is one TextDecoder supports, so text mode is available.
+    // (Charset-aware *decoding* of the bytes is PRO-415; PRO-420 only computes
+    // the availability predicate.)
+    const text = "café ☃\n";
+    const units = [0xfeff, ...text].map((c) =>
+      typeof c === "number" ? c : c.codePointAt(0)!,
+    );
+    const bytes = new Uint8Array(units.length * 2);
+    units.forEach((u, i) => {
+      bytes[i * 2] = u & 0xff;
+      bytes[i * 2 + 1] = u >> 8;
+    });
+    const base64 = Buffer.from(bytes).toString("base64");
+
+    const result = await decodeBody({
+      chunks: [{ binary: base64 }],
+      atEnd: true,
+      wireBytes: bytes.length,
+      contentType: "text/plain; charset=utf-16le",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+  });
+
+  it("binary chunks with an unsupported charset leave text unavailable", async () => {
+    const result = await decodeBody({
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "text/plain; charset=not-a-real-charset",
+    });
+    expect(result.textAvailable).toBe(false);
   });
 
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
@@ -623,7 +704,7 @@ describe("decodeBody raw/hex fields", () => {
       chunks: [{ binary: "AAEC" }], // 0x00 0x01 0x02
       atEnd: true,
       wireBytes: 3,
-      contentType: "image/png",
+      contentType: "application/octet-stream",
     };
     const result = await decodeBody(body);
     expect(result.kind).toBe("binary");

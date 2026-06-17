@@ -1,18 +1,20 @@
 // src/components/protospy/inspector.tsx
 // Composition of the detail panel (the v2.3 scaffold shell, wired to live data —
 // PRO-360 Slice 2). One shared tab strip (Bodies · Headers · Timing) spans the pane.
-// A body view-mode selector (Parsed · Raw · Hex, plus a type-specific Paired
-// option for msearch) sits on the right of the tab strip on the Bodies tab — NOT
-// a separate tab. Headers is ONE tab showing request + response side-by-side with
-// counts in the pane subheads.
+// The per-pane body view-mode selectors now live inside each BodyPane header
+// strip (PRO-420). For msearch exchanges, a single `Paired` toggle sits on the
+// right of the tab strip on the Bodies tab, switching the whole split for the
+// Elasticsearch request/response pairing layout — an Inspector-level concern,
+// not a per-pane body mode. Headers is ONE tab showing request + response
+// side-by-side with counts in the pane subheads.
 //
 // This is a PRESENTATIONAL shell: it takes the selected live `Exchange` plus render-slot
 // callbacks for the heavy body content (`renderBodySplit` / `renderMsearch`, which sibling
 // slices own) and keyboard/trace callbacks the container fills from the store. The
 // SSE/entity split lives inside `renderBodySplit` (the live BodySplit, which owns the
 // stream pane since PRO-361), so this shell only chooses the tab label and the
-// paired-vs-split content. The shared body view mode is read from the store
-// (session-only); BodySplit reads the same slice to render each pane (PRO-336).
+// paired-vs-split content. The paired-vs-split choice is Inspector-local session
+// state; per-direction body view modes live in the store (PRO-420).
 
 import { memo, useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
@@ -20,8 +22,6 @@ import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
 import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { isSSEExchange } from "@ui/lib/exchange";
-import { useStore } from "@ui/state/store";
-import type { BodyViewMode } from "@ui/state/store";
 import type { BodyState, Exchange } from "@ui/state/reducer";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
@@ -33,7 +33,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@ui/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
+import { Toggle } from "@ui/components/ui/toggle";
 import { Button } from "@ui/components/ui/button";
 import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
@@ -78,17 +78,15 @@ export const Inspector = memo(function Inspector({
   const [tab, setTab] = useState<BodyTab>("bodies");
   const showMsearch = isMsearch && renderMsearch != null;
 
-  // Shared body view mode (PRO-336). The selector offers parsed/raw/hex for any
-  // body, plus a type-specific `Paired` option for msearch. SSE exchanges keep
-  // their own ChatStreamView/StreamView toggles, so the selector is hidden there.
-  const bodyViewMode = useStore((s) => s.bodyViewMode);
-  const setBodyViewMode = useStore((s) => s.setBodyViewMode);
-  const showViewToggle = tab === "bodies" && !isSSEExchange(x);
-  // Guard against a stale `paired` selection on a non-msearch exchange so Radix
-  // never receives an out-of-range value.
-  const selectedViewMode =
-    bodyViewMode === "paired" && !showMsearch ? "parsed" : bodyViewMode;
-  const showPaired = showMsearch && bodyViewMode === "paired";
+  // The msearch `Paired` layout supersedes the request/response split for the
+  // whole exchange — an Inspector-level choice, not a per-pane body mode
+  // (PRO-420). Session-local: it sticks across exchange navigation (this shell
+  // is not remounted on selection) and resets on refresh. The per-direction
+  // body view modes live in the store and are owned by each BodyPane.
+  const [paired, setPaired] = useState(false);
+  // Only offer the toggle for msearch exchanges on the Bodies tab.
+  const showPairedToggle = showMsearch && tab === "bodies";
+  const showPaired = showMsearch && paired;
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
@@ -119,32 +117,19 @@ export const Inspector = memo(function Inspector({
             <UnderlineTab value="headers">Headers</UnderlineTab>
             <UnderlineTab value="timing">Timing</UnderlineTab>
           </TabsList>
-          {/* Body view-mode selector — parsed/raw/hex for any body, plus a
-              type-specific Paired option for msearch. Hidden for SSE. */}
-          {showViewToggle && (
-            <ToggleGroup
-              type="single"
-              value={selectedViewMode}
-              onValueChange={(v) => v && setBodyViewMode(v as BodyViewMode)}
+          {/* msearch-only Paired toggle: switches the whole split for the
+              Elasticsearch request/response pairing layout. Per-pane body
+              view-mode selectors live inside each BodyPane (PRO-420). */}
+          {showPairedToggle && (
+            <Toggle
               size="sm"
-              className="ml-auto"
-              aria-label="body view mode"
+              pressed={paired}
+              onPressedChange={setPaired}
+              className="ml-auto px-2 text-xs"
+              aria-label="Paired msearch view"
             >
-              {showMsearch && (
-                <ToggleGroupItem value="paired" className="px-2 text-xs">
-                  Paired
-                </ToggleGroupItem>
-              )}
-              <ToggleGroupItem value="parsed" className="px-2 text-xs">
-                Parsed
-              </ToggleGroupItem>
-              <ToggleGroupItem value="raw" className="px-2 text-xs">
-                Raw
-              </ToggleGroupItem>
-              <ToggleGroupItem value="hex" className="px-2 text-xs">
-                Hex
-              </ToggleGroupItem>
-            </ToggleGroup>
+              Paired
+            </Toggle>
           )}
         </div>
 

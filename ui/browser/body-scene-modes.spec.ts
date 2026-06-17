@@ -100,9 +100,11 @@ test.describe("BodyPane — plain text render branch", () => {
     await applyScene(page, "body-text");
 
     // makeTextResponse defaults to "OK\nService is healthy.\nVersion: 1.4.2".
-    // BodyPane renders text/plain content in a <pre> block.
-    await expect(page.locator("pre")).toBeVisible();
-    await expect(page.locator("pre")).toContainText("Service is healthy.");
+    // BodyPane renders text/plain content in the labelled TextView (PRO-420:
+    // line-number gutter, no longer a bare <pre>).
+    const text = page.getByLabel("Body text");
+    await expect(text).toBeVisible();
+    await expect(text).toContainText("Service is healthy.");
 
     // Confirm we are in the text branch, not JSON.
     await expect(page.getByLabel("JSON viewer")).toHaveCount(0);

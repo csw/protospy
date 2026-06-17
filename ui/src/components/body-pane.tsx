@@ -1,19 +1,28 @@
-import { useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { AlertTriangle, Download } from "lucide-react";
 import type { BodyState } from "@ui/state/reducer";
-import type { ContentMode } from "@ui/state/store";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import type { DecodeResult } from "@ui/body/decode";
+import {
+  resolveMode,
+  selectableModes,
+  type ResolvedMode,
+  type ViewMode,
+} from "@ui/body/view-modes";
+import { triggerDownload } from "@ui/lib/download";
 import { formatSize } from "@ui/lib/utils";
 import { mediaTypeSlug } from "@ui/lib/format";
 import { hexDumpText } from "@ui/lib/hex";
 import { CopyButton } from "./copy-button";
+import { BodyModeSelector } from "./body-mode-selector";
+import { BodySummary } from "./body-summary";
+import { TextView } from "./text-view";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
 import { Skeleton } from "./ui/skeleton";
+import { Button } from "./ui/button";
 import { JsonTreeViewer } from "./json-tree";
-import { RawView } from "./raw-view";
 import { HexView } from "./hex-view";
 
 /** Centered error display used for both "no response" and "response interrupted" states. */
@@ -86,65 +95,79 @@ function BodySkeleton() {
 }
 
 /**
- * The decoded body rendered per the active view mode. `parsed` keeps the
- * kind-switched smart rendering; `raw` and `hex` are kind-agnostic escape
- * hatches over the same decoded bytes (PRO-336).
+ * The decoded body rendered per the resolved view mode (PRO-420). `tree` is the
+ * structured JSON/NDJSON viewer; `formatted` shows source text until syntax
+ * highlighting lands (PRO-414); `rendered`/`summary` show the download summary
+ * (image rendering is PRO-412); `text`/`hex` are the kind-agnostic fallbacks.
  */
 function BodyContent({
   result,
-  viewMode,
+  mode,
+  onDownload,
 }: {
   result: DecodeResult;
-  viewMode: ContentMode;
+  mode: ResolvedMode;
+  onDownload: () => void;
 }) {
-  if (viewMode === "hex") return <HexView bytes={result.bytes} />;
-  if (viewMode === "raw") return <RawView text={result.rawText} />;
+  if (mode === "hex") return <HexView bytes={result.bytes} />;
 
-  // parsed — the kind-switched rendering.
-  if (result.kind === "json" && result.parsed != null) {
-    // Wrap so the JSON viewer gets the same top inset as raw/hex/text views.
-    // h-full resolves against the wrapper's content box, keeping the viewer
-    // below the padding without overflow.
+  if (mode === "tree") {
+    if (result.kind === "json" && result.parsed != null) {
+      // Wrap so the JSON viewer gets the same top inset as the other views.
+      // h-full resolves against the wrapper's content box, keeping the viewer
+      // below the padding without overflow.
+      return (
+        <div className="h-full pt-3 pl-3">
+          <JsonTreeViewer
+            value={result.parsed}
+            initialRows={result.initialRows}
+            initialExpanded={result.initialExpanded}
+            truncated={result.truncated}
+            aria-label="JSON viewer"
+          />
+        </div>
+      );
+    }
+    if (result.kind === "ndjson" && result.documents != null) {
+      return (
+        <div className="h-full pt-3 pl-3">
+          <JsonTreeViewer
+            documents={result.documents}
+            initialRows={result.initialRows}
+            initialExpanded={result.initialExpanded}
+            truncated={result.truncated}
+            aria-label="NDJSON viewer"
+          />
+        </div>
+      );
+    }
+  }
+
+  if (mode === "rendered") {
     return (
-      <div className="h-full pt-3 pl-3">
-        <JsonTreeViewer
-          value={result.parsed}
-          initialRows={result.initialRows}
-          initialExpanded={result.initialExpanded}
-          truncated={result.truncated}
-          aria-label="JSON viewer"
-        />
-      </div>
+      <BodySummary
+        mediaType={result.mediaType}
+        wireBytes={result.wireBytes}
+        decodedBytes={result.decodedBytes}
+        onDownload={onDownload}
+        note="Inline image preview is coming soon."
+      />
     );
   }
-  if (result.kind === "ndjson" && result.documents != null) {
+
+  if (mode === "summary") {
     return (
-      <div className="h-full pt-3 pl-3">
-        <JsonTreeViewer
-          documents={result.documents}
-          initialRows={result.initialRows}
-          initialExpanded={result.initialExpanded}
-          truncated={result.truncated}
-          aria-label="NDJSON viewer"
-        />
-      </div>
+      <BodySummary
+        mediaType={result.mediaType}
+        wireBytes={result.wireBytes}
+        decodedBytes={result.decodedBytes}
+        onDownload={onDownload}
+      />
     );
   }
-  if (result.kind === "text" && result.text != null) {
-    return (
-      <pre className="font-mono text-xs text-foreground p-3 whitespace-pre-wrap">
-        {result.text}
-      </pre>
-    );
-  }
-  if (result.kind === "binary") {
-    return (
-      <LifecycleState>
-        Binary data · {formatSize(result.wireBytes)}
-      </LifecycleState>
-    );
-  }
-  return null;
+
+  // `text` and `formatted` (source text until PRO-414).
+  return <TextView text={result.rawText} />;
 }
 
 interface Props {
@@ -173,13 +196,15 @@ interface Props {
    */
   cacheTo?: { exchangeId: number; direction: "request" | "response" };
   /**
-   * The shared body view mode (PRO-336). `parsed` keeps the kind-switched smart
-   * rendering; `raw` shows the decoded text; `hex` shows a hex + ASCII dump.
+   * This pane's stored view-mode selection (PRO-420): `null` means "use the
+   * default for the content kind"; an explicit value is the user's choice.
    * Passed in (not read from the store) so this pane stays presentational.
-   * Defaults to `"parsed"` so tests that only care about size/error state can
-   * omit it.
    */
-  viewMode?: ContentMode;
+  viewMode?: ViewMode | null;
+  /** Change this pane's stored selection; `null` returns to the default. */
+  onViewModeChange?: (mode: ViewMode | null) => void;
+  /** Filename for the header-strip download button, resolved by BodySplit. */
+  downloadFilename?: string;
 }
 
 export function BodyPane({
@@ -188,7 +213,9 @@ export function BodyPane({
   errorMessage,
   awaiting,
   cacheTo,
-  viewMode = "parsed",
+  viewMode = null,
+  onViewModeChange,
+  downloadFilename = "body.bin",
 }: Props) {
   // `useDecodeBody` IS the O1 model-side memoized decoded-entity accessor (PRO-354):
   // it gates decode on `body.atEnd` (lifecycle.phase === "ended") and returns a
@@ -198,14 +225,42 @@ export function BodyPane({
   const mediaTypeDisplay =
     result != null ? mediaTypeSlug(result.mediaType) : null;
 
-  // Copy the content of the active view: parsed text, raw decoded text, or the
-  // hex dump. hexDumpText is memoized since it walks every byte.
-  const copyValue = useMemo(() => {
+  // Resolve the active mode against this body's content kind: a stored mode
+  // that isn't available here silently falls back to the kind's default.
+  const modes =
+    result != null ? selectableModes(result.kind, result.textAvailable) : [];
+  const resolved: ResolvedMode | null =
+    result != null
+      ? resolveMode(viewMode, result.kind, result.textAvailable)
+      : null;
+
+  const handleDownload = useCallback(() => {
+    if (result == null) return;
+    triggerDownload(result.bytes, downloadFilename, result.mediaType);
+  }, [result, downloadFilename]);
+
+  // Copy the active view's content: the hex dump in hex mode, the body as image
+  // data for images, the decoded/pretty text otherwise. Non-image binary has
+  // nothing meaningful to copy, so the button is omitted. hexDumpText is
+  // memoized since it walks every byte.
+  const copyText = useMemo(() => {
     if (result == null) return undefined;
-    if (viewMode === "hex") return hexDumpText(result.bytes);
-    if (viewMode === "raw") return result.rawText;
-    return result.text;
-  }, [result, viewMode]);
+    if (resolved === "hex") return hexDumpText(result.bytes);
+    if (resolved === "tree") return result.text;
+    return result.rawText;
+  }, [result, resolved]);
+
+  // Hex mode copies the dump for any kind; otherwise an image copies its raw
+  // bytes, non-image binary has nothing meaningful to copy, and everything else
+  // copies the active view's text.
+  const copyButton =
+    result == null || body == null ? null : resolved === "hex" ? (
+      <CopyButton value={copyText} />
+    ) : result.kind === "image" ? (
+      <CopyButton image={{ bytes: result.bytes, type: result.mediaType }} />
+    ) : result.kind === "binary" ? null : (
+      <CopyButton value={copyText} />
+    );
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">
@@ -233,6 +288,13 @@ export function BodyPane({
           </SimpleTooltip>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          {result != null && resolved != null && (
+            <BodyModeSelector
+              modes={modes}
+              current={resolved}
+              onSelect={(m) => onViewModeChange?.(m)}
+            />
+          )}
           {result != null && (
             <SimpleTooltip
               content={
@@ -251,7 +313,19 @@ export function BodyPane({
               </span>
             </SimpleTooltip>
           )}
-          {body != null && <CopyButton value={copyValue} />}
+          {result != null && (
+            <SimpleTooltip content="Download body">
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={handleDownload}
+                aria-label="Download body"
+              >
+                <Download />
+              </Button>
+            </SimpleTooltip>
+          )}
+          {copyButton}
         </div>
       </div>
 
@@ -292,8 +366,12 @@ export function BodyPane({
           <LifecycleState>Could not decode body</LifecycleState>
         )}
 
-        {!loading && result != null && (
-          <BodyContent result={result} viewMode={viewMode} />
+        {!loading && result != null && resolved != null && (
+          <BodyContent
+            result={result}
+            mode={resolved}
+            onDownload={handleDownload}
+          />
         )}
 
         {/* Mid-stream error: body completed but the exchange has an error.

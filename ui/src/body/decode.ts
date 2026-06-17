@@ -3,9 +3,17 @@ import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseJson, parseNdjson } from "./json-parse";
 import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
+import type { ContentKind } from "./view-modes";
 
 export interface DecodeResult {
-  kind: "json" | "ndjson" | "text" | "binary";
+  kind: ContentKind;
+  /**
+   * Whether the body can be shown as Unicode text — the `text` view-mode's
+   * availability predicate (PRO-420). True when the proxy sent text chunks
+   * (valid UTF-8 by construction) or, for binary chunks, when the Content-Type
+   * declares a charset `TextDecoder` supports. Computed once per decode.
+   */
+  textAvailable: boolean;
   text?: string;
   mediaType: string;
   /**
@@ -184,6 +192,52 @@ function isJsonlContentType(contentType: string): boolean {
   return JSONL_TYPES.has(base);
 }
 
+function baseType(contentType: string): string {
+  return contentType.split(";")[0].trim().toLowerCase();
+}
+
+const HTML_TYPES = new Set(["text/html", "application/xhtml+xml"]);
+const XML_TYPES = new Set([
+  "text/xml",
+  "application/xml",
+  "application/soap+xml",
+  "application/rss+xml",
+  "application/atom+xml",
+]);
+
+function isHtmlContentType(contentType: string): boolean {
+  return HTML_TYPES.has(baseType(contentType));
+}
+
+function isXmlContentType(contentType: string): boolean {
+  const base = baseType(contentType);
+  // The listed XML media types plus the generic `application/*+xml` suffix.
+  return XML_TYPES.has(base) || base.endsWith("+xml");
+}
+
+/**
+ * The `text` view-mode availability predicate (PRO-420). Text chunks are valid
+ * UTF-8 by construction; binary chunks are displayable as text only when the
+ * Content-Type declares a charset `TextDecoder` accepts.
+ */
+function computeTextAvailable(
+  chunks: BodyChunk[],
+  contentType: string | undefined,
+): boolean {
+  const hasBinaryChunk = chunks.some((c) => "binary" in c);
+  if (!hasBinaryChunk) return true;
+  const match = contentType?.match(/charset=([^;]+)/i);
+  if (match == null) return false;
+  try {
+    // Constructing the decoder is the supported-label check — it throws a
+    // RangeError for an unknown encoding label.
+    new TextDecoder(match[1].trim());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   const { chunks, wireBytes, contentType, contentEncoding } = body;
   const mediaType = contentType ?? "application/octet-stream";
@@ -208,6 +262,9 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   // Step 3: Decode bytes to text
   const text = new TextDecoder().decode(bytes);
 
+  // The text-mode availability predicate, computed once per decode (PRO-420).
+  const textAvailable = computeTextAvailable(chunks, contentType);
+
   // Step 4: Detect NDJSON/JSONL — must precede generic JSON check because ndjson
   // MIME types contain the substring "json" and would otherwise be mishandled.
   // Parsed in the Worker into a forest of per-line document trees; falls through
@@ -218,6 +275,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         await parseNdjson(text);
       return {
         kind: "ndjson",
+        textAvailable,
         text: prettyText,
         documents: documents ?? undefined,
         initialRows: rows,
@@ -243,6 +301,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         await parseJson(text);
       return {
         kind: "json",
+        textAvailable,
         text: prettyText,
         parsed: parsed ?? undefined,
         initialRows: rows,
@@ -259,16 +318,26 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     }
   }
 
-  // Step 6: Detect binary content types
-  const binaryPrefixes = [
-    "image/",
-    "audio/",
-    "video/",
-    "application/octet-stream",
-  ];
-  if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
+  // Step 6: Markup — HTML and XML get their own kinds (formatted-view slot,
+  // PRO-414). The decoded text backs the text/formatted views; rendering is
+  // text-only until syntax highlighting lands.
+  if (contentType != null && isHtmlContentType(contentType)) {
     return {
-      kind: "binary",
+      kind: "html",
+      textAvailable,
+      text,
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
+  }
+  if (contentType != null && isXmlContentType(contentType)) {
+    return {
+      kind: "xml",
+      textAvailable,
+      text,
       mediaType,
       wireBytes,
       decodedBytes,
@@ -277,9 +346,37 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 7: Default to text
+  // Step 7: Images get their own kind for the rendered-view slot (PRO-412).
+  if (contentType?.startsWith("image/")) {
+    return {
+      kind: "image",
+      textAvailable,
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
+  }
+
+  // Step 8: Other non-text binary content (audio, video, octet-stream, …).
+  const binaryPrefixes = ["audio/", "video/", "application/octet-stream"];
+  if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
+    return {
+      kind: "binary",
+      textAvailable,
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
+  }
+
+  // Step 9: Default to text
   return {
     kind: "text",
+    textAvailable,
     text,
     mediaType,
     wireBytes,

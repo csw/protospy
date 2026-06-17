@@ -7,16 +7,9 @@ import type { TimeZone } from "@ui/lib/utils";
 import { matchesFilter } from "@ui/lib/utils";
 import { apply } from "./reducer";
 import type { Exchange } from "./reducer";
+import type { ViewMode } from "@ui/body/view-modes";
 export type { Exchange, BodyState } from "./reducer";
-
-/** Per-pane body content render mode (parsed/raw/hex view-mode toggle, PRO-336). */
-export type ContentMode = "parsed" | "raw" | "hex";
-/**
- * The body view-mode selector value: the generic content modes plus the
- * type-specific msearch `paired` mode, which supersedes the request/response
- * split rather than rendering per-pane (PRO-336).
- */
-export type BodyViewMode = ContentMode | "paired";
+export type { ViewMode } from "@ui/body/view-modes";
 
 interface PersistedPrefs {
   listWidth: { rows: number; table: number };
@@ -45,11 +38,15 @@ export interface StoreState extends PersistedPrefs {
   /** Keyboard-shortcuts (`?`) help overlay visibility. Session-only. */
   helpOpen: boolean;
   /**
-   * Shared body view mode (parsed/raw/hex, plus msearch `paired`). Drives both
-   * request and response panes. Session-only: sticks across exchange selection,
-   * resets to `parsed` on refresh (NOT persisted — absent from `partialize`).
+   * Per-direction body view-mode selections (PRO-420). `null` means "use the
+   * default for this body's content kind"; an explicit value is the user's
+   * choice, which falls back to the default silently if not available for the
+   * current body. Request and response are independent. Session-only: sticks
+   * across exchange selection, resets on refresh (NOT persisted — absent from
+   * `partialize`).
    */
-  bodyViewMode: BodyViewMode;
+  requestViewMode: ViewMode | null;
+  responseViewMode: ViewMode | null;
 
   // Core actions
   applyEvent: (msg: EventMessage) => void;
@@ -81,7 +78,8 @@ export interface StoreState extends PersistedPrefs {
   setCmdKOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   setTimeZone: (tz: TimeZone) => void;
-  setBodyViewMode: (mode: BodyViewMode) => void;
+  setRequestViewMode: (mode: ViewMode | null) => void;
+  setResponseViewMode: (mode: ViewMode | null) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -107,7 +105,8 @@ export const useStore = create<StoreState>()(
         cmdKOpen: false,
         helpOpen: false,
         timeZone: "local",
-        bodyViewMode: "parsed",
+        requestViewMode: null,
+        responseViewMode: null,
 
         // Core actions
         applyEvent: (msg) =>
@@ -171,7 +170,8 @@ export const useStore = create<StoreState>()(
 
         setTimeZone: (tz) => set({ timeZone: tz }),
 
-        setBodyViewMode: (mode) => set({ bodyViewMode: mode }),
+        setRequestViewMode: (mode) => set({ requestViewMode: mode }),
+        setResponseViewMode: (mode) => set({ responseViewMode: mode }),
       }),
       {
         name: "protospy-ui-prefs",
