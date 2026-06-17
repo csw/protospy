@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "Pillow>=11,<13",
+#   "numpy>=1,<3",
+# ]
+# ///
 """Unit tests for scripts/agents/screenshot-diff."""
 
 from __future__ import annotations
@@ -166,11 +173,12 @@ class MainTests(unittest.TestCase):
             self.before_dir / "shot-1280-dark.png",
             self.after_dir / "shot-1280-dark.png",
         )
-        # 1 pixel different out of 10000 = 0.01%; threshold 0.01% should pass
+        # 1 pixel different out of 10000 = 0.0001 fraction changed.
+        # --threshold 0.01 is a 1% fraction threshold — well above 0.0001, passes.
         code, out, _ = self._run("--threshold", "0.01")
         self.assertEqual(code, 0)
-        # Still reports the difference in the summary
-        self.assertIn("differ", out)
+        # Within-threshold pairs report as "identical" (no visual regression)
+        self.assertIn("identical", out)
 
     def test_exceeds_threshold_exits_one(self) -> None:
         _make_png_1px_diff(

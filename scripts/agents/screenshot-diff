@@ -179,19 +179,18 @@ def main(argv: list[str] | None = None) -> int:
 
     ok_results = [r for r in results if r["ok"]]
     n_pairs = len(ok_results)
-    differ_list = sorted(
-        [r for r in ok_results if r["percent"] > 0.0],
+    failing = sorted(
+        [r for r in ok_results if r["percent"] / 100 > args.threshold],
         key=lambda r: -r["percent"],
     )
-    failing = [r for r in ok_results if r["percent"] / 100 > args.threshold]
 
-    if not differ_list:
+    if not failing:
         print(f"{n_pairs}/{n_pairs} identical")
     else:
         details = ", ".join(
-            f"{r['name']} ({r['percent']:.1f}% changed)" for r in differ_list
+            f"{r['name']} ({r['percent']:.1f}% changed)" for r in failing
         )
-        print(f"{len(differ_list)}/{n_pairs} differ: {details}")
+        print(f"{len(failing)}/{n_pairs} differ: {details}")
 
     if errors or failing:
         return 1
