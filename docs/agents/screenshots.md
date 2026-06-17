@@ -73,16 +73,51 @@ public access settings.
 
 The `handle-ticket` skill wires this automatically for UI-touching tickets:
 
-1. **Before (step 3a)** — before any implementation, start a dev server on a
-   free port and use `playwright-cli` to screenshot the views/scenes identified
-   in the ticket description. Save to `scratch/before/` and upload.
+1. **Matrix (step 3a, before implementation)** — decide the minimal shot list:
+   one width (default 1280) unless horizontal layout is affected; one theme
+   (default dark) unless theme-specific styling is touched. Record the list in
+   `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
+   Start a dev server, screenshot each scene with `playwright-cli`, saving with
+   the exact filenames from the manifest to `scratch/before/`, then upload.
    Store the printed embed strings for the PR description.
 
-2. **After (step 4)** — the qa-explorer subagent saves scoped screenshots to
-   `scratch/after/`. Upload those and store the embed strings.
+2. **After (step 4)** — the qa-explorer subagent receives the manifest filenames
+   and saves screenshots with the same names to `scratch/after/`. Upload those
+   and store the embed strings.
 
-3. **PR description (step 6)** — append a `## Visual diff` section containing
-   both sets of embed strings under `### Before` / `### After` headings.
+3. **Pixel self-check (step 4, refactor mode)** — when the ticket does not
+   expect visual changes (refactor, internal rewiring), run:
+
+   ```bash
+   scripts/agents/screenshot-diff scratch/before/ scratch/after/
+   ```
+
+   The script pairs images by filename, computes pixel differences, and prints
+   `"4/4 identical"` or `"2/4 differ: shot.png (0.3% changed)"`. Exit non-zero
+   means unexpected visual regression — stop before pushing and investigate.
+   Store the summary line for the PR description.
+
+4. **PR description (step 6)** — append a `## Visual diff` section containing
+   both sets of embed strings under `### Before` / `### After` headings, plus a
+   `**Visual self-check:**` line if a pixel comparison was run.
+
+## screenshot-diff
+
+`scripts/agents/screenshot-diff` compares before and after directories
+pixel-by-pixel:
+
+```bash
+scripts/agents/screenshot-diff scratch/before/ scratch/after/ [--threshold FRACTION] [--pixel-tolerance N]
+```
+
+Images are paired by filename. The script prints a one-line summary to stdout
+and exits 0 (all within threshold) or 1 (at least one pair exceeds threshold).
+
+- `--threshold` (default 0.001 = 0.1%) — max fraction of pixels allowed to
+  differ per pair before exit non-zero.
+- `--pixel-tolerance` (default 2) — per-channel RGB tolerance suppressing
+  sub-pixel rendering noise; pixels differing by ≤ N in every channel count
+  as identical.
 
 ## Scoping
 
