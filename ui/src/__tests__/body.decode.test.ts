@@ -46,7 +46,12 @@ vi.mock("@ui/body/json-parse", () => ({
       return Promise.reject(new SyntaxError("no NDJSON documents"));
     }
     const roots = buildJsonForest(documents);
-    const defaultExpanded = computeForestDefaultExpanded(roots);
+    const documentSizes = documents.map((d) => JSON.stringify(d).length);
+    const defaultExpanded = computeForestDefaultExpanded(
+      roots,
+      {},
+      documentSizes,
+    );
     if (truncatedDocIndex != null) {
       for (const id of markTruncationPoint(roots[truncatedDocIndex])
         .ancestorIds) {

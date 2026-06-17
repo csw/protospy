@@ -8,6 +8,7 @@ import {
   computeDefaultExpanded,
   computeForestDefaultExpanded,
   DEFAULT_EXPAND_DEPTH,
+  FOREST_EXPAND_BUDGET,
   LARGE_CONTAINER_CHILD_COUNT,
   SMALL_TREE_NODE_COUNT,
 } from "@ui/components/json-tree/expand";
@@ -128,7 +129,34 @@ describe("computeDefaultExpanded child-count cap", () => {
 // ── computeForestDefaultExpanded (NDJSON, PRO-400) ──
 
 describe("computeForestDefaultExpanded", () => {
-  it("collapses each document at its own root", () => {
+  it("expands small documents within the byte budget", () => {
+    const docs = [{ a: { b: 1 } }, { c: 2 }];
+    const roots = buildJsonForest(docs);
+    const sizes = docs.map((d) => JSON.stringify(d).length);
+    const expanded = computeForestDefaultExpanded(roots, {}, sizes);
+    for (const root of roots) {
+      expect(expanded.has(root.id)).toBe(true);
+    }
+  });
+
+  it("collapses documents that exceed the budget", () => {
+    const small = { a: 1 };
+    const large = Object.fromEntries(
+      Array.from({ length: 2000 }, (_, i) => [
+        `key_${i}`,
+        `value-padding-${i}`,
+      ]),
+    );
+    const docs = [small, large];
+    const roots = buildJsonForest(docs);
+    const sizes = docs.map((d) => JSON.stringify(d).length);
+    expect(sizes[1]).toBeGreaterThan(FOREST_EXPAND_BUDGET);
+    const expanded = computeForestDefaultExpanded(roots, {}, sizes);
+    expect(expanded.has(roots[0].id)).toBe(true);
+    expect(expanded.has(roots[1].id)).toBe(false);
+  });
+
+  it("collapses all roots when no sizes are provided (legacy)", () => {
     const roots = buildJsonForest([{ a: { b: 1 } }, { c: 2 }]);
     const expanded = computeForestDefaultExpanded(roots);
     for (const root of roots) {
@@ -137,13 +165,11 @@ describe("computeForestDefaultExpanded", () => {
   });
 
   it("still precomputes each document's inner expansion", () => {
-    // A small document expands fully on its own; in the forest its root is
-    // collapsed but the inner container `a` stays in the precomputed set so an
-    // expanded document opens already drilled in.
-    const roots = buildJsonForest([{ a: { b: 1 } }]);
+    const docs = [{ a: { b: 1 } }];
+    const roots = buildJsonForest(docs);
     const inner = roots[0].children![0]; // the `a` container
-    const expanded = computeForestDefaultExpanded(roots);
-    expect(expanded.has(roots[0].id)).toBe(false);
+    const sizes = docs.map((d) => JSON.stringify(d).length);
+    const expanded = computeForestDefaultExpanded(roots, {}, sizes);
     expect(expanded.has(inner.id)).toBe(true);
   });
 

@@ -43,14 +43,13 @@ test.describe("BodyPane — NDJSON document view", () => {
     const viewer = page.getByLabel("NDJSON viewer");
     await expect(viewer).toBeVisible();
 
-    // Each NDJSON line is its own collapsed document tree (count badge shown,
-    // values hidden until expanded).
-    await expect(viewer).toContainText(/\d+ keys/);
-    await expect(viewer).not.toContainText('"login"');
-
-    // Expanding the first document reveals only its content.
-    await viewer.getByRole("button").first().click();
+    // Small NDJSON documents auto-expand within the 32 KB budget, so values
+    // are visible without user interaction.
     await expect(viewer).toContainText('"login"');
+
+    // Collapsing the first document hides its content and shows the badge.
+    await viewer.getByRole("button").first().click();
+    await expect(viewer).toContainText(/\d+ keys/);
 
     // The media-type slug confirms the correct body pane is active.
     await expect(page.getByText("ndjson").first()).toBeVisible();

@@ -121,7 +121,12 @@ function buildNdjson(jobId: string, text: string): OutMessage {
 
   const t1 = self.performance.now();
   const roots = buildJsonForest(documents);
-  const defaultExpanded = computeForestDefaultExpanded(roots);
+  const documentSizes = documents.map((doc) => JSON.stringify(doc).length);
+  const defaultExpanded = computeForestDefaultExpanded(
+    roots,
+    {},
+    documentSizes,
+  );
   if (truncatedDocIndex != null) {
     // Re-expand the truncated document (and its rightmost path) so its cut-point
     // marker is visible without the user having to open that document.
