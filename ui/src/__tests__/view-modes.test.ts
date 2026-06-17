@@ -14,8 +14,8 @@ describe("selectableModes", () => {
     expect(selectableModes("text", true)).toEqual(["text", "hex"]);
   });
 
-  it("offers only hex for binary (summary is implicit)", () => {
-    expect(selectableModes("binary", false)).toEqual(["hex"]);
+  it("offers summary and hex for binary (summary is the default segment)", () => {
+    expect(selectableModes("binary", false)).toEqual(["summary", "hex"]);
   });
 });
 
@@ -39,6 +39,12 @@ describe("resolveMode", () => {
   it("honors a stored mode that is available", () => {
     expect(resolveMode("text", "json", true)).toBe("text");
     expect(resolveMode("hex", "image", false)).toBe("hex");
+  });
+
+  it("resolves binary to summary by default and honors a stored hex/summary", () => {
+    expect(resolveMode(null, "binary", false)).toBe("summary");
+    expect(resolveMode("hex", "binary", false)).toBe("hex");
+    expect(resolveMode("summary", "binary", false)).toBe("summary");
   });
 
   it("falls back to the default when the stored mode is unavailable", () => {

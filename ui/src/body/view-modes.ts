@@ -6,11 +6,13 @@
 // resolution of a user's stored selection against the current body.
 
 /**
- * Every concrete view mode. `summary` is intentionally absent — it is the
- * implicit fallback for binary bodies, never a user selection (see spec). The
- * `paired`, `sse`, and `anthropic` values are part of the contract for future
- * protocol integration but PRO-420 does not wire them into the selector: no
- * content kind below produces them, so they never appear in a selectable set.
+ * Every concrete view mode. `summary` is the binary "nothing richer to show"
+ * state (content-type + size + download); it is a real selectable mode and the
+ * default for binary bodies, so every kind's default renders as a pressed
+ * segment in the selector (no lone deselectable toggle). The `paired`, `sse`,
+ * and `anthropic` values are part of the contract for future protocol
+ * integration but PRO-420 does not wire them into the selector: no content kind
+ * below produces them, so they never appear in a selectable set.
  */
 export type ViewMode =
   | "tree"
@@ -20,14 +22,15 @@ export type ViewMode =
   | "sse"
   | "anthropic"
   | "text"
+  | "summary"
   | "hex";
 
 /**
- * A resolved mode actually drives rendering. It adds `summary` — the implicit
- * "nothing richer to show" state for binary bodies — to the selectable
- * `ViewMode` set.
+ * The mode that actually drives rendering. Now identical to `ViewMode` (every
+ * mode, including `summary`, is selectable); kept as a named alias for the
+ * render-side call sites that resolve a stored selection into a concrete mode.
  */
-export type ResolvedMode = ViewMode | "summary";
+export type ResolvedMode = ViewMode;
 
 /** Content kinds the decode pipeline classifies a body into (PRO-420). */
 export type ContentKind =
@@ -48,6 +51,7 @@ export const MODE_LABELS: Record<ViewMode, string> = {
   sse: "Events",
   anthropic: "Transcript",
   text: "Text",
+  summary: "Summary",
   hex: "Hex",
 };
 
@@ -75,8 +79,9 @@ function withTextAndHex(base: ViewMode[], textAvailable: boolean): ViewMode[] {
 
 /**
  * The user-selectable modes for a content kind, in display order (richest
- * first, `hex` last). `summary` is never selectable, so binary returns just
- * `["hex"]` — summary is its implicit default.
+ * first, `hex` last). Every kind's default is included as a selectable segment —
+ * binary returns `["summary", "hex"]` so `summary` renders as a pressed default
+ * rather than an absent button.
  */
 export function selectableModes(
   kind: ContentKind,
@@ -95,7 +100,7 @@ export function selectableModes(
       // Text kind is text by construction; text mode is always available.
       return ["text", "hex"];
     case "binary":
-      return ["hex"];
+      return ["summary", "hex"];
   }
 }
 

@@ -29,7 +29,7 @@ function responseHead(page: import("@playwright/test").Page) {
 }
 
 test.describe("BodyPane — binary summary state (PRO-420)", () => {
-  test("renders the summary with a download button and a Hex toggle", async ({
+  test("renders the summary with a download button and Summary/Hex segments", async ({
     page,
   }) => {
     await applyScene(page, "body-binary");
@@ -42,26 +42,33 @@ test.describe("BodyPane — binary summary state (PRO-420)", () => {
       summary.getByRole("button", { name: "Download" }),
     ).toBeVisible();
 
-    // Binary's only selectable mode is Hex, rendered as a lone item in the
-    // shared toggle group (summary is the implicit, unselected default).
+    // Binary renders as a Summary | Hex group like every other kind; Summary is
+    // the default and shows as the pressed segment.
     const head = responseHead(page);
+    await expect(head.getByText("Summary", { exact: true })).toHaveAttribute(
+      "data-state",
+      "on",
+    );
     await expect(head.getByText("Hex", { exact: true })).toBeVisible();
     // Non-image binary has nothing meaningful to copy.
     await expect(head.getByRole("button", { name: /copy/i })).toHaveCount(0);
   });
 
-  test("the Hex toggle switches the summary to a hex dump and back", async ({
+  test("the Summary/Hex segments switch the body between summary and hex", async ({
     page,
   }) => {
     await applyScene(page, "body-binary");
-    const hexToggle = responseHead(page).getByText("Hex", { exact: true });
+    const head = responseHead(page);
+    const summarySeg = head.getByText("Summary", { exact: true });
+    const hexSeg = head.getByText("Hex", { exact: true });
 
-    await hexToggle.click();
+    await hexSeg.click();
     await expect(page.getByLabel("Hex viewer")).toBeVisible();
     await expect(page.getByTestId("body-summary")).toHaveCount(0);
 
-    await hexToggle.click();
+    await summarySeg.click();
     await expect(page.getByTestId("body-summary")).toBeVisible();
+    await expect(page.getByLabel("Hex viewer")).toHaveCount(0);
   });
 
   test("the header download button triggers a download", async ({ page }) => {

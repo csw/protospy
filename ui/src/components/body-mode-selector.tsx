@@ -2,11 +2,11 @@
 // one body pane's content kind as a segmented toggle group, per
 // docs/ui/body-view-modes.md.
 //
-// All cases use a single `ToggleGroup type="single"` for visual consistency —
-// including the two-mode kinds (image, text, JSON-without-text) and binary,
-// whose lone selectable mode is `hex` (summary is the implicit default, so the
-// group renders a single deselectable "Hex" item: pressing it shows hex,
-// pressing again returns to the summary default). The group overrides
+// All cases use a single `ToggleGroup type="single"` for visual consistency.
+// Every content kind's default is itself a selectable segment — including
+// binary, whose default `summary` (content-type + size + download) sits beside
+// `Hex` as `Summary | Hex`. So the active mode is always a pressed segment and
+// the group is never deselectable to an empty state. The group overrides
 // ToggleGroup's default `bg-secondary` with a `bg-border` track so it reads as a
 // recessed control against the `bg-secondary` header strip rather than blending
 // into it.
@@ -21,21 +21,17 @@
 // in a `min-w-0 overflow-hidden` cell, observe its width with a ResizeObserver,
 // measure each toggle's (static) intrinsic width once, then greedily keep the
 // highest-precedence modes that fit and push the rest into a dropdown menu.
-import {
-  MODE_LABELS,
-  type ResolvedMode,
-  type ViewMode,
-} from "@ui/body/view-modes";
+import { MODE_LABELS, type ViewMode } from "@ui/body/view-modes";
 import { cn } from "@ui/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group";
 
 interface Props {
   /** Selectable modes for this pane's content kind, in display order. */
   modes: ViewMode[];
-  /** The currently resolved mode (may be `summary` for binary bodies). */
-  current: ResolvedMode;
-  /** Select a mode; `null` returns to the content kind's default. */
-  onSelect: (mode: ViewMode | null) => void;
+  /** The currently resolved mode — always one of `modes`. */
+  current: ViewMode;
+  /** Select a mode. */
+  onSelect: (mode: ViewMode) => void;
   className?: string;
 }
 
@@ -47,19 +43,13 @@ export function BodyModeSelector({
 }: Props) {
   if (modes.length === 0) return null;
 
-  // The pressed item is the current mode when it is one of the selectable modes;
-  // for binary's implicit `summary` default `current` is not selectable, so no
-  // item is pressed (the lone Hex toggle reads as off).
-  const value = modes.includes(current as ViewMode)
-    ? (current as ViewMode)
-    : "";
-
   return (
     <ToggleGroup
       type="single"
-      value={value}
-      // Deselecting (clicking the active item) yields "" → null → default.
-      onValueChange={(v) => onSelect((v as ViewMode) || null)}
+      value={current}
+      // Single-select with no deselect: ignore the empty value Radix emits when
+      // the active item is re-clicked, so a mode is always selected.
+      onValueChange={(v) => v && onSelect(v as ViewMode)}
       size="sm"
       aria-label="Body view mode"
       className={cn("bg-border", className)}
