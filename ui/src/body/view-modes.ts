@@ -127,15 +127,3 @@ export function resolveMode(
   }
   return defaultMode(kind, textAvailable);
 }
-
-/**
- * Whether the selector should collapse to a single `Hex` toggle rather than a
- * full toggle group. True when the only choice beyond the (non-hex) default is
- * hex: image (rendered+hex), text (text+hex), JSON without text (tree+hex), and
- * binary (summary implicit + hex). A multi-mode kind (e.g. JSON with text:
- * tree, text, hex) uses the full group instead.
- */
-export function isHexToggleOnly(modes: ViewMode[]): boolean {
-  if (modes.length === 1) return modes[0] === "hex";
-  return modes.length === 2 && modes[1] === "hex";
-}

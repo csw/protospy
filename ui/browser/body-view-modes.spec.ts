@@ -42,11 +42,10 @@ test.describe("BodyPane — binary summary state (PRO-420)", () => {
       summary.getByRole("button", { name: "Download" }),
     ).toBeVisible();
 
-    // Binary collapses to a single Hex toggle; no full toggle group.
+    // Binary's only selectable mode is Hex, rendered as a lone item in the
+    // shared toggle group (summary is the implicit, unselected default).
     const head = responseHead(page);
-    await expect(
-      head.getByRole("button", { name: "Toggle hex view" }),
-    ).toBeVisible();
+    await expect(head.getByText("Hex", { exact: true })).toBeVisible();
     // Non-image binary has nothing meaningful to copy.
     await expect(head.getByRole("button", { name: /copy/i })).toHaveCount(0);
   });
@@ -55,9 +54,7 @@ test.describe("BodyPane — binary summary state (PRO-420)", () => {
     page,
   }) => {
     await applyScene(page, "body-binary");
-    const hexToggle = responseHead(page).getByRole("button", {
-      name: "Toggle hex view",
-    });
+    const hexToggle = responseHead(page).getByText("Hex", { exact: true });
 
     await hexToggle.click();
     await expect(page.getByLabel("Hex viewer")).toBeVisible();

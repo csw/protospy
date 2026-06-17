@@ -250,17 +250,15 @@ export function BodyPane({
     return result.rawText;
   }, [result, resolved]);
 
-  const copyButton = (() => {
-    if (result == null || body == null) return null;
-    if (resolved === "hex") return <CopyButton value={copyText} />;
-    if (result.kind === "image") {
-      return (
-        <CopyButton image={{ bytes: result.bytes, type: result.mediaType }} />
-      );
-    }
-    if (result.kind === "binary") return null;
-    return <CopyButton value={copyText} />;
-  })();
+  // Image (non-hex) copies the raw bytes as an image; non-image binary has
+  // nothing meaningful to copy; everything else copies the active view's text.
+  const copyButton =
+    result == null || body == null ? null : resolved !== "hex" &&
+      result.kind === "image" ? (
+      <CopyButton image={{ bytes: result.bytes, type: result.mediaType }} />
+    ) : resolved !== "hex" && result.kind === "binary" ? null : (
+      <CopyButton value={copyText} />
+    );
 
   return (
     <div className="flex flex-col border border-border h-full overflow-hidden">

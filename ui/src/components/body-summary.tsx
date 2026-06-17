@@ -32,7 +32,6 @@ export function BodySummary({
 
   return (
     <div
-      role="status"
       data-testid="body-summary"
       className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
     >

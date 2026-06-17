@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  defaultMode,
-  isHexToggleOnly,
-  resolveMode,
-  selectableModes,
-} from "@ui/body/view-modes";
+import { defaultMode, resolveMode, selectableModes } from "@ui/body/view-modes";
 
 describe("selectableModes", () => {
   it("includes text only when the text predicate is satisfied", () => {
@@ -51,17 +46,5 @@ describe("resolveMode", () => {
     expect(resolveMode("tree", "image", false)).toBe("rendered");
     // text stored, but text unavailable for this JSON body.
     expect(resolveMode("text", "json", false)).toBe("tree");
-  });
-});
-
-describe("isHexToggleOnly", () => {
-  it("is true for two-mode and lone-hex sets", () => {
-    expect(isHexToggleOnly(["rendered", "hex"])).toBe(true);
-    expect(isHexToggleOnly(["text", "hex"])).toBe(true);
-    expect(isHexToggleOnly(["hex"])).toBe(true);
-  });
-
-  it("is false for richer sets", () => {
-    expect(isHexToggleOnly(["tree", "text", "hex"])).toBe(false);
   });
 });

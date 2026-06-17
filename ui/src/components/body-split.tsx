@@ -45,8 +45,10 @@ export function BodySplit({ exchange, protocol }: Props) {
   // modes and selections.
   const requestViewMode = useStore((s) => s.requestViewMode);
   const responseViewMode = useStore((s) => s.responseViewMode);
-  const setRequestViewMode = useStore((s) => s.setRequestViewMode);
-  const setResponseViewMode = useStore((s) => s.setResponseViewMode);
+  // Store actions are stable refs; read them via getState() rather than a
+  // reactive subscription (they never change, so subscribing only adds noise).
+  const setRequestViewMode = useStore.getState().setRequestViewMode;
+  const setResponseViewMode = useStore.getState().setResponseViewMode;
 
   // Download filenames: Content-Disposition wins, then the request path's
   // basename, with a content-type extension appended when needed.
