@@ -31,6 +31,7 @@
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
+import type { Page } from "@playwright/test";
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { AppStore } from "@ui/state/store";
 import type { ViewMode } from "@ui/body/view-modes";
@@ -118,11 +119,12 @@ export interface Scene {
   /** What this cell demonstrates / what to look for. */
   description: string;
   /**
-   * Whether reaching this cell needs a follow-up interaction beyond store
-   * injection (e.g. a row `:hover` or a separator drag). Documented so the
-   * reviewer knows injection alone is not the whole picture.
+   * Playwright steps to reach the visual state this scene documents. Store
+   * injection alone delivers the pre-interaction snapshot; calling `interact`
+   * drives the page to the claimed state. Consumed by `scene-interactions.spec.ts`
+   * and the bestiary runner — no LLM interpretation needed.
    */
-  interaction?: string;
+  interact?: (page: Page) => Promise<void>;
   messages: Msg[];
   config?: SceneConfig;
 }
@@ -250,7 +252,7 @@ export const SCENES: Scene[] = [
     axis: "state",
     description:
       "Populated list with nothing selected; hover a row to see the hover background.",
-    interaction: "Hover an exchange row (CSS :hover; not store-injectable).",
+    interact: (page) => page.getByText("/api/users").first().hover(),
     messages: backdrop(),
     config: { selectedId: null },
   },
@@ -503,9 +505,9 @@ export const SCENES: Scene[] = [
     title: "SSE stream (paused)",
     axis: "state",
     description:
-      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot. Apply the stream-live scene, then pause.",
-    interaction:
-      "Click the Pause button in the stream view header (play/pause toggle).",
+      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot.",
+    interact: (page) =>
+      page.getByRole("button", { name: "Pause stream" }).click(),
     messages: [
       makePostRequest(1, "/api/stream"),
       makeSSEResponse(
@@ -551,8 +553,7 @@ export const SCENES: Scene[] = [
     axis: "state",
     description:
       "The same Anthropic SSE stream as 'stream-anthropic' but with the transcript tab active. ChatStreamView renders the assembled text output with model/message-id metadata, stop_reason, and token usage. Protocol = 'Anthropic'.",
-    interaction:
-      "Click the 'Transcript' toggle in the chat stream view header.",
+    interact: (page) => page.getByRole("radio", { name: "transcript" }).click(),
     messages: [
       makePostRequest(1, "/v1/messages"),
       makeSSEResponse(
@@ -727,7 +728,7 @@ export const SCENES: Scene[] = [
     axis: "view",
     description:
       "An exchange with many request and response headers selected. Verify the Headers tab: side-by-side request/response columns, header names and values, overflow and wrapping.",
-    interaction: "Click the Headers tab in the inspector.",
+    interact: (page) => page.getByRole("tab", { name: "Headers" }).click(),
     messages: [
       {
         exchange: { exchange_id: 1, timestamp: "2024-01-01T00:00:00Z" },
@@ -784,7 +785,7 @@ export const SCENES: Scene[] = [
     axis: "view",
     description:
       "A slow exchange with a traceparent header selected. Verify the Timing tab: Started timestamp, HTTP version, method, status, elapsed time, request/response sizes, and Trace ID row.",
-    interaction: "Click the Timing tab in the inspector.",
+    interact: (page) => page.getByRole("tab", { name: "Timing" }).click(),
     messages: [
       ...makeCompleteExchange(1, "POST", "/api/v1/search", "200 OK", {
         traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
@@ -888,7 +889,8 @@ export interface SceneMeta {
   title: string;
   axis: SceneAxis;
   description: string;
-  interaction?: string;
+  /** Whether the scene carries an `interact` function (not serializable itself). */
+  hasInteract: boolean;
 }
 
 function toMeta(scene: Scene): SceneMeta {
@@ -897,7 +899,7 @@ function toMeta(scene: Scene): SceneMeta {
     title: scene.title,
     axis: scene.axis,
     description: scene.description,
-    interaction: scene.interaction,
+    hasInteract: scene.interact != null,
   };
 }
 

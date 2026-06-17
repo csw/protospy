@@ -1,12 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { waitForStore } from "./helpers/inject";
-import { applyScene, waitForSceneHarness } from "./helpers/scenes";
+import { SCENES, applyScene, waitForSceneHarness } from "./helpers/scenes";
 
-// Tests for fixture-matrix scenes whose documented state requires a follow-up
-// interaction (the `interaction:` field). Store injection alone reaches the
-// pre-interaction state; these specs perform the interaction and assert the
-// resulting visual state. Covers the regression risk the fixture-matrix breadth
-// check cannot: that the interactive affordance actually works end-to-end.
+// Tests for fixture-matrix scenes that carry an `interact` function. Store
+// injection alone reaches the pre-interaction snapshot; these specs perform
+// the interaction and assert the resulting visual state.
+//
+// The generated smoke-test loop at the top ensures every scene with `interact`
+// is exercised automatically — add `interact` to a scene and it gets a free
+// smoke test here. Named behavioral tests below assert specific post-interaction
+// content for the cases where we want to verify correctness, not just absence
+// of errors.
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -18,22 +22,32 @@ test.beforeEach(async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// StreamView — play/pause toggle
+// Smoke tests — generated from SCENES; every scene with interact runs here
+// ---------------------------------------------------------------------------
+
+const interactScenes = SCENES.filter((s) => s.interact != null);
+
+for (const scene of interactScenes) {
+  test(`[smoke] ${scene.id} — interact runs without error`, async ({
+    page,
+  }) => {
+    await applyScene(page, scene.id);
+    await scene.interact!(page);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Behavioral assertions — StreamView play/pause
 // ---------------------------------------------------------------------------
 
 test.describe("StreamView — play/pause toggle", () => {
-  test("clicking Pause freezes the event list and shows Resume", async ({
+  test("Pause button flips to Resume after clicking Pause", async ({
     page,
   }) => {
-    await applyScene(page, "stream-live");
+    const scene = SCENES.find((s) => s.id === "stream-paused")!;
+    await applyScene(page, scene.id);
+    await scene.interact!(page);
 
-    // Pre-interaction: stream is playing, Pause button visible.
-    const pauseBtn = page.getByRole("button", { name: "Pause stream" });
-    await expect(pauseBtn).toBeVisible();
-
-    await pauseBtn.click();
-
-    // Post-interaction: stream is frozen, button flips to Resume.
     await expect(
       page.getByRole("button", { name: "Resume stream" }),
     ).toBeVisible();
@@ -42,17 +56,13 @@ test.describe("StreamView — play/pause toggle", () => {
     ).toHaveCount(0);
   });
 
-  test("clicking Resume after Pause restores the playing state", async ({
+  test("Resume button flips back to Pause after clicking Resume", async ({
     page,
   }) => {
-    await applyScene(page, "stream-live");
-
-    await page.getByRole("button", { name: "Pause stream" }).click();
-    await expect(
-      page.getByRole("button", { name: "Resume stream" }),
-    ).toBeVisible();
-
-    await page.getByRole("button", { name: "Resume stream" }).click();
+    const scene = SCENES.find((s) => s.id === "stream-paused")!;
+    await applyScene(page, scene.id);
+    await scene.interact!(page); // → paused
+    await page.getByRole("button", { name: "Resume stream" }).click(); // → playing
 
     await expect(
       page.getByRole("button", { name: "Pause stream" }),
@@ -61,39 +71,27 @@ test.describe("StreamView — play/pause toggle", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ChatStreamView — transcript / events toggle
+// Behavioral assertions — ChatStreamView transcript / events toggle
 // ---------------------------------------------------------------------------
 
 test.describe("ChatStreamView — transcript / events toggle", () => {
-  test("clicking transcript renders the assembled text output", async ({
-    page,
-  }) => {
-    await applyScene(page, "stream-anthropic");
+  test("transcript toggle renders assembled text output", async ({ page }) => {
+    const scene = SCENES.find((s) => s.id === "stream-anthropic-transcript")!;
+    await applyScene(page, scene.id);
+    await scene.interact!(page);
 
-    // Pre-interaction: events tab active, transcript text not visible.
-    await expect(
-      page.getByText("Hello! How can I help you today?"),
-    ).toHaveCount(0);
-
-    await page.getByRole("radio", { name: "transcript" }).click();
-
-    // Post-interaction: assembled transcript text visible.
     await expect(
       page.getByText("Hello! How can I help you today?"),
     ).toBeVisible();
   });
 
-  test("clicking events after transcript switches back to the event log", async ({
+  test("events toggle hides transcript and shows event log", async ({
     page,
   }) => {
-    await applyScene(page, "stream-anthropic");
-
-    await page.getByRole("radio", { name: "transcript" }).click();
-    await expect(
-      page.getByText("Hello! How can I help you today?"),
-    ).toBeVisible();
-
-    await page.getByRole("radio", { name: "events" }).click();
+    const scene = SCENES.find((s) => s.id === "stream-anthropic-transcript")!;
+    await applyScene(page, scene.id);
+    await scene.interact!(page); // → transcript
+    await page.getByRole("radio", { name: "events" }).click(); // → events
 
     await expect(
       page.getByText("Hello! How can I help you today?"),
@@ -102,23 +100,19 @@ test.describe("ChatStreamView — transcript / events toggle", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Inspector — Headers tab
+// Behavioral assertions — Inspector Headers tab
 // ---------------------------------------------------------------------------
 
 test.describe("Inspector — Headers tab", () => {
-  test("clicking Headers tab renders the side-by-side header columns", async ({
+  test("Headers tab renders side-by-side request and response headers", async ({
     page,
   }) => {
-    await applyScene(page, "headers-selected");
+    const scene = SCENES.find((s) => s.id === "headers-selected")!;
+    await applyScene(page, scene.id);
+    await scene.interact!(page);
 
-    // Pre-interaction: Body tab active by default.
-    await page.getByRole("tab", { name: "Headers" }).click();
-
-    // Request headers visible.
     await expect(page.getByText("Authorization").first()).toBeVisible();
     await expect(page.getByText("X-Forwarded-For").first()).toBeVisible();
-
-    // Response headers visible.
     await expect(page.getByText("X-RateLimit-Limit").first()).toBeVisible();
     await expect(
       page.getByText("Strict-Transport-Security").first(),
