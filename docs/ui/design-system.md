@@ -197,17 +197,14 @@ above.
     `Toggle`/`aria-pressed`, not a bespoke `<button>` state machine. Custom is
     only for the content-centric core named in §3.
 16. **Modifier-scoped overrides must actually win.** tailwind-merge only
-    de-duplicates classes that share the same variant scope: `cn("md:text-sm",
-"text-xs")` keeps **both** — at `md` and up the prefixed class still applies.
-    An unprefixed (or differently-prefixed) class does not override a
-    variant-prefixed one from a base/CVA primitive. Before overriding a class a
-    vendored primitive carries under a variant, match that variant. Two ways this
-    has bitten: dropping `md:text-xs` against the `Input` base's `md:text-sm` is a
-    silent 12px→14px desktop regression; `p-0` lost to an `xs` button variant's
-    `has-[>svg]:px-1.5` because `:has()` raises CSS specificity. When unsure
-    whether an override resolves, check the token-resolution map (the
-    `token-resolution-map` script) or render it — don't assume later-in-the-string
-    wins.
+    de-duplicates classes that share a variant scope, so an unprefixed (or
+    differently-prefixed) class does not override a variant-prefixed one from a
+    base/CVA primitive — `cn("md:text-sm", "text-xs")` keeps both and `md:` still
+    applies at desktop. Specificity, not string order, decides the winner (a
+    `has-[…]`/`:has()` variant outranks a bare utility). Before overriding a class
+    a vendored primitive carries under a variant, match that variant; when unsure
+    an override resolves, render it and inspect the computed class — don't assume
+    later-in-the-string wins. (Rationale: `rationale.md` §modifier-scoping.)
 
 ---
 
