@@ -252,16 +252,8 @@ Commit with a Conventional Commits message:
 - Keep under 72 characters; trim the description if needed, not the ticket ID
 - Implementation notes go in the body, not the subject
 
-Push the branch. **Start CI watch in the background** — CI runs concurrently
-with the review round (steps 7–9) rather than blocking here:
-
-```bash
-Bash(command: "scripts/agents/ci-watch", run_in_background: true, description: "watch CI run")
-```
-
-Do **not** wait for CI to complete before proceeding to step 6. The review round
-typically takes longer than CI; you will check the CI result at close-out
-(step 10).
+Push the branch. CI does not run on draft PRs, so there is nothing to watch
+here — CI triggers only when the PR is marked ready at close-out (step 10).
 
 ---
 
@@ -493,8 +485,7 @@ just the first one.
 
 ### Run another review round
 
-After pushing fixes, start CI in the background again (same as step 5), then
-ask whether to re-review. Re-review if: fixes changed program behavior, touched
+After pushing fixes, ask whether to re-review. Re-review if: fixes changed
 more than trivial lines, or addressed a blocking finding. A pure
 comment/rename/formatting fix does not require a new round. To re-review, go
 **back to step 7**. `review-paths` returns the next round number automatically.
@@ -509,11 +500,14 @@ When nothing is left to act on:
    gh pr ready <PR-number>
    ```
 
-   CI was started in the background at step 5. Check whether the background
-   `ci-watch` has already completed (it usually finishes during the review
-   round). If it reported success, proceed. If it reported failure, fix, push,
-   and re-watch. If it is still running, wait for it to finish before
-   proceeding.
+   Marking the PR ready triggers CI (draft PRs skip CI). Watch it to
+   completion:
+
+   ```bash
+   scripts/agents/ci-watch
+   ```
+
+   If CI fails, fix, push, and re-watch. Proceed only when green.
 
 2. **Post a summary comment** to $ticket (`docs/agents/linear.md`, "Post a
    summary comment when you finish"):
