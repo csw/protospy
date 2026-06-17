@@ -177,7 +177,7 @@ describe("BodyPane error display (PRO-220)", () => {
   });
 });
 
-describe("BodyPane view modes (PRO-336)", () => {
+describe("BodyPane view modes (PRO-420)", () => {
   beforeEach(() => {
     decodeBodyMock.mockReset();
   });
@@ -185,6 +185,7 @@ describe("BodyPane view modes (PRO-336)", () => {
   const text = '{"hello":"world"}';
   const jsonResult: DecodeResult = {
     kind: "json",
+    textAvailable: true,
     text: '{\n  "hello": "world"\n}',
     parsed: { hello: "world" },
     mediaType: "application/json",
@@ -193,20 +194,43 @@ describe("BodyPane view modes (PRO-336)", () => {
     bytes: new TextEncoder().encode(text),
   };
 
-  it("parsed mode renders the JSON tree viewer for JSON bodies", async () => {
+  function binaryResult(): DecodeResult {
+    return {
+      kind: "binary",
+      textAvailable: false,
+      mediaType: "application/octet-stream",
+      wireBytes: 12,
+      rawText: "",
+      bytes: new Uint8Array([0, 1, 2]),
+    };
+  }
+
+  function imageResult(): DecodeResult {
+    return {
+      kind: "image",
+      textAvailable: false,
+      mediaType: "image/png",
+      wireBytes: 64,
+      rawText: "",
+      bytes: new Uint8Array([137, 80, 78, 71]),
+    };
+  }
+
+  it("tree mode (the JSON default) renders the JSON tree viewer", async () => {
     decodeBodyMock.mockResolvedValueOnce(jsonResult);
-    render(<BodyPane title="Response" body={makeBody()} viewMode="parsed" />);
+    // viewMode null → resolves to the kind's default (tree for JSON).
+    render(<BodyPane title="Response" body={makeBody()} />);
     const viewer = await screen.findByLabelText("JSON viewer");
     expect(viewer).toBeInTheDocument();
-    // JsonTreeViewer renders tree rows; confirm the parsed value is visible.
     expect(viewer).toHaveTextContent('"hello"');
-    expect(screen.queryByLabelText("Raw body viewer")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Body text")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Hex viewer")).not.toBeInTheDocument();
   });
 
-  it("parsed mode renders the NDJSON document viewer for NDJSON bodies", async () => {
+  it("tree mode renders the NDJSON document viewer for NDJSON bodies", async () => {
     const ndjsonResult: DecodeResult = {
       kind: "ndjson",
+      textAvailable: true,
       text: '{\n  "a": 1\n}\n\n{\n  "b": 2\n}',
       documents: [{ a: 1 }, { b: 2 }],
       mediaType: "application/x-ndjson",
@@ -219,24 +243,21 @@ describe("BodyPane view modes (PRO-336)", () => {
       <BodyPane
         title="Response"
         body={makeBody({ contentType: "application/x-ndjson" })}
-        viewMode="parsed"
+        viewMode="tree"
       />,
     );
     const viewer = await screen.findByLabelText("NDJSON viewer");
     expect(viewer).toBeInTheDocument();
-    // Each NDJSON document renders as its own collapsed tree (one count badge
-    // per document, numbered in the gutter).
     expect(viewer.textContent).toContain("1 key");
     expect(viewer.textContent).toContain("1");
     expect(viewer.textContent).toContain("2");
   });
 
-  it("raw mode renders the decoded text, not the pretty JSON", async () => {
+  it("text mode renders the decoded source, not the pretty JSON", async () => {
     decodeBodyMock.mockResolvedValueOnce(jsonResult);
-    render(<BodyPane title="Response" body={makeBody()} viewMode="raw" />);
-    const raw = await screen.findByLabelText("Raw body viewer");
-    // The un-pretty original source, on a single line.
-    expect(raw).toHaveTextContent('{"hello":"world"}');
+    render(<BodyPane title="Response" body={makeBody()} viewMode="text" />);
+    const txt = await screen.findByLabelText("Body text");
+    expect(txt).toHaveTextContent('{"hello":"world"}');
     expect(screen.queryByLabelText("JSON viewer")).not.toBeInTheDocument();
   });
 
@@ -247,5 +268,46 @@ describe("BodyPane view modes (PRO-336)", () => {
     // '{' is 0x7b, the first byte of the JSON.
     expect(hex).toHaveTextContent("7b");
     expect(screen.queryByLabelText("JSON viewer")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the default when the stored mode is unavailable", async () => {
+    // `tree` is not a selectable mode for an image body — resolve to rendered.
+    decodeBodyMock.mockResolvedValueOnce(imageResult());
+    render(<BodyPane title="Response" body={makeBody()} viewMode="tree" />);
+    expect(await screen.findByTestId("body-summary")).toBeInTheDocument();
+  });
+
+  it("binary bodies render the summary state with a download button", async () => {
+    decodeBodyMock.mockResolvedValueOnce(binaryResult());
+    render(<BodyPane title="Response" body={makeBody()} />);
+    const summary = await screen.findByTestId("body-summary");
+    expect(summary).toHaveTextContent("application/octet-stream");
+    expect(
+      screen.getByRole("button", { name: "Download" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the copy button for non-image binary bodies", async () => {
+    decodeBodyMock.mockResolvedValueOnce(binaryResult());
+    render(<BodyPane title="Response" body={makeBody()} />);
+    await screen.findByTestId("body-summary");
+    expect(
+      screen.queryByRole("button", { name: /copy/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps a copy button for image bodies", async () => {
+    decodeBodyMock.mockResolvedValueOnce(imageResult());
+    render(<BodyPane title="Response" body={makeBody()} />);
+    await screen.findByTestId("body-summary");
+    expect(screen.getByRole("button", { name: /copy/i })).toBeInTheDocument();
+  });
+
+  it("shows a download button in the header strip for all bodies", async () => {
+    decodeBodyMock.mockResolvedValueOnce(jsonResult);
+    render(<BodyPane title="Response" body={makeBody()} />);
+    expect(
+      await screen.findByRole("button", { name: "Download body" }),
+    ).toBeInTheDocument();
   });
 });

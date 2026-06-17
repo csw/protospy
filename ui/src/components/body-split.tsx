@@ -1,6 +1,8 @@
 import type { Protocol } from "@bindings/Protocol";
+import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 import type { Exchange } from "@ui/state/reducer";
 import { useStore } from "@ui/state/store";
+import { deriveFilename } from "@ui/lib/download";
 import { Separator } from "./ui/separator";
 import { BodyPane } from "./body-pane";
 import { StreamView } from "./stream-view";
@@ -14,6 +16,13 @@ interface Props {
 function isSSE(exchange: Exchange): boolean {
   const ct = exchange.responseBody?.contentType?.toLowerCase() ?? "";
   return ct.startsWith("text/event-stream");
+}
+
+function getHeader(
+  headers: ProxyHeaders | undefined,
+  name: string,
+): string | undefined {
+  return headers?.find((h) => h.name.toLowerCase() === name)?.value;
 }
 
 export function BodySplit({ exchange, protocol }: Props) {
@@ -31,11 +40,32 @@ export function BodySplit({ exchange, protocol }: Props) {
     exchange.status == null &&
     exchange.error == null;
 
-  // Shared body view mode (PRO-336). `paired` is an msearch-only layout handled
-  // upstream in Inspector (it supersedes this split), so here it falls back to
-  // the parsed per-pane rendering.
-  const bodyViewMode = useStore((s) => s.bodyViewMode);
-  const viewMode = bodyViewMode === "paired" ? "parsed" : bodyViewMode;
+  // Per-direction body view-mode state (PRO-420). Request and response are
+  // independent: a JSON request and an image response have different available
+  // modes and selections.
+  const requestViewMode = useStore((s) => s.requestViewMode);
+  const responseViewMode = useStore((s) => s.responseViewMode);
+  const setRequestViewMode = useStore((s) => s.setRequestViewMode);
+  const setResponseViewMode = useStore((s) => s.setResponseViewMode);
+
+  // Download filenames: Content-Disposition wins, then the request path's
+  // basename, with a content-type extension appended when needed.
+  const requestFilename = deriveFilename({
+    contentDisposition: getHeader(
+      exchange.requestHeaders,
+      "content-disposition",
+    ),
+    uri: exchange.uri,
+    contentType: exchange.requestBody?.contentType,
+  });
+  const responseFilename = deriveFilename({
+    contentDisposition: getHeader(
+      exchange.responseHeaders,
+      "content-disposition",
+    ),
+    uri: exchange.uri,
+    contentType: exchange.responseBody?.contentType,
+  });
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -44,7 +74,9 @@ export function BodySplit({ exchange, protocol }: Props) {
           title="Request"
           body={exchange.requestBody}
           cacheTo={{ exchangeId: exchange.id, direction: "request" }}
-          viewMode={viewMode}
+          viewMode={requestViewMode}
+          onViewModeChange={setRequestViewMode}
+          downloadFilename={requestFilename}
         />
       </div>
       <Separator
@@ -70,7 +102,9 @@ export function BodySplit({ exchange, protocol }: Props) {
             errorMessage={responseError}
             awaiting={awaitingResponse}
             cacheTo={{ exchangeId: exchange.id, direction: "response" }}
-            viewMode={viewMode}
+            viewMode={responseViewMode}
+            onViewModeChange={setResponseViewMode}
+            downloadFilename={responseFilename}
           />
         )}
       </div>

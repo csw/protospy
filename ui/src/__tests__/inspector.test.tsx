@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { Inspector } from "@ui/components/inspector";
-import { useStore } from "@ui/state/store";
 import type { Exchange } from "@ui/state/reducer";
 
 function makeExchange(overrides: Partial<Exchange> = {}): Exchange {
@@ -320,25 +319,19 @@ describe("Inspector shell — credential reveal across navigation", () => {
   });
 });
 
-describe("Inspector shell — body view-mode selector", () => {
-  // bodyViewMode is shared session store state; reset between tests so a mode
-  // selected in one case doesn't leak into the next.
-  beforeEach(() => {
-    useStore.getState().setBodyViewMode("parsed");
-  });
-
+describe("Inspector shell — msearch Paired toggle (PRO-420)", () => {
   const ms = () => <div data-testid="ms">paired view</div>;
 
-  it("offers Parsed/Raw/Hex (no Paired) for a normal exchange", () => {
+  it("shows no Paired toggle (and no body mode selector) for a normal exchange", () => {
     render(<Inspector exchange={makeExchange()} renderBodySplit={body} />);
-    expect(screen.getByText("Parsed")).toBeInTheDocument();
-    expect(screen.getByText("Raw")).toBeInTheDocument();
-    expect(screen.getByText("Hex")).toBeInTheDocument();
+    // Per-pane mode selectors moved into BodyPane; the Inspector tab strip has
+    // no view-mode control for a non-msearch exchange.
     expect(screen.queryByText("Paired")).not.toBeInTheDocument();
+    expect(screen.queryByText("Parsed")).not.toBeInTheDocument();
     expect(screen.getByTestId("body-split")).toBeInTheDocument();
   });
 
-  it("adds the Paired option for an msearch exchange", () => {
+  it("offers a Paired toggle for an msearch exchange, split shown by default", () => {
     render(
       <Inspector
         exchange={makeExchange()}
@@ -348,13 +341,12 @@ describe("Inspector shell — body view-mode selector", () => {
       />,
     );
     expect(screen.getByText("Paired")).toBeInTheDocument();
-    expect(screen.getByText("Parsed")).toBeInTheDocument();
-    // Default mode is parsed → the split renders, not the Paired slot.
+    // Paired is off by default → the split renders, not the Paired slot.
     expect(screen.getByTestId("body-split")).toBeInTheDocument();
     expect(screen.queryByTestId("ms")).not.toBeInTheDocument();
   });
 
-  it("hides the selector for an SSE exchange", () => {
+  it("shows no Paired toggle for an SSE exchange", () => {
     const sse = makeExchange({
       responseBody: {
         chunks: [],
@@ -364,18 +356,10 @@ describe("Inspector shell — body view-mode selector", () => {
       },
     });
     render(<Inspector exchange={sse} renderBodySplit={body} />);
-    expect(screen.queryByText("Parsed")).not.toBeInTheDocument();
-    expect(screen.queryByText("Hex")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paired")).not.toBeInTheDocument();
   });
 
-  it("selecting a mode updates the shared store", () => {
-    render(<Inspector exchange={makeExchange()} renderBodySplit={body} />);
-    // Radix ToggleGroupItem activates on click in jsdom.
-    fireEvent.click(screen.getByText("Hex"));
-    expect(useStore.getState().bodyViewMode).toBe("hex");
-  });
-
-  it("selecting Paired renders the msearch slot instead of the split", () => {
+  it("toggling Paired swaps between the msearch slot and the split", () => {
     render(
       <Inspector
         exchange={makeExchange()}
@@ -387,5 +371,9 @@ describe("Inspector shell — body view-mode selector", () => {
     fireEvent.click(screen.getByText("Paired"));
     expect(screen.getByTestId("ms")).toBeInTheDocument();
     expect(screen.queryByTestId("body-split")).not.toBeInTheDocument();
+    // Pressing again returns to the split.
+    fireEvent.click(screen.getByText("Paired"));
+    expect(screen.getByTestId("body-split")).toBeInTheDocument();
+    expect(screen.queryByTestId("ms")).not.toBeInTheDocument();
   });
 });

@@ -41,6 +41,9 @@ importers:
       lucide-react:
         specifier: ^1.16.0
         version: 1.17.0(react@19.2.7)
+      mime:
+        specifier: ^4.1.0
+        version: 4.1.0
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -2532,6 +2535,11 @@ packages:
 
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
+
+  mime@4.1.0:
+    resolution: {integrity: sha512-X5ju04+cAzsojXKes0B/S4tcYtFAJ6tTMuSPBEn9CPGlrWr8Fiw7qYeLT0XyH80HSoAoqWCaz+MWKh22P7G1cw==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   min-indent@1.0.1:
     resolution: {integrity: sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==}
@@ -5703,6 +5711,8 @@ snapshots:
   math-intrinsics@1.1.0: {}
 
   mdn-data@2.27.1: {}
+
+  mime@4.1.0: {}
 
   min-indent@1.0.1: {}
 

@@ -278,11 +278,18 @@ test.describe("Inspector — Stream tab", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Body view-mode selector (Parsed · Raw · Hex, plus Paired for msearch)
+// 6. Body view-mode selectors (per-pane Tree·Text·Hex; msearch Paired toggle)
+//    The selector moved into each BodyPane header strip (PRO-420); only the
+//    msearch Paired layout stays an Inspector-level toggle.
 // ---------------------------------------------------------------------------
 
-test.describe("Inspector — body view-mode selector", () => {
-  test("6.1 msearch gains the Paired option alongside parsed/raw/hex (no Pairs tab)", async ({
+test.describe("Inspector — body view-mode selectors", () => {
+  // The response pane header strip — scope selector clicks here since the
+  // request pane has its own independent selector.
+  const responseHead = (page: import("@playwright/test").Page) =>
+    page.getByTestId("body-pane-subhead").filter({ hasText: "Response" });
+
+  test("6.1 msearch gains an Inspector-level Paired toggle (no Pairs tab)", async ({
     page,
   }) => {
     await setStoreProtocol(page, "Elasticsearch");
@@ -293,30 +300,34 @@ test.describe("Inspector — body view-mode selector", () => {
 
     await page.getByText("/_msearch").first().click();
 
-    // The kept deviation: msearch is an in-Bodies selector option, not a separate tab.
+    // The kept deviation: msearch is an in-Bodies toggle, not a separate tab.
     await expect(page.getByRole("tab", { name: "Pairs" })).toHaveCount(0);
     await expect(page.getByText("Paired", { exact: true })).toBeVisible();
-    await expect(page.getByText("Parsed", { exact: true })).toBeVisible();
-    await expect(page.getByText("Hex", { exact: true })).toBeVisible();
+    // The JSON response still gets its per-pane Tree·Text·Hex selector.
+    await expect(
+      responseHead(page).getByText("Tree", { exact: true }),
+    ).toBeVisible();
   });
 
-  test("6.2 regular requests get parsed/raw/hex but no Paired option", async ({
+  test("6.2 a regular JSON response gets a per-pane Tree·Text·Hex selector, no Paired", async ({
     page,
   }) => {
     await injectExchanges(page, [
       makeGetRequest(1, "/api/regular"),
-      makeResponse(1, "200 OK"),
+      makeResponse(1, "200 OK", '{"ok":true}'),
     ]);
 
     await page.getByText("/api/regular").first().click();
 
-    await expect(page.getByText("Parsed", { exact: true })).toBeVisible();
-    await expect(page.getByText("Raw", { exact: true })).toBeVisible();
-    await expect(page.getByText("Hex", { exact: true })).toBeVisible();
+    const head = responseHead(page);
+    await expect(head.getByText("Tree", { exact: true })).toBeVisible();
+    await expect(head.getByText("Text", { exact: true })).toBeVisible();
+    await expect(head.getByText("Hex", { exact: true })).toBeVisible();
+    // No Inspector-level Paired toggle for a non-msearch exchange.
     await expect(page.getByText("Paired", { exact: true })).toHaveCount(0);
   });
 
-  test("6.3 selecting Raw / Hex swaps the rendered body view", async ({
+  test("6.3 selecting Text / Hex swaps the rendered body view", async ({
     page,
   }) => {
     await injectExchanges(page, [
@@ -325,32 +336,27 @@ test.describe("Inspector — body view-mode selector", () => {
     ]);
 
     await page.getByText("/api/echo").first().click();
+    const head = responseHead(page);
 
-    // Parsed by default → JSON viewer present, small trees auto-expand fully.
-    await expect(page.getByLabel("JSON viewer").first()).toBeVisible();
-    // Request body '{"hello":"world"}' — leaf values render through the real DOM.
-    await expect(page.getByLabel("JSON viewer").first()).toContainText(
-      '"hello"',
-    );
-    await expect(page.getByLabel("JSON viewer").first()).toContainText(
-      '"world"',
-    );
+    // Tree by default → JSON viewer present, small trees auto-expand fully.
+    // The response body is '{"ok":true}'.
+    const jsonViewer = page.getByLabel("JSON viewer").last();
+    await expect(jsonViewer).toBeVisible();
+    await expect(jsonViewer).toContainText('"ok"');
 
-    // Hex: assert real dump rows render through the production virtualizer
-    // (not just the container) — the request body is '{"hello":"world"}', so
-    // the first byte '{' is 0x7b and the ASCII gutter shows the text. Mirrors
-    // the JsonViewer real-render assertions in body-large.spec.ts.
-    await page.getByText("Hex", { exact: true }).click();
-    const hex = page.getByLabel("Hex viewer").first();
+    // Hex: assert real dump rows render through the production virtualizer —
+    // the response body is '{"ok":true}', so the first byte '{' is 0x7b.
+    await head.getByText("Hex", { exact: true }).click();
+    const hex = page.getByLabel("Hex viewer").last();
     await expect(hex).toBeVisible();
     await expect(hex).toContainText("7b");
-    await expect(hex).toContainText("hello");
+    await expect(hex).toContainText("ok");
 
-    // Raw: the decoded source text renders with its line-number gutter.
-    await page.getByText("Raw", { exact: true }).click();
-    const raw = page.getByLabel("Raw body viewer").first();
-    await expect(raw).toBeVisible();
-    await expect(raw).toContainText('{"hello":"world"}');
+    // Text: the decoded source text renders.
+    await head.getByText("Text", { exact: true }).click();
+    const text = page.getByLabel("Body text").last();
+    await expect(text).toBeVisible();
+    await expect(text).toContainText('{"ok":true}');
   });
 
   test("6.4 JSON tree viewer leaf content visible and resets on exchange navigation", async ({

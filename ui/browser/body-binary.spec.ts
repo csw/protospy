@@ -35,10 +35,14 @@ test.describe("Inspector — binary body rendering", () => {
 
     await page.getByText("/api/blob").first().click();
 
-    // BodyPane renders an EmptyState with the binary message and formatted size.
-    // formatSize(64) → "64B".
+    // BodyPane renders the summary state (PRO-420): content-type, size, and a
+    // prominent download button — not a JSON tree or text fallback.
+    const summary = page.getByTestId("body-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("octet-stream");
+    await expect(summary).toContainText(`${BINARY_BYTES}B`);
     await expect(
-      page.getByText(`Binary data · ${BINARY_BYTES}B`),
+      summary.getByRole("button", { name: "Download" }),
     ).toBeVisible();
 
     // The short media-type label appears in the response pane head, confirming

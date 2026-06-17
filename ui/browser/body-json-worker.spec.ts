@@ -72,10 +72,11 @@ test.describe("JSON-parse Web Worker — real browser path", () => {
 
     await page.getByText("/api/bad-json").first().click();
 
-    // Invalid JSON falls through to plain text — assert on the rendered <pre>
-    // rather than sleeping; this is deterministic and fails fast if decode errors.
+    // Invalid JSON falls through to plain text — assert on the rendered text
+    // view rather than sleeping; this is deterministic and fails fast if decode
+    // errors. (text kind defaults to the text mode; TextView is labelled.)
     await expect(
-      page.locator("pre").filter({ hasText: "not valid json" }),
+      page.getByLabel("Body text").filter({ hasText: "not valid json" }),
     ).toBeVisible({
       timeout: 10_000,
     });
