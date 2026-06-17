@@ -311,13 +311,11 @@ function ListPanel() {
     return <EmptyState kind="filtered" />;
   }
 
-  const rowsForList = visibleExchanges;
-
   // grouped display mode — own presentation, independent of rows/table
   if (grouped) {
     return (
       <GroupedExchangeList
-        exchanges={rowsForList}
+        exchanges={visibleExchanges}
         selectedId={selectedId}
         tz={tz}
         onSelect={setSelectedId}
@@ -330,7 +328,7 @@ function ListPanel() {
   if (listMode === "table") {
     return (
       <ExchangeTable
-        exchanges={rowsForList}
+        exchanges={visibleExchanges}
         selectedId={selectedId}
         tz={tz}
         onSelect={setSelectedId}
@@ -342,7 +340,7 @@ function ListPanel() {
 
   return (
     <VirtualizedRowsList
-      exchanges={rowsForList}
+      exchanges={visibleExchanges}
       selectedId={selectedId}
       tz={tz}
       onSelect={setSelectedId}
