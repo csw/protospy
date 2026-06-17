@@ -121,11 +121,29 @@ test.describe("Fixture matrix", () => {
         if (scene.id === "ndjson-text") {
           // Body mode selector shows Tree/Text/Hex; Text should be active.
           // Radix ToggleGroup (single) renders items as role="radio".
+          // Wait for the selector to appear (BodyModeSelector mounts only after
+          // useDecodeBody's async Promise resolves), then check data-state.
           const textOption = page
             .getByRole("group", { name: "Body view mode" })
             .getByRole("radio", { name: "Text" })
             .first();
+          await expect(textOption).toBeVisible();
           await expect(textOption).toHaveAttribute("data-state", "on");
+        }
+        if (scene.id === "stream-paused") {
+          // StreamView initializes frozen from store.streamPaused — the Resume
+          // button is shown (aria-label flips from "Pause stream" to "Resume stream"
+          // when frozen != null).
+          await expect(
+            page.getByRole("button", { name: "Resume stream" }),
+          ).toBeVisible();
+        }
+        if (scene.id === "stream-anthropic-transcript") {
+          // ChatStreamView initializes mode from store.chatStreamTab — the
+          // transcript content (assembled text from the SSE events) is visible.
+          await expect(
+            page.getByText("Hello! How can I help you today?"),
+          ).toBeVisible();
         }
 
         expectNoErrors(label);

@@ -107,6 +107,10 @@ export interface SceneConfig {
   requestViewMode?: ViewMode | null;
   /** Override the stored response-body view mode (null = kind default). */
   responseViewMode?: ViewMode | null;
+  /** Initialize StreamView in the paused/frozen state. */
+  streamPaused?: boolean;
+  /** Initialize ChatStreamView on the given tab. */
+  chatStreamTab?: "events" | "transcript";
 }
 
 export interface Scene {
@@ -503,9 +507,7 @@ export const SCENES: Scene[] = [
     title: "SSE stream (paused)",
     axis: "state",
     description:
-      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot. Apply the stream-live scene, then pause.",
-    interaction:
-      "Click the Pause button in the stream view header (play/pause toggle).",
+      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot. The Resume button is visible in the header.",
     messages: [
       makePostRequest(1, "/api/stream"),
       makeSSEResponse(
@@ -521,7 +523,7 @@ export const SCENES: Scene[] = [
         120,
       ),
     ],
-    config: { selectedId: 1 },
+    config: { selectedId: 1, streamPaused: true },
   },
   {
     id: "stream-anthropic",
@@ -551,8 +553,6 @@ export const SCENES: Scene[] = [
     axis: "state",
     description:
       "The same Anthropic SSE stream as 'stream-anthropic' but with the transcript tab active. ChatStreamView renders the assembled text output with model/message-id metadata, stop_reason, and token usage. Protocol = 'Anthropic'.",
-    interaction:
-      "Click the 'Transcript' toggle in the chat stream view header.",
     messages: [
       makePostRequest(1, "/v1/messages"),
       makeSSEResponse(
@@ -567,7 +567,11 @@ export const SCENES: Scene[] = [
         ].join(""),
       ),
     ],
-    config: { selectedId: 1, protocol: "Anthropic" },
+    config: {
+      selectedId: 1,
+      protocol: "Anthropic",
+      chatStreamTab: "transcript",
+    },
   },
   {
     id: "stream-error",
@@ -873,11 +877,13 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
   for (const d of c?.decoded ?? []) {
     s.setBodyDecodedBytes(d.id, d.direction, d.bytes);
   }
-  if (c?.cmdKOpen) s.setCmdKOpen(true);
-  if (c?.helpOpen) s.setHelpOpen(true);
+  if (c?.cmdKOpen !== undefined) s.setCmdKOpen(c.cmdKOpen);
+  if (c?.helpOpen !== undefined) s.setHelpOpen(c.helpOpen);
   if (c?.requestViewMode !== undefined) s.setRequestViewMode(c.requestViewMode);
   if (c?.responseViewMode !== undefined)
     s.setResponseViewMode(c.responseViewMode);
+  if (c?.streamPaused !== undefined) s.setStreamPaused(c.streamPaused);
+  if (c?.chatStreamTab !== undefined) s.setChatStreamTab(c.chatStreamTab);
   // Selection last so it isn't clobbered by anything above.
   if (c?.selectedId !== undefined) s.setSelectedId(c.selectedId);
 }
