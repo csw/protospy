@@ -24,7 +24,9 @@ describe("TextView", () => {
   it("sizes the gutter to fit the actual line count", () => {
     // 3 lines → 1 digit → clamped to 2ch minimum
     render(<TextView text={"a\nb\nc"} />);
-    expect(screen.getByText("1")).toHaveStyle({ width: "2ch" });
+    expect(screen.getAllByTestId("line-number")[0]).toHaveStyle({
+      width: "2ch",
+    });
   });
 
   it("expands the gutter for large line counts", () => {
@@ -34,12 +36,14 @@ describe("TextView", () => {
       (_, i) => `line ${i + 1}`,
     ).join("\n");
     render(<TextView text={hundredLines} />);
-    expect(screen.getByText("1")).toHaveStyle({ width: "3ch" });
+    expect(screen.getAllByTestId("line-number")[0]).toHaveStyle({
+      width: "3ch",
+    });
   });
 
   it("does not use a fixed w-10 gutter class", () => {
     render(<TextView text={"hello\nworld"} />);
-    expect(screen.getByText("1")).not.toHaveClass("w-10");
+    expect(screen.getAllByTestId("line-number")[0]).not.toHaveClass("w-10");
   });
 
   it("renders a single empty line for an empty body", () => {

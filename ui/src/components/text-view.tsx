@@ -14,19 +14,20 @@ interface Props {
  * (PRO-416) and is out of scope here.
  */
 export function TextView({ text }: Props) {
-  const { lines, gutterWidth } = useMemo(() => {
-    const lines = text.split("\n");
-    // Size gutter to fit the actual line count rather than a fixed reserve.
-    // Math.log10(1) = 0 → 1 digit; clamp to a 2-char minimum for readability.
-    const digits = Math.max(Math.ceil(Math.log10(lines.length + 1)), 2);
-    return { lines, gutterWidth: `${digits}ch` };
-  }, [text]);
+  const lines = useMemo(() => text.split("\n"), [text]);
+  // Size gutter to fit the actual line count rather than a fixed reserve.
+  // For n lines, log10(n+1) gives the digit count; clamp to 2 chars minimum.
+  const gutterWidth = useMemo(
+    () => `${Math.max(Math.ceil(Math.log10(lines.length + 1)), 2)}ch`,
+    [lines.length],
+  );
 
   return (
     <div className="font-mono text-xs leading-5 p-3" aria-label="Body text">
       {lines.map((line, i) => (
         <div key={i} className="flex gap-3">
           <span
+            data-testid="line-number"
             className="select-none shrink-0 text-right text-muted-foreground"
             style={{ width: gutterWidth }}
           >

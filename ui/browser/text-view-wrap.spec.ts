@@ -67,8 +67,8 @@ test.describe("TextView — soft-wrap at a constrained pane width", () => {
 
 test.describe("TextView — compact line-number gutter", () => {
   test("sizes the gutter narrowly for a small line count", async ({ page }) => {
-    // 3 lines → 2ch minimum gutter width. With the old fixed w-10 (40px ≈ 5ch),
-    // the gutter was always over-wide. A 2ch gutter is at most ~16px at 8px/ch.
+    // 3 lines → 2ch minimum. With the old fixed w-10 (40px ≈ 5ch) the gutter
+    // was always over-wide. At JetBrains Mono text-xs (≈7px/ch), 2ch ≈ 14px.
     await injectExchanges(page, [
       makeGetRequest(1, "/api/health"),
       makeTextResponse(1, "OK\nService is healthy.\nVersion: 1.4.2"),
@@ -78,19 +78,18 @@ test.describe("TextView — compact line-number gutter", () => {
     const bodyText = page.getByLabel("Body text");
     await expect(bodyText).toBeVisible();
 
-    // The first gutter span has an inline width style based on line count.
-    const gutterSpan = bodyText.locator("span").first();
+    const gutterSpan = bodyText.getByTestId("line-number").first();
     const widthPx = await gutterSpan.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
 
-    // At 2ch, monospace ~8px/ch → ~16px. Old w-10 was 40px. Assert narrower.
-    expect(widthPx).toBeLessThan(40);
+    // Tight upper bound: 2ch ≈ 14px, so anything < 20px confirms compact gutter.
+    expect(widthPx).toBeLessThan(20);
   });
 
   test("expands the gutter for a large line count", async ({ page }) => {
-    // 200 lines → 3-digit count → 3ch gutter. The gutter should be wider than
-    // for 3 lines, proving it scales with line count.
+    // 200 lines → 3-digit count → 3ch gutter. Must be wider than the 2ch small
+    // case but still well under the old fixed 40px.
     const manyLines = Array.from(
       { length: 200 },
       (_, i) => `line ${i + 1}`,
@@ -104,12 +103,13 @@ test.describe("TextView — compact line-number gutter", () => {
     const bodyText = page.getByLabel("Body text");
     await expect(bodyText).toBeVisible();
 
-    const gutterSpan = bodyText.locator("span").first();
+    const gutterSpan = bodyText.getByTestId("line-number").first();
     const widthPx = await gutterSpan.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
 
-    // 3ch > 2ch — gutter grew to fit 3-digit line numbers.
-    expect(widthPx).toBeGreaterThan(16);
+    // 3ch (large) > 2ch (small, ≈12px), both well under old w-10 (40px).
+    expect(widthPx).toBeGreaterThan(15);
+    expect(widthPx).toBeLessThan(35);
   });
 });
