@@ -164,6 +164,14 @@ linear issue view PRO-NNN --json | jq .priority
 
 Top-level fields present in the JSON: `identifier`, `title`, `description`, `url`, `branchName`, `state`, `assignee`, `priority`, `project`, `projectMilestone`, `cycle`, `parent`, `children`, `comments`, `attachments`, `documents`.
 
+**Labels are not included in `linear issue view --json`.** To fetch labels,
+use the GraphQL API:
+
+```bash
+linear api '{ issue(id: "PRO-NNN") { labels { nodes { name } } } }' \
+  | jq -r '.data.issue.labels.nodes[].name'
+```
+
 ## Linking work to issues
 
 This is how issues get moved through their workflow. There is no API

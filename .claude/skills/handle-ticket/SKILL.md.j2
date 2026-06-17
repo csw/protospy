@@ -150,10 +150,12 @@ Brief it on what you've tried and what's not working.
 Check whether the ticket has a `UI` label:
 
 ```bash
-linear issue view $ticket --json \
-  | jq -r '.labels.nodes[].name' \
+linear api "{ issue(id: \"$ticket\") { labels { nodes { name } } } }" \
+  | jq -r '.data.issue.labels.nodes[].name' \
   | grep -qi '^ui$' && echo yes || echo no
 ```
+
+(`linear issue view --json` does not include labels; use the GraphQL API.)
 
 If yes, you must capture baseline screenshots **before any implementation
 begins**. From the ticket description, identify the views and scenes that will
