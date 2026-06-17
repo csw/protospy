@@ -196,6 +196,15 @@ above.
     affordance is not a listed row. Example: a two-state selection uses
     `Toggle`/`aria-pressed`, not a bespoke `<button>` state machine. Custom is
     only for the content-centric core named in §3.
+16. **Modifier-scoped overrides must actually win.** tailwind-merge only
+    de-duplicates classes that share a variant scope, so an unprefixed (or
+    differently-prefixed) class does not override a variant-prefixed one from a
+    base/CVA primitive — `cn("md:text-sm", "text-xs")` keeps both and `md:` still
+    applies at desktop. Specificity, not string order, decides the winner (a
+    `has-[…]`/`:has()` variant outranks a bare utility). Before overriding a class
+    a vendored primitive carries under a variant, match that variant; when unsure
+    an override resolves, render it and inspect the computed class — don't assume
+    later-in-the-string wins. (Rationale: `rationale.md` §modifier-scoping.)
 
 ---
 
