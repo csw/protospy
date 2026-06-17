@@ -1,9 +1,18 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 import type { Exchange } from "@ui/state/reducer";
+import { useMemo } from "react";
 import { useStore } from "@ui/state/store";
 import { deriveFilename } from "@ui/lib/download";
-import { Separator } from "./ui/separator";
+import {
+  computeBodySplitPercent,
+  BODY_SPLIT_MIN_PCT,
+} from "@ui/body/split-sizing";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "./ui/resizable";
 import { BodyPane } from "./body-pane";
 import { StreamView } from "./stream-view";
 import { ChatStreamView } from "./anthropic/chat-stream-view";
@@ -69,47 +78,79 @@ export function BodySplit({ exchange, protocol }: Props) {
     contentType: exchange.responseBody?.contentType,
   });
 
+  // Compute the default split once per mount. The key below triggers a remount
+  // when the exchange or either view mode changes, so defaultSize stays stable
+  // for the lifetime of each panel group (avoids the first-drag stutter that
+  // occurs when defaultSize feeds back into the panel registration, PRO-402).
+  // useMemo matches the key deps so the value re-computes exactly when the
+  // group remounts — intermediate renders see the cached result.
+  const requestPct = useMemo(
+    () =>
+      computeBodySplitPercent(
+        exchange.requestBody,
+        exchange.responseBody,
+        requestViewMode,
+        responseViewMode,
+      ),
+    [
+      exchange.requestBody,
+      exchange.responseBody,
+      requestViewMode,
+      responseViewMode,
+    ],
+  );
+
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <BodyPane
-          title="Request"
-          body={exchange.requestBody}
-          cacheTo={{ exchangeId: exchange.id, direction: "request" }}
-          viewMode={requestViewMode}
-          onViewModeChange={setRequestViewMode}
-          downloadFilename={requestFilename}
-        />
-      </div>
-      <Separator
-        orientation="vertical"
-        className="bg-border-strong"
-        data-testid="body-split-divider"
-      />
-      <div className="flex-1 overflow-hidden">
-        {isSSE(exchange) ? (
-          // Key on exchange.id so per-exchange view state — the stream's
-          // play/pause snapshot, ChatStreamView's mode — resets when the
-          // selected exchange changes (a paused snapshot must not leak onto a
-          // different stream).
-          protocol === "Anthropic" ? (
-            <ChatStreamView key={exchange.id} exchange={exchange} />
-          ) : (
-            <StreamView key={exchange.id} exchange={exchange} />
-          )
-        ) : (
+    <div data-testid="body-split" className="h-full">
+      <ResizablePanelGroup
+        key={`${exchange.id}:${requestViewMode ?? ""}:${responseViewMode ?? ""}`}
+        orientation="horizontal"
+        className="h-full"
+      >
+        <ResizablePanel
+          defaultSize={requestPct}
+          minSize={BODY_SPLIT_MIN_PCT}
+          className="overflow-hidden"
+        >
           <BodyPane
-            title="Response"
-            body={exchange.responseBody}
-            errorMessage={responseError}
-            awaiting={awaitingResponse}
-            cacheTo={{ exchangeId: exchange.id, direction: "response" }}
-            viewMode={responseViewMode}
-            onViewModeChange={setResponseViewMode}
-            downloadFilename={responseFilename}
+            title="Request"
+            body={exchange.requestBody}
+            cacheTo={{ exchangeId: exchange.id, direction: "request" }}
+            viewMode={requestViewMode}
+            onViewModeChange={setRequestViewMode}
+            downloadFilename={requestFilename}
           />
-        )}
-      </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle className="bg-border-strong" />
+        <ResizablePanel
+          defaultSize={100 - requestPct}
+          minSize={BODY_SPLIT_MIN_PCT}
+          className="overflow-hidden"
+        >
+          {isSSE(exchange) ? (
+            // Key on exchange.id so per-exchange view state — the stream's
+            // play/pause snapshot, ChatStreamView's mode — resets when the
+            // selected exchange changes (a paused snapshot must not leak onto a
+            // different stream).
+            protocol === "Anthropic" ? (
+              <ChatStreamView key={exchange.id} exchange={exchange} />
+            ) : (
+              <StreamView key={exchange.id} exchange={exchange} />
+            )
+          ) : (
+            <BodyPane
+              title="Response"
+              body={exchange.responseBody}
+              errorMessage={responseError}
+              awaiting={awaitingResponse}
+              cacheTo={{ exchangeId: exchange.id, direction: "response" }}
+              viewMode={responseViewMode}
+              onViewModeChange={setResponseViewMode}
+              downloadFilename={responseFilename}
+            />
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

@@ -69,9 +69,11 @@ test.describe("Fixture matrix", () => {
 
         const label = `${scene.id}@${width}`;
 
-        // Both panels mount.
+        // Both panels mount. Use direct-child chain from <main> to scope to
+        // the outer list/inspector split; the body-split panels are nested
+        // inside the inspector panel and are not direct children of [data-group].
         await expect(
-          page.locator("[data-panel]"),
+          page.locator("main > [data-group] > [data-panel]"),
           `${label}: both panes present`,
         ).toHaveCount(2);
         // List toolbar always renders.
@@ -122,8 +124,9 @@ test.describe("Fixture matrix", () => {
     // The v2.4 scaffold uses pixel panel sizing. Dragging narrow clamps at the
     // list pixel floor; dragging wide grows until the inspector's pixel floor
     // takes over.
+    // Scope to the outer list/inspector panel group via the direct-child chain.
     const groupBox = await page
-      .locator('[data-slot="resizable-panel-group"]')
+      .locator("main > [data-slot='resizable-panel-group']")
       .boundingBox();
     expect(groupBox).not.toBeNull();
     expect(minWidth).toBeGreaterThanOrEqual(LIST_MIN_PX - 5);

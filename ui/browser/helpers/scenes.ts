@@ -66,7 +66,9 @@ export async function dragListPaneTo(
   page: Page,
   target: ListPaneWidth,
 ): Promise<number> {
-  const handle = page.getByRole("separator");
+  // Scope to the main list/inspector split to avoid matching the body-split
+  // separator (which is nested inside the inspector panel).
+  const handle = page.locator("main > [data-group] > [role='separator']");
   await expect(handle).toBeVisible();
   const box = await handle.boundingBox();
   if (box == null) throw new Error("resize separator has no bounding box");
