@@ -17,10 +17,7 @@ export default defineConfig({
   // A retry locally too (CI keeps 2) to self-heal the occasional transient
   // server stall under concurrent cold page loads.
   retries: process.env.CI ? 2 : 1,
-  // Cap local parallelism: the suite serves one shared preview server, so a
-  // burst of cold loads from many workers buys little and risks page-load
-  // timeouts in beforeEach. CI stays single-worker for determinism.
-  workers: process.env.CI ? 1 : 2,
+  workers: 2,
   reporter: process.env.CI ? [["html", { open: "never" }], ["github"]] : "list",
   use: {
     baseURL,
