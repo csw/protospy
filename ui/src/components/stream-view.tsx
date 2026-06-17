@@ -18,7 +18,6 @@ import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import type { Exchange } from "@ui/state/reducer";
 import type { SSEEvent } from "@ui/body/sse";
-import { useStore } from "@ui/state/store";
 import { Button } from "@ui/components/ui/button";
 import {
   LiveIndicator,
@@ -43,13 +42,7 @@ export function StreamView({ exchange }: Props) {
   // Play/pause snapshot. While `frozen` is set the view renders that captured
   // list and ignores newly-arrived events; resuming drops it. This state is per
   // exchange because BodySplit keys the component on `exchange.id`.
-  // The lazy initializer reads `streamPaused` from the store at mount time so
-  // fixture scenes can pre-inject the paused state via `applySceneToStore`.
-  const [frozen, setFrozen] = useState<SSEEvent[] | null>(() =>
-    useStore.getState().streamPaused
-      ? (exchange.responseBody?.sseState?.events ?? [])
-      : null,
-  );
+  const [frozen, setFrozen] = useState<SSEEvent[] | null>(null);
 
   // Follow length uses the *displayed* list so auto-scroll stays put while
   // paused (a frozen snapshot has a constant length). Kept off `terminal` to

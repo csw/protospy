@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import type { Exchange } from "@ui/state/reducer";
-import { useStore } from "@ui/state/store";
 import { extractAnthropicTranscript } from "@ui/anthropic/transcript";
 import type { SSEEvent } from "@ui/body/sse";
 import {
@@ -74,11 +73,7 @@ function TranscriptView({
 type Mode = "events" | "transcript";
 
 export function ChatStreamView({ exchange }: Props) {
-  // Lazy initializer reads `chatStreamTab` from the store at mount time so
-  // fixture scenes can pre-inject the active tab via `applySceneToStore`.
-  const [mode, setMode] = useState<Mode>(
-    () => useStore.getState().chatStreamTab,
-  );
+  const [mode, setMode] = useState<Mode>("events");
 
   const body = exchange.responseBody;
   const atEnd = body?.atEnd ?? true;

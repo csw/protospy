@@ -130,21 +130,6 @@ test.describe("Fixture matrix", () => {
           await expect(textOption).toBeVisible();
           await expect(textOption).toHaveAttribute("data-state", "on");
         }
-        if (scene.id === "stream-paused") {
-          // StreamView initializes frozen from store.streamPaused — the Resume
-          // button is shown (aria-label flips from "Pause stream" to "Resume stream"
-          // when frozen != null).
-          await expect(
-            page.getByRole("button", { name: "Resume stream" }),
-          ).toBeVisible();
-        }
-        if (scene.id === "stream-anthropic-transcript") {
-          // ChatStreamView initializes mode from store.chatStreamTab — the
-          // transcript content (assembled text from the SSE events) is visible.
-          await expect(
-            page.getByText("Hello! How can I help you today?"),
-          ).toBeVisible();
-        }
 
         expectNoErrors(label);
       }

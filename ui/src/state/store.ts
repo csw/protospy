@@ -47,18 +47,6 @@ export interface StoreState extends PersistedPrefs {
    */
   requestViewMode: ViewMode | null;
   responseViewMode: ViewMode | null;
-  /**
-   * Whether `StreamView` should initialize in the frozen/paused state. Only
-   * written by fixture injection (`applySceneToStore`) — in production this is
-   * always `false`. Session-only; not persisted.
-   */
-  streamPaused: boolean;
-  /**
-   * Which tab `ChatStreamView` should initialize to. Only written by fixture
-   * injection (`applySceneToStore`) — in production this is always `"events"`.
-   * Session-only; not persisted.
-   */
-  chatStreamTab: "events" | "transcript";
 
   // Core actions
   applyEvent: (msg: EventMessage) => void;
@@ -92,8 +80,6 @@ export interface StoreState extends PersistedPrefs {
   setTimeZone: (tz: TimeZone) => void;
   setRequestViewMode: (mode: ViewMode | null) => void;
   setResponseViewMode: (mode: ViewMode | null) => void;
-  setStreamPaused: (paused: boolean) => void;
-  setChatStreamTab: (tab: "events" | "transcript") => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -121,8 +107,6 @@ export const useStore = create<StoreState>()(
         timeZone: "local",
         requestViewMode: null,
         responseViewMode: null,
-        streamPaused: false,
-        chatStreamTab: "events",
 
         // Core actions
         applyEvent: (msg) =>
@@ -188,8 +172,6 @@ export const useStore = create<StoreState>()(
 
         setRequestViewMode: (mode) => set({ requestViewMode: mode }),
         setResponseViewMode: (mode) => set({ responseViewMode: mode }),
-        setStreamPaused: (paused) => set({ streamPaused: paused }),
-        setChatStreamTab: (tab) => set({ chatStreamTab: tab }),
       }),
       {
         name: "protospy-ui-prefs",
