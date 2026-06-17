@@ -105,16 +105,27 @@ test.describe("Fixture matrix", () => {
           ).toBeVisible();
         }
         if (scene.id === "cmdk-open") {
-          // CommandPalette: check the input and that the "Jump to trace" group
-          // is populated (the backdrop carries two distinct traces).
+          // CommandPalette: check the input and two distinct command groups
+          // (the backdrop carries two traces so "Jump to trace" is populated).
           await expect(page.getByPlaceholder("Run a command…")).toBeVisible();
           await expect(page.getByText("Jump to trace").first()).toBeVisible();
+          await expect(page.getByText("Theme").first()).toBeVisible();
         }
         if (scene.id === "help-open") {
           await expect(
             page.getByRole("dialog").filter({ hasText: "Keyboard shortcuts" }),
           ).toBeVisible();
           await expect(page.getByText("Navigate").first()).toBeVisible();
+          await expect(page.getByText("View").first()).toBeVisible();
+        }
+        if (scene.id === "ndjson-text") {
+          // Body mode selector shows Tree/Text/Hex; Text should be active.
+          // Radix ToggleGroup (single) renders items as role="radio".
+          const textOption = page
+            .getByRole("group", { name: "Body view mode" })
+            .getByRole("radio", { name: "Text" })
+            .first();
+          await expect(textOption).toHaveAttribute("data-state", "on");
         }
 
         expectNoErrors(label);

@@ -33,6 +33,7 @@
 
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { AppStore } from "@ui/state/store";
+import type { ViewMode } from "@ui/body/view-modes";
 import type { Protocol } from "@bindings/Protocol";
 import {
   GZIP_JSON_DECODED_BYTES,
@@ -102,6 +103,10 @@ export interface SceneConfig {
   cmdKOpen?: boolean;
   /** Open the `?` keyboard-shortcuts overlay. */
   helpOpen?: boolean;
+  /** Override the stored request-body view mode (null = kind default). */
+  requestViewMode?: ViewMode | null;
+  /** Override the stored response-body view mode (null = kind default). */
+  responseViewMode?: ViewMode | null;
 }
 
 export interface Scene {
@@ -494,11 +499,60 @@ export const SCENES: Scene[] = [
     config: { selectedId: 1 },
   },
   {
+    id: "stream-paused",
+    title: "SSE stream (paused)",
+    axis: "state",
+    description:
+      "A live SSE stream with the play/pause toggle paused. StreamView shows a paused indicator and the event list is frozen at the snapshot. Apply the stream-live scene, then pause.",
+    interaction:
+      "Click the Pause button in the stream view header (play/pause toggle).",
+    messages: [
+      makePostRequest(1, "/api/stream"),
+      makeSSEResponse(
+        1,
+        "event: ping\ndata: keepalive\n\nevent: message\ndata: first event\n\n",
+        undefined,
+        false,
+      ),
+      makeSSEBodyData(
+        1,
+        "event: update\ndata: streaming chunk\n\n",
+        false,
+        120,
+      ),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
     id: "stream-anthropic",
     title: "Anthropic SSE stream",
     axis: "state",
     description:
       "An Anthropic-protocol SSE stream (complete). ChatStreamView renders transcript/events toggle. Protocol set to 'Anthropic'.",
+    messages: [
+      makePostRequest(1, "/v1/messages"),
+      makeSSEResponse(
+        1,
+        [
+          'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_01XFDUDYJgAACzvnptvVoYEL","model":"claude-3-5-sonnet-20241022","role":"assistant","content":[],"stop_reason":null,"usage":{"input_tokens":25,"output_tokens":1}}}\n\n',
+          'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello! How can I help you today?"}}\n\n',
+          'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":12}}\n\n',
+          'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ].join(""),
+      ),
+    ],
+    config: { selectedId: 1, protocol: "Anthropic" },
+  },
+  {
+    id: "stream-anthropic-transcript",
+    title: "Anthropic SSE stream (transcript mode)",
+    axis: "state",
+    description:
+      "The same Anthropic SSE stream as 'stream-anthropic' but with the transcript tab active. ChatStreamView renders the assembled text output with model/message-id metadata, stop_reason, and token usage. Protocol = 'Anthropic'.",
+    interaction:
+      "Click the 'Transcript' toggle in the chat stream view header.",
     messages: [
       makePostRequest(1, "/v1/messages"),
       makeSSEResponse(
@@ -623,6 +677,15 @@ export const SCENES: Scene[] = [
       "An application/x-ndjson response with several JSON lines. Renders as a forest of independently-collapsible document trees in one virtualized stream — each line is its own collapsed tree with a numbered gutter and count badge. Expand a document to drill into it.",
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
     config: { selectedId: 1 },
+  },
+  {
+    id: "ndjson-text",
+    title: "NDJSON body (text view)",
+    axis: "data",
+    description:
+      "The same NDJSON body as 'ndjson' but with the response view-mode set to 'text'. Body pane renders the raw newline-delimited text in TextView instead of the parsed tree forest. Verify the text block, the Tree/Text/Hex mode selector tabs, and that the Text tab is active. Exercises the view-mode selector and text rendering path at all widths, including 1024.",
+    messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
+    config: { selectedId: 1, responseViewMode: "text" },
   },
 
   // ---- Truncated body -----------------------------------------------------
@@ -812,6 +875,9 @@ export function applySceneToStore(store: AppStore, scene: Scene): void {
   }
   if (c?.cmdKOpen) s.setCmdKOpen(true);
   if (c?.helpOpen) s.setHelpOpen(true);
+  if (c?.requestViewMode !== undefined) s.setRequestViewMode(c.requestViewMode);
+  if (c?.responseViewMode !== undefined)
+    s.setResponseViewMode(c.responseViewMode);
   // Selection last so it isn't clobbered by anything above.
   if (c?.selectedId !== undefined) s.setSelectedId(c.selectedId);
 }
