@@ -538,7 +538,9 @@ test.describe("body pane divider (PRO-382)", () => {
     // Select an exchange so the inspector renders with the bodies tab (default).
     await page.locator("button[role='option']").first().click();
 
-    const divider = page.locator('[data-testid="body-split-divider"]');
+    const divider = page.locator(
+      '[data-testid="body-split"] [role="separator"]',
+    );
     await expect(divider).toBeVisible();
 
     for (const theme of ["light", "dark"] as const) {
