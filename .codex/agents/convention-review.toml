@@ -122,6 +122,22 @@ make sure each is covered:
 - **Missing `cn()`** — conditional or merged class strings built with
   template literals or string concatenation instead of the `cn()` helper,
   which breaks Tailwind-merge precedence and conditional toggling.
+- **Modifier-scoping footgun** — tailwind-merge only de-duplicates classes that
+  share a variant scope, so an unprefixed (or differently-prefixed) class does
+  **not** override a variant-prefixed one a base/CVA primitive carries:
+  `cn("md:text-sm", "text-xs")` keeps both and the `md:` class still wins at
+  desktop. Two checks, both required:
+  - **Never recommend removing a `md:`/`sm:`/state- or `has-[…]`-prefixed class
+    as "redundant" against a differently-prefixed one** without verifying it
+    actually resolves the same way in tailwind-merge. Removing `md:text-xs`
+    against the vendored `Input` base's `md:text-sm` is a silent 12px→14px
+    desktop regression, not a no-op cleanup. When in doubt, treat the
+    modifier-scoped class as load-bearing and leave it.
+  - **Flag an unprefixed override of a variant-scoped size/padding as
+    likely-ineffective** — e.g. `p-0` against an `xs` button variant's
+    `has-[>svg]:px-1.5` (the `:has()` selector raises specificity), or
+    `text-xs` against a base `md:text-sm`. The override must match the variant
+    to take effect. See design-system.md §4 rule 16.
 - **Hand-rolled vs. shadcn primitives** — a bespoke button/dialog/tooltip/
   badge/input where an existing shadcn primitive in `ui/src/components/ui/`
   would do. Flag divergence from the established primitive.
