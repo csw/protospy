@@ -1,6 +1,7 @@
 /target
 .worktrees/
 /scratch
+/reg.json
 .*_cache
 __pycache__/
 CLAUDE.local.md

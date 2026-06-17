@@ -1,0 +1,184 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "boto3>=1.43,<2",
+# ]
+# ///
+"""Generate and upload a visual-diff HTML report from matched before/after directories.
+
+Usage:
+    visual-diff-report <before-dir> <after-dir> --branch BRANCH [--output-dir DIR]
+
+Runs reg-cli (ui/node_modules/.bin/reg-cli) to produce an HTML diff report
+with side-by-side, overlay, and pixel-diff views. Uploads the report directory
+to S3 and prints the URL to index.html.
+
+Output layout (under <output-dir>, default scratch/visual-diff-report/):
+    index.html   — HTML report
+    diff/        — diff images produced by reg-cli
+
+Prints:
+    Report: https://protospy-dev-data.s3.amazonaws.com/<key>/index.html
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+BUCKET = "protospy-dev-data"
+KEY_PREFIX = "screenshots"
+
+CONTENT_TYPES: dict[str, str] = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".webp": "image/webp",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".wasm": "application/wasm",
+}
+
+# Script lives at scripts/agents/visual-diff-report; two parents up is repo root.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = _SCRIPT_DIR.parent.parent
+
+
+def branch_slug(branch: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
+    return slug.strip("-") or "unknown"
+
+
+def s3_url(bucket: str, key: str) -> str:
+    return f"https://{bucket}.s3.amazonaws.com/{key}"
+
+
+def _rel(base: Path, path: Path) -> str:
+    """Return path relative to base, falling back to absolute."""
+    try:
+        return str(path.resolve().relative_to(base.resolve()))
+    except ValueError:
+        return str(path.resolve())
+
+
+def run_reg_cli(
+    repo_root: Path,
+    after_dir: Path,
+    before_dir: Path,
+    diff_dir: Path,
+    report_html: Path,
+) -> None:
+    # reg-cli 0.19.x (Wasm-backed) only produces the HTML report when given
+    # relative paths — absolute paths silently skip the -R output.  Run from
+    # repo_root with all paths relative to it.
+    reg_cli_abs = repo_root / "ui" / "node_modules" / ".bin" / "reg-cli"
+    if not reg_cli_abs.is_file():
+        raise SystemExit(
+            "error: reg-cli not found at ui/node_modules/.bin/reg-cli\n"
+            "Run: pnpm --dir ui add -D reg-cli"
+        )
+    root = repo_root.resolve()
+    result = subprocess.run(
+        [
+            "ui/node_modules/.bin/reg-cli",
+            _rel(root, after_dir),
+            _rel(root, before_dir),
+            _rel(root, diff_dir),
+            "-R",
+            _rel(root, report_html),
+            "-I",  # exit 0 even when diffs are found
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+    )
+    if result.returncode != 0:
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        raise SystemExit(f"error: reg-cli exited with code {result.returncode}")
+
+
+def upload_report(s3_client, report_dir: Path, prefix: str) -> str:
+    """Upload all files under report_dir to S3, preserving relative paths.
+
+    Returns the public URL of index.html.
+    """
+    index_url: str | None = None
+    for file in sorted(report_dir.rglob("*")):
+        if not file.is_file():
+            continue
+        rel = file.relative_to(report_dir)
+        key = f"{prefix}/{rel}"
+        content_type = CONTENT_TYPES.get(
+            file.suffix.lower(), "application/octet-stream"
+        )
+        s3_client.upload_file(
+            str(file),
+            BUCKET,
+            key,
+            ExtraArgs={"ContentType": content_type},
+        )
+        if str(rel) == "index.html":
+            index_url = s3_url(BUCKET, key)
+    if index_url is None:
+        raise SystemExit(
+            "error: no index.html in report directory — did reg-cli succeed?"
+        )
+    return index_url
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Generate and upload a visual-diff HTML report."
+    )
+    parser.add_argument("before_dir", help="directory of before screenshots")
+    parser.add_argument("after_dir", help="directory of after screenshots")
+    parser.add_argument(
+        "--branch",
+        required=True,
+        help="branch name — used to build the S3 key",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="scratch/visual-diff-report",
+        help="output directory for the report (default: scratch/visual-diff-report)",
+    )
+    args = parser.parse_args(argv)
+
+    before_dir = Path(args.before_dir)
+    after_dir = Path(args.after_dir)
+    output_dir = Path(args.output_dir)
+
+    for label, d in (("before-dir", before_dir), ("after-dir", after_dir)):
+        if not d.is_dir():
+            print(f"error: {label} '{d}': no such directory", file=sys.stderr)
+            return 1
+
+    diff_dir = output_dir / "diff"
+    report_html = output_dir / "index.html"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    diff_dir.mkdir(exist_ok=True)
+
+    run_reg_cli(REPO_ROOT, after_dir, before_dir, diff_dir, report_html)
+
+    slug = branch_slug(args.branch)
+    prefix = f"{KEY_PREFIX}/pr-{slug}/visual-diff-report"
+
+    import boto3  # noqa: PLC0415
+
+    s3 = boto3.client("s3")
+    url = upload_report(s3, output_dir, prefix)
+    print(f"Report: {url}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
