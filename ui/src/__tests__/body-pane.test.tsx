@@ -271,10 +271,10 @@ describe("BodyPane view modes (PRO-420)", () => {
   });
 
   it("falls back to the default when the stored mode is unavailable", async () => {
-    // `tree` is not a selectable mode for an image body — resolve to rendered.
+    // `tree` is not a selectable mode for an image body — resolves to rendered.
     decodeBodyMock.mockResolvedValueOnce(imageResult());
     render(<BodyPane title="Response" body={makeBody()} viewMode="tree" />);
-    expect(await screen.findByTestId("body-summary")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Image view")).toBeInTheDocument();
   });
 
   it("binary bodies render the summary state with a download button", async () => {
@@ -299,8 +299,33 @@ describe("BodyPane view modes (PRO-420)", () => {
   it("keeps a copy button for image bodies", async () => {
     decodeBodyMock.mockResolvedValueOnce(imageResult());
     render(<BodyPane title="Response" body={makeBody()} />);
-    await screen.findByTestId("body-summary");
+    await screen.findByLabelText("Image view");
     expect(screen.getByRole("button", { name: /copy/i })).toBeInTheDocument();
+  });
+
+  it("image bodies render an <img> element in the default rendered mode", async () => {
+    decodeBodyMock.mockResolvedValueOnce(imageResult());
+    render(<BodyPane title="Response" body={makeBody()} />);
+    const img = await screen.findByLabelText("Image view");
+    expect(img.tagName).toBe("IMG");
+    // jsdom implements URL.createObjectURL and returns a blob: URL.
+    expect(img.getAttribute("src")).toMatch(/^blob:/);
+    // BodySummary placeholder must not be shown once the image renders.
+    expect(screen.queryByTestId("body-summary")).not.toBeInTheDocument();
+  });
+
+  it("image bodies switch to hex view when the Hex segment is selected", async () => {
+    // Share the body ref so useDecodeBody doesn't re-run on rerender.
+    const body = makeBody();
+    decodeBodyMock.mockResolvedValue(imageResult());
+    const { rerender } = render(
+      <BodyPane title="Response" body={body} viewMode={null} />,
+    );
+    await screen.findByLabelText("Image view");
+
+    rerender(<BodyPane title="Response" body={body} viewMode="hex" />);
+    await screen.findByLabelText("Hex viewer");
+    expect(screen.queryByLabelText("Image view")).not.toBeInTheDocument();
   });
 
   it("shows a download button in the header strip for all bodies", async () => {
