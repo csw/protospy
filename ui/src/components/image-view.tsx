@@ -29,13 +29,8 @@ export function ImageView({ bytes, mediaType }: Props) {
   if (blobUrl == null) return null;
 
   return (
-    <div className="flex items-start justify-center overflow-auto h-full p-4">
-      <img
-        src={blobUrl}
-        alt=""
-        aria-label="Image view"
-        className="max-w-full"
-      />
+    <div className="flex items-center justify-center overflow-auto h-full p-4">
+      <img src={blobUrl} alt="Image view" className="max-w-full" />
     </div>
   );
 }

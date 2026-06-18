@@ -131,7 +131,7 @@ test.describe("BodyPane — image rendering (PRO-412)", () => {
   test("renders an <img> element in Rendered mode for an image body", async ({
     page,
   }) => {
-    const img = page.getByLabel("Image view");
+    const img = page.getByRole("img", { name: "Image view" });
     await expect(img).toBeVisible();
     // Blob URL from the decoded bytes — must be non-empty.
     const src = await img.getAttribute("src");
@@ -157,7 +157,7 @@ test.describe("BodyPane — image rendering (PRO-412)", () => {
     const head = responseHead(page);
     await head.getByText("Hex", { exact: true }).click();
     await expect(page.getByLabel("Hex viewer")).toBeVisible();
-    await expect(page.getByLabel("Image view")).toHaveCount(0);
+    await expect(page.getByRole("img", { name: "Image view" })).toHaveCount(0);
   });
 
   test("copy button for image body copies as image data via ClipboardItem", async ({
