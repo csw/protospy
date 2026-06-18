@@ -1,6 +1,8 @@
 import type { BodyState } from "@ui/state/reducer";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseJson, parseNdjson } from "./json-parse";
+import { formatMarkup } from "./markup-format";
+import type { MarkupLine } from "./markup-format-core";
 import type { JsonValue } from "../components/json-tree/model";
 import type { FlatRow } from "../components/json-tree/flatten";
 import type { ContentKind } from "./view-modes";
@@ -60,6 +62,14 @@ export interface DecodeResult {
    * parsed cleanly.
    */
   truncated?: boolean;
+  /**
+   * For `html`/`xml` kinds: per-line highlight tokens for the virtualized
+   * formatted view (PRO-414), pretty-printed and tokenized in a Worker. The
+   * `text` field carries the matching re-indented source. `undefined` for all
+   * other kinds, and when a fatal worker error left the formatted view to fall
+   * back to plain text.
+   */
+  lines?: MarkupLine[];
   /**
    * The decompressed body decoded as UTF-8 text, with NO pretty-printing or
    * classification applied. Equals `text` for the `text` kind; for `json`/
@@ -319,31 +329,44 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
   }
 
   // Step 6: Markup — HTML and XML get their own kinds (formatted-view slot,
-  // PRO-414). The decoded text backs the text/formatted views; rendering is
-  // text-only until syntax highlighting lands.
-  if (contentType != null && isHtmlContentType(contentType)) {
-    return {
-      kind: "html",
-      textAvailable,
-      text,
-      mediaType,
-      wireBytes,
-      decodedBytes,
-      rawText: text,
-      bytes,
-    };
-  }
-  if (contentType != null && isXmlContentType(contentType)) {
-    return {
-      kind: "xml",
-      textAvailable,
-      text,
-      mediaType,
-      wireBytes,
-      decodedBytes,
-      rawText: text,
-      bytes,
-    };
+  // PRO-414). A Worker re-indents the (often minified) body and tokenizes it
+  // into per-line highlight tokens for the virtualized formatted view; `text`
+  // becomes the re-indented source (backs the formatted-view copy), `rawText`
+  // stays the un-formatted source for the raw view. A fatal worker error
+  // degrades gracefully: no `lines`, and the formatted view falls back to text.
+  const markupKind =
+    contentType != null && isHtmlContentType(contentType)
+      ? "html"
+      : contentType != null && isXmlContentType(contentType)
+        ? "xml"
+        : null;
+  if (markupKind != null) {
+    try {
+      const { lines, formattedText } = await formatMarkup(text, markupKind);
+      return {
+        kind: markupKind,
+        textAvailable,
+        text: formattedText,
+        lines,
+        mediaType,
+        wireBytes,
+        decodedBytes,
+        rawText: text,
+        bytes,
+      };
+    } catch {
+      // Fatal worker failure — keep the markup kind but render as plain text.
+      return {
+        kind: markupKind,
+        textAvailable,
+        text,
+        mediaType,
+        wireBytes,
+        decodedBytes,
+        rawText: text,
+        bytes,
+      };
+    }
   }
 
   // Step 7: Images get their own kind for the rendered-view slot (PRO-412).

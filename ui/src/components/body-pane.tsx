@@ -17,6 +17,7 @@ import { CopyButton } from "./copy-button";
 import { BodyModeSelector } from "./body-mode-selector";
 import { BodySummary } from "./body-summary";
 import { TextView } from "./text-view";
+import { MarkupView } from "./markup-view";
 import { StreamErrorBanner } from "./stream-error-banner";
 import { SimpleTooltip } from "./ui/simple-tooltip";
 import { EmptyState } from "./ui/empty-state";
@@ -97,9 +98,11 @@ function BodySkeleton() {
 
 /**
  * The decoded body rendered per the resolved view mode (PRO-420). `tree` is the
- * structured JSON/NDJSON viewer; `formatted` shows source text until syntax
- * highlighting lands (PRO-414); `rendered` shows inline image preview (PRO-412)
- * or the download summary for other kinds; `text`/`hex` are the kind-agnostic
+ * structured JSON/NDJSON viewer; `formatted` is the syntax-highlighted,
+ * re-indented HTML/XML view (PRO-414), virtualized line-by-line and falling
+ * back to plain text when the Worker produced no line tokens; `rendered` shows
+ * an inline image preview (PRO-412) or the download summary for other kinds;
+ * `summary` shows the download summary; `text`/`hex` are the kind-agnostic
  * fallbacks.
  */
 function BodyContent({
@@ -170,7 +173,18 @@ function BodyContent({
     );
   }
 
-  // `text` and `formatted` (source text until PRO-414).
+  // `formatted` (HTML/XML, PRO-414): the virtualized syntax-highlighted view
+  // when the Worker produced line tokens; otherwise fall through to plain text.
+  if (mode === "formatted" && result.lines != null) {
+    return (
+      <MarkupView
+        lines={result.lines}
+        label={result.kind === "html" ? "HTML viewer" : "XML viewer"}
+      />
+    );
+  }
+
+  // `text`, and `formatted` with no line tokens (worker failure fallback).
   return <TextView text={result.rawText} />;
 }
 
@@ -251,6 +265,8 @@ export function BodyPane({
     if (result == null) return undefined;
     if (resolved === "hex") return hexDumpText(result.bytes);
     if (resolved === "tree") return result.text;
+    // Formatted markup copies the re-indented source; everything else the raw.
+    if (resolved === "formatted") return result.text ?? result.rawText;
     return result.rawText;
   }, [result, resolved]);
 

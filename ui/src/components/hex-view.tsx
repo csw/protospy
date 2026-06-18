@@ -1,15 +1,14 @@
 import { useRef } from "react";
-import {
-  useVirtualizer,
-  observeElementRect as defaultObserveRect,
-} from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementRectWithFallback } from "@ui/lib/virtual";
 import { HEX_BYTES_PER_ROW, hexRow, hexRowCount } from "@ui/lib/hex";
 
 interface Props {
   bytes: Uint8Array;
 }
 
-// `text-xs` (12px) + `leading-5` (20px) — each dump row renders as a 20px row.
+// `leading-5` (20px) fixes the row box height regardless of the density-aware
+// `text-mono` font size — each dump row renders as a 20px row.
 const ROW_HEIGHT = 20;
 
 // Fixed character width of a full row: offset(8) + "  " + hex(16*2 + 15 spaces)
@@ -23,21 +22,6 @@ const ROW_COLS =
   HEX_BYTES_PER_ROW;
 
 const VIEWER_LABEL = "Hex viewer";
-
-/**
- * Wrapper around the default observeElementRect that reports a fallback rect in
- * jsdom (where getBoundingClientRect is 0x0), so the virtualizer renders items
- * and component tests can assert on them. Mirrors the json-tree viewer pattern.
- */
-const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
-  return defaultObserveRect(instance, (rect) => {
-    if (rect.width === 0 && rect.height === 0) {
-      cb({ width: 800, height: 600 });
-    } else {
-      cb(rect);
-    }
-  });
-};
 
 /**
  * A hex + ASCII dump of the decompressed body bytes — the `hex` view mode
@@ -58,15 +42,16 @@ export function HexView({ bytes }: Props) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
-    observeElementRect,
+    observeElementRect: observeElementRectWithFallback,
   });
 
   return (
     <div
       ref={parentRef}
-      className="font-mono text-xs leading-5 overflow-auto w-full h-full pt-3"
-      style={{ contain: "strict" }}
+      role="region"
       aria-label={VIEWER_LABEL}
+      className="font-mono text-mono leading-5 overflow-auto w-full h-full pt-3"
+      style={{ contain: "strict" }}
     >
       <div
         style={{
