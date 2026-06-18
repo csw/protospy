@@ -122,6 +122,14 @@
   --json-punct: #94a3b8;
   --json-lineno: #cbd5e1;
 
+  /* HTML / XML syntax — LIGHT (PRO-414) */
+  --markup-tag: #0b4a8b;
+  --markup-attr-name: #9a3412;
+  --markup-attr-value: #15803d;
+  --markup-punct: #94a3b8;
+  --markup-comment: #64748b;
+  --markup-entity: #7c2d12;
+
   /* Trace palette — deterministic hash(traceId) % 7. Shared by rail, tags,
      group cards. Treated like shadcn's --chart-1..n. Same in light & dark
      (these oklch values read on both). */
@@ -244,6 +252,14 @@
   --json-number: #fdba74;
   --json-boolean: #fbbf24;
   --json-null: #94a3b8;
+
+  /* HTML / XML syntax — DARK (PRO-414) */
+  --markup-tag: #93c5fd;
+  --markup-attr-name: #fdba74;
+  --markup-attr-value: #86efac;
+  --markup-punct: #94a3b8;
+  --markup-comment: #94a3b8;
+  --markup-entity: #fbbf24;
   --json-punct: #475569;
   --json-lineno: #2a3340;
 }
@@ -351,6 +367,14 @@
   --color-json-null: var(--json-null);
   --color-json-punct: var(--json-punct);
   --color-json-lineno: var(--json-lineno);
+
+  /* markup (html/xml) */
+  --color-markup-tag: var(--markup-tag);
+  --color-markup-attr-name: var(--markup-attr-name);
+  --color-markup-attr-value: var(--markup-attr-value);
+  --color-markup-punct: var(--markup-punct);
+  --color-markup-comment: var(--markup-comment);
+  --color-markup-entity: var(--markup-entity);
 
   /* traces */
   --color-trace-1: var(--trace-1);

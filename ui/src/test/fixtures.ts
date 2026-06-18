@@ -192,6 +192,34 @@ export function makeTextResponse(
 }
 
 /**
+ * text/html response with a minified body. Classified as `html` (PRO-414); the
+ * formatted view re-indents and syntax-highlights it.
+ */
+export function makeHtmlResponse(
+  id: number,
+  body = '<!DOCTYPE html><html><head><title>Demo</title></head><body><h1 class="hd">Hello</h1><p>World &amp; more</p><!-- note --></body></html>',
+  ts?: string,
+): Msg {
+  return makeResponse(id, "200 OK", body, ts, [
+    { name: "Content-Type", value: "text/html; charset=utf-8" },
+  ]);
+}
+
+/**
+ * application/xml response with a minified SOAP-style body. Classified as `xml`
+ * (PRO-414); the formatted view re-indents and syntax-highlights it.
+ */
+export function makeXmlResponse(
+  id: number,
+  body = '<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetResult><Value>42</Value><Name>test &amp; co</Name></GetResult></soap:Body></soap:Envelope>',
+  ts?: string,
+): Msg {
+  return makeResponse(id, "200 OK", body, ts, [
+    { name: "Content-Type", value: "application/xml" },
+  ]);
+}
+
+/**
  * application/x-ndjson response with several JSON lines. Renders as a forest of
  * independently-collapsible document trees (PRO-400).
  */

@@ -45,9 +45,11 @@ import {
   makeDualSizeResponse,
   makeEncodedJsonResponse,
   makeGetRequest,
+  makeHtmlResponse,
   makeLongUriRequest,
   makeManyExchanges,
   makeNDJsonResponse,
+  makeXmlResponse,
   makePostRequest,
   makeProxyError,
   makeResponse,
@@ -642,6 +644,24 @@ export const SCENES: Scene[] = [
     description:
       "A text/plain response body. BodyPane renders the content in a <pre> block (the text render branch, distinct from JSON tree and binary).",
     messages: [makeGetRequest(1, "/api/health"), makeTextResponse(1)],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-html",
+    title: "HTML body (formatted)",
+    axis: "state",
+    description:
+      "A text/html response. BodyPane's formatted view re-indents the minified markup and syntax-highlights it (PRO-414), virtualized line-by-line.",
+    messages: [makeGetRequest(1, "/index.html"), makeHtmlResponse(1)],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-xml",
+    title: "XML body (formatted)",
+    axis: "state",
+    description:
+      "An application/xml SOAP response. BodyPane's formatted view re-indents and syntax-highlights the XML (PRO-414), virtualized line-by-line.",
+    messages: [makeGetRequest(1, "/service.xml"), makeXmlResponse(1)],
     config: { selectedId: 1 },
   },
   {

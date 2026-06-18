@@ -16,6 +16,7 @@ import {
   computeForestDefaultExpanded,
 } from "@ui/components/json-tree/expand";
 import { flattenTree, flattenForest } from "@ui/components/json-tree/flatten";
+import { prettyPrintMarkup, tokenizeMarkup } from "@ui/body/markup-format-core";
 
 // Mock the Worker client so decodeBody's JSON/NDJSON steps run without a real
 // Worker in the Node environment. The mock delegates to the same pure functions
@@ -69,6 +70,18 @@ vi.mock("@ui/body/json-parse", () => ({
       rows,
       defaultExpanded,
       truncated: truncatedDocIndex != null,
+    });
+  },
+}));
+
+// Mock the markup-format Worker client the same way: delegate to the real pure
+// core so decodeBody's HTML/XML step runs without a Worker in Node.
+vi.mock("@ui/body/markup-format", () => ({
+  formatMarkup: (text: string, kind: "html" | "xml") => {
+    const formattedText = prettyPrintMarkup(text, kind);
+    return Promise.resolve({
+      lines: tokenizeMarkup(formattedText),
+      formattedText,
     });
   },
 }));
@@ -234,6 +247,11 @@ describe("decodeBody", () => {
     expect(html.kind).toBe("html");
     expect(html.text).toContain("<body>");
     expect(html.textAvailable).toBe(true);
+    // The formatted view gets per-line highlight tokens; rawText stays the
+    // un-formatted source so the raw view is unaffected.
+    expect(html.lines).toBeDefined();
+    expect(html.lines!.length).toBeGreaterThan(1);
+    expect(html.rawText).toBe("<html><body>hi</body></html>");
 
     const xml = await decodeBody({
       chunks: [{ text: "<note><to>x</to></note>" }],
@@ -242,6 +260,9 @@ describe("decodeBody", () => {
       contentType: "application/xml",
     });
     expect(xml.kind).toBe("xml");
+    // Minified input is re-indented into multiple lines for the formatted view.
+    expect(xml.lines!.length).toBeGreaterThan(1);
+    expect(xml.text.split("\n").length).toBeGreaterThan(1);
 
     // The generic `application/*+xml` suffix also classifies as xml.
     const soap = await decodeBody({
