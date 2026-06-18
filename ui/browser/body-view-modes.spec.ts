@@ -1,11 +1,18 @@
+import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
-import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
+import { injectExchanges, waitForStore } from "./helpers/inject";
 import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 import {
   makeGetRequest,
   makeResponse,
   makeImageResponse,
 } from "./fixtures/exchanges";
+
+const TEAPOT_PNG = readFileSync(
+  new URL("../src/test/fixtures/utah-teapot.png", import.meta.url),
+);
+const TEAPOT_BASE64 = TEAPOT_PNG.toString("base64");
+const TEAPOT_WIRE_BYTES = TEAPOT_PNG.byteLength;
 
 // Browser coverage for the per-pane view-mode framework (PRO-420): the mode
 // selector in each body pane header strip, the binary summary state with its
@@ -112,18 +119,50 @@ test.describe("BodyPane — download filename (PRO-420 / PRO-413)", () => {
   });
 });
 
-test.describe("BodyPane — image copy (PRO-420)", () => {
-  // 1×1 transparent PNG.
-  const PNG_BASE64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+test.describe("BodyPane — image rendering (PRO-412)", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/avatar.png"),
+      makeImageResponse(1, TEAPOT_BASE64, TEAPOT_WIRE_BYTES),
+    ]);
+    await page.getByText("/api/avatar.png").first().click();
+  });
 
-  test("copies an image body as image data via ClipboardItem", async ({
+  test("renders an <img> element in Rendered mode for an image body", async ({
     page,
   }) => {
-    await page.goto("/");
-    await waitForStore(page);
-    await resetStore(page);
+    const img = page.getByRole("img", { name: "Image view" });
+    await expect(img).toBeVisible();
+    // Blob URL from the decoded bytes — must be non-empty.
+    const src = await img.getAttribute("src");
+    expect(src).toMatch(/^blob:/);
+    // BodySummary placeholder must be absent once image renders.
+    await expect(page.getByTestId("body-summary")).toHaveCount(0);
+  });
 
+  test("Rendered is the default and pressed segment in the mode selector", async ({
+    page,
+  }) => {
+    const head = responseHead(page);
+    await expect(head.getByText("Rendered", { exact: true })).toHaveAttribute(
+      "data-state",
+      "on",
+    );
+    await expect(head.getByText("Hex", { exact: true })).toBeVisible();
+  });
+
+  test("switching to Hex mode shows the hex dump and hides the image", async ({
+    page,
+  }) => {
+    const head = responseHead(page);
+    await head.getByText("Hex", { exact: true }).click();
+    await expect(page.getByLabel("Hex viewer")).toBeVisible();
+    await expect(page.getByRole("img", { name: "Image view" })).toHaveCount(0);
+  });
+
+  test("copy button for image body copies as image data via ClipboardItem", async ({
+    page,
+  }) => {
     // Record what ClipboardItem types are written, without real clipboard perms.
     await page.evaluate(() => {
       window.__clipboardImageTypes = [];
@@ -138,17 +177,7 @@ test.describe("BodyPane — image copy (PRO-420)", () => {
       });
     });
 
-    await injectExchanges(page, [
-      makeGetRequest(1, "/api/avatar.png"),
-      makeImageResponse(1, PNG_BASE64, 70),
-    ]);
-    await page.getByText("/api/avatar.png").first().click();
-
-    // The image renders the summary state (rendered slot, PRO-412) and keeps a
-    // copy button — copying the bytes as image data, not as text.
-    await expect(page.getByTestId("body-summary")).toBeVisible();
     await page.getByRole("button", { name: "Copy" }).click();
-
     await expect(page.getByText("Copied to clipboard")).toBeVisible();
     const types = await page.evaluate(() => window.__clipboardImageTypes);
     expect(types).toContain("image/png");

@@ -32,10 +32,12 @@ import {
   renderCatalog,
   type ScenarioMeta,
 } from "./bestiary-catalog";
+import { readFileSync } from "node:fs";
+
 import {
-  makeBinaryResponse,
   makeEncodedJsonResponse,
   makeGetRequest,
+  makeImageResponse,
   makePostRequest,
   makeProxyError,
   makeResponse,
@@ -114,11 +116,13 @@ const BROTLI_B64 =
   "ixyAeyJpdGVtcyI6W3siaWQiOjEsIm5hbWUiOiJhbHBoYSJ9LHsiaWQiOjIsIm5hbWUiOiJiZXRhIn1dfQM=";
 const BROTLI_WIRE_BYTES = 62;
 
-// A small PNG-ish binary blob — same magic bytes the body decoder uses
-// to classify as binary in browser/body-binary.spec.ts.
-const BINARY_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAWk1v8QAAAABJRU5ErkJggg==";
-const BINARY_WIRE_BYTES = 67;
+// Utah teapot PNG — a recognisable real-world image for the binary-png
+// bestiary scene. Loaded once at startup so the base64 string isn't inlined.
+const TEAPOT_PNG = readFileSync(
+  path.resolve(__dirname, "../src/test/fixtures/utah-teapot.png"),
+);
+const TEAPOT_BASE64 = TEAPOT_PNG.toString("base64");
+const TEAPOT_WIRE_BYTES = TEAPOT_PNG.byteLength;
 
 // Build a moderately large JSON body — large enough to trigger the body pane's
 // virtualization path but not so large the script becomes slow.
@@ -372,26 +376,26 @@ const SCENARIOS: Scenario[] = [
     ],
   },
 
-  // ── Binary bodies ────────────────────────────────────────────────────────
+  // ── Image bodies ─────────────────────────────────────────────────────────
   {
-    family: "Binary bodies",
+    family: "Image bodies",
     slug: "binary-png",
-    title: "Binary (PNG) response",
+    title: "Image (PNG) response",
     description:
-      "The decoder classifies the bytes as `binary` and the body pane shows a " +
-      "hex/preview view rather than text. Useful for confirming we don't try " +
-      "to render bytes as UTF-8 text.",
+      "The decoder classifies the body as `image/png` and the body pane " +
+      "renders it inline as an <img> element in Rendered mode (PRO-412). " +
+      "The Utah teapot is a well-known 3D rendering benchmark.",
     messages: [
-      makeGetRequest(1, "/images/pixel.png", t(2)),
-      makeBinaryResponse(1, BINARY_BASE64, BINARY_WIRE_BYTES, t(2)),
+      makeGetRequest(1, "/images/teapot.png", t(2)),
+      makeImageResponse(1, TEAPOT_BASE64, TEAPOT_WIRE_BYTES, "image/png", t(2)),
     ],
     interact: async (page) => {
-      await page.getByText("/images/pixel.png").first().click();
+      await page.getByText("/images/teapot.png").first().click();
     },
     captures: [
       {
         slug: "body-pane",
-        description: "Body pane only — binary classification.",
+        description: "Body pane — inline image rendering.",
         componentSelector: '[role="tabpanel"][data-state="active"]',
       },
     ],

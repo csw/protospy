@@ -25,6 +25,7 @@ import { Skeleton } from "./ui/skeleton";
 import { Button } from "./ui/button";
 import { JsonTreeViewer } from "./json-tree";
 import { HexView } from "./hex-view";
+import { ImageView } from "./image-view";
 
 /** Centered error display used for both "no response" and "response interrupted" states. */
 function ErrorPanel({
@@ -96,12 +97,13 @@ function BodySkeleton() {
 }
 
 /**
- * The decoded body rendered per the resolved view mode. `tree` is the
+ * The decoded body rendered per the resolved view mode (PRO-420). `tree` is the
  * structured JSON/NDJSON viewer; `formatted` is the syntax-highlighted,
  * re-indented HTML/XML view (PRO-414), virtualized line-by-line and falling
- * back to plain text when the Worker produced no line tokens; `rendered`/
- * `summary` show the download summary (image rendering is PRO-412); `text`/`hex`
- * are the kind-agnostic fallbacks.
+ * back to plain text when the Worker produced no line tokens; `rendered` shows
+ * an inline image preview (PRO-412) or the download summary for other kinds;
+ * `summary` shows the download summary; `text`/`hex` are the kind-agnostic
+ * fallbacks.
  */
 function BodyContent({
   result,
@@ -147,13 +149,15 @@ function BodyContent({
   }
 
   if (mode === "rendered") {
+    if (result.kind === "image") {
+      return <ImageView bytes={result.bytes} mediaType={result.mediaType} />;
+    }
     return (
       <BodySummary
         mediaType={result.mediaType}
         wireBytes={result.wireBytes}
         decodedBytes={result.decodedBytes}
         onDownload={onDownload}
-        note="Inline image preview is coming soon."
       />
     );
   }

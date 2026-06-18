@@ -48,6 +48,7 @@ import {
   makeHtmlResponse,
   makeLongUriRequest,
   makeManyExchanges,
+  makeImageResponse,
   makeNDJsonResponse,
   makeXmlResponse,
   makePostRequest,
@@ -59,6 +60,10 @@ import {
   makeTruncatedJsonResponse,
   makeTruncatedNdjsonResponse,
 } from "./fixtures";
+import {
+  UTAH_TEAPOT_BASE64,
+  UTAH_TEAPOT_WIRE_BYTES,
+} from "./fixtures/utah-teapot-base64";
 
 type Msg = Record<string, unknown>;
 
@@ -673,6 +678,18 @@ export const SCENES: Scene[] = [
     messages: [
       makeGetRequest(1, "/api/download/artifact.bin"),
       makeBinaryResponse(1, "AAECAwQFBgcICQoLDA0ODw==", 12),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-image",
+    title: "Image body (PNG)",
+    axis: "state",
+    description:
+      "An image/png response. BodyPane renders the decoded bytes inline as an <img> element in Rendered mode (PRO-412).",
+    messages: [
+      makeGetRequest(1, "/api/avatar.png"),
+      makeImageResponse(1, UTAH_TEAPOT_BASE64, UTAH_TEAPOT_WIRE_BYTES),
     ],
     config: { selectedId: 1 },
   },
