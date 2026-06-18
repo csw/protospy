@@ -79,27 +79,45 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
    `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
    Start a dev server, screenshot each scene with `playwright-cli`, saving with
    the exact filenames from the manifest to `scratch/before/`, then upload.
-   Store the printed embed strings for the PR description.
 
 2. **After (step 4)** — the qa-explorer subagent receives the manifest filenames
-   and saves screenshots with the same names to `scratch/after/`. Upload those
-   and store the embed strings.
+   and saves screenshots with the same names to `scratch/after/`. Upload those.
 
-3. **Pixel self-check (step 4, refactor mode)** — when the ticket does not
-   expect visual changes (refactor, internal rewiring), run:
+3. **Screenshot comparison (step 4, always)** — run `screenshot-diff` on every
+   UI ticket. Store the summary line for the PR description. If the expected vs.
+   found result mismatch, surface immediately and do not push yet.
 
-   ```bash
-   scripts/agents/screenshot-diff scratch/before/ scratch/after/
-   ```
+4. **Visual-diff report (step 4, whenever changes are found)** — if
+   `screenshot-diff` finds differences, run `visual-diff-report` and store the
+   URL for the PR description.
 
-   The script pairs images by filename, computes pixel differences, and prints
-   `"4/4 identical"` or `"2/4 differ: shot.png (0.3% changed)"`. Exit non-zero
-   means unexpected visual regression — stop before pushing and investigate.
-   Store the summary line for the PR description.
+5. **PR description (step 6)** — always a `**Screenshot comparison:**` summary
+   line. Add a `[Visual diff report](<URL>)` link when changes were found. Add a
+   `> [!CAUTION]` block when the expected vs. found result mismatched.
 
-4. **PR description (step 6)** — append a `## Visual diff` section containing
-   both sets of embed strings under `### Before` / `### After` headings, plus a
-   `**Visual self-check:**` line if a pixel comparison was run.
+## visual-diff-report
+
+`scripts/agents/visual-diff-report` generates an interactive HTML visual-diff
+report from matched before/after screenshot directories using
+[reg-cli](https://github.com/reg-viz/reg-cli) (fetched via `npx`):
+
+```bash
+scripts/agents/visual-diff-report scratch/before/ scratch/after/ \
+  --branch "$(git branch --show-current)"
+```
+
+Produces `scratch/visual-diff-report/` (HTML report + diff images), uploads
+it to S3, and prints:
+
+```
+Report: https://protospy-dev-data.s3.amazonaws.com/screenshots/pr-<slug>/visual-diff-report/index.html
+```
+
+The report provides side-by-side, overlay, and pixel-diff views for every pair.
+
+Options:
+
+- `--output-dir DIR` — output directory (default: `scratch/visual-diff-report`)
 
 ## screenshot-diff
 

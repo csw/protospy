@@ -193,8 +193,7 @@ scripts/agents/upload-screenshot scratch/before/ \
   --branch "$(git branch --show-current)"
 ```
 
-Store the printed Markdown embed strings — step 6 needs them as the "before"
-set in the PR description. Kill the dev server after capture
+Kill the dev server after capture
 (`kill %1` or `pkill -f 'pnpm dev'`).
 
 If the ticket has no `UI` label, skip this sub-step.
@@ -261,27 +260,33 @@ scripts/agents/upload-screenshot scratch/after/ \
   --branch "$(git branch --show-current)"
 ```
 
-Store the printed Markdown embed strings for step 6.
+**Screenshot comparison.** After the after upload, always run:
 
-**Pixel self-check.** After the upload, determine whether this ticket is expected
-to produce visual changes:
+```bash
+scripts/agents/screenshot-diff scratch/before/ scratch/after/
+```
 
-- **No expected visual change** (refactor, code cleanup, internal rewiring):
-  run the comparison:
+Capture the printed summary line (e.g. `4/4 identical` or
+`2/4 differ: shot-1280-dark.png (0.3% changed)`). Store it for step 6.
+
+Determine whether visual changes were **expected** (new feature, redesign,
+styling update → yes; refactor, code cleanup, internal rewiring → no) and
+whether changes were **found** (screenshot-diff exits 1 → yes, exits 0 → no).
+
+- **Expected and found**: generate the visual-diff report and store the URL:
 
   ```bash
-  scripts/agents/screenshot-diff scratch/before/ scratch/after/
+  scripts/agents/visual-diff-report scratch/before/ scratch/after/ \
+    --branch "$(git branch --show-current)"
   ```
 
-  Capture the printed summary line (e.g. `4/4 identical` or
-  `2/4 differ: shot-1280-dark.png (0.3% changed)`). Store it for step 6.
+- **Not expected and not found**: no further action needed.
 
-  If the script exits non-zero (unexpected differences), **stop before
-  pushing**. Investigate the diff and either fix the visual regression or
-  explicitly confirm with the user that the change is intentional.
-
-- **Expected visual change** (new feature, redesign, styling update): skip the
-  self-check — visual review covers the result.
+- **Mismatch** — expected but not found, or found but not expected:
+  - If changes were found, generate the visual-diff report and store the URL.
+  - **Stop before pushing.** Surface the mismatch to the user immediately and
+    wait for explicit direction before proceeding. The PR description will
+    flag the discrepancy with a caution block (step 6).
 
 ---
 
@@ -311,30 +316,52 @@ ticket ID unless the user names them.
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
-If before or after screenshots were uploaded (steps 3a / 4), append a
-`## Visual diff` section to the PR body:
+If screenshots were taken (steps 3a / 4), append a `## Visual diff` section to
+the PR body.
+
+**If a mismatch was detected in step 4**, open the section with a caution
+block (use the appropriate message):
+
+```markdown
+> [!CAUTION]
+> Visual changes were expected but none were detected — verify the implementation.
+```
+
+```markdown
+> [!CAUTION]
+> Unexpected visual changes detected — review before merging.
+```
+
+Then always include the screenshot-diff summary line:
+
+```
+**Screenshot comparison:** <summary from step 4>
+```
+
+If a visual-diff report URL was produced (changes were found):
+
+```
+[Visual diff report](<URL from step 4>)
+```
+
+Full example — expected change with report:
 
 ```markdown
 ## Visual diff
 
-### Before
-
-<before embed strings, one per line>
-
-### After
-
-<after embed strings, one per line>
+**Screenshot comparison:** 2/4 differ: shot-1280-dark.png (0.3% changed)
+[Visual diff report](https://protospy-dev-data.s3.amazonaws.com/...)
 ```
 
-Omit the section (or omit the half that has no images) if no screenshots were
-taken for that set.
+Full example — clean refactor, no changes:
 
-If a pixel self-check summary was produced in step 4, add a line to the PR body
-(inside or after the `## Visual diff` section):
+```markdown
+## Visual diff
 
+**Screenshot comparison:** 4/4 identical
 ```
-**Visual self-check:** 4/4 shots identical
-```
+
+Omit the section entirely if no screenshots were taken.
 
 ---
 
@@ -529,11 +556,17 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 ### Update after screenshots
 
 If this ticket has before/after screenshots (step 3a / step 4) and the fixes
-changed anything visually (UI code, styles, layout), retake the "after"
-screenshots, re-upload them (`scripts/agents/upload-screenshot scratch/after/
---prefix $ticket/after`), and update the PR description's screenshot section
-with the new URLs. Do this after every push that changes visual output — not
-just the first one.
+changed anything visually (UI code, styles, layout):
+
+1. Retake the "after" screenshots and re-upload:
+   `scripts/agents/upload-screenshot scratch/after/ --prefix $ticket/after`
+2. Re-run `scripts/agents/screenshot-diff scratch/before/ scratch/after/` and
+   update the `**Screenshot comparison:**` line in the PR description.
+3. If there are visual changes, re-run:
+   `scripts/agents/visual-diff-report scratch/before/ scratch/after/ --branch "$(git branch --show-current)"`
+   and update the `[Visual diff report]` link in the PR description.
+
+Do this after every push that changes visual output — not just the first one.
 
 ### Run another review round
 
