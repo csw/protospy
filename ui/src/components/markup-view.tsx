@@ -1,8 +1,6 @@
 import { useMemo, useRef } from "react";
-import {
-  useVirtualizer,
-  observeElementRect as defaultObserveRect,
-} from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementRectWithFallback } from "@ui/lib/virtual";
 import type { MarkupLine } from "@ui/body/markup-format-core";
 
 interface Props {
@@ -12,8 +10,9 @@ interface Props {
   label: string;
 }
 
-// `text-xs` (12px) + `leading-5` (20px) — each line renders as a 20px row,
-// matching the hex and JSON viewers so virtualization heights stay uniform.
+// `leading-5` (20px) fixes the line box height regardless of the density-aware
+// `text-mono` font size — each line renders as a 20px row, matching the hex and
+// JSON viewers so virtualization heights stay uniform.
 const ROW_HEIGHT = 20;
 
 /**
@@ -43,21 +42,6 @@ function tokenClass(type: string): string {
       return "text-foreground";
   }
 }
-
-/**
- * Wrapper around the default observeElementRect that reports a fallback rect in
- * jsdom (where getBoundingClientRect is 0x0) so the virtualizer renders items
- * and component tests can assert on them. Mirrors the hex/json-tree viewers.
- */
-const observeElementRect: typeof defaultObserveRect = (instance, cb) => {
-  return defaultObserveRect(instance, (rect) => {
-    if (rect.width === 0 && rect.height === 0) {
-      cb({ width: 800, height: 600 });
-    } else {
-      cb(rect);
-    }
-  });
-};
 
 /**
  * The `formatted` view mode for HTML/XML bodies (PRO-414): syntax-highlighted,
@@ -92,15 +76,16 @@ export function MarkupView({ lines, label }: Props) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
-    observeElementRect,
+    observeElementRect: observeElementRectWithFallback,
   });
 
   return (
     <div
       ref={parentRef}
-      className="font-mono text-xs leading-5 overflow-auto w-full h-full pt-3"
-      style={{ contain: "strict" }}
+      role="region"
       aria-label={label}
+      className="font-mono text-mono leading-5 overflow-auto w-full h-full pt-3"
+      style={{ contain: "strict" }}
     >
       <div
         style={{
@@ -129,10 +114,11 @@ export function MarkupView({ lines, label }: Props) {
               <span
                 data-testid="line-number"
                 className="select-none text-muted-foreground"
-                style={{ width: `${gutterWidth}ch` }}
               >
                 {String(vRow.index + 1).padStart(gutterWidth, " ")}
               </span>{" "}
+              {/* Index keys are correct here: each line's token list is static
+                  and never reordered or spliced after the Worker produces it. */}
               {line.map((token, i) => (
                 <span key={i} className={tokenClass(token.type)}>
                   {token.text}

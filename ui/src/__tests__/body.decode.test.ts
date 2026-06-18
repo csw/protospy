@@ -17,6 +17,7 @@ import {
 } from "@ui/components/json-tree/expand";
 import { flattenTree, flattenForest } from "@ui/components/json-tree/flatten";
 import { prettyPrintMarkup, tokenizeMarkup } from "@ui/body/markup-format-core";
+import { formatMarkup } from "@ui/body/markup-format";
 
 // Mock the Worker client so decodeBody's JSON/NDJSON steps run without a real
 // Worker in the Node environment. The mock delegates to the same pure functions
@@ -77,13 +78,15 @@ vi.mock("@ui/body/json-parse", () => ({
 // Mock the markup-format Worker client the same way: delegate to the real pure
 // core so decodeBody's HTML/XML step runs without a Worker in Node.
 vi.mock("@ui/body/markup-format", () => ({
-  formatMarkup: (text: string, kind: "html" | "xml") => {
+  // A `vi.fn` so individual tests can override it (e.g. to simulate a fatal
+  // worker failure); its default delegates to the real pure core.
+  formatMarkup: vi.fn((text: string, kind: "html" | "xml") => {
     const formattedText = prettyPrintMarkup(text, kind);
     return Promise.resolve({
       lines: tokenizeMarkup(formattedText),
       formattedText,
     });
-  },
+  }),
 }));
 
 // Note: 'brotli-dec-wasm' is aliased to src/test/brotli-dec-wasm-node.ts in
@@ -272,6 +275,24 @@ describe("decodeBody", () => {
       contentType: "application/soap+xml",
     });
     expect(soap.kind).toBe("xml");
+  });
+
+  it("markup degrades to plain text when the format Worker fails", async () => {
+    // A fatal worker error must not throw: decodeBody keeps the markup kind but
+    // drops `lines`, and the formatted view falls back to plain text (the
+    // un-formatted source). Mirrors the JSON Worker-reject fall-through.
+    vi.mocked(formatMarkup).mockRejectedValueOnce(new Error("worker died"));
+    const input = "<html><body>hi</body></html>";
+    const result = await decodeBody({
+      chunks: [{ text: input }],
+      atEnd: true,
+      wireBytes: input.length,
+      contentType: "text/html; charset=utf-8",
+    });
+    expect(result.kind).toBe("html");
+    expect(result.lines).toBeUndefined();
+    expect(result.text).toBe(input);
+    expect(result.rawText).toBe(input);
   });
 
   it("binary chunks with a supported charset (UTF-16 + BOM) make text available", async () => {

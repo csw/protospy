@@ -48,10 +48,11 @@ describe("MarkupView", () => {
     expect(screen.getByLabelText("HTML viewer")).toBeInTheDocument();
   });
 
-  it("sizes the gutter to the line count (min 2ch)", () => {
+  it("pads line numbers to the gutter width (min 2 cols)", () => {
+    // Alignment comes from padStart inside `whitespace-pre`, not a CSS width:
+    // a single-digit line number is space-padded to the 2-col minimum.
     render(<MarkupView lines={SAMPLE} label="XML viewer" />);
-    expect(screen.getAllByTestId("line-number")[0]).toHaveStyle({
-      width: "2ch",
-    });
+    // Raw textContent (jest-dom's toHaveTextContent collapses the padding).
+    expect(screen.getAllByTestId("line-number")[0].textContent).toBe(" 1");
   });
 });
