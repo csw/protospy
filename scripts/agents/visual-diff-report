@@ -10,9 +10,9 @@
 Usage:
     visual-diff-report <before-dir> <after-dir> --branch BRANCH [--output-dir DIR]
 
-Runs reg-cli (ui/node_modules/.bin/reg-cli) to produce an HTML diff report
-with side-by-side, overlay, and pixel-diff views. Uploads the report directory
-to S3 and prints the URL to index.html.
+Runs reg-cli via npx to produce an HTML diff report with side-by-side, overlay,
+and pixel-diff views. Uploads the report directory to S3 and prints the URL to
+index.html.
 
 Output layout (under <output-dir>, default scratch/visual-diff-report/):
     index.html   — HTML report
@@ -33,6 +33,7 @@ from pathlib import Path
 
 BUCKET = "protospy-dev-data"
 KEY_PREFIX = "screenshots"
+REG_CLI_VERSION = "0.18.16"
 
 CONTENT_TYPES: dict[str, str] = {
     ".html": "text/html; charset=utf-8",
@@ -47,10 +48,6 @@ CONTENT_TYPES: dict[str, str] = {
     ".wasm": "application/wasm",
 }
 
-# Script lives at scripts/agents/visual-diff-report; two parents up is repo root.
-_SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = _SCRIPT_DIR.parent.parent
-
 
 def branch_slug(branch: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", branch)
@@ -61,44 +58,27 @@ def s3_url(bucket: str, key: str) -> str:
     return f"https://{bucket}.s3.amazonaws.com/{key}"
 
 
-def _rel(base: Path, path: Path) -> str:
-    """Return path relative to base, falling back to absolute."""
-    try:
-        return str(path.resolve().relative_to(base.resolve()))
-    except ValueError:
-        return str(path.resolve())
-
-
 def run_reg_cli(
-    repo_root: Path,
     after_dir: Path,
     before_dir: Path,
     diff_dir: Path,
     report_html: Path,
 ) -> None:
-    # reg-cli 0.19.x (Wasm-backed) only produces the HTML report when given
-    # relative paths — absolute paths silently skip the -R output.  Run from
-    # repo_root with all paths relative to it.
-    reg_cli_abs = repo_root / "ui" / "node_modules" / ".bin" / "reg-cli"
-    if not reg_cli_abs.is_file():
-        raise SystemExit(
-            "error: reg-cli not found at ui/node_modules/.bin/reg-cli\n"
-            "Run: pnpm --dir ui add -D reg-cli"
-        )
-    root = repo_root.resolve()
+    # reg-cli positional order is: actual (after) → expected (before) → diff.
     result = subprocess.run(
         [
-            "ui/node_modules/.bin/reg-cli",
-            _rel(root, after_dir),
-            _rel(root, before_dir),
-            _rel(root, diff_dir),
+            "npx",
+            "-y",
+            f"reg-cli@{REG_CLI_VERSION}",
+            str(after_dir.resolve()),
+            str(before_dir.resolve()),
+            str(diff_dir.resolve()),
             "-R",
-            _rel(root, report_html),
+            str(report_html.resolve()),
             "-I",  # exit 0 even when diffs are found
         ],
         capture_output=True,
         text=True,
-        cwd=str(root),
     )
     if result.returncode != 0:
         if result.stderr:
@@ -167,7 +147,8 @@ def main(argv: list[str] | None = None) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     diff_dir.mkdir(exist_ok=True)
 
-    run_reg_cli(REPO_ROOT, after_dir, before_dir, diff_dir, report_html)
+    # actual (after) → expected (before) → diff, per reg-cli's positional order.
+    run_reg_cli(after_dir, before_dir, diff_dir, report_html)
 
     slug = branch_slug(args.branch)
     prefix = f"{KEY_PREFIX}/pr-{slug}/visual-diff-report"

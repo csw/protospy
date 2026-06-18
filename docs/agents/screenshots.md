@@ -99,7 +99,7 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
 
 `scripts/agents/visual-diff-report` generates an interactive HTML visual-diff
 report from matched before/after screenshot directories using
-[reg-cli](https://github.com/reg-viz/reg-cli) (installed in `ui/`):
+[reg-cli](https://github.com/reg-viz/reg-cli) (fetched via `npx`):
 
 ```bash
 scripts/agents/visual-diff-report scratch/before/ scratch/after/ \
@@ -114,8 +114,6 @@ Report: https://protospy-dev-data.s3.amazonaws.com/screenshots/pr-<slug>/visual-
 ```
 
 The report provides side-by-side, overlay, and pixel-diff views for every pair.
-Use this for **expected-visual-change tickets** instead of embedding full-size
-screenshots inline in the PR description.
 
 Options:
 
