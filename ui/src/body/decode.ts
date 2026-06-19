@@ -255,9 +255,9 @@ function decodeBytesToText(
 ): string {
   if (hasBinaryChunk && charset !== null) {
     try {
-      // ignoreBOM defaults to false, which strips any leading BOM from the
-      // decoded output — correct for UTF-16 (BOM hints endianness but is
-      // not data) and a no-op for single-byte encodings like ISO-8859-1.
+      // ignoreBOM defaults to false, meaning the BOM is processed (stripped
+      // from the output), not passed through — correct for UTF-16 (BOM hints
+      // endianness but is not data) and a no-op for ISO-8859-1.
       return new TextDecoder(charset).decode(bytes);
     } catch {
       // Unknown or unsupported charset — fall back to UTF-8.
