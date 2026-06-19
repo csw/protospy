@@ -42,6 +42,18 @@ scripts/agents/upload-screenshot <bestiary-dir> \
   --prefix "bestiary/2026-06-15" --catalog
 ```
 
+**`--matrix PATH`** (optional, works with both modes) — checks the uploaded set
+against a matrix manifest (one filename per line; blank and `#` lines ignored)
+and prints advisory warnings to stderr: a file not in the manifest is likely a
+stale artifact, and a manifest entry not present was expected but never
+captured. The warnings are for agent self-correction, not a gate — the upload
+still proceeds. The before/after PR flow passes `--matrix scratch/matrix.txt`.
+
+```bash
+scripts/agents/upload-screenshot scratch/after/ \
+  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
+```
+
 **`--catalog`** (optional, works with both modes) — after uploading images,
 generates a self-contained HTML catalog page and uploads it to
 `<prefix>/index.html`. Prints one extra line:
@@ -77,11 +89,17 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
    one width (default 1280) unless horizontal layout is affected; one theme
    (default dark) unless theme-specific styling is touched. Record the list in
    `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
-   Start a dev server, screenshot each scene with `playwright-cli`, saving with
-   the exact filenames from the manifest to `scratch/before/`, then upload.
+   Clean `scratch/before/`, start a dev server, then for each scene **set the
+   theme explicitly** (`window.__test_store.getState().setTheme('dark'|'light')`)
+   and verify it took (`document.documentElement.classList.contains('dark')`)
+   before capturing — the `-dark`/`-light` filename is a label, not the active
+   theme. Save with the exact manifest filenames to `scratch/before/`, then
+   upload with `--matrix scratch/matrix.txt`.
 
-2. **After (step 4)** — the qa-explorer subagent receives the manifest filenames
-   and saves screenshots with the same names to `scratch/after/`. Upload those.
+2. **After (step 4)** — clean `scratch/after/`; the qa-explorer subagent
+   receives the manifest filenames, sets the theme before each shot the same
+   way, and saves screenshots with the same names to `scratch/after/`. Upload
+   those with `--matrix scratch/matrix.txt`.
 
 3. **Screenshot comparison (step 4, always)** — run `screenshot-diff` on every
    UI ticket. Store the summary line for the PR description. If the expected vs.

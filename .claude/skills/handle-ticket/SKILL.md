@@ -178,20 +178,43 @@ Pick a free port (default is 5173; use a different one) and start a dev server:
 cd ui && pnpm dev --port <port> &
 ```
 
+**Clean the output directory first** so stale artifacts from a prior attempt
+don't get mixed into this pass:
+
+```bash
+rm -rf scratch/before && mkdir -p scratch/before
+```
+
 Use `playwright-cli` to screenshot the affected views. Follow the
 **`protospy-screenshot`** skill when you capture — it covers the protospy-specific
 wait that keeps a shot from landing on a loading skeleton instead of rendered
 body content. Inject fixture state first if needed to make the changed area
 visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs the
 visual-verify step uses). An empty-state screenshot rarely shows anything useful;
-pick a scene that puts data in the view the ticket changes. **Save screenshots
-with the exact filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then
-upload:
+pick a scene that puts data in the view the ticket changes.
+
+**Set the theme explicitly before each shot — the filename does not set it.** A
+`-dark`/`-light` suffix is just a label; the active theme is whatever the store
+last held. Before capturing, force it and verify it took, matching the shot's
+theme:
+
+```bash
+# For a *-dark.png shot (use 'light' / false for a *-light.png shot):
+playwright-cli run-code "async page => { await page.evaluate(() => window.__test_store.getState().setTheme('dark')); const ok = await page.evaluate(() => document.documentElement.classList.contains('dark')); if (!ok) throw new Error('theme not active: expected dark'); }"
+```
+
+Only after the verify passes do you capture. **Save screenshots with the exact
+filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then upload,
+passing the manifest so the script flags any stale or missing files:
 
 ```bash
 scripts/agents/upload-screenshot scratch/before/ \
-  --branch "$(git branch --show-current)"
+  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
 ```
+
+If `upload-screenshot` warns that a file is not in the manifest (likely a stale
+artifact) or that an expected file is missing, resolve it — delete the stale
+file or capture the missing one — before moving on.
 
 Kill the dev server after capture
 (`kill %1` or `pkill -f 'pnpm dev'`).
@@ -224,6 +247,13 @@ Start a dev server on a non-default port for the subagent to drive:
 cd ui && pnpm dev --port <port> &
 ```
 
+**Clean the output directory first** so stale shots from a prior pass don't
+survive into this one:
+
+```bash
+rm -rf scratch/after && mkdir -p scratch/after
+```
+
 Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
 `playwright-cli` natively. Do **not** use `general-purpose` for this.
 Give it this prompt (substitute components, port, and the filenames from
@@ -239,7 +269,16 @@ Give it this prompt (substitute components, port, and the filenames from
 > **Use exactly these filenames** (from `scratch/matrix.txt`):
 > `<list filenames from matrix.txt, one per line>`
 > Inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
+> `window.__test_scenes.apply('<scene-id>')` where helpful.
+>
+> **Set the theme before each shot — the filename does not set it.** For a
+> `-dark` shot run
+> `window.__test_store.getState().setTheme('dark')` (`'light'` for a `-light`
+> shot), then verify it took before saving:
+> `document.documentElement.classList.contains('dark')` must be `true` for a
+> dark shot (`false` for a light shot). If it does not match, fix the theme and
+> re-check before capturing — never save a shot whose active theme disagrees
+> with its filename. Check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
 > - **Reasonable widths?** Spot-check 1280 and 1440 (`playwright-cli resize`).
@@ -255,12 +294,17 @@ standard spot-check widths and themes from the subagent prompt above.
 If the subagent reports problems, fix them, re-run quality checks, and
 re-verify. Capture a one-line summary for the PR description.
 
-Upload the subagent's screenshots as the "after" set:
+Upload the subagent's screenshots as the "after" set, passing the manifest so
+the script flags any stale or missing files:
 
 ```bash
 scripts/agents/upload-screenshot scratch/after/ \
-  --branch "$(git branch --show-current)"
+  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
 ```
+
+If `upload-screenshot` warns about a file not in the manifest (likely a stale
+artifact) or an expected file that is missing, resolve it — delete the stale
+file or re-capture the missing one — before continuing.
 
 **Screenshot comparison.** After the after upload, always run:
 
@@ -556,8 +600,11 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 If this ticket has before/after screenshots (step 3a / step 4) and the fixes
 changed anything visually (UI code, styles, layout):
 
-1. Retake the "after" screenshots and re-upload:
-   `scripts/agents/upload-screenshot scratch/after/ --prefix $ticket/after`
+1. Clean and retake the "after" screenshots — setting the theme before each
+   shot as in step 4 — then re-upload, passing the manifest so stale or missing
+   files are flagged:
+   `rm -rf scratch/after && mkdir -p scratch/after` (recapture), then
+   `scripts/agents/upload-screenshot scratch/after/ --prefix $ticket/after --matrix scratch/matrix.txt`
 2. Re-run `scripts/agents/screenshot-diff scratch/before/ scratch/after/` and
    update the `**Screenshot comparison:**` line in the PR description.
 3. If there are visual changes, re-run:
