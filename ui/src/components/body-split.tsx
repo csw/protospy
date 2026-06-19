@@ -1,7 +1,6 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 import type { Exchange } from "@ui/state/reducer";
-import { useMemo } from "react";
 import { useStore } from "@ui/state/store";
 import { deriveFilename } from "@ui/lib/download";
 import {
@@ -82,23 +81,10 @@ export function BodySplit({ exchange, protocol }: Props) {
   // when the exchange or either view mode changes, so defaultSize stays stable
   // for the lifetime of each panel group (avoids the first-drag stutter that
   // occurs when defaultSize feeds back into the panel registration, PRO-402).
-  // useMemo matches the key deps so the value re-computes exactly when the
-  // group remounts — intermediate renders see the cached result.
-  const requestPct = useMemo(
-    () =>
-      computeBodySplitPercent(
-        exchange.requestBody,
-        exchange.responseBody,
-        requestViewMode,
-        responseViewMode,
-      ),
-    [
-      exchange.requestBody,
-      exchange.responseBody,
-      requestViewMode,
-      responseViewMode,
-    ],
-  );
+  // The split depends only on whether the request has a body — a fact known
+  // synchronously at mount — so it never races against streaming body data
+  // (PRO-432).
+  const requestPct = computeBodySplitPercent(exchange.requestBody);
 
   return (
     <div data-testid="body-split" className="h-full">
