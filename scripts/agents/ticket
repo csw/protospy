@@ -26,15 +26,13 @@ import unicodedata
 from pathlib import Path
 
 
-MAX_BRANCH_LEN = 50
 DEFAULT_WORKTREE_ROOT = ".worktrees"
 EFFORT_LEVELS = ("minimal", "low", "medium", "high", "xhigh")
 HARNESSES = ("codex", "claude")
 
-# Per-harness defaults: CLI binary, branch-fallback prefix, and the prompt prefix
-# that invokes the handle-ticket skill (Codex uses `$name`, Claude uses `/name`).
+# Per-harness defaults: CLI binary and the prompt prefix that invokes the
+# handle-ticket skill (Codex uses `$name`, Claude uses `/name`).
 HARNESS_BIN = {"codex": "codex", "claude": "claude"}
-HARNESS_BRANCH_PREFIX = {"codex": "codex", "claude": "claude"}
 HARNESS_SKILL_PREFIX = {"codex": "$handle-ticket", "claude": "/handle-ticket"}
 
 
@@ -61,11 +59,27 @@ def repo_root() -> Path:
 
 
 def fetch_issue(ticket: str) -> dict:
-    result = run(["linear", "issue", "view", ticket, "--json"], capture=True)
+    result = run(
+        ["linear", "issues", "get", ticket, "--output", "json"], capture=True
+    )
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise SystemExit(f"linear returned invalid JSON: {exc}") from exc
+
+
+def fetch_slug(ticket: str) -> str:
+    """The CLI's branch/worktree slug, e.g. ``pro-136_give_agents_...``.
+
+    It already embeds the ``pro-NNN`` identifier (which is what Linear's GitHub
+    integration matches on) and is lowercase, capped at 60 chars, and trimmed at
+    whole-word boundaries, so we use it verbatim as the branch name.
+    """
+    result = run(["linear", "issues", "slug", ticket], capture=True)
+    slug = result.stdout.strip()
+    if not slug:
+        raise SystemExit(f"linear returned an empty slug for {ticket}")
+    return slug
 
 
 def slugify(text: str) -> str:
@@ -74,101 +88,9 @@ def slugify(text: str) -> str:
     return slug.strip("-") or "ticket"
 
 
-def fallback_branch_name(ticket: str, title: str, harness: str) -> str:
-    prefix = HARNESS_BRANCH_PREFIX[harness]
-    return f"{prefix}/{ticket.lower()}-{slugify(title)}"
-
-
-def branch_parts(branch: str, ticket: str) -> tuple[str, str] | None:
-    marker = f"{ticket.lower()}-"
-    marker_index = branch.lower().find(marker)
-    if marker_index == -1:
-        return None
-    prefix_end = marker_index + len(marker)
-    return branch[:prefix_end], branch[prefix_end:]
-
-
-def truncate_branch_name(
-    branch: str,
-    ticket: str,
-    *,
-    max_len: int = MAX_BRANCH_LEN,
-) -> str:
-    if len(branch) <= max_len:
-        return branch
-
-    parts = branch_parts(branch, ticket)
-    if parts is None:
-        return truncate_at_word_boundary(branch, max_len)
-
-    prefix, slug = parts
-    if len(prefix) >= max_len:
-        raise ValueError(
-            f"branch prefix {prefix!r} is already {len(prefix)} characters; "
-            f"cannot keep it intact under {max_len}"
-        )
-
-    available = max_len - len(prefix)
-    truncated_slug = truncate_at_word_boundary(slug, available)
-    if not truncated_slug:
-        return prefix.rstrip("-")
-    return prefix + truncated_slug
-
-
-def branch_with_suffix(
-    branch: str,
-    ticket: str,
-    suffix_text: str,
-    *,
-    max_len: int = MAX_BRANCH_LEN,
-) -> str:
-    suffix = slugify(suffix_text)
-    if not suffix:
-        raise ValueError(
-            "branch suffix must contain at least one alphanumeric character"
-        )
-
-    parts = branch_parts(branch, ticket)
-    if parts is None:
-        if len(suffix) + 1 >= max_len:
-            raise ValueError(
-                f"suffix {suffix!r} leaves no room for branch under "
-                f"{max_len} characters"
-            )
-        base = truncate_at_word_boundary(branch, max_len - len(suffix) - 1)
-        if not base:
-            raise ValueError(
-                f"branch {branch!r} is too long to add suffix {suffix!r}"
-            )
-        return f"{base}-{suffix}"
-
-    prefix, slug = parts
-    reserved = len(suffix) + 1
-    if len(prefix) + reserved >= max_len:
-        raise ValueError(
-            f"branch prefix {prefix!r} leaves no room for suffix {suffix!r} "
-            f"under {max_len} characters"
-        )
-
-    available = max_len - len(prefix) - reserved
-    truncated_slug = truncate_at_word_boundary(slug, available)
-    if not truncated_slug:
-        return f"{prefix.rstrip('-')}-{suffix}"
-    return f"{prefix}{truncated_slug}-{suffix}"
-
-
-def truncate_at_word_boundary(text: str, max_len: int) -> str:
-    text = text.strip("-")
-    if len(text) <= max_len:
-        return text
-
-    raw_candidate = text[:max_len]
-    candidate = raw_candidate.rstrip("-")
-    if raw_candidate.endswith("-") or text[max_len] == "-":
-        return candidate
-    if "-" not in candidate:
-        return ""
-    return candidate.rsplit("-", 1)[0].rstrip("-")
+def branch_with_suffix(branch: str, suffix_text: str) -> str:
+    """Append a ``--version`` suffix to the branch (e.g. ``…_actor`` → ``…_actor_2``)."""
+    return f"{branch}_{slugify(suffix_text)}"
 
 
 def path_slug(branch: str) -> str:
@@ -296,11 +218,7 @@ def build_prompt(ticket: str, directions: list[str], harness: str) -> str:
     return f"{prefix} {ticket}"
 
 
-def build_wrapper_directions(
-    branch: str,
-    worktree_path: Path,
-    args: argparse.Namespace,
-) -> list[str]:
+def build_wrapper_directions(args: argparse.Namespace) -> list[str]:
     # The skill's step 1 verifies worktree placement and branch ownership, so
     # the wrapper only needs to pass signals that step 1 can't infer from git.
     directions: list[str] = []
@@ -367,8 +285,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--branch",
         help=(
-            "exact branch to create or reuse instead of Linear's branchName; "
-            "use this to resume or create a manually named alternative branch"
+            "exact branch to create or reuse instead of the resolved branch "
+            "name; use this to resume or create a manually named alternative "
+            "branch"
         ),
     )
     parser.add_argument(
@@ -377,8 +296,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--branch-version",
         dest="branch_version",
         help=(
-            "append a short suffix to Linear's branchName before creating or "
-            "reusing the worktree, e.g. --version 2"
+            "append a short suffix to the resolved branch name before "
+            "creating or reusing the worktree, e.g. --version 2"
         ),
     )
     parser.add_argument(
@@ -532,17 +451,14 @@ def main(argv: list[str] | None = None) -> int:
     issue = fetch_issue(ticket)
 
     title = str(issue.get("title") or ticket)
-    raw_branch = str(issue.get("branchName") or "").strip()
     if args.branch:
         branch = str(args.branch).strip()
         if not branch:
             raise SystemExit("--branch must not be empty")
     else:
-        branch = raw_branch or fallback_branch_name(ticket, title, args.harness)
+        branch = fetch_slug(ticket)
         if args.branch_version:
-            branch = branch_with_suffix(branch, ticket, args.branch_version)
-        else:
-            branch = truncate_branch_name(branch, ticket)
+            branch = branch_with_suffix(branch, args.branch_version)
 
     if args.worktree:
         worktree_path = resolve_explicit_worktree_path(root, args.worktree)
@@ -569,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
     prompt = build_prompt(
         ticket,
         build_directions(
-            build_wrapper_directions(branch, worktree_path, args),
+            build_wrapper_directions(args),
             args.instructions,
             args.directions,
         ),

@@ -40,7 +40,7 @@ The caller gives you the ticket ID (`PRO-NNN`). That is all you need.
 1. **Fetch the ticket.** Run:
 
    ```bash
-   linear issue view PRO-NNN --json
+   linear issues get PRO-NNN --output json
    ```
 
    Extract `title`, `url`, and `description`. Read the description fully — it
@@ -55,11 +55,11 @@ The caller gives you the ticket ID (`PRO-NNN`). That is all you need.
    any comments that bear on scope — so the implementer knows to read the full
    thread if needed.
 
-2. **Read parent and siblings.** If `parent` is non-null, view it
-   (`linear issue view <parent> --json`) and summarize how it frames this work
-   (title, status, one-line gist). For each sibling under the same parent
+2. **Read parent and siblings.** If `parent` is non-null, fetch it
+   (`linear issues get <parent> --output json`) and summarize how it frames this
+   work (title, status, one-line gist). For each sibling under the same parent
    (`children` of the parent), list the title and state; open any sibling whose
-   title suggests it bears on this ticket (`linear issue view <sibling> --json`)
+   title suggests it bears on this ticket (`linear issues get <sibling> --output json`)
    and note the bearing in one line. If there is no parent, say so and move on.
 
 That is all. Do **not** read `docs/agents/` guides, subproject instruction files,

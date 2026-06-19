@@ -8,8 +8,8 @@ reviewers can see what changed visually without checking out the branch.
 Screenshots are taken when the ticket has a `UI` label:
 
 ```bash
-linear issue view PRO-NNN --json \
-  | jq -r '.labels.nodes[].name' \
+linear issues get PRO-NNN --output json \
+  | jq -r '.labels[].name' \
   | grep -qi '^ui$' && echo yes || echo no
 ```
 
