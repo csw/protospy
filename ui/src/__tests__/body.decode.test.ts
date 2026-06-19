@@ -348,6 +348,19 @@ describe("decodeBody", () => {
     expect(result.textAvailable).toBe(false);
   });
 
+  it("charset with whitespace around = is parsed correctly (RFC 7231)", async () => {
+    const iso8859Buf = Buffer.from("Name,Value\ncafé,42\n", "latin1");
+    const result = await decodeBody({
+      chunks: [{ binary: iso8859Buf.toString("base64") }],
+      atEnd: true,
+      wireBytes: iso8859Buf.length,
+      contentType: "text/csv; charset = iso-8859-1",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("Name,Value\ncafé,42\n");
+  });
+
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
     // Fixture wire bytes: 28; decompresses to {"hello":"world","n":42}
     // (24 bytes).

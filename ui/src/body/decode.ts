@@ -237,7 +237,7 @@ function isTextualContentType(contentType: string): boolean {
 function charsetFromContentType(
   contentType: string | undefined,
 ): string | null {
-  const match = contentType?.match(/charset=([^;]+)/i);
+  const match = contentType?.match(/charset\s*=\s*([^;]+)/i);
   return match ? match[1].trim() : null;
 }
 
