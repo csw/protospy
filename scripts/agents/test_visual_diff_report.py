@@ -81,6 +81,7 @@ class RunRegCliTests(unittest.TestCase):
                 Path("/tmp/before"),
                 Path("/tmp/diff"),
                 Path("/tmp/index.html"),
+                Path("/tmp/reg.json"),
             )
 
         args = mock_run.call_args[0][0]
@@ -93,6 +94,9 @@ class RunRegCliTests(unittest.TestCase):
         self.assertIn("diff", args[5])
         self.assertEqual(args[6], "-R")
         self.assertIn("index.html", args[7])
+        # -J directs reg.json into the output dir instead of the cwd
+        self.assertEqual(args[8], "-J")
+        self.assertIn("reg.json", args[9])
         self.assertIn("-I", args)
 
     def test_non_zero_exit_raises(self) -> None:
@@ -104,6 +108,7 @@ class RunRegCliTests(unittest.TestCase):
                     Path("/tmp/b"),
                     Path("/tmp/d"),
                     Path("/tmp/r.html"),
+                    Path("/tmp/reg.json"),
                 )
 
     def test_real_reg_cli_produces_report(self) -> None:
@@ -115,12 +120,17 @@ class RunRegCliTests(unittest.TestCase):
 
             diff_dir = tmp / "report" / "diff"
             report_html = tmp / "report" / "index.html"
+            json_path = tmp / "report" / "reg.json"
             diff_dir.mkdir(parents=True)
 
-            vdr.run_reg_cli(tmp / "after", tmp / "before", diff_dir, report_html)
+            vdr.run_reg_cli(
+                tmp / "after", tmp / "before", diff_dir, report_html, json_path
+            )
 
             self.assertTrue(report_html.exists(), "index.html was not produced")
             self.assertGreater(report_html.stat().st_size, 0)
+            # -J directs reg.json into the output dir, not the cwd.
+            self.assertTrue(json_path.exists(), "reg.json not written to output dir")
 
 
 class UploadReportTests(unittest.TestCase):
@@ -135,7 +145,9 @@ class UploadReportTests(unittest.TestCase):
             (report_dir / "index.html").write_text("<html></html>")
 
             mock_s3 = self._make_mock_s3()
-            url = vdr.upload_report(mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report")
+            url = vdr.upload_report(
+                mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report"
+            )
 
             self.assertIn("index.html", url)
             self.assertIn("protospy-dev-data", url)
@@ -155,7 +167,9 @@ class UploadReportTests(unittest.TestCase):
             (diff_dir / "shot.png").write_bytes(b"\x00")
 
             mock_s3 = self._make_mock_s3()
-            vdr.upload_report(mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report")
+            vdr.upload_report(
+                mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report"
+            )
 
             calls = {
                 Path(c[0][2]).name: c[1]["ExtraArgs"]["ContentType"]
@@ -185,7 +199,9 @@ class UploadReportTests(unittest.TestCase):
             report_dir = Path(tmpdir)
             mock_s3 = self._make_mock_s3()
             with self.assertRaises(SystemExit) as ctx:
-                vdr.upload_report(mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report")
+                vdr.upload_report(
+                    mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report"
+                )
             self.assertIn("index.html", str(ctx.exception))
 
     def test_unknown_extension_uses_octet_stream(self) -> None:
@@ -195,7 +211,9 @@ class UploadReportTests(unittest.TestCase):
             (report_dir / "data.bin").write_bytes(b"\x00")
 
             mock_s3 = self._make_mock_s3()
-            vdr.upload_report(mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report")
+            vdr.upload_report(
+                mock_s3, report_dir, "screenshots/pr-foo/visual-diff-report"
+            )
 
             calls = {
                 Path(c[0][2]).name: c[1]["ExtraArgs"]["ContentType"]
@@ -233,7 +251,9 @@ class MainTests(unittest.TestCase):
     def test_prints_report_url(self) -> None:
         output_dir = self._tmp / "report"
 
-        def fake_run_reg_cli(after_dir, before_dir, diff_dir, report_html) -> None:
+        def fake_run_reg_cli(
+            after_dir, before_dir, diff_dir, report_html, json_path
+        ) -> None:
             report_html.parent.mkdir(parents=True, exist_ok=True)
             (report_html.parent / "diff").mkdir(exist_ok=True)
             report_html.write_text("<html></html>")
@@ -264,10 +284,90 @@ class MainTests(unittest.TestCase):
         self.assertIn("pro-425-my-branch", output)
         self.assertIn("index.html", output)
 
+    def test_copies_image_sets_into_output_dir(self) -> None:
+        """The report must be self-contained: source image sets are copied into
+        the output dir and reg-cli is run against those in-dir paths, so the
+        uploaded report references images that actually exist on S3."""
+        _make_png(self._before / "shot.png", 0, 0, 0)
+        _make_png(self._after / "shot.png", 128, 128, 128)
+        output_dir = self._tmp / "report"
+        captured: dict[str, Path] = {}
+
+        def fake_run_reg_cli(
+            after_dir, before_dir, diff_dir, report_html, json_path
+        ) -> None:
+            captured["after"] = after_dir
+            captured["before"] = before_dir
+            report_html.parent.mkdir(parents=True, exist_ok=True)
+            report_html.write_text("<html></html>")
+
+        mock_s3 = MagicMock()
+        mock_s3.upload_file = MagicMock()
+
+        with (
+            patch.object(vdr, "run_reg_cli", fake_run_reg_cli),
+            patch("boto3.client", return_value=mock_s3),
+            patch("sys.stdout", io.StringIO()),
+        ):
+            vdr.main(
+                [
+                    str(self._before),
+                    str(self._after),
+                    "--branch",
+                    "b",
+                    "--output-dir",
+                    str(output_dir),
+                ]
+            )
+
+        # reg-cli is pointed at copies inside the output dir, not the sources.
+        self.assertEqual(captured["after"], output_dir / "actual")
+        self.assertEqual(captured["before"], output_dir / "expected")
+        self.assertTrue((output_dir / "actual" / "shot.png").exists())
+        self.assertTrue((output_dir / "expected" / "shot.png").exists())
+
+    def test_recopies_when_output_dir_exists(self) -> None:
+        """A stale copy from a prior run is replaced, not merged."""
+        _make_png(self._before / "shot.png", 0, 0, 0)
+        _make_png(self._after / "shot.png", 128, 128, 128)
+        output_dir = self._tmp / "report"
+        # Pre-seed a stale file under the destination copy.
+        stale = output_dir / "expected" / "stale.png"
+        _make_png(stale, 1, 2, 3)
+
+        def fake_run_reg_cli(
+            after_dir, before_dir, diff_dir, report_html, json_path
+        ) -> None:
+            report_html.parent.mkdir(parents=True, exist_ok=True)
+            report_html.write_text("<html></html>")
+
+        mock_s3 = MagicMock()
+        mock_s3.upload_file = MagicMock()
+
+        with (
+            patch.object(vdr, "run_reg_cli", fake_run_reg_cli),
+            patch("boto3.client", return_value=mock_s3),
+            patch("sys.stdout", io.StringIO()),
+        ):
+            vdr.main(
+                [
+                    str(self._before),
+                    str(self._after),
+                    "--branch",
+                    "b",
+                    "--output-dir",
+                    str(output_dir),
+                ]
+            )
+
+        self.assertFalse(stale.exists(), "stale file survived the recopy")
+
     def test_s3_prefix_uses_branch_slug(self) -> None:
         output_dir = self._tmp / "report"
 
-        def fake_run_reg_cli(after_dir, before_dir, diff_dir, report_html) -> None:
+        def fake_run_reg_cli(
+            after_dir, before_dir, diff_dir, report_html, json_path
+        ) -> None:
             report_html.parent.mkdir(parents=True, exist_ok=True)
             (report_html.parent / "diff").mkdir(exist_ok=True)
             report_html.write_text("<html></html>")

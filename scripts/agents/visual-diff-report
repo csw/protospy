@@ -14,9 +14,16 @@ Runs reg-cli via npx to produce an HTML diff report with side-by-side, overlay,
 and pixel-diff views. Uploads the report directory to S3 and prints the URL to
 index.html.
 
+The report is kept self-contained so every image resolves once uploaded:
+the before/after sets are copied in alongside the diff, and reg.json is
+directed into the output dir rather than the working directory.
+
 Output layout (under <output-dir>, default scratch/visual-diff-report/):
     index.html   — HTML report
+    actual/      — after screenshots (copied in)
+    expected/    — before screenshots (copied in)
     diff/        — diff images produced by reg-cli
+    reg.json     — reg-cli JSON result
 
 Prints:
     Report: https://protospy-dev-data.s3.amazonaws.com/<key>/index.html
@@ -26,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -63,6 +71,7 @@ def run_reg_cli(
     before_dir: Path,
     diff_dir: Path,
     report_html: Path,
+    json_path: Path,
 ) -> None:
     # reg-cli positional order is: actual (after) → expected (before) → diff.
     result = subprocess.run(
@@ -75,6 +84,8 @@ def run_reg_cli(
             str(diff_dir.resolve()),
             "-R",
             str(report_html.resolve()),
+            "-J",  # write reg.json into the output dir, not the cwd
+            str(json_path.resolve()),
             "-I",  # exit 0 even when diffs are found
         ],
         capture_output=True,
@@ -143,12 +154,24 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     diff_dir = output_dir / "diff"
+    actual_dir = output_dir / "actual"
+    expected_dir = output_dir / "expected"
     report_html = output_dir / "index.html"
+    json_path = output_dir / "reg.json"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy the source image sets into the output dir so the report is
+    # self-contained. reg-cli records the actual/expected dirs as paths
+    # relative to the report HTML; only the output dir is uploaded to S3, so
+    # the images must live inside it or they 404 on S3.
+    for src, dst in ((after_dir, actual_dir), (before_dir, expected_dir)):
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
     diff_dir.mkdir(exist_ok=True)
 
     # actual (after) → expected (before) → diff, per reg-cli's positional order.
-    run_reg_cli(after_dir, before_dir, diff_dir, report_html)
+    run_reg_cli(actual_dir, expected_dir, diff_dir, report_html, json_path)
 
     slug = branch_slug(args.branch)
     prefix = f"{KEY_PREFIX}/pr-{slug}/visual-diff-report"
