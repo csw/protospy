@@ -14,9 +14,16 @@ Runs reg-cli via npx to produce an HTML diff report with side-by-side, overlay,
 and pixel-diff views. Uploads the report directory to S3 and prints the URL to
 index.html.
 
+The report is kept self-contained so every image resolves once uploaded:
+the before/after sets are copied in alongside the diff, and reg.json is
+directed into the output dir rather than the working directory.
+
 Output layout (under <output-dir>, default scratch/visual-diff-report/):
     index.html   — HTML report
+    actual/      — after screenshots (copied in)
+    expected/    — before screenshots (copied in)
     diff/        — diff images produced by reg-cli
+    reg.json     — reg-cli JSON result
 
 Prints:
     Report: https://protospy-dev-data.s3.amazonaws.com/<key>/index.html
