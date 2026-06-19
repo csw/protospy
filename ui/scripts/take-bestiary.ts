@@ -34,6 +34,8 @@ import {
 } from "./bestiary-catalog";
 import { readFileSync } from "node:fs";
 
+import { waitForContentSettled } from "./screenshot-helpers";
+
 import {
   makeEncodedJsonResponse,
   makeGetRequest,
@@ -177,6 +179,13 @@ type Capture = {
   description?: string;
   /** If set, screenshot is clipped to this element rather than full viewport. */
   componentSelector?: string;
+  /**
+   * Set when the capture deliberately showcases a loading skeleton. Suppresses
+   * the wait-for-content-settled step that otherwise holds until skeletons
+   * clear, so an intentional loading-state scene isn't blocked waiting for
+   * itself.
+   */
+  showsLoadingState?: boolean;
   /** Run before capturing — click a tab, hover something, etc. */
   prepare?: (page: Page) => Promise<void>;
 };
@@ -672,8 +681,10 @@ async function runScenario(
 
     if (capture.componentSelector) {
       const locator = page.locator(capture.componentSelector).first();
+      if (!capture.showsLoadingState) await waitForContentSettled(locator);
       await locator.screenshot({ path: outPath });
     } else {
+      if (!capture.showsLoadingState) await waitForContentSettled(page);
       await page.screenshot({ path: outPath });
     }
     console.log(`  ✓ ${filename}`);

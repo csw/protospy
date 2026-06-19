@@ -24,6 +24,8 @@ docker-compose.override.*
 !/.agents/skills/playwright-cli/**
 !/.agents/skills/protospy-design-review/
 !/.agents/skills/protospy-design-review/**
+!/.agents/skills/protospy-screenshot/
+!/.agents/skills/protospy-screenshot/**
 !/.agents/skills/shadcn/
 !/.agents/skills/shadcn/**
 !/.agents/skills/vercel-react-best-practices/
