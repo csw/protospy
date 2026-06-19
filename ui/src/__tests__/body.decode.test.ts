@@ -361,6 +361,44 @@ describe("decodeBody", () => {
     expect(result.text).toBe("Name,Value\ncafé,42\n");
   });
 
+  it("binary chunks with invalid bytes for a supported charset: text with replacement chars, textAvailable true (PRO-415)", async () => {
+    // A supported charset label (utf-8) but the bytes are not valid UTF-8:
+    // "hi" + two invalid lead bytes (0xFF 0xFE) + "!". TextDecoder is
+    // non-fatal by default, so it substitutes U+FFFD rather than throwing.
+    // textAvailable reflects only that the charset LABEL is supported — it is
+    // still true here even though the body doesn't decode cleanly.
+    const invalid = Uint8Array.from([0x68, 0x69, 0xff, 0xfe, 0x21]);
+    const base64 = Buffer.from(invalid).toString("base64");
+    const result = await decodeBody({
+      chunks: [{ binary: base64 }],
+      atEnd: true,
+      wireBytes: invalid.length,
+      contentType: "text/plain; charset=utf-8",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    // The two invalid bytes each become a U+FFFD replacement character.
+    expect(result.text).toBe("hi��!");
+    expect(result.rawText).toBe("hi��!");
+  });
+
+  it("binary chunks with a truncated UTF-16LE sequence decode non-fatally (PRO-415)", async () => {
+    // "hi" in UTF-16LE (4 bytes) followed by a lone trailing byte (0x21) that
+    // can't form a complete code unit. TextDecoder substitutes one U+FFFD for
+    // the dangling byte instead of throwing.
+    const odd = Uint8Array.from([0x68, 0x00, 0x69, 0x00, 0x21]);
+    const base64 = Buffer.from(odd).toString("base64");
+    const result = await decodeBody({
+      chunks: [{ binary: base64 }],
+      atEnd: true,
+      wireBytes: odd.length,
+      contentType: "text/plain; charset=utf-16le",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("hi�");
+  });
+
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
     // Fixture wire bytes: 28; decompresses to {"hello":"world","n":42}
     // (24 bytes).
