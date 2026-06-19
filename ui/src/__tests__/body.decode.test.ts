@@ -295,41 +295,124 @@ describe("decodeBody", () => {
     expect(result.rawText).toBe(input);
   });
 
-  it("binary chunks with a supported charset (UTF-16 + BOM) make text available", async () => {
+  it("binary chunks with a supported charset (UTF-16LE + BOM) decode correctly (PRO-415)", async () => {
     // A real UTF-16LE body with a BOM and non-ASCII content ("café ☃\n").
-    // The proxy sent it as binary chunks (it failed the UTF-8 check), but the
-    // declared charset is one TextDecoder supports, so text mode is available.
-    // (Charset-aware *decoding* of the bytes is PRO-415; PRO-420 only computes
-    // the availability predicate.)
+    // The proxy sent binary chunks (it failed the UTF-8 check); the UI must
+    // decode using the declared charset to recover the original text.
     const text = "café ☃\n";
-    const units = [0xfeff, ...text].map((c) =>
-      typeof c === "number" ? c : c.codePointAt(0)!,
-    );
-    const bytes = new Uint8Array(units.length * 2);
-    units.forEach((u, i) => {
-      bytes[i * 2] = u & 0xff;
-      bytes[i * 2 + 1] = u >> 8;
-    });
-    const base64 = Buffer.from(bytes).toString("base64");
+    const buf = Buffer.from("﻿" + text, "utf16le");
+    const base64 = buf.toString("base64");
 
     const result = await decodeBody({
       chunks: [{ binary: base64 }],
       atEnd: true,
-      wireBytes: bytes.length,
+      wireBytes: buf.length,
       contentType: "text/plain; charset=utf-16le",
     });
     expect(result.kind).toBe("text");
     expect(result.textAvailable).toBe(true);
+    // TextDecoder strips the leading BOM (ignoreBOM defaults to false).
+    expect(result.text).toBe(text);
+    expect(result.rawText).toBe(text);
   });
 
-  it("binary chunks with an unsupported charset leave text unavailable", async () => {
+  it("binary chunks with ISO-8859-1 charset decode correctly (PRO-415)", async () => {
+    // "Name,Value\ncafé,42\n" encoded in ISO-8859-1 (é = 0xE9 → one byte).
+    const iso8859Buf = Buffer.from("Name,Value\ncafé,42\n", "latin1");
+    const expected = "Name,Value\ncafé,42\n";
+
+    const result = await decodeBody({
+      chunks: [{ binary: iso8859Buf.toString("base64") }],
+      atEnd: true,
+      wireBytes: iso8859Buf.length,
+      contentType: "text/csv; charset=iso-8859-1",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe(expected);
+    expect(result.rawText).toBe(expected);
+  });
+
+  it("binary chunks with an unsupported charset: kind text, textAvailable false, UTF-8 fallback", async () => {
+    // An unknown charset does not block decoding; the body is still classified
+    // as text (content type governs) but falls back to UTF-8 decode (which may
+    // produce replacement characters). textAvailable is false to reflect that
+    // the text may not render correctly.
     const result = await decodeBody({
       chunks: [{ binary: "AAEC" }],
       atEnd: true,
       wireBytes: 3,
       contentType: "text/plain; charset=not-a-real-charset",
     });
+    expect(result.kind).toBe("text");
     expect(result.textAvailable).toBe(false);
+  });
+
+  it("charset with whitespace around = is parsed correctly (RFC 7231)", async () => {
+    const iso8859Buf = Buffer.from("Name,Value\ncafé,42\n", "latin1");
+    const result = await decodeBody({
+      chunks: [{ binary: iso8859Buf.toString("base64") }],
+      atEnd: true,
+      wireBytes: iso8859Buf.length,
+      contentType: "text/csv; charset = iso-8859-1",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("Name,Value\ncafé,42\n");
+  });
+
+  it("quoted charset value is stripped of its quotes (RFC 7231)", async () => {
+    // RFC 7231 permits a quoted-string parameter value. The quotes must be
+    // stripped before the label reaches TextDecoder, which would otherwise
+    // reject `"iso-8859-1"` (with quotes) and silently fall back to UTF-8.
+    const iso8859Buf = Buffer.from("Name,Value\ncafé,42\n", "latin1");
+    const result = await decodeBody({
+      chunks: [{ binary: iso8859Buf.toString("base64") }],
+      atEnd: true,
+      wireBytes: iso8859Buf.length,
+      contentType: 'text/csv; charset="iso-8859-1"',
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("Name,Value\ncafé,42\n");
+  });
+
+  it("binary chunks with invalid bytes for a supported charset: text with replacement chars, textAvailable true (PRO-415)", async () => {
+    // A supported charset label (utf-8) but the bytes are not valid UTF-8:
+    // "hi" + two invalid lead bytes (0xFF 0xFE) + "!". TextDecoder is
+    // non-fatal by default, so it substitutes U+FFFD rather than throwing.
+    // textAvailable reflects only that the charset LABEL is supported — it is
+    // still true here even though the body doesn't decode cleanly.
+    const invalid = Uint8Array.from([0x68, 0x69, 0xff, 0xfe, 0x21]);
+    const base64 = Buffer.from(invalid).toString("base64");
+    const result = await decodeBody({
+      chunks: [{ binary: base64 }],
+      atEnd: true,
+      wireBytes: invalid.length,
+      contentType: "text/plain; charset=utf-8",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    // The two invalid bytes each become a U+FFFD replacement character.
+    expect(result.text).toBe("hi��!");
+    expect(result.rawText).toBe("hi��!");
+  });
+
+  it("binary chunks with a truncated UTF-16LE sequence decode non-fatally (PRO-415)", async () => {
+    // "hi" in UTF-16LE (4 bytes) followed by a lone trailing byte (0x21) that
+    // can't form a complete code unit. TextDecoder substitutes one U+FFFD for
+    // the dangling byte instead of throwing.
+    const odd = Uint8Array.from([0x68, 0x00, 0x69, 0x00, 0x21]);
+    const base64 = Buffer.from(odd).toString("base64");
+    const result = await decodeBody({
+      chunks: [{ binary: base64 }],
+      atEnd: true,
+      wireBytes: odd.length,
+      contentType: "text/plain; charset=utf-16le",
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("hi�");
   });
 
   it("brotli-encoded JSON body decompresses and pretty-prints", async () => {
@@ -708,6 +791,71 @@ describe("decodeBody edge cases", () => {
     );
     const parsed = JSON.parse(result.text!) as Record<string, unknown>;
     expect(parsed.id).toBe(1);
+  });
+});
+
+// Broadened text detection (PRO-415): all text/* types and known textual
+// application/* types are classified as kind "text", not binary.
+describe("decodeBody broadened text detection", () => {
+  const textBody = (contentType: string, body = "hello world") => ({
+    chunks: [{ text: body }] as Array<{ text: string }>,
+    atEnd: true,
+    wireBytes: body.length,
+    contentType,
+  });
+
+  it.each([
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+    "text/javascript",
+    "text/x-yaml",
+    "text/calendar",
+  ])("text/* type %s returns kind text", async (ct) => {
+    const result = await decodeBody(textBody(ct));
+    expect(result.kind).toBe("text");
+  });
+
+  it.each([
+    "application/javascript",
+    "application/typescript",
+    "application/yaml",
+    "application/toml",
+    "application/csv",
+    "application/x-www-form-urlencoded",
+    "application/graphql",
+  ])("textual application/* type %s returns kind text", async (ct) => {
+    const result = await decodeBody(textBody(ct));
+    expect(result.kind).toBe("text");
+  });
+
+  it("text/* type with parameters (text/csv; charset=utf-8) returns kind text", async () => {
+    const result = await decodeBody(textBody("text/csv; charset=utf-8"));
+    expect(result.kind).toBe("text");
+  });
+
+  it("text/html is not caught by the text step — it keeps kind html", async () => {
+    const result = await decodeBody(
+      textBody("text/html", "<html><body>hi</body></html>"),
+    );
+    expect(result.kind).toBe("html");
+  });
+
+  it("text/xml is not caught by the text step — it keeps kind xml", async () => {
+    const result = await decodeBody(
+      textBody("text/xml", "<note><to>x</to></note>"),
+    );
+    expect(result.kind).toBe("xml");
+  });
+
+  it("application/octet-stream remains binary (not in textual list)", async () => {
+    const result = await decodeBody({
+      chunks: [{ binary: "AAEC" }],
+      atEnd: true,
+      wireBytes: 3,
+      contentType: "application/octet-stream",
+    });
+    expect(result.kind).toBe("binary");
   });
 });
 

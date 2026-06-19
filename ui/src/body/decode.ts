@@ -206,6 +206,70 @@ function baseType(contentType: string): string {
   return contentType.split(";")[0].trim().toLowerCase();
 }
 
+/**
+ * Known textual `application/*` types that should be rendered as text rather
+ * than falling through to the binary summary.
+ */
+const TEXTUAL_APPLICATION_TYPES = new Set([
+  "application/csv",
+  "application/javascript",
+  "application/typescript",
+  "application/yaml",
+  "application/toml",
+  "application/x-www-form-urlencoded",
+  "application/graphql",
+]);
+
+/**
+ * Returns true for content types that carry human-readable text: all `text/*`
+ * types (excluding those handled as dedicated kinds, e.g. html/xml/json) plus
+ * known textual `application/*` types.
+ */
+function isTextualContentType(contentType: string): boolean {
+  const base = baseType(contentType);
+  return base.startsWith("text/") || TEXTUAL_APPLICATION_TYPES.has(base);
+}
+
+/**
+ * Extract the `charset` parameter from a Content-Type header value, or return
+ * null if absent. Example: `"text/csv; charset=iso-8859-1"` → `"iso-8859-1"`.
+ * RFC 7231 permits a quoted-string parameter value (`charset="iso-8859-1"`),
+ * so surrounding double quotes are stripped — otherwise the literal quotes
+ * would reach `TextDecoder`, which rejects them as an unknown label.
+ */
+function charsetFromContentType(
+  contentType: string | undefined,
+): string | null {
+  const match = contentType?.match(/charset\s*=\s*([^;]+)/i);
+  if (!match) return null;
+  return match[1].trim().replace(/^"(.*)"$/, "$1");
+}
+
+/**
+ * Decode `bytes` to a string. When the body arrived as binary chunks and the
+ * Content-Type declares a charset, that charset is used so that non-UTF-8
+ * encodings (ISO-8859-1, UTF-16, etc.) render correctly. Falls back to UTF-8
+ * for unknown charsets and for bodies whose chunks were already valid UTF-8
+ * (text chunks), where the charset parameter is redundant.
+ */
+function decodeBytesToText(
+  bytes: Uint8Array,
+  hasBinaryChunk: boolean,
+  charset: string | null,
+): string {
+  if (hasBinaryChunk && charset !== null) {
+    try {
+      // ignoreBOM defaults to false, meaning the BOM is processed (stripped
+      // from the output), not passed through — correct for UTF-16 (BOM hints
+      // endianness but is not data) and a no-op for ISO-8859-1.
+      return new TextDecoder(charset).decode(bytes);
+    } catch {
+      // Unknown or unsupported charset — fall back to UTF-8.
+    }
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 const HTML_TYPES = new Set(["text/html", "application/xhtml+xml"]);
 const XML_TYPES = new Set([
   "text/xml",
@@ -236,12 +300,12 @@ function computeTextAvailable(
 ): boolean {
   const hasBinaryChunk = chunks.some((c) => "binary" in c);
   if (!hasBinaryChunk) return true;
-  const match = contentType?.match(/charset=([^;]+)/i);
-  if (match == null) return false;
+  const charset = charsetFromContentType(contentType);
+  if (charset === null) return false;
   try {
     // Constructing the decoder is the supported-label check — it throws a
     // RangeError for an unknown encoding label.
-    new TextDecoder(match[1].trim());
+    new TextDecoder(charset);
     return true;
   } catch {
     return false;
@@ -269,8 +333,12 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     decodedBytes = bytes.byteLength;
   }
 
-  // Step 3: Decode bytes to text
-  const text = new TextDecoder().decode(bytes);
+  // Step 3: Decode bytes to text. When the body arrived as binary chunks and
+  // the Content-Type declares a charset, use that charset so non-UTF-8
+  // encodings (ISO-8859-1, UTF-16, …) render correctly (PRO-415).
+  const hasBinaryChunk = chunks.some((c) => "binary" in c);
+  const charset = charsetFromContentType(contentType);
+  const text = decodeBytesToText(bytes, hasBinaryChunk, charset);
 
   // The text-mode availability predicate, computed once per decode (PRO-420).
   const textAvailable = computeTextAvailable(chunks, contentType);
@@ -369,7 +437,24 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     }
   }
 
-  // Step 7: Images get their own kind for the rendered-view slot (PRO-412).
+  // Step 7: Explicit text types — all text/* (not already handled as html/xml)
+  // plus known textual application/* types. Makes the intent explicit rather
+  // than relying on the step-9 fallthrough, so future binary-classification
+  // steps can't inadvertently catch textual content (PRO-415).
+  if (contentType != null && isTextualContentType(contentType)) {
+    return {
+      kind: "text",
+      textAvailable,
+      text,
+      mediaType,
+      wireBytes,
+      decodedBytes,
+      rawText: text,
+      bytes,
+    };
+  }
+
+  // Step 8: Images get their own kind for the rendered-view slot (PRO-412).
   if (contentType?.startsWith("image/")) {
     return {
       kind: "image",
@@ -382,7 +467,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 8: Other non-text binary content (audio, video, octet-stream, …).
+  // Step 9: Other non-text binary content (audio, video, octet-stream, …).
   const binaryPrefixes = ["audio/", "video/", "application/octet-stream"];
   if (binaryPrefixes.some((prefix) => contentType?.startsWith(prefix))) {
     return {
@@ -396,7 +481,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     };
   }
 
-  // Step 9: Default to text
+  // Step 10: Default to text
   return {
     kind: "text",
     textAvailable,

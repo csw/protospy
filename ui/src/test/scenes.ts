@@ -59,6 +59,7 @@ import {
   makeTextResponse,
   makeTruncatedJsonResponse,
   makeTruncatedNdjsonResponse,
+  makeCharsetTextResponse,
 } from "./fixtures";
 import {
   UTAH_TEAPOT_BASE64,
@@ -690,6 +691,18 @@ export const SCENES: Scene[] = [
     messages: [
       makeGetRequest(1, "/api/avatar.png"),
       makeImageResponse(1, UTAH_TEAPOT_BASE64, UTAH_TEAPOT_WIRE_BYTES),
+    ],
+    config: { selectedId: 1 },
+  },
+  {
+    id: "body-charset-text",
+    title: "Charset-encoded text body (ISO-8859-1)",
+    axis: "state",
+    description:
+      'A text/csv response with ISO-8859-1 charset. Proxy sent binary chunks (the body isn\'t valid UTF-8); the UI decodes using the declared charset and renders "café" correctly (PRO-415). Before the fix this showed replacement characters instead of accented letters.',
+    messages: [
+      makeGetRequest(1, "/api/export.csv"),
+      makeCharsetTextResponse(1),
     ],
     config: { selectedId: 1 },
   },
