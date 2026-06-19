@@ -68,11 +68,11 @@ audit:
 
 # Start Codex CLI on a Linear ticket branch in an isolated Git worktree
 codex-ticket +args:
-    @scripts/agents/ticket --harness codex {{args}}
+    @scripts/agents/ticket --harness codex {{ args }}
 
 # Start Claude Code on a Linear ticket branch in an isolated Git worktree
 claude-ticket +args:
-    @scripts/agents/ticket --harness claude {{args}}
+    @scripts/agents/ticket --harness claude {{ args }}
 
 # Dry-run: build UI, package crate, but don't upload
 publish-dry-run: ui::build
@@ -83,6 +83,11 @@ publish: publish-dry-run
     @echo ""
     @just _confirm "Publish to crates.io?"
     cargo publish
+
+show-version:
+    cargo pkgid
+
+show-versions: show-version ui::show-version flix::show-version conformance::show-version
 
 [confirm("Are you sure?")]
 [private]

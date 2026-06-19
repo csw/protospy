@@ -3,3 +3,6 @@ default: test
 # Run the full conformance test suite (manages its own proxy instances)
 test:
     uv run pytest -q
+
+show-version:
+    uv version

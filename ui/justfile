@@ -31,3 +31,6 @@ screenshots: install
 # Output: $HOME/obsidian/protospy/Claude/screenshots/bestiary/ (override with BESTIARY_OUT)
 screenshots-bestiary: install
     pnpm run screenshots:bestiary
+
+show-version:
+    pnpm pkg get version
