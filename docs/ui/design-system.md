@@ -172,6 +172,13 @@ above.
    app-owned.)
 5. **Body panes are lifecycle-aware.** `awaiting` (no status/headers) vs `streaming`
    (partial body) vs `complete` — symmetric on request/response. Not a flat "pending".
+   **Loading states must mark their region `aria-busy="true"`** — the decode
+   skeleton, the lifecycle spinner, and the `awaiting`/`streaming` placeholders —
+   while terminal states (no body, undecodable, error) leave it unset. This is the
+   standard "still resolving" signal and the single marker screenshot tooling
+   waits on (`waitForContentSettled`, `protospy-screenshot` skill) so captures
+   show rendered content, not a half-loaded pane. Any new loading indicator,
+   whatever its shape, must carry it.
 6. **Rows is the default list view.** Table mode is the alternate. Default order
    **newest-first**. (PRO-402: rows is the more distinctive trace-rail
    presentation; the chosen mode persists per user.)

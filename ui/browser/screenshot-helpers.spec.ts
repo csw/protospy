@@ -3,11 +3,13 @@
  * (`scripts/screenshot-helpers.ts`).
  *
  * Exercises the REAL helper against the REAL DOM: it must block while a loading
- * skeleton is present and resolve only once the body content has rendered. This
- * is the behaviour the screenshot pipelines (take-screenshots, take-bestiary)
- * depend on to avoid capturing half-decoded body panes (PRO-429). The held
- * Worker harness (mirrored from body-json-worker.spec.ts) keeps the skeleton
- * deterministically on screen so the wait is tested, not raced.
+ * region (`aria-busy="true"`) is present and resolve only once the body content
+ * has rendered. This is the behaviour the screenshot pipelines (take-screenshots,
+ * take-bestiary) depend on to avoid capturing half-decoded body panes (PRO-429).
+ * Two loading shapes are covered — the decode skeleton (held via the Worker
+ * harness, mirrored from body-json-worker.spec.ts) and the non-skeleton
+ * "Awaiting response…" lifecycle state — to prove the helper keys on the
+ * `aria-busy` contract, not on one particular loading form.
  */
 
 import { test, expect } from "@playwright/test";
@@ -24,7 +26,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test.describe("waitForContentSettled — content already rendered", () => {
+test.describe("waitForContentSettled — settled and never-busy states", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await waitForStore(page);
@@ -38,17 +40,34 @@ test.describe("waitForContentSettled — content already rendered", () => {
     ]);
     await page.getByText("/api/items").first().click();
 
-    // The helper must hold until the JSON tree replaces the skeleton.
+    // The helper must hold until the JSON tree replaces the busy skeleton.
     await waitForContentSettled(page);
 
     await expect(page.getByLabel("JSON viewer")).toBeVisible();
-    await expect(page.getByTestId("body-skeleton")).toHaveCount(0);
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   });
 
   test("resolves immediately when nothing is loading", async ({ page }) => {
-    // No exchange selected — no body pane, so no skeleton ever mounts.
+    // No exchange selected — no body pane, so no busy region ever mounts.
     await waitForContentSettled(page, { timeoutMs: 2_000 });
-    await expect(page.getByTestId("body-skeleton")).toHaveCount(0);
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  });
+
+  test("blocks on a non-skeleton busy state (awaiting response)", async ({
+    page,
+  }) => {
+    // A request with no response yet renders the "Awaiting response…" lifecycle
+    // state — busy, but NOT a skeleton. The helper must still treat it as
+    // loading, proving it keys on aria-busy rather than the skeleton shape.
+    await injectExchanges(page, [makeGetRequest(1, "/api/pending")]);
+    await page.getByText("/api/pending").first().click();
+
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(1);
+    // Since the awaiting state never resolves on its own, the wait must time out
+    // rather than return — i.e. it genuinely blocked on this non-skeleton state.
+    await expect(
+      waitForContentSettled(page, { timeoutMs: 1_000 }),
+    ).rejects.toThrow();
   });
 });
 
@@ -128,9 +147,10 @@ test.describe("waitForContentSettled — blocks on a held skeleton", () => {
       ).__holdJsonWorkerResponse(),
     );
     await page.getByText("/api/items").first().click();
-    await expect(page.getByTestId("body-skeleton")).toBeVisible({
-      timeout: 5_000,
-    });
+    const skeleton = page.getByTestId("body-skeleton");
+    await expect(skeleton).toBeVisible({ timeout: 5_000 });
+    // The skeleton must carry the busy marker the helper waits on.
+    await expect(skeleton).toHaveAttribute("aria-busy", "true");
 
     // Kick off the wait; track resolution without awaiting yet.
     let settled = false;
@@ -139,7 +159,7 @@ test.describe("waitForContentSettled — blocks on a held skeleton", () => {
     });
 
     // While the skeleton is held it must still be present and the wait pending.
-    await expect(page.getByTestId("body-skeleton")).toBeVisible();
+    await expect(skeleton).toBeVisible();
     expect(settled).toBe(false);
 
     // Release the Worker — content renders, skeleton detaches, wait resolves.
@@ -152,6 +172,6 @@ test.describe("waitForContentSettled — blocks on a held skeleton", () => {
 
     expect(settled).toBe(true);
     await expect(page.getByLabel("JSON viewer")).toBeVisible();
-    await expect(page.getByTestId("body-skeleton")).toHaveCount(0);
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   });
 });

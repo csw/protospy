@@ -25,29 +25,32 @@ This covers **ad-hoc, playwright-cli-driven** captures. The scripted pipelines
 `waitForContentSettled` helper in `ui/scripts/screenshot-helpers.ts` — you don't
 need this skill for those.
 
-## The one rule: wait for skeletons to clear
+## The one rule: wait for `aria-busy` to clear
 
-Every loading placeholder in the UI renders through the shadcn `Skeleton`
-primitive, which stamps `data-slot="skeleton"` on its element. So a single
-content-presence check covers the body pane and any other current or future
-loading state without enumerating them:
+Every loading state in the UI marks its region with `aria-busy="true"` — the
+standard "this region is still resolving" signal (design-system §4.5). So a
+single content-presence check covers the body pane's decode skeleton, the
+lifecycle spinner, the "Awaiting response…" / "Streaming…" states, and any
+future loading indicator without enumerating them — and it stays correct as
+those indicators change shape:
 
 ```bash
-# Wait until no loading skeleton remains, THEN screenshot.
-playwright-cli run-code "async page => { await page.locator('[data-slot=\"skeleton\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
+# Wait until no loading region remains, THEN screenshot.
+playwright-cli run-code "async page => { await page.locator('[aria-busy=\"true\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
 playwright-cli screenshot --filename=scratch/after/inspector-1280-dark.png
 ```
 
-Why `data-slot="skeleton"` and not "anything pulsing": the UI also animates
-_intentional_ elements (the live-stream dot, the connecting indicator, the
-streaming-text cursor) with `animate-pulse`. Those are not loading states and
-never carry this slot, so keying on the slot waits for real content and never
-hangs on a deliberate animation.
+Why `aria-busy` and not "the skeleton" or "anything animating": keying on a
+particular loading _form_ misses the others (a skeleton selector won't catch a
+spinner). Terminal states (no body, undecodable) and the UI's _intentional_
+animations (the live-stream dot, the connecting indicator, the streaming-text
+cursor) are not busy regions, so `aria-busy` waits for real content and never
+hangs on them.
 
-`{ state: 'detached' }` resolves the instant the skeleton is replaced by content,
-and resolves immediately when nothing was loading — the `.catch(() => {})` keeps
-a never-present skeleton from throwing. It is content-presence based, not a fixed
-`sleep`; do not substitute a timeout.
+`{ state: 'detached' }` resolves the instant the busy region is replaced by
+content, and resolves immediately when nothing was loading — the
+`.catch(() => {})` keeps a never-present marker from throwing. It is
+content-presence based, not a fixed `sleep`; do not substitute a timeout.
 
 ## Order matters
 

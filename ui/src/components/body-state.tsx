@@ -20,8 +20,12 @@ export interface BodyStateProps {
 
 export function BodyState({ state, className }: BodyStateProps) {
   if (state.phase === "complete") return null; // real body renders elsewhere
+  // This component only ever renders a loading phase (awaiting / streaming), so
+  // it is always busy. `aria-busy` is the standard "still resolving" signal and
+  // the marker screenshot tooling waits on (see docs/ui/design-system.md §4.5).
   return (
     <div
+      aria-busy="true"
       className={cn(
         "flex items-center justify-center gap-2 p-7 font-mono text-sm text-muted-foreground",
         className,

@@ -128,6 +128,33 @@ describe("BodyPane error display (PRO-220)", () => {
     expect(region).toHaveTextContent("Awaiting response…");
   });
 
+  // aria-busy is the marker screenshot tooling waits on to avoid capturing a
+  // half-loaded pane (PRO-429). It must distinguish loading lifecycle states
+  // (awaiting, streaming) from terminal ones (no body, undecodable).
+  it("marks the awaiting state aria-busy", () => {
+    render(<BodyPane title="Response" body={undefined} awaiting />);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("marks the streaming state aria-busy", () => {
+    render(
+      <BodyPane
+        title="Response"
+        body={makeBody({ atEnd: false, wireBytes: 500 })}
+      />,
+    );
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("Streaming…");
+    expect(region).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("does not mark the terminal 'No body' state aria-busy", () => {
+    render(<BodyPane title="Response" body={undefined} />);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("No body");
+    expect(region).not.toHaveAttribute("aria-busy", "true");
+  });
+
   it("renders mid-stream error banner when body exists and errorMessage is set", async () => {
     const result: DecodeResult = {
       kind: "text",
