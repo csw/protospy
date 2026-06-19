@@ -18,3 +18,7 @@ coverage/
 
 # One-off performance bench scripts — not CI gates.
 browser/bench-*.spec.ts
+
+# Agent screenshot/visual-diff scratch and reg-cli artifacts (see PRO-416 note)
+scratch/
+reg.json

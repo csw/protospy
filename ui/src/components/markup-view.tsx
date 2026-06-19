@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { observeElementRectWithFallback } from "@ui/lib/virtual";
 import type { MarkupLine } from "@ui/body/markup-format-core";
@@ -14,6 +14,16 @@ interface Props {
 // `text-mono` font size — each line renders as a 20px row, matching the hex and
 // JSON viewers so virtualization heights stay uniform.
 const ROW_HEIGHT = 20;
+
+// Static positioning shared by every virtual row — hoisted so the per-row style
+// object only carries the dynamic `height`/`transform`. Matches the text/hex
+// viewers.
+const ROW_BASE_STYLE: CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100%",
+};
 
 /**
  * Map a Prism markup token type to its color class. Unknown types (and plain
@@ -54,6 +64,10 @@ function tokenClass(type: string): string {
 export function MarkupView({ lines, label }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Stable accessor so the virtualizer config object doesn't carry a fresh
+  // closure each render (`parentRef` is itself stable).
+  const getScrollElement = useCallback(() => parentRef.current, []);
+
   // Size the line-number gutter to the actual line count, and the scroll
   // content to the widest line so a long line scrolls horizontally instead of
   // clipping. Recomputed only when the line set changes.
@@ -73,7 +87,7 @@ export function MarkupView({ lines, label }: Props) {
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: lines.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
     observeElementRect: observeElementRectWithFallback,
@@ -103,10 +117,7 @@ export function MarkupView({ lines, label }: Props) {
               data-testid="markup-line"
               className="whitespace-pre px-3 hover:bg-hover"
               style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
+                ...ROW_BASE_STYLE,
                 height: vRow.size,
                 transform: `translateY(${vRow.start}px)`,
               }}
