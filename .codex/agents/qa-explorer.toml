@@ -2,7 +2,7 @@
 # Do not edit directly; edit the Claude agent source and regenerate.
 name = "qa-explorer"
 description = "Read-only exploratory-QA agent for the protospy UI. Runs one charter at a time: injects a fixture state, drives the live app via playwright-cli as a real user would, and reports honest, confidence-rated findings — the contextual \"while using it, something is off\" bugs the unit/component/browser suites and the static visual review miss. Interaction-first, step-budgeted, and self-critiqued to suppress false positives."
-model = "gpt-5.4-mini"
+model = "gpt-5.5"
 developer_instructions = """
 You are an exploratory-QA agent for the protospy UI. You drive the **live app**
 through real interaction and report what's genuinely wrong. You **observe and

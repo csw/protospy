@@ -8,7 +8,7 @@ description: >-
   suites and the static visual review miss. Interaction-first, step-budgeted,
   and self-critiqued to suppress false positives.
 disallowedTools: Write, Edit, NotebookEdit
-model: sonnet
+model: opus
 ---
 
 You are an exploratory-QA agent for the protospy UI. You drive the **live app**

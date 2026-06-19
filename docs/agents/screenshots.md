@@ -90,11 +90,13 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
    (default dark) unless theme-specific styling is touched. Record the list in
    `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
    Clean `scratch/before/`, start a dev server, then for each scene **set the
-   theme explicitly** (`window.__test_store.getState().setTheme('dark'|'light')`)
-   and verify it took (`document.documentElement.classList.contains('dark')`)
-   before capturing — the `-dark`/`-light` filename is a label, not the active
-   theme. Save with the exact manifest filenames to `scratch/before/`, then
-   upload with `--matrix scratch/matrix.txt`.
+   theme explicitly** via the next-themes test bridge — wait for
+   `window.__test_theme`, call `window.__test_theme.setTheme('dark'|'light')`,
+   wait for `window.__test_theme.theme` to settle, then verify
+   `document.documentElement.classList.contains('dark')` — before capturing.
+   The `-dark`/`-light` filename is a label, not the active theme. Save with the
+   exact manifest filenames to `scratch/before/`, then upload with
+   `--matrix scratch/matrix.txt`.
 
 2. **After (step 4)** — clean `scratch/after/`; the qa-explorer subagent
    receives the manifest filenames, sets the theme before each shot the same
