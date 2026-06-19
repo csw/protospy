@@ -27,6 +27,13 @@ The UI is served at `http://localhost:5173`. Requests to `/info` and `/service/*
 
 To generate example traffic to observe in the UI, there are shell scripts in `../scripts/examples/`, e.g. `../scripts/examples/es-get-root`. They use curl to send requests to port 3000; with protospy and Elasticsearch running, these exchanges will be visible in the UI. The scripts produce no output on success.
 
+### Bundle size
+
+This uses [rollup-plugin-visualizer][] to show the bundle size breakdown,
+written to `stats.html` after a build.
+
+[rollup-plugin-visualizer]: https://github.com/btd/rollup-plugin-visualizer
+
 ## Commands
 
 | Command                    | Description                                         |

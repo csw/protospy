@@ -6,6 +6,7 @@ dist-ssr/
 test-results/
 playwright-report/
 coverage/
+/stats.html
 
 # Backstop against stray visual-verify / ad-hoc screenshots (handle-ticket step 4).
 # Captures are meant to land in gitignored dirs (.playwright-cli/, test-results/);

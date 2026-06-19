@@ -3,11 +3,15 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), visualizer()],
+  build: {
+    chunkSizeWarningLimit: 700,
+  },
   resolve: {
     alias: {
       "@bindings": path.resolve(__dirname, "../bindings"),
