@@ -15,6 +15,8 @@ interface Props {
 // JSON viewers so virtualization heights stay uniform.
 const ROW_HEIGHT = 20;
 
+const estimateRowSize = () => ROW_HEIGHT;
+
 // Static positioning shared by every virtual row — hoisted so the per-row style
 // object only carries the dynamic `height`/`transform`. Matches the text/hex
 // viewers.
@@ -88,7 +90,7 @@ export function MarkupView({ lines, label }: Props) {
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: estimateRowSize,
     overscan: 10,
     observeElementRect: observeElementRectWithFallback,
   });

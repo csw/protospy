@@ -23,6 +23,8 @@ const ROW_COLS =
 
 const VIEWER_LABEL = "Hex viewer";
 
+const estimateRowSize = () => ROW_HEIGHT;
+
 // Static positioning shared by every virtual row — hoisted so the per-row style
 // object only carries the dynamic `height`/`transform`. Matches the text/markup
 // viewers.
@@ -54,7 +56,7 @@ export function HexView({ bytes }: Props) {
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: estimateRowSize,
     overscan: 10,
     observeElementRect: observeElementRectWithFallback,
   });

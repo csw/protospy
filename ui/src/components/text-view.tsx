@@ -10,6 +10,7 @@ interface Props {
 // wrapped lines are taller; their real height comes from `measureElement`, so
 // this is only the pre-measurement estimate that seeds the virtualizer.
 const ESTIMATED_ROW_HEIGHT = 20;
+const estimateRowSize = () => ESTIMATED_ROW_HEIGHT;
 
 // Static positioning shared by every virtual row — hoisted so the per-row style
 // object only carries the dynamic `transform`. Matches the hex/markup viewers.
@@ -52,7 +53,7 @@ export function TextView({ text }: Props) {
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement,
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    estimateSize: estimateRowSize,
     overscan: 10,
     observeElementRect: observeElementRectWithFallback,
   });
@@ -61,10 +62,10 @@ export function TextView({ text }: Props) {
     <div
       ref={parentRef}
       aria-label="Body text"
-      // `contain: strict` isolates layout/paint/size for scroll perf. It is safe
-      // with `measureElement` here because the measured targets are the
-      // descendant rows, not this container — containment on a parent does not
-      // suppress a child's own ResizeObserver.
+      // `contain: strict` isolates layout/paint/size for scroll perf. Its `size`
+      // containment makes *this* container size-independent of its content, but
+      // `measureElement` observes each descendant row's own size — a separate
+      // ResizeObserver on a separate element — so row measurement is unaffected.
       className="font-mono text-mono leading-5 overflow-auto w-full h-full pt-3"
       style={{ contain: "strict" }}
     >
