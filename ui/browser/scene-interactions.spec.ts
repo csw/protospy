@@ -47,12 +47,15 @@ test.describe("Exchange list — row hover", () => {
 
     await scene.interact!(page);
 
-    // querySelector('[role="option"]:hover') queries the browser's live
-    // pseudo-class state — more reliable than getComputedStyle for :hover.
-    const rowIsHovered = await page.evaluate(
+    // Poll the browser's live `:hover` pseudo-class state rather than reading
+    // it once: `.hover()` resolves when the synthetic mouse move dispatches,
+    // but the engine may apply `:hover` a tick later, so a one-shot
+    // querySelector races that application. `waitForFunction` retries until the
+    // class is queryable (or the default timeout elapses and the test fails),
+    // making the assertion robust without an artificial delay.
+    await page.waitForFunction(
       () => document.querySelector('[role="option"]:hover') !== null,
     );
-    expect(rowIsHovered).toBe(true);
   });
 });
 
