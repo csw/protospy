@@ -419,6 +419,14 @@ def start_protospy(
     Combined stdout and stderr are written to protospy.log in tmp_dir.
     """
     env = os.environ.copy()
+    # Strip any inherited PROXY__* service definitions (e.g. the dev
+    # PROXY__ES__* vars from docker-compose / a sourced .env). figment reads
+    # every PROXY__* var in the process environment via Env::raw(), so an
+    # inherited service would be added to every instance on a fixed port --
+    # causing "Address already in use" collisions across instances. The test
+    # supplies its own good/wire/dead/grpc/h2c services below.
+    for key in [k for k in env if k.startswith("PROXY__")]:
+        del env[key]
     env["RUST_BACKTRACE"] = "full"
     env["WEB"] = "false"
     if capture:
