@@ -16,6 +16,15 @@ const utf16leBuf = Buffer.from("\uFEFF" + "café ☃\n", "utf16le");
 const UTF16LE_BASE64 = utf16leBuf.toString("base64");
 const UTF16LE_BYTES = utf16leBuf.length;
 
+// "hi" + two bytes that are invalid as UTF-8 (0xFF 0xFE) + "!" — declared as
+// charset=utf-8. A non-fatal TextDecoder substitutes one U+FFFD per ill-formed
+// byte, yielding "hi��!". The unit tests assert this against Node's
+// TextDecoder; this browser test confirms Blink's TextDecoder substitutes
+// identically (the production runtime), per the WHATWG Encoding Standard.
+const invalidUtf8Buf = Buffer.from([0x68, 0x69, 0xff, 0xfe, 0x21]);
+const INVALID_UTF8_BASE64 = invalidUtf8Buf.toString("base64");
+const INVALID_UTF8_BYTES = invalidUtf8Buf.length;
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
     route.fulfill({ json: { services: [{ name: "test-backend" }] } }),
@@ -72,6 +81,31 @@ test.describe("Charset-aware body decoding (PRO-415)", () => {
     const bodyText = page.getByLabel("Body text");
     await expect(bodyText).toContainText("café");
     await expect(bodyText).toContainText("☃");
+  });
+
+  test("invalid bytes for a supported charset render as U+FFFD replacement chars", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/broken.txt"),
+      makeCharsetTextResponse(
+        1,
+        INVALID_UTF8_BASE64,
+        INVALID_UTF8_BYTES,
+        "text/plain; charset=utf-8",
+      ),
+    ]);
+
+    await page.getByText("/api/broken.txt").first().click();
+
+    // Body shows as text (the charset label is supported), not the binary
+    // summary — even though the bytes don't decode cleanly.
+    await expect(page.getByTestId("body-summary")).toHaveCount(0);
+
+    // Blink's TextDecoder must substitute one U+FFFD per ill-formed byte,
+    // producing exactly "hi��!" — matching the Node-based unit test.
+    const bodyText = page.getByLabel("Body text");
+    await expect(bodyText).toContainText("hi��!");
   });
 
   test("application/javascript body renders as text (not binary summary)", async ({

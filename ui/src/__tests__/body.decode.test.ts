@@ -361,6 +361,22 @@ describe("decodeBody", () => {
     expect(result.text).toBe("Name,Value\ncafé,42\n");
   });
 
+  it("quoted charset value is stripped of its quotes (RFC 7231)", async () => {
+    // RFC 7231 permits a quoted-string parameter value. The quotes must be
+    // stripped before the label reaches TextDecoder, which would otherwise
+    // reject `"iso-8859-1"` (with quotes) and silently fall back to UTF-8.
+    const iso8859Buf = Buffer.from("Name,Value\ncafé,42\n", "latin1");
+    const result = await decodeBody({
+      chunks: [{ binary: iso8859Buf.toString("base64") }],
+      atEnd: true,
+      wireBytes: iso8859Buf.length,
+      contentType: 'text/csv; charset="iso-8859-1"',
+    });
+    expect(result.kind).toBe("text");
+    expect(result.textAvailable).toBe(true);
+    expect(result.text).toBe("Name,Value\ncafé,42\n");
+  });
+
   it("binary chunks with invalid bytes for a supported charset: text with replacement chars, textAvailable true (PRO-415)", async () => {
     // A supported charset label (utf-8) but the bytes are not valid UTF-8:
     // "hi" + two invalid lead bytes (0xFF 0xFE) + "!". TextDecoder is

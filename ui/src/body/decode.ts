@@ -233,12 +233,16 @@ function isTextualContentType(contentType: string): boolean {
 /**
  * Extract the `charset` parameter from a Content-Type header value, or return
  * null if absent. Example: `"text/csv; charset=iso-8859-1"` → `"iso-8859-1"`.
+ * RFC 7231 permits a quoted-string parameter value (`charset="iso-8859-1"`),
+ * so surrounding double quotes are stripped — otherwise the literal quotes
+ * would reach `TextDecoder`, which rejects them as an unknown label.
  */
 function charsetFromContentType(
   contentType: string | undefined,
 ): string | null {
   const match = contentType?.match(/charset\s*=\s*([^;]+)/i);
-  return match ? match[1].trim() : null;
+  if (!match) return null;
+  return match[1].trim().replace(/^"(.*)"$/, "$1");
 }
 
 /**
