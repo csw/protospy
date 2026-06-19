@@ -86,7 +86,7 @@ Give it this prompt:
 > specify.
 
 If the scout fails to start, retry once. If it still fails, **fall back to
-fetching the ticket yourself** — `linear issue view $ticket --json` (extract
+fetching the ticket yourself** — `linear issues get $ticket --output json` (extract
 `title`, `description`, `url`), read the parent and any bearing siblings. This
 is the costlier path the scout exists to avoid; note in-session that you took it.
 Do not block the ticket on a missing scout.
@@ -107,7 +107,7 @@ usually applies). If the ticket targets a specific subproject (`ui/`, `flix/`,
 At this point, set the ticket to **In Progress** in Linear:
 
 ```bash
-linear issue update $ticket --state "In Progress"
+linear issues update $ticket --state "In Progress"
 ```
 
 ---
@@ -145,12 +145,12 @@ Brief it on what you've tried and what's not working.
 Check whether the ticket has a `UI` label:
 
 ```bash
-linear api "{ issue(id: \"$ticket\") { labels { nodes { name } } } }" \
-  | jq -r '.data.issue.labels.nodes[].name' \
+linear issues get $ticket --output json \
+  | jq -r '.labels[].name' \
   | grep -qi '^ui$' && echo yes || echo no
 ```
 
-(`linear issue view --json` does not include labels; use the GraphQL API.)
+(`linear issues get --output json` includes labels natively under `.labels[].name`.)
 
 If yes, you must capture baseline screenshots **before any implementation
 begins**. From the ticket description, identify the views and scenes that will
@@ -392,7 +392,7 @@ partial reports or proceed to step 8 until all required reviews succeed.
 
 Check the ticket description for a `## Reviewer instructions` section (the
 step-2 brief reproduces it verbatim if present; re-fetch with
-`linear issue view $ticket --json` to confirm). If present, append this block
+`linear issues get $ticket --output json` to confirm). If present, append this block
 verbatim to each 7a/7b/7c prompt:
 
 > **Maintainer instructions for this review** (authoritative — context the diff
@@ -597,8 +597,6 @@ When nothing is left to act on:
 2. **Post a summary comment** to $ticket (`docs/agents/linear.md`, "Post a
    summary comment when you finish"):
 
-   > **Codex agent (handle-ticket)**
-   >
    > _What changed_ — short description, linking the PR.
    >
    > _Key decisions and findings_ — what you decided and why.
@@ -606,5 +604,5 @@ When nothing is left to act on:
    > _Spillover_ — anything affecting another ticket (name the `PRO-NNN`).
 
    Write the body with the Write tool, post via
-   `linear issue comment add $ticket --body-file <path>`. Skip only for trivial
+   `linear issues comment $ticket -b - < <path>`. Skip only for trivial
    mechanical changes.

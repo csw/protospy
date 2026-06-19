@@ -21,46 +21,23 @@ SPEC.loader.exec_module(ticket)
 
 
 class BranchNameTests(unittest.TestCase):
-    def test_short_branch_is_unchanged(self) -> None:
-        branch = "feature/pro-136-short-title"
+    def test_branch_version_appends_suffix(self) -> None:
+        branch = "pro-136_give_agents_instructions_on_where_to_put_worktrees"
         self.assertEqual(
-            ticket.truncate_branch_name(branch, "PRO-136"),
-            branch,
+            ticket.branch_with_suffix(branch, "2"),
+            "pro-136_give_agents_instructions_on_where_to_put_worktrees_2",
         )
 
-    def test_truncates_slug_at_word_boundary(self) -> None:
-        branch = "feature/pro-136-give-agents-instructions-on-where-to-put-worktrees"
-        truncated = ticket.truncate_branch_name(branch, "PRO-136")
-        self.assertLessEqual(len(truncated), 50)
+    def test_branch_version_slugifies_suffix(self) -> None:
         self.assertEqual(
-            truncated,
-            "feature/pro-136-give-agents-instructions-on-where",
+            ticket.branch_with_suffix("pro-7_fix_bug", "Retry Run!"),
+            "pro-7_fix_bug_retry-run",
         )
 
-    def test_branch_version_appends_suffix_and_preserves_limit(self) -> None:
-        branch = "feature/pro-136-give-agents-instructions-on-where-to-put-worktrees"
-        versioned = ticket.branch_with_suffix(branch, "PRO-136", "2")
-        self.assertLessEqual(len(versioned), 50)
+    def test_worktree_path_preserves_underscored_slug(self) -> None:
         self.assertEqual(
-            versioned,
-            "feature/pro-136-give-agents-instructions-on-2",
-        )
-
-    def test_keeps_issue_prefix_when_truncating(self) -> None:
-        branch = "fix/pro-999-a-very-long-branch-name-that-keeps-going"
-        truncated = ticket.truncate_branch_name(branch, "PRO-999")
-        self.assertTrue(truncated.startswith("fix/pro-999-"))
-        self.assertLessEqual(len(truncated), 50)
-        self.assertNotEqual(truncated[-1], "-")
-
-    def test_fallback_branch_slugifies_title_per_harness(self) -> None:
-        self.assertEqual(
-            ticket.fallback_branch_name("PRO-7", "Fix: one odd UI bug!", "codex"),
-            "codex/pro-7-fix-one-odd-ui-bug",
-        )
-        self.assertEqual(
-            ticket.fallback_branch_name("PRO-7", "Fix: one odd UI bug!", "claude"),
-            "claude/pro-7-fix-one-odd-ui-bug",
+            ticket.path_slug("pro-136_give_agents_instructions"),
+            "pro-136_give_agents_instructions",
         )
 
     def test_worktree_path_replaces_branch_slashes(self) -> None:
@@ -101,41 +78,25 @@ class PromptTests(unittest.TestCase):
 
     def test_wrapper_directions_empty_for_default_run(self) -> None:
         args = ticket.parse_args(["PRO-136"])
-        directions = ticket.build_wrapper_directions(
-            "pro-136-example",
-            Path("/tmp/pro-136-example"),
-            args,
-        )
+        directions = ticket.build_wrapper_directions(args)
         self.assertEqual(directions, [])
 
     def test_wrapper_directions_versioned_branch(self) -> None:
         args = ticket.parse_args(["PRO-136", "-v", "3"])
-        directions = ticket.build_wrapper_directions(
-            "pro-136-example-3",
-            Path("/tmp/pro-136-example-3"),
-            args,
-        )
+        directions = ticket.build_wrapper_directions(args)
         self.assertEqual(len(directions), 1)
         self.assertIn("versioned-branch", directions[0])
         self.assertIn("version 3", directions[0])
 
     def test_wrapper_directions_explicit_branch(self) -> None:
         args = ticket.parse_args(["PRO-136", "--branch", "my-branch"])
-        directions = ticket.build_wrapper_directions(
-            "my-branch",
-            Path("/tmp/my-branch"),
-            args,
-        )
+        directions = ticket.build_wrapper_directions(args)
         self.assertEqual(len(directions), 1)
         self.assertIn("explicit-branch", directions[0])
 
     def test_wrapper_directions_explicit_worktree(self) -> None:
         args = ticket.parse_args(["PRO-136", "--worktree", "/tmp/wt"])
-        directions = ticket.build_wrapper_directions(
-            "pro-136-example",
-            Path("/tmp/wt"),
-            args,
-        )
+        directions = ticket.build_wrapper_directions(args)
         self.assertEqual(len(directions), 1)
         self.assertIn("explicit-worktree", directions[0])
 

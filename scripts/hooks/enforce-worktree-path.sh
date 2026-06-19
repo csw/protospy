@@ -29,8 +29,9 @@
 #
 # Names containing slashes (e.g. "feature/pro-123-title") are flattened by
 # replacing "/" with "-" so the worktree always lands at a single level. The
-# branch is named after the worktree directory (the truncated Linear branchName)
-# so Linear's GitHub integration links the PR to the ticket.
+# branch is named after the worktree directory (the Linear issue slug, which
+# embeds the pro-NNN identifier) so Linear's GitHub integration links the PR to
+# the ticket.
 
 set -euo pipefail
 

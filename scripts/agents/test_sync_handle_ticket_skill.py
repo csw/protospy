@@ -108,14 +108,6 @@ class CrossContaminationTests(unittest.TestCase):
         # Codex can't use typed subagents like qa-explorer.
         self.assertNotIn("qa-explorer", generated)
 
-    def test_claude_skill_has_claude_agent_header(self) -> None:
-        generated = sync_handle_ticket_skill.generate_claude_skill()
-        self.assertIn("**Claude agent (handle-ticket)**", generated)
-
-    def test_codex_skill_has_codex_agent_header(self) -> None:
-        generated = sync_handle_ticket_skill.generate_codex_skill()
-        self.assertIn("**Codex agent (handle-ticket)**", generated)
-
 
 class BehavioralInvariantTests(unittest.TestCase):
     """Load-bearing directives that must survive any rewrite."""

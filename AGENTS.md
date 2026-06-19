@@ -82,10 +82,10 @@ same parent, and open any sibling whose title suggests it bears on your work.
 Use the Linear CLI for implementer workflows. Get the parent and children with:
 
 ```bash
-linear issue view PRO-NNN --json
+linear issues get PRO-NNN --output json
 ```
 
-Inspect `.parent.identifier` and `.children.nodes[].identifier`; see
+Inspect `.parent.identifier` and `.children[].identifier`; see
 `docs/agents/linear.md`.
 
 ## Refer to Roles, Not People by Name
@@ -160,13 +160,13 @@ skill.
 
 Project-shared skills live under `.agents/skills/`; local/generated skills stay
 ignored and may be symlinked into worktrees by harness-specific setup. The
-phase-one shared skill set is `handle-ticket`, `linear-cli`, `obsidian-cli`,
-`playwright-cli`, and `protospy-design-review`. `handle-ticket-team` and PM
-agent wiring are out of scope for host Codex implementer work.
+phase-one shared skill set is `handle-ticket`, `linear`, `obsidian-cli`,
+`playwright-cli`, and `protospy-design-review`. PM agent wiring is out of scope
+for host Codex implementer work.
 
 Codex implementer MCP configuration is intentionally minimal: Context7 only.
-Linear remains CLI-based via `linear` / `linear-cli`; Obsidian remains
-filesystem/CLI-based via `obsidian-cli` when needed.
+Linear remains CLI-based via the `linear` CLI and its `linear` skill; Obsidian
+remains filesystem/CLI-based via `obsidian-cli` when needed.
 
 ## Worktrees
 
