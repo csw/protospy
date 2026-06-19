@@ -24,6 +24,8 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
+import { waitForContentSettled } from "./screenshot-helpers";
+
 // ─── Paths ────────────────────────────────────────────────────────────────────
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -309,6 +311,8 @@ async function main(): Promise<void> {
   await page
     .getByRole("tabpanel")
     .waitFor({ state: "visible", timeout: 8_000 });
+  // Let the body pane finish decoding so we capture content, not a skeleton.
+  await waitForContentSettled(page);
 
   const screenshot2 = path.join(SCREENSHOTS_DIR, "02-inspector.png");
   await page.screenshot({ path: screenshot2 });
@@ -337,6 +341,8 @@ async function main(): Promise<void> {
   await page
     .getByRole("tabpanel")
     .waitFor({ state: "visible", timeout: 5_000 });
+  // This shot exists to show a rendered body — wait for the skeleton to clear.
+  await waitForContentSettled(page);
 
   const screenshot3 = path.join(SCREENSHOTS_DIR, "03-body.png");
   await page.screenshot({ path: screenshot3 });

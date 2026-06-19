@@ -184,12 +184,15 @@ Pick a free port (default is 5173; use a different one) and start a dev server:
 cd ui && pnpm dev --port <port> &
 ```
 
-Use `playwright-cli` to screenshot the affected views. Inject fixture state
-first if needed to make the changed area visible — use
-`window.__test_scenes.apply('<scene-id>')` (same scene IDs the visual-verify
-step uses). An empty-state screenshot rarely shows anything useful; pick a scene
-that puts data in the view the ticket changes. **Save screenshots with the exact
-filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then upload:
+Use `playwright-cli` to screenshot the affected views. Follow the
+**`protospy-screenshot`** skill when you capture — it covers the protospy-specific
+wait that keeps a shot from landing on a loading skeleton instead of rendered
+body content. Inject fixture state first if needed to make the changed area
+visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs the
+visual-verify step uses). An empty-state screenshot rarely shows anything useful;
+pick a scene that puts data in the view the ticket changes. **Save screenshots
+with the exact filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then
+upload:
 
 ```bash
 scripts/agents/upload-screenshot scratch/before/ \
@@ -239,7 +242,9 @@ Give it this prompt (substitute components, port, and the filenames from
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
 > `http://localhost:<port>/`. The change touched <components/views>. Use
-> `playwright-cli` to drive the app. **Save screenshots to `scratch/after/`**
+> `playwright-cli` to drive the app, following the **`protospy-screenshot`**
+> skill so each shot captures rendered body content, not a loading skeleton.
+> **Save screenshots to `scratch/after/`**
 > — pass `--filename scratch/after/<name>.png` for each shot.
 > **Never pass a bare relative `--filename`** like `--filename=after.png`.
 > **Use exactly these filenames** (from `scratch/matrix.txt`):

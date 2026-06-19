@@ -65,9 +65,25 @@ function ErrorPanel({
  * (design-system hard rule 5; PRO-360 deliverable B). The distinct copy per state
  * is the non-color signal.
  */
-function LifecycleState({ children }: { children: React.ReactNode }) {
+function LifecycleState({
+  children,
+  busy = false,
+}: {
+  children: React.ReactNode;
+  busy?: boolean;
+}) {
+  // `busy` marks the *loading* lifecycle states (awaiting a response, streaming
+  // a body) with `aria-busy` — the standard "this region is still resolving"
+  // signal. Terminal states (no body, undecodable) leave it unset. Screenshot
+  // tooling waits on `aria-busy` to avoid capturing a half-loaded pane, so the
+  // loading states must carry it regardless of whether they render as a
+  // skeleton, a spinner, or text (see docs/ui/design-system.md hard rule 5).
+  //
+  // `busy || undefined` (not `busy`) so a falsy value omits the attribute
+  // entirely rather than emitting `aria-busy="false"` — a terminal state has no
+  // loading signal, it is not asserting "not busy". Don't simplify to `{busy}`.
   return (
-    <div role="status" className="h-full">
+    <div role="status" aria-busy={busy || undefined} className="h-full">
       <EmptyState>{children}</EmptyState>
     </div>
   );
@@ -83,6 +99,7 @@ function BodySkeleton() {
   return (
     <div
       role="status"
+      aria-busy="true"
       data-testid="body-skeleton"
       className="flex flex-col gap-1.5 p-3"
     >
@@ -357,7 +374,7 @@ export function BodyPane({
         {loading && <BodySkeleton />}
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
-          <LifecycleState>
+          <LifecycleState busy>
             Streaming… ({formatSize(body.wireBytes)} received)
           </LifecycleState>
         )}
@@ -377,7 +394,7 @@ export function BodyPane({
         {/* No body yet: distinguish "the response hasn't begun" (awaiting) from a
             genuinely body-less response (GET / 204) — not a flat "pending". */}
         {!loading && body == null && errorMessage == null && (
-          <LifecycleState>
+          <LifecycleState busy={awaiting}>
             {awaiting ? "Awaiting response…" : "No body"}
           </LifecycleState>
         )}
