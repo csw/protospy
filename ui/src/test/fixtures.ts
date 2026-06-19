@@ -335,6 +335,46 @@ export function makeImageResponse(
   };
 }
 
+/**
+ * A response with binary body chunks whose Content-Type declares a non-UTF-8
+ * charset. Drives the charset-aware decoding scene (PRO-415): the proxy sent
+ * binary chunks (the body isn't valid UTF-8), so the UI must decode using the
+ * declared charset to render the text correctly.
+ *
+ * Default content-type: `text/csv; charset=iso-8859-1`.
+ * Default body: "Name,Value\ncafé,42\n" in ISO-8859-1 (é = 0xE9 → one byte).
+ */
+export function makeCharsetTextResponse(
+  id: number,
+  base64 = btoa("Name,Value\ncafé,42\n"),
+  wireBytes = 19,
+  contentType = "text/csv; charset=iso-8859-1",
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction: "Response",
+    event: {
+      type: "Response",
+      status: "200 OK",
+      version: "HTTP/1.1",
+      headers: [{ name: "Content-Type", value: contentType }],
+      elapsed_ms: 12,
+      body: {
+        type: "Data",
+        content: {
+          offset: 0,
+          length: wireBytes,
+          payload: { binary: base64 },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: wireBytes,
+      },
+    },
+  };
+}
+
 export function makeGzipJsonResponse(
   id: number,
   gzippedBase64: string,
