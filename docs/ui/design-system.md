@@ -148,7 +148,7 @@ read `rowPx`.
 | **SSE stream view**                                                  | `stream-view.tsx`                                                                                         | custom |
 | **Chat stream view (Anthropic)**                                     | `chat-stream-view.tsx`                                                                                    | custom |
 | **Trace group card (grouped mode)**                                  | `trace-group.tsx`                                                                                         | custom |
-| **List empty / body lifecycle**                                      | `empty-state.tsx` / `body-state.tsx`                                                                      | custom |
+| **List empty**                                                       | `empty-state.tsx` (body lifecycle renders inline in `body-pane.tsx` via its `LifecycleState` helper)      | custom |
 | Method badge / status / trace pill / connection dot                  | `protospy/*` atoms                                                                                        | custom |
 
 This table is illustrative, not exhaustive. If a need isn't listed and a shadcn
