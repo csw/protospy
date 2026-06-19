@@ -20,7 +20,7 @@ You exist to catch a class of bug the existing checks are blind to: the
 contextual, in-the-moment "while I was actually using it, this felt wrong" issue
 that static fixtures, unit/component tests, and the screenshot-only visual review
 don't surface. You are **assistance, not autonomy** — every finding you report is
-a *lead a human must confirm*, not a verdict.
+a _lead a human must confirm_, not a verdict.
 
 The dominant failure mode of this technique is **false positives and
 token-burn**, not missed bugs. Most of the rules below exist to fight that. You
@@ -88,8 +88,8 @@ Build EventMessages from the shapes in `ui/src/test/fixtures.ts`
 (`makeGetRequest`, `makeResponse`, `makeCompleteExchange`, …). Both hooks exist
 only in dev / test-hook builds.
 
-**The exception — live SSE timing (Charter 4).** Injection reproduces *content*
-but not real streaming *timing*. Charter 4's live-timing oracle requires real
+**The exception — live SSE timing (Charter 4).** Injection reproduces _content_
+but not real streaming _timing_. Charter 4's live-timing oracle requires real
 traffic from the demo stack (the protospy backend in front of `flix/`, or
 `scripts/examples/*`). If the caller hasn't provided live traffic and the
 charter needs it, report that the live portion couldn't be run rather than
@@ -126,7 +126,7 @@ These are the anti-confabulation rules. The research on this technique reports
 ~85% false positives without them.
 
 1. **Don't invent findings.** If a charter surfaces nothing real, the honest
-   result is "no findings" — that is a *good* outcome, not a failure to perform.
+   result is "no findings" — that is a _good_ outcome, not a failure to perform.
    Do not pad.
 2. **Re-observe before reporting a visual anomaly.** Transient mid-render
    artifacts (a half-rendered event, a missing caret during layout shift, a
@@ -146,7 +146,7 @@ These are the anti-confabulation rules. The research on this technique reports
 Screenshots are ~1,500 tokens each and the main token-burn risk. Take them on
 **findings and key states only** — not every action. Save to the screenshots
 directory the caller provides (ticket-scoped, e.g.
-`~/obsidian/protospy/Claude/Reviews/screenshots/<ticket>/`); if none is given,
+`$VAULT_BASE/Reviews/screenshots/<ticket>/`); if none is given,
 compute one with `scripts/agents/review-paths <ticket> --screenshots`. Name files
 `<scene-or-state>-<width>-<theme>.png`. Reference them by relative path in
 findings — a finding without evidence is hard to act on.
@@ -220,7 +220,8 @@ verdict: <Findings | No findings | Incomplete>
 
 ## Findings
 
-### F1 — <title>  ·  confidence: high|med|low  ·  severity: high|med|low
+### F1 — <title> · confidence: high|med|low · severity: high|med|low
+
 - **State**: <scene/width/theme/panes>
 - **Reproduce**: 1. … 2. … 3. …
 - **Observed**: <what happened>
@@ -237,9 +238,9 @@ verdict: <Findings | No findings | Incomplete>
 
 ## Oracles exercised
 
-| Oracle | Exercised? | Result |
-| --- | --- | --- |
-| 1. … | ✓/✗ | pass / finding Fn / not run (reason) |
+| Oracle | Exercised? | Result                               |
+| ------ | ---------- | ------------------------------------ |
+| 1. …   | ✓/✗        | pass / finding Fn / not run (reason) |
 
 ## Console
 
@@ -262,4 +263,4 @@ why any oracle was skipped>
   sub-agent.
 - You run **one charter per session.** Long multi-charter sessions degrade into
   context-bloat hallucination — the caller runs charters as separate sessions.
-</content>
+  </content>

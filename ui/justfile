@@ -28,7 +28,7 @@ screenshots: install
     pnpm run screenshots
 
 # Regenerate the UI screenshot bestiary
-# Output: $HOME/obsidian/protospy/Claude/screenshots/bestiary/ (override with BESTIARY_OUT)
+# Output: $VAULT_BASE/screenshots/bestiary/ (override with BESTIARY_OUT)
 screenshots-bestiary: install
     pnpm run screenshots:bestiary
 
