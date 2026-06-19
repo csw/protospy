@@ -63,7 +63,7 @@ instantly, and you screenshot the skeleton that appears a moment later.
 # 1. Select an exchange so the inspector (and its body pane) mounts.
 playwright-cli click "<exchange row>"
 # 2. Confirm the body surface is up, then wait for content.
-playwright-cli run-code "async page => { await page.getByRole('tabpanel').first().waitFor({ state: 'visible' }); await page.locator('[data-slot=\"skeleton\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
+playwright-cli run-code "async page => { await page.getByRole('tabpanel').first().waitFor({ state: 'visible' }); await page.locator('[aria-busy=\"true\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
 # 3. Now capture.
 playwright-cli screenshot --filename=scratch/after/body-1280-dark.png
 ```

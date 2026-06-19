@@ -77,7 +77,11 @@ function LifecycleState({
   // signal. Terminal states (no body, undecodable) leave it unset. Screenshot
   // tooling waits on `aria-busy` to avoid capturing a half-loaded pane, so the
   // loading states must carry it regardless of whether they render as a
-  // skeleton, a spinner, or text (see docs/ui/design-system.md §4.5).
+  // skeleton, a spinner, or text (see docs/ui/design-system.md hard rule 5).
+  //
+  // `busy || undefined` (not `busy`) so a falsy value omits the attribute
+  // entirely rather than emitting `aria-busy="false"` — a terminal state has no
+  // loading signal, it is not asserting "not busy". Don't simplify to `{busy}`.
   return (
     <div role="status" aria-busy={busy || undefined} className="h-full">
       <EmptyState>{children}</EmptyState>
