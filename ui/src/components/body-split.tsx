@@ -77,19 +77,21 @@ export function BodySplit({ exchange, protocol }: Props) {
     contentType: exchange.responseBody?.contentType,
   });
 
-  // Compute the default split once per mount. The key below triggers a remount
-  // when the exchange or either view mode changes, so defaultSize stays stable
-  // for the lifetime of each panel group (avoids the first-drag stutter that
-  // occurs when defaultSize feeds back into the panel registration, PRO-402).
-  // The split depends only on whether the request has a body — a fact known
-  // synchronously at mount — so it never races against streaming body data
+  // Compute the default split once per mount. Keying the group on the exchange
+  // id triggers a remount when the selected exchange changes, so defaultSize
+  // stays stable for the lifetime of each panel group (avoids the first-drag
+  // stutter that occurs when defaultSize feeds back into the panel
+  // registration, PRO-402). The split depends only on whether the request has a
+  // body — a fact known synchronously at mount — so it never races against
+  // streaming body data, and it no longer depends on view mode, so switching
+  // view modes preserves the user's drag position instead of resetting it
   // (PRO-432).
   const requestPct = computeBodySplitPercent(exchange.requestBody);
 
   return (
     <div data-testid="body-split" className="h-full">
       <ResizablePanelGroup
-        key={`${exchange.id}:${requestViewMode ?? ""}:${responseViewMode ?? ""}`}
+        key={exchange.id}
         orientation="horizontal"
         className="h-full"
       >

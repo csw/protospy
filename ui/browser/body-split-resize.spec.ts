@@ -171,3 +171,47 @@ test.describe("BodySplit — split reset on navigation (PRO-422)", () => {
     expect(reqShare).toBeLessThan(0.65);
   });
 });
+
+test.describe("BodySplit — drag survives view-mode toggle (PRO-432)", () => {
+  test("switching a pane's view mode preserves the dragged split position", async ({
+    page,
+  }) => {
+    // The initial split no longer depends on view mode, so the panel group is
+    // keyed only on the exchange id — toggling a view mode must not remount it
+    // and reset the user's drag position.
+    await injectExchanges(page, [
+      makePostRequest(1, "/api/data", '{"create":true,"name":"widget"}'),
+      makeResponse(1, "200 OK", '{"ok":true}'),
+    ]);
+
+    await page.getByText("/api/data").first().click();
+    await expect(page.getByLabel("JSON viewer").first()).toBeVisible();
+
+    // Drag the handle right to establish a non-default position.
+    const handle = page.locator(
+      '[data-testid="body-split"] [role="separator"]',
+    );
+    const box = (await handle.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 150, cy, { steps: 8 });
+    await page.mouse.up();
+
+    const reqBeforeToggle = (await bodyPaneBox(page, "Request"))!;
+
+    // Toggle the request pane's view mode (Tree → Text). The request selector is
+    // the first "Body view mode" group in the DOM.
+    const requestModes = page.getByLabel("Body view mode").first();
+    await requestModes.getByText("Text", { exact: true }).click();
+    await expect(page.getByLabel("Body text").first()).toBeVisible();
+
+    const reqAfterToggle = (await bodyPaneBox(page, "Request"))!;
+
+    // Width should be essentially unchanged — the drag survived the toggle.
+    expect(Math.abs(reqAfterToggle.width - reqBeforeToggle.width)).toBeLessThan(
+      5,
+    );
+  });
+});
