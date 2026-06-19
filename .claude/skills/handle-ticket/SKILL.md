@@ -399,7 +399,10 @@ verbatim to each 7a/7b/7c prompt:
 
 Spawn a general-purpose subagent:
 
-> /review PR #<PR-number> for $ticket. In addition to the standard checks, for
+> /review PR #<PR-number> for $ticket. Scope the review to this branch's own
+> changes only — use the three-dot merge-base diff (`git diff main...HEAD`), not
+> the two-dot form (`main..HEAD`), so that files added to main since the branch
+> point are excluded. In addition to the standard checks, for
 > every test added or changed, verify it exercises the real production code path
 > rather than a polyfill, runtime, or mock. Flag any divergent-path test lacking
 > a companion test on the real path. See `docs/agents/testing.md`, "Test the real
