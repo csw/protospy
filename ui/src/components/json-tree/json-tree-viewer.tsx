@@ -348,13 +348,17 @@ export function JsonTreeViewer({
 
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Stable accessor so the virtualizer config object doesn't carry a fresh
+  // closure each render (`parentRef` is itself stable).
+  const getScrollElement = useCallback(() => parentRef.current, []);
+
   // React Compiler bails on useVirtualizer (react-hooks/incompatible-library):
   // its methods close over mutable instance state. Safe here — the compiler is
   // not enabled in this build and the returned methods are consumed inline.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement,
     estimateSize: () => ROW_HEIGHT,
     overscan: 12,
     observeElementRect: observeElementRectWithFallback,
@@ -374,7 +378,7 @@ export function JsonTreeViewer({
         <ContextMenuTrigger asChild>
           <div
             ref={parentRef}
-            className="min-h-0 flex-1 overflow-auto font-mono text-xs leading-5"
+            className="min-h-0 flex-1 overflow-auto font-mono text-mono leading-5"
             // `contain: layout` (not `strict`) keeps the perf isolation while leaving
             // paint un-clipped, so rows wider than the viewport scroll horizontally
             // rather than getting cut off (deep nesting / long values).
