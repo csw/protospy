@@ -312,12 +312,14 @@ function bodyBytes(body: BodyState | undefined): React.ReactNode {
   const view = sizeView(body);
   if (view.wireBytes == null) return "—";
   return (
-    <span className="inline-flex items-baseline gap-1.5" title={view.tooltip}>
-      <span>{sizeText(view)}</span>
-      {view.encoding && (
-        <span className="text-muted-foreground">({view.encoding})</span>
-      )}
-    </span>
+    <SimpleTooltip content={view.tooltip}>
+      <span className="inline-flex items-baseline gap-1.5">
+        <span>{sizeText(view)}</span>
+        {view.encoding && (
+          <span className="text-muted-foreground">({view.encoding})</span>
+        )}
+      </span>
+    </SimpleTooltip>
   );
 }
 
