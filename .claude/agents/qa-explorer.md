@@ -105,9 +105,13 @@ look wrong" channel (see "Screenshot discipline").
 - Set the viewport per the charter (`playwright-cli resize <width> 900`); default
   1440, add 1280/1920 when the charter is layout-sensitive.
 - Check **both themes**. protospy is dark-first, so **light mode is the one that
-  regresses unnoticed** — treat it as higher-risk. Force theme with
-  `window.__test_store.getState().setTheme('light'|'dark'|'system')` and verify
-  `document.documentElement.getAttribute('data-theme')` before judging colour.
+  regresses unnoticed** — treat it as higher-risk. Theme is owned by next-themes
+  via the dev-only `window.__test_theme` bridge (not the store); the bridge and
+  the `.dark` class are each applied by a React effect, so wait for the bridge
+  (`window.__test_theme != null`), call
+  `window.__test_theme.setTheme('light'|'dark'|'system')`, wait for
+  `window.__test_theme.theme` to settle, then verify via
+  `document.documentElement.classList.contains('dark')` before judging colour.
 - **Honour the step budget.** Each charter names ~15–20 actions. A
   navigation/interaction counts; an evidence screenshot does not. **When the
   budget is spent, stop and report.** Do not random-walk — context bloat past
