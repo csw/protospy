@@ -23,3 +23,8 @@ browser/bench-*.spec.ts
 # Agent screenshot/visual-diff scratch and reg-cli artifacts (see PRO-416 note)
 scratch/
 reg.json
+
+# reg-suit working dir and capture output (actualDir) — visual regression runs
+# in CI; these are transient artifacts, never committed (PRO-428).
+.reg/
+.reg-actual/

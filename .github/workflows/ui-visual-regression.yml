@@ -1,0 +1,95 @@
+name: ui-visual-regression
+
+# Visual regression via reg-suit. Captures the fixture matrix through the pinned
+# Playwright Chromium (the same renderer the browser suite uses), then:
+#   - on push to main: publishes the captured set to S3 as the new baseline
+#     (keyed by commit hash). No PR notification.
+#   - on a pull request (INCLUDING drafts): syncs the baseline from S3, compares,
+#     publishes the diff report keyed by the PR head, and the reg-viz GitHub App
+#     posts a PR comment + commit status.
+#
+# This is a SEPARATE workflow from ui-ci.yml on purpose: ui-ci skips draft PRs,
+# but the visual diff must be available throughout handle-ticket's review cycle,
+# which iterates on a draft PR. So this workflow OMITS the draft guard.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ui/**"
+      - "bindings/**"
+      - ".github/workflows/ui-visual-regression.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "ui/**"
+      - "bindings/**"
+      - ".github/workflows/ui-visual-regression.yml"
+
+defaults:
+  run:
+    working-directory: ui
+
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # NB: no draft guard — this job runs on draft PRs by design.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      # reg-notify-github-plugin clientId (NOT a secret — App client id). Set as
+      # a repo variable; regconfig.json interpolates it via $REG_NOTIFY_CLIENT_ID.
+      REG_NOTIFY_CLIENT_ID: ${{ vars.REG_NOTIFY_CLIENT_ID }}
+    steps:
+      # reg-keygen-git-hash-plugin walks git history to resolve the expected
+      # baseline, so it needs full history (fetch-depth: 0) and an attached HEAD.
+      # Checking out github.head_ref (the PR source branch) avoids the detached
+      # merge commit; for push events head_ref is empty and checkout falls back
+      # to the pushed ref (main), also attached.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ui/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('ui/pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Capture fixture matrix
+        run: pnpm run capture:scenes --out .reg-actual
+
+      # Push to main: seed/refresh the baseline. sync-expected + compare produce
+      # a main-over-main report; publish uploads the new actual as the baseline
+      # for descendant commits. No notify (there is no PR to comment on).
+      - name: Publish baseline (main)
+        if: github.event_name == 'push'
+        run: |
+          pnpm exec reg-suit sync-expected
+          pnpm exec reg-suit compare
+          pnpm exec reg-suit publish
+
+      # Pull request (including drafts): full cycle — sync-expected, compare,
+      # publish the diff report under the PR head, and notify via the GitHub App.
+      - name: Compare and notify (pull request)
+        if: github.event_name == 'pull_request'
+        run: pnpm exec reg-suit run
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reg-report
+          path: ui/.reg/
+          retention-days: 14

@@ -148,7 +148,7 @@ manually before proceeding.
 
 ---
 
-## 4 — Visually verify and capture UI changes
+## 4 — Visually verify UI changes
 
 **Trigger.** Run this step only when the branch diff touches UI source:
 
@@ -156,11 +156,14 @@ manually before proceeding.
 git diff main...HEAD --name-only -- 'ui/src/**'
 ```
 
-If no files listed, skip to step 5. Otherwise follow the **`protospy-screenshot`**
-skill, which owns the capture procedure; the steps below wire it into this flow.
-The flow captures the **whole** scene set for each app version and diffs them —
-there is **no spec to author** and nothing to scope by hand. Added/removed views
-fall out of the two full sets automatically.
+If no files listed, skip to step 5. Otherwise do a **live qualitative check** on
+the running app before you push. This is the human-eye pass — layout, theming,
+interaction, and console health — that the automated pixel regression can't
+replace. The pixel diff itself is **not** captured by hand here: the
+`ui-visual-regression` workflow renders the full fixture matrix in CI and posts a
+reg-suit diff on the (draft) PR (watched in step 6 and step 10). The
+**`protospy-screenshot`** skill covers the ad-hoc capture helpers if you want
+evidence shots for the PR.
 
 **Start the HEAD dev server** on a non-default port:
 
@@ -168,29 +171,16 @@ fall out of the two full sets automatically.
 cd ui && pnpm dev --port <port> &
 ```
 
-**Capture the before set from the base app:**
-
-```bash
-scripts/agents/capture-before-base --out scratch/before
-```
-
-It checks out the merge-base into a throwaway worktree, runs that app, captures
-its full scene set with this branch's tooling, and tears everything down — then
-**caches the result by base commit**, so a later review cycle or a fresh session
-restores it instantly instead of rebuilding the base app.
-
-**Capture the after set from HEAD and verify.**
+**Verify with a subagent.**
 Spawn a **`general-purpose`** subagent. In Codex, use `model: gpt-5.4-mini`
 with medium reasoning. Never pass Claude model names.
 Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
-> `http://localhost:<port>/`; the change touched <components/views>. Capturing the
-> before set above repointed playwright at a now-stopped server, so first re-open
-> HEAD, then capture the full "after" set (see the **`protospy-screenshot`** skill):
-> `playwright-cli open "http://localhost:<port>/"` then
-> `scripts/agents/capture-matrix --out scratch/after`.
-> The before/after sets pair by filename. While driving the app, check:
+> `http://localhost:<port>/`; the change touched <components/views>. Open it
+> (`playwright-cli open "http://localhost:<port>/"`) and drive the affected
+> surfaces as a user would (see the **`protospy-screenshot`** skill for the
+> theme/settle helpers). While driving the app, check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
 > - **Widths and themes.** Spot-check 1280 and 1440, and both themes, where the
@@ -200,24 +190,8 @@ Give it this prompt (substitute components and port):
 > Report briefly: what you checked, what looks right, any issues.
 
 If the subagent reports problems, fix them, re-run quality checks, and
-re-verify. Capture a one-line summary for the PR description.
-
-**Compare and assemble the visual diff.** Decide whether visual changes are
-**expected** — new feature, redesign, styling update → `changed`; refactor, code
-cleanup, internal rewiring → `unchanged` — then:
-
-```bash
-scripts/agents/compare-screenshots scratch/before scratch/after \
-  --branch "$(git branch --show-current)" --expected <changed|unchanged>
-```
-
-It prints the ready-to-paste `## Visual diff` section: the comparison summary, an
-interactive report link when anything changed (carrying every shot, differences
-highlighted), and inline embeds of **only** the scenes that changed (so the full
-set doesn't flood the PR). **Save its stdout for step 6.** If it exits 3 — the
-actual result disagreed with `--expected` — **stop before pushing**: surface the
-mismatch to the user and wait for explicit direction. (The printed section already
-carries the caution block, so it still goes into the PR.)
+re-verify. Capture a one-line summary for the PR description. Kill the dev server
+when done (`pkill -f 'pnpm dev'`).
 
 ---
 
@@ -233,8 +207,10 @@ Commit with a Conventional Commits message:
 - Keep under 72 characters; trim the description if needed, not the ticket ID
 - Implementation notes go in the body, not the subject
 
-Push the branch. CI does not run on draft PRs, so there is nothing to watch
-here — CI triggers only when the PR is marked ready at close-out (step 10).
+Push the branch. Nothing runs on the bare branch push: the standard UI CI skips
+draft PRs, and the `ui-visual-regression` workflow triggers on the pull request,
+which you open in step 6 (where it is watched). Full UI CI runs only when the PR
+is marked ready at close-out (step 10).
 
 ---
 
@@ -247,11 +223,21 @@ ticket ID unless the user names them.
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
-If screenshots were taken (step 4), append the `## Visual diff` section
-that `compare-screenshots` printed in step 4 to the PR body **verbatim**. It
-already contains the comparison summary, the report link when anything changed,
-and a `> [!CAUTION]` block if the result mismatched expectations. Omit the
-section entirely if no screenshots were taken.
+**Watch the visual regression (UI diffs only).** If step 4 ran (the diff touches
+UI source), opening the draft PR triggers the `ui-visual-regression` workflow —
+unlike the rest of UI CI, it runs on drafts, so the diff is available now,
+mid-review. Watch it to completion and read the result:
+
+```bash
+scripts/agents/ci-watch
+```
+
+Then read the reg-suit GitHub App comment and commit status on the PR (they link
+the diff report). If it flags **unexpected** visual changes — ones this ticket
+shouldn't have caused — treat that as a finding: investigate before close-out and
+surface it to the user. Expected changes (a feature or redesign) are fine; the
+App comment is the durable record reviewers see, so there is nothing to paste
+into the PR body by hand.
 
 ---
 
@@ -446,22 +432,13 @@ ready, or run another round until the user says what to do.
 Start only after the user has responded to step 9 with explicit direction.
 Make changes, commit, and push. The open PR picks up the commits automatically.
 
-### Update after screenshots
+### Re-check the visual regression
 
-If this ticket has before/after screenshots (step 4) and the fixes changed
-anything visually (UI code, styles, layout), with a dev server + `playwright-cli`
-session running as in step 4:
-
-1. Recapture the after set against HEAD (this cleans and re-captures it):
-   `playwright-cli open "http://localhost:<port>/"` then
-   `scripts/agents/capture-matrix --out scratch/after`
-2. Re-run `scripts/agents/compare-screenshots scratch/before scratch/after --branch "$(git branch --show-current)" --expected <changed|unchanged>`
-   and replace the `## Visual diff` section in the PR description with its output.
-
-The before set comes from the unchanged base app and is cached by base commit, so
-it does not need recapturing — `scratch/before` may even be repopulated for free
-by re-running `capture-before-base` if the directory was cleaned. Do this after
-every push that changes visual output — not just the first one.
+If this ticket touches UI source, every push to the (draft) PR re-runs the
+`ui-visual-regression` workflow. After pushing fixes that change visual output,
+watch it (`scripts/agents/ci-watch`) and re-read the reg-suit App comment and
+commit status, exactly as in step 6 — confirm the new diff matches what the fix
+intended. Do this after every push that changes the UI, not just the first.
 
 ### Run another review round
 
