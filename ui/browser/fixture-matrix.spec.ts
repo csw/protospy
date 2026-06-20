@@ -186,7 +186,7 @@ test.describe("Fixture matrix", () => {
     await expect(sizeCell.locator("svg")).toBeVisible();
     await expect(sizeCell).toHaveAttribute(
       "title",
-      /66B on the wire \/ 58B after decompression \(gzip\)/,
+      /66 B on the wire \/ 58 B after decompression \(gzip\)/,
     );
     expectNoErrors("dual-size");
   });

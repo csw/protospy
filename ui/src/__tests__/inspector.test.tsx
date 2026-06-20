@@ -266,6 +266,26 @@ describe("Inspector shell — Timing tab", () => {
     expect(screen.getByText("(gzip)")).toBeInTheDocument();
   });
 
+  it("suppresses an identity Content-Encoding (PRO-266 normalization gap)", () => {
+    // Before convergence, bodyBytes() rendered the raw header, so an
+    // `identity`-encoded body showed "(identity)" in the facts even though the
+    // list suppressed it via shortEncoding. Routing through sizeView fixes that.
+    const identity = makeExchange({
+      responseBody: {
+        chunks: [],
+        atEnd: true,
+        wireBytes: 512,
+        contentEncoding: "identity",
+        contentType: "application/json",
+      },
+    });
+    render(<Inspector exchange={identity} renderBodySplit={body} />);
+    selectTab("Timing");
+    expect(screen.queryByText("(identity)")).not.toBeInTheDocument();
+    const responseCell = screen.getByText("Response bytes").nextElementSibling;
+    expect(responseCell).toHaveTextContent("512 B");
+  });
+
   it("shows a lifecycle 'awaiting' label (not 'pending') in the Status fact for an in-flight exchange", () => {
     const inflight = makeExchange({ status: undefined, elapsedMs: undefined });
     render(<Inspector exchange={inflight} renderBodySplit={body} />);

@@ -448,6 +448,46 @@ export function makeEncodedJsonResponse(
   };
 }
 
+/**
+ * A gzip-compressed `application/octet-stream` response. The compressed bytes
+ * decode cleanly but the octet-stream content type keeps the body classified
+ * as binary, so it renders the BodySummary state with both the dual
+ * wire/decoded size and the `(gzip)` encoding tag (PRO-266 — the only surface
+ * that shows the encoding marker on the binary-summary path).
+ */
+export function makeGzipBinaryResponse(
+  id: number,
+  gzippedBase64: string,
+  wireBytes: number,
+  ts?: string,
+): Msg {
+  return {
+    exchange: meta(id, ts),
+    direction: "Response",
+    event: {
+      type: "Response",
+      status: "200 OK",
+      version: "HTTP/1.1",
+      headers: [
+        { name: "Content-Type", value: "application/octet-stream" },
+        { name: "Content-Encoding", value: "gzip" },
+      ],
+      elapsed_ms: 12,
+      body: {
+        type: "Data",
+        content: {
+          offset: 0,
+          length: wireBytes,
+          payload: { binary: gzippedBase64 },
+        },
+        trailers: null,
+        at_end: true,
+        total_bytes: wireBytes,
+      },
+    },
+  };
+}
+
 export function makeDeleteRequest(
   id: number,
   uri = "/api/resource/1",

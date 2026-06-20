@@ -16,7 +16,7 @@
 import type { BodyState, Exchange } from "@ui/state/types";
 import type { StatusKind } from "@ui/lib/tokens";
 import { fmtBytes } from "@ui/lib/format";
-import { formatSize, isBulkOperation, shortEncoding } from "@ui/lib/utils";
+import { isBulkOperation, shortEncoding } from "@ui/lib/utils";
 
 /**
  * Classify a live string `status` (e.g. "200 OK", "404 Not Found") into the v2.3
@@ -51,40 +51,93 @@ export function statusCodeOnly(status: string): string {
 }
 
 /**
- * Display facts for a message side's size cell, read off the live `BodyState`.
- * `wireBytes` is `null` when there is no body at all (render an em dash). The
- * `tooltip` carries the wire/decoded breakdown (Chrome-DevTools convention, kept
- * deviation §3) and is only present for a compressed body. The cell value is
- * formatted with `fmtBytes` (bounded, GB-scaling); the tooltip with `formatSize`.
+ * The single shared display model for a body's wire/decoded/encoding size — the
+ * one place that decides how those three facts read across every surface (the
+ * list rows, the table SIZE column, the inspector Timing facts, and the body
+ * pane / summary header). Callers render the fields they have room for: the
+ * width-bounded table cell shows `wireBytes` only with the breakdown in the
+ * `tooltip`; the roomier facts/header surfaces render the dual figure via
+ * {@link sizeText}. `wireBytes` is `null` when there is no body at all (render
+ * an em dash). All byte counts format with the canonical, bounded `fmtBytes`.
  */
 export interface SizeView {
   /** Wire (post-compression) byte count; null = no body on this side. */
   wireBytes: number | null;
+  /**
+   * Decoded (post-decompression) byte count, but only when it is known AND
+   * differs from `wireBytes` (a real compression delta). `null` otherwise — so
+   * a caller can render the dual `wire / decoded` figure iff this is non-null.
+   */
+  decodedBytes: number | null;
   /** Normalized content-encoding tag (e.g. "gzip"), or null when uncompressed. */
   encoding: string | null;
   /** wire/decoded breakdown for the tooltip; only set for a compressed body. */
   tooltip: string | undefined;
 }
 
+/**
+ * Build a {@link SizeView} from the three primitive size facts a body carries —
+ * the shared core every surface routes through. `contentEncoding` is normalized
+ * via {@link shortEncoding}, so `identity`/empty are suppressed everywhere (not
+ * just in the table). The tooltip carries the wire/decoded breakdown
+ * (Chrome-DevTools convention, kept deviation §3) and is present only for a
+ * compressed body.
+ */
+export function buildSizeView(
+  wireBytes: number | null | undefined,
+  decodedBytes: number | null | undefined,
+  contentEncoding: string | undefined,
+): SizeView {
+  if (wireBytes == null)
+    return {
+      wireBytes: null,
+      decodedBytes: null,
+      encoding: null,
+      tooltip: undefined,
+    };
+  const encoding = shortEncoding(contentEncoding);
+  if (encoding == null)
+    return {
+      wireBytes,
+      decodedBytes: null,
+      encoding: null,
+      tooltip: undefined,
+    };
+  // A decoded size is only a distinct fact when it's known and differs from the
+  // wire size — equal sizes mean no real compression delta to show.
+  const decoded =
+    decodedBytes != null && decodedBytes !== wireBytes ? decodedBytes : null;
+  const tooltip =
+    decoded != null
+      ? `${fmtBytes(wireBytes)} on the wire / ${fmtBytes(decoded)} after decompression (${encoding})`
+      : `${fmtBytes(wireBytes)} on the wire (${encoding}; decoded size unknown until the body is opened)`;
+  return { wireBytes, decodedBytes: decoded, encoding, tooltip };
+}
+
 /** Build a {@link SizeView} from one side's `BodyState` (or `undefined` = no body). */
 export function sizeView(body: BodyState | undefined): SizeView {
-  if (body == null)
-    return { wireBytes: null, encoding: null, tooltip: undefined };
-  const wire = body.wireBytes;
-  const encoding = shortEncoding(body.contentEncoding);
-  if (encoding == null)
-    return { wireBytes: wire, encoding: null, tooltip: undefined };
-  const decoded = body.decodedBytes;
-  const tooltip =
-    decoded != null && decoded !== wire
-      ? `${formatSize(wire)} on the wire / ${formatSize(decoded)} after decompression (${encoding})`
-      : `${formatSize(wire)} on the wire (${encoding}; decoded size unknown until the body is opened)`;
-  return { wireBytes: wire, encoding, tooltip };
+  return body == null
+    ? buildSizeView(null, null, undefined)
+    : buildSizeView(body.wireBytes, body.decodedBytes, body.contentEncoding);
 }
 
 /** The response side's {@link SizeView} — the value the SIZE column renders. */
 export function responseSizeView(ex: Exchange): SizeView {
   return sizeView(ex.responseBody);
+}
+
+/**
+ * The inline size value for surfaces with room for the dual figure (inspector
+ * facts, body pane/summary header): `"1.5 KB"`, or `"1.5 KB / 4.2 KB"` when the
+ * decoded size is known and differs. An em dash when there's no body. The
+ * width-bounded table SIZE column does NOT use this — it renders
+ * `fmtBytes(wireBytes)` alone and puts the breakdown in the tooltip instead.
+ */
+export function sizeText(view: SizeView): string {
+  if (view.wireBytes == null) return "—";
+  return view.decodedBytes != null
+    ? `${fmtBytes(view.wireBytes)} / ${fmtBytes(view.decodedBytes)}`
+    : fmtBytes(view.wireBytes);
 }
 
 /** `fmtBytes`, or an em dash when the size is absent (no body on that side). */

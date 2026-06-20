@@ -4,6 +4,10 @@ import {
   makeGetRequest,
   makeResponse,
   makeBinaryResponse,
+  makeGzipBinaryResponse,
+  GZIP_JSON_BASE64,
+  GZIP_JSON_WIRE_BYTES,
+  GZIP_JSON_DECODED_BYTES,
 } from "./fixtures/exchanges";
 
 test.beforeEach(async ({ page }) => {
@@ -40,7 +44,7 @@ test.describe("Inspector — binary body rendering", () => {
     const summary = page.getByTestId("body-summary");
     await expect(summary).toBeVisible();
     await expect(summary).toContainText("octet-stream");
-    await expect(summary).toContainText(`${BINARY_BYTES}B`);
+    await expect(summary).toContainText(`${BINARY_BYTES} B`);
     await expect(
       summary.getByRole("button", { name: "Download" }),
     ).toBeVisible();
@@ -53,6 +57,26 @@ test.describe("Inspector — binary body rendering", () => {
     // fallback should render for binary content.
     await expect(page.getByLabel("JSON viewer")).toHaveCount(0);
     await expect(page.locator("pre")).toHaveCount(0);
+  });
+
+  test("compressed binary body shows the dual size and (gzip) tag", async ({
+    page,
+  }) => {
+    await injectExchanges(page, [
+      makeGetRequest(1, "/api/blob.gz"),
+      makeGzipBinaryResponse(1, GZIP_JSON_BASE64, GZIP_JSON_WIRE_BYTES),
+    ]);
+
+    await page.getByText("/api/blob.gz").first().click();
+
+    // The octet-stream content type keeps the body on the binary-summary path
+    // even though the gzip stream decodes cleanly, so the BodySummary shows the
+    // shared wire/decoded figure plus the (gzip) encoding tag (PRO-266).
+    const summary = page.getByTestId("body-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(
+      `${GZIP_JSON_WIRE_BYTES} B / ${GZIP_JSON_DECODED_BYTES} B (gzip)`,
+    );
   });
 });
 
