@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { createSelector } from "reselect";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { Protocol } from "@bindings/Protocol";
@@ -229,32 +230,45 @@ export type AppStore = typeof useStore;
 // ---------------------------------------------------------------------------
 // Derived selectors. The v2.4 chrome scaffolds (`components/`) read
 // the visible/selected/trace-count slices through these named selectors rather
-// than re-deriving inline. `selectVisibleIds` mirrors `ExchangeList`'s
+// than re-deriving inline. `selectVisibleExchanges` mirrors `ExchangeList`'s
 // filtered+ordered derivation exactly (same `matchesFilter` + trace filter +
 // newest-first reverse); consolidating the still-inline list consumers
 // (`ExchangeList`, `InspectorPane`) onto a single derived selector is owned by
 // PRO-261 — these are defined once here to avoid a competing definition.
+//
+// Both selectors are memoized with reselect (PRO-436): the O(n)
+// `map → filter → filter → reverse` derivation runs once per input change
+// (`ids`, `exchanges`, `filter`, `traceFilter`, `order`) instead of once per
+// call. This covers both the reactive hook path (`useVisibleExchanges`) and the
+// imperative `getState()` reads in `app-shell.tsx`, since both invoke the same
+// memoized function. `selectVisibleIds` derives from the cached visible-exchange
+// result so the two stay consistent and a render touching both pays once.
 // ---------------------------------------------------------------------------
 
-/** Visible exchange ids: filter + trace filter applied, ordered per `order`. */
-export const selectVisibleIds = (s: StoreState): number[] => {
-  const visible = s.ids
-    .map((id) => s.exchanges.get(id))
-    .filter((ex): ex is Exchange => ex != null)
-    .filter((ex) => matchesFilter(ex, s.filter))
-    .filter((ex) => s.traceFilter == null || ex.traceId === s.traceFilter);
-  const ordered = s.order === "newest" ? [...visible].reverse() : visible;
-  return ordered.map((ex) => ex.id);
-};
+/** The filtered, trace-filtered, ordered visible exchanges. */
+const selectVisibleExchanges = createSelector(
+  [
+    (s: StoreState) => s.ids,
+    (s: StoreState) => s.exchanges,
+    (s: StoreState) => s.filter,
+    (s: StoreState) => s.traceFilter,
+    (s: StoreState) => s.order,
+  ],
+  (ids, exchanges, filter, traceFilter, order): Exchange[] => {
+    const visible = ids
+      .map((id) => exchanges.get(id))
+      .filter((ex): ex is Exchange => ex != null)
+      .filter((ex) => matchesFilter(ex, filter))
+      .filter((ex) => traceFilter == null || ex.traceId === traceFilter);
+    return order === "newest" ? [...visible].reverse() : visible;
+  },
+);
 
-const selectVisibleExchanges = (s: StoreState): Exchange[] => {
-  const visible = s.ids
-    .map((id) => s.exchanges.get(id))
-    .filter((ex): ex is Exchange => ex != null)
-    .filter((ex) => matchesFilter(ex, s.filter))
-    .filter((ex) => s.traceFilter == null || ex.traceId === s.traceFilter);
-  return s.order === "newest" ? [...visible].reverse() : visible;
-};
+/** Visible exchange ids: filter + trace filter applied, ordered per `order`. */
+export const selectVisibleIds = createSelector(
+  [selectVisibleExchanges],
+  (visible): number[] => visible.map((ex) => ex.id),
+);
 
 /**
  * React hook: the filtered, sorted visible exchanges as Exchange objects.
