@@ -31,7 +31,7 @@ import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { responseSizeView } from "@ui/lib/exchange";
 import { traceTokenIndex } from "@ui/lib/tokens";
 import { useDensity } from "@ui/lib/density";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { packLanes, TraceRail, traceRailWidth } from "./trace-rail";

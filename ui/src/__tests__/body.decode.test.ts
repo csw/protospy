@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { decodeBody } from "@ui/body/decode";
 import type { JsonParseResult } from "@ui/body/json-parse";
 import {

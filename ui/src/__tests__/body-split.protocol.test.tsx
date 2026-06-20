@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { BodySplit } from "@ui/components/body-split";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
 function makeSSEExchange(): Exchange {

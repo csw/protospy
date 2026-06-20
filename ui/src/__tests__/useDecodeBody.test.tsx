@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
 
 vi.mock("@ui/body/decode", () => ({

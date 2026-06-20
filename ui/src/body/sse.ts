@@ -1,5 +1,5 @@
 import type { BodyChunk } from "@bindings/BodyChunk";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 
 export interface SSEEvent {
   type: string; // from "event:" field, default "message"

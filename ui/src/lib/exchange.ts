@@ -3,7 +3,7 @@
 //
 // The v2.3 scaffolds were ingested against an idealized `Exchange` (lib/types.ts:
 // numeric status, eager `MessageSide` aggregate). The live runtime model
-// (`state/reducer.ts`) is flat and string-typed: `status` is a string ("200 OK"),
+// (`state/types.ts`) is flat and string-typed: `status` is a string ("200 OK"),
 // `error` is `{ kind: "generic", direction, message }`, and body size/encoding live
 // on `requestBody`/`responseBody` (`BodyState`). This module is the small,
 // MessageSide-level + string-`status` read surface the list (and, from Slice 2, the
@@ -13,7 +13,7 @@
 // lazy text seam is Slice 2's. The list only needs synchronous size/encoding reads
 // and the status/error/protocol predicates below.
 
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 import type { StatusKind } from "@ui/lib/tokens";
 import { fmtBytes } from "@ui/lib/format";
 import { formatSize, isBulkOperation, shortEncoding } from "@ui/lib/utils";

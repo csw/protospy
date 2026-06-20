@@ -1,6 +1,6 @@
 import type { Protocol } from "@bindings/Protocol";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { useStore } from "@ui/state/store";
 import { deriveFilename } from "@ui/lib/download";
 import {

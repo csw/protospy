@@ -39,7 +39,7 @@ import {
   selectSelected,
   useVisibleExchanges,
 } from "@ui/state/store";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { showPairsTab } from "@ui/protocol";
 import { TopBar, type ServiceInfo } from "./top-bar";
 import { FilterBar } from "./filter-bar";

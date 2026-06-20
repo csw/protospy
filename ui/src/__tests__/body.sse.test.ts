@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseSSEBody, chunksToText, classifyEvent } from "@ui/body/sse";
 import type { SSEEvent } from "@ui/body/sse";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 
 describe("classifyEvent", () => {
   const ev = (type: string): SSEEvent => ({ type, data: "", index: 0 });

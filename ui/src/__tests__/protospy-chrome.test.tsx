@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { EventMessage } from "@bindings/EventMessage";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { render } from "@ui/test/render";
 import {
   makeGetRequest,

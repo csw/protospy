@@ -1,4 +1,4 @@
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseJson, parseNdjson } from "./json-parse";
 import { formatMarkup } from "./markup-format";

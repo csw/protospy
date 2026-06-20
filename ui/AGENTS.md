@@ -29,7 +29,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 **Directory map (compressed; full annotations in `ARCHITECTURE.md`):**
 
 - `src/api/` — `info.ts` (`fetchInfo`, `/info`), `sse.ts` (`subscribeToEvents`, `ConnectionStatus`, parent-frame `postMessage`)
-- `src/state/` — `store.ts` (Zustand + `subscribeWithSelector` + `persist` + `data-density` subscriber + dev `__test_store`), `reducer.ts` (pure `apply`, `Exchange`/`BodyState` shapes)
+- `src/state/` — `store.ts` (Zustand + `subscribeWithSelector` + `persist` + `data-density` subscriber + dev `__test_store`), `reducer.ts` (pure `apply`), `types.ts` (`Exchange`/`BodyState`/`ExchangeError` shapes)
 - `src/body/` — `decode.ts` (chunks→bytes→decompress→classify); `json-parse.ts` (pure `parseAndFormat` — used by Worker + tests); `json-parse.worker.ts` (Worker script — JSON.parse + pretty-print); `json-parse-worker.ts` (main-thread client — lazy singleton `parseJson()`); `markup-format-core.ts` (pure `prettyPrintMarkup` + `tokenizeMarkup` for html/xml), `markup-format.worker.ts` (Worker — re-indent + Prism tokenize), `markup-format.ts` (client — `formatMarkup()`), `prism-setup.ts` (Prism config, imported before `prismjs`); `sse.ts` (parseSSEBlock, parseSSEBody, chunksToText); `sse-stream.ts` (SSEStreamState, feedChunk, applyRetention — incremental SSE parser)
 - `src/anthropic/` — `transcript.ts` (fold SSE events into chat transcript)
 - `src/protocol/` — protocol-aware UI gating (`showPairsTab` for ES/OpenSearch)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Exchange, BodyState } from "../state/reducer";
+import type { Exchange, BodyState } from "../state/types";
 import { apply } from "../state/reducer";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";

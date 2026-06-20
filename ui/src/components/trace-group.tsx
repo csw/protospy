@@ -12,7 +12,7 @@ import { traceColorVar, shortTraceId } from "@ui/lib/tokens";
 import { fmtMs } from "@ui/lib/format";
 // v2.4 ingest (PRO-363): bind to the live reducer Exchange model (the adapted
 // `ExchangeRow` consumes it), not the scaffold `lib/types` model.
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { ExchangeRow } from "./exchange-row";
 
 export interface TraceGroupProps {

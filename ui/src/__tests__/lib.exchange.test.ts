@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 import {
   statusKind,
   statusCodeOnly,

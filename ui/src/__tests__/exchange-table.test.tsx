@@ -3,7 +3,7 @@ import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { ExchangeTable } from "@ui/components/exchange-table";
 import { traceRailWidth } from "@ui/components/trace-rail";
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 
 function body(partial: Partial<BodyState>): BodyState {
   return { chunks: [], atEnd: true, wireBytes: 0, ...partial };
