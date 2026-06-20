@@ -107,7 +107,6 @@ def parse_simple_yaml(text: str, path: Path) -> dict[str, str]:
 def translate_body(body: str) -> str:
     translations = (
         ("CLAUDE.md", "AGENTS.md"),
-        ("~/obsidian/protospy/Claude/Reviews", "$VAULT_BASE/Reviews"),
     )
     for source, replacement in translations:
         body = body.replace(source, replacement)

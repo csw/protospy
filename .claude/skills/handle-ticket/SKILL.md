@@ -460,7 +460,7 @@ scripts/agents/review-paths $ticket <PR-number>
 
 It prints `round=<N>` and absolute paths for each report (`code_review`,
 `convention_review`, `ds_review`, `synthesis`) under
-`~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`.
+`$VAULT_BASE/Reviews/$ticket-PR-<PR-number>/`.
 Reuse these exact paths for every write in this round — do **not** call the
 helper again mid-round.
 

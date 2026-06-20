@@ -6,6 +6,19 @@ close-out sequence. A single launcher, `scripts/agents/ticket`, creates the
 worktree and starts the chosen harness CLI inside it, so the session begins with
 its cwd already in the worktree.
 
+## Environment
+
+The agent tooling writes its working output — review reports, design-review
+findings, screenshot catalogs — into an Obsidian vault. Point it at your vault by
+exporting `VAULT_BASE` (the agent workspace inside the vault); reports land under
+`$VAULT_BASE/Reviews` and screenshots under `$VAULT_BASE/screenshots`. Set
+`OBSIDIAN_REVIEWS` to override only the review-report base. See
+[`.env.example`](../.env.example) for the variables and their defaults. Nothing
+sources that file automatically — export the variables from your shell profile or
+sandbox configuration. When `VAULT_BASE` is unset, the tooling falls back to the
+maintainer's conventional layout (`~/obsidian/protospy/Claude`), so it still works
+without configuration.
+
 ## Handle Ticket
 
 Use `handle-ticket` for Linear implementation tickets in the `PRO-NNN` form.

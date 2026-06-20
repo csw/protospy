@@ -479,11 +479,7 @@ scripts/agents/review-paths $ticket <PR-number>
 
 It prints `round=<N>` and absolute paths for each report (`code_review`,
 `convention_review`, `ds_review`, `synthesis`) under
-{% if harness == 'claude' %}
-`~/obsidian/protospy/Claude/Reviews/$ticket-PR-<PR-number>/`.
-{% else %}
 `$VAULT_BASE/Reviews/$ticket-PR-<PR-number>/`.
-{% endif %}
 Reuse these exact paths for every write in this round — do **not** call the
 helper again mid-round.
 

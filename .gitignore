@@ -6,6 +6,9 @@
 __pycache__/
 CLAUDE.local.md
 AGENTS.override.md
+# Local env files copied from .env.example; .env.example and .env.dev stay tracked.
+.env
+.env.local
 lcov.info
 /tarpaulin-report.*
 node_modules/

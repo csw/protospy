@@ -38,7 +38,7 @@ re-reviewing the code.
 
 The caller gives you the ticket ID, the PR number, the round number, and which
 reviews ran. The review reports live in this round's directory under
-`~/obsidian/protospy/Claude/Reviews/<ticket>-PR-<PR>/`. **Resolve the paths
+`$VAULT_BASE/Reviews/<ticket>-PR-<PR>/`. **Resolve the paths
 with the shared helper — do not hand-roll them:**
 
 ```bash
@@ -49,7 +49,7 @@ It prints `round=<N>` (the latest round — the one whose reports you reconcile)
 and the absolute path of each report for that round: `code_review` (always),
 `convention_review` and `ds_review` (UI-source diffs only), and `visual_review`
 (when provided).
-The `synthesis` path it also prints is where the caller will write *your* output
+The `synthesis` path it also prints is where the caller will write _your_ output
 — you do not write it (you are read-only). If the `round=<N>` it returns does
 **not** match the round the caller named, stop and report the mismatch rather
 than synthesizing — a stale round means you'd reconcile the wrong reports.
@@ -79,8 +79,8 @@ what the reviews already found.
    effect as a hooks footgun), merge them into one finding that names both
    source lenses. Don't list it twice. The overlap most likely to surface twice
    is the **token axis** shared by the design-system and convention reviews:
-   convention owns the *no-op / undefined* token (resolves to nothing),
-   DS-conformance owns the *wrong semantic slot* and *resolves-in-light-not-dark*
+   convention owns the _no-op / undefined_ token (resolves to nothing),
+   DS-conformance owns the _wrong semantic slot_ and _resolves-in-light-not-dark_
    cases. If both flag the same token, keep the DS-conformance framing for a
    slot/dark-resolution issue and the convention framing for a true no-op, and
    name the other lens.
@@ -102,10 +102,10 @@ what the reviews already found.
      visual defects, convention violations with a functional consequence.
    - **Advisory**: style nits, minor improvements, low-severity visual
      polish, convention idiom preferences.
-   A finding's severity in its source report is input, not gospel — a
-   "medium" convention finding that the code review independently corroborates
-   may rise to blocking; a "high" that another review shows is intentional
-   may fall.
+     A finding's severity in its source report is input, not gospel — a
+     "medium" convention finding that the code review independently corroborates
+     may rise to blocking; a "high" that another review shows is intentional
+     may fall.
 
 5. **Down-rank low-signal items.** Note anything that looks redundant,
    likely incorrect, or that a linter/typechecker/test already enforces.

@@ -117,14 +117,16 @@ section of the report.
 For a **full sweep**, save to:
 
 ```
-~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD.md
+$VAULT_BASE/Reviews/design-review-YYYY-MM-DD.md
 ```
 
 For a **scoped run**, include the scope in the filename:
 
 ```
-~/obsidian/protospy/Claude/Reviews/design-review-YYYY-MM-DD-<scope-slug>.md
+$VAULT_BASE/Reviews/design-review-YYYY-MM-DD-<scope-slug>.md
 ```
+
+If `VAULT_BASE` is not configured, ask the caller for an output directory.
 
 Where `<scope-slug>` is a short kebab-case summary of what was scoped (e.g.
 `selected-1024`, `stream-scenes`, `light-mode`).
@@ -140,8 +142,8 @@ section), append it at the top of the Obsidian report:
 
 ### 5 — Write a PM inbox note
 
-Create a triage note at
-`~/obsidian/protospy/PM/Inbox/sweep-triage-YYYY-MM-DD.md`:
+Create a triage note in the PM inbox alongside the agent workspace, at
+`$VAULT_BASE/../PM/Inbox/sweep-triage-YYYY-MM-DD.md`:
 
 ```markdown
 ---
