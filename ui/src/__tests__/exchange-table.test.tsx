@@ -80,7 +80,7 @@ describe("ExchangeTable", () => {
     expect(sizeCell).not.toBeNull();
     expect(sizeCell).toHaveAttribute(
       "title",
-      "1.0KB on the wire / 4.0KB after decompression (gzip)",
+      "1.0 KB on the wire / 4.0 KB after decompression (gzip)",
     );
     expect(sizeCell?.querySelector("svg")).not.toBeNull();
   });

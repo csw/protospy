@@ -3,7 +3,7 @@
 // action for unrenderable content.
 import { Download } from "lucide-react";
 
-import { formatSize } from "@ui/lib/utils";
+import { buildSizeView, sizeText } from "@ui/lib/exchange";
 import { Button } from "@ui/components/ui/button";
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
   wireBytes: number;
   /** Decompressed byte count, when the body was compressed. */
   decodedBytes?: number;
+  /** Raw `Content-Encoding`, for the shared size/encoding display. */
+  contentEncoding?: string;
   onDownload: () => void;
 }
 
@@ -19,12 +21,10 @@ export function BodySummary({
   mediaType,
   wireBytes,
   decodedBytes,
+  contentEncoding,
   onDownload,
 }: Props) {
-  const size =
-    decodedBytes != null
-      ? `${formatSize(wireBytes)} / ${formatSize(decodedBytes)}`
-      : formatSize(wireBytes);
+  const view = buildSizeView(wireBytes, decodedBytes, contentEncoding);
 
   return (
     <div
@@ -35,7 +35,13 @@ export function BodySummary({
         <span className="font-mono text-xs text-muted-foreground">
           {mediaType}
         </span>
-        <span className="font-mono text-xs text-muted-foreground">{size}</span>
+        <span
+          className="font-mono text-xs text-muted-foreground"
+          title={view.tooltip}
+        >
+          {sizeText(view)}
+          {view.encoding && ` (${view.encoding})`}
+        </span>
       </div>
       <Button size="sm" variant="secondary" onClick={onDownload}>
         <Download />

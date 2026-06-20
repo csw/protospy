@@ -20,8 +20,8 @@ import { memo, useState } from "react";
 import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
-import { fmtBytes, fmtMs } from "@ui/lib/format";
-import { isSSEExchange } from "@ui/lib/exchange";
+import { fmtMs } from "@ui/lib/format";
+import { isSSEExchange, sizeText, sizeView } from "@ui/lib/exchange";
 import type { BodyState, Exchange } from "@ui/state/types";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
@@ -303,17 +303,20 @@ function PathDisplay({
  * compressed and the decode pipeline has cached `decodedBytes`, `wire (encoding)`
  * when it hasn't, or plain `wire` when uncompressed. Em dash when there's no body.
  * Chrome-DevTools slash convention; kept deviation §3 (dual wire/decoded size).
+ *
+ * Routes through the shared {@link sizeView} model, so the encoding is normalized
+ * via `shortEncoding` (an `identity`/empty `Content-Encoding` is suppressed here
+ * just like in the list) and the wire/decoded tooltip matches every other surface.
  */
 function bodyBytes(body: BodyState | undefined): React.ReactNode {
-  if (body == null) return "—";
-  const { wireBytes: wire, decodedBytes: decoded, contentEncoding: enc } = body;
-  const dual = enc && decoded != null && decoded !== wire;
+  const view = sizeView(body);
+  if (view.wireBytes == null) return "—";
   return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <span>
-        {dual ? `${fmtBytes(wire)} / ${fmtBytes(decoded)}` : fmtBytes(wire)}
-      </span>
-      {enc && <span className="text-muted-foreground">({enc})</span>}
+    <span className="inline-flex items-baseline gap-1.5" title={view.tooltip}>
+      <span>{sizeText(view)}</span>
+      {view.encoding && (
+        <span className="text-muted-foreground">({view.encoding})</span>
+      )}
     </span>
   );
 }

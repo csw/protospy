@@ -40,7 +40,7 @@ test.describe("Inspector — binary body rendering", () => {
     const summary = page.getByTestId("body-summary");
     await expect(summary).toBeVisible();
     await expect(summary).toContainText("octet-stream");
-    await expect(summary).toContainText(`${BINARY_BYTES}B`);
+    await expect(summary).toContainText(`${BINARY_BYTES} B`);
     await expect(
       summary.getByRole("button", { name: "Download" }),
     ).toBeVisible();

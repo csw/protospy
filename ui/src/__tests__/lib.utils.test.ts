@@ -5,7 +5,6 @@ import {
   filterHeaders,
   formatAbsoluteTime,
   formatRelative,
-  formatSize,
   formatSizeShort,
   formatTime,
   isBulkOperation,
@@ -20,36 +19,6 @@ import {
   statusClass,
   statusTextClass,
 } from "../lib/utils";
-
-describe("formatSize", () => {
-  it("returns 0B for 0 bytes", () => {
-    expect(formatSize(0)).toBe("0B");
-  });
-
-  it("returns 1B for 1 byte", () => {
-    expect(formatSize(1)).toBe("1B");
-  });
-
-  it("returns 1023B at the byte/KB boundary", () => {
-    expect(formatSize(1023)).toBe("1023B");
-  });
-
-  it("returns 1.0KB for exactly 1024 bytes", () => {
-    expect(formatSize(1024)).toBe("1.0KB");
-  });
-
-  it("returns just under 1MB at the KB/MB boundary", () => {
-    expect(formatSize(1024 * 1024 - 1)).toBe("1024.0KB");
-  });
-
-  it("returns 1.0MB for exactly 1024 * 1024 bytes", () => {
-    expect(formatSize(1024 * 1024)).toBe("1.0MB");
-  });
-
-  it("formats larger MB values", () => {
-    expect(formatSize(5.5 * 1024 * 1024)).toBe("5.5MB");
-  });
-});
 
 describe("formatSizeShort", () => {
   it("shows bytes with a spaced unit and no decimal", () => {
@@ -73,8 +42,8 @@ describe("formatSizeShort", () => {
   });
 
   it("scales through GB and TB so the width stays bounded", () => {
-    // Unlike formatSize (which caps at MB → unbounded width like "5120.0MB"),
-    // this keeps the integer part to at most ~4 digits by scaling units.
+    // The old unbounded formatSize capped at MB (width like "5120.0MB"); this
+    // keeps the integer part to at most ~4 digits by scaling units.
     expect(formatSizeShort(5 * 1024 ** 3)).toBe("5.0 GB");
     expect(formatSizeShort(3 * 1024 ** 4)).toBe("3.0 TB");
     // Largest realistic single value before TB stays short.

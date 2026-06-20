@@ -10,8 +10,8 @@ import {
   type ViewMode,
 } from "@ui/body/view-modes";
 import { triggerDownload } from "@ui/lib/download";
-import { formatSize } from "@ui/lib/utils";
-import { mediaTypeSlug } from "@ui/lib/format";
+import { buildSizeView, sizeText } from "@ui/lib/exchange";
+import { fmtBytes, mediaTypeSlug } from "@ui/lib/format";
 import { hexDumpText } from "@ui/lib/hex";
 import { CopyButton } from "./copy-button";
 import { BodyModeSelector } from "./body-mode-selector";
@@ -174,6 +174,7 @@ function BodyContent({
         mediaType={result.mediaType}
         wireBytes={result.wireBytes}
         decodedBytes={result.decodedBytes}
+        contentEncoding={result.contentEncoding}
         onDownload={onDownload}
       />
     );
@@ -185,6 +186,7 @@ function BodyContent({
         mediaType={result.mediaType}
         wireBytes={result.wireBytes}
         decodedBytes={result.decodedBytes}
+        contentEncoding={result.contentEncoding}
         onDownload={onDownload}
       />
     );
@@ -332,24 +334,27 @@ export function BodyPane({
               onSelect={(m) => onViewModeChange?.(m)}
             />
           )}
-          {result != null && (
-            <SimpleTooltip
-              content={
-                result.decodedBytes != null
-                  ? `${formatSize(result.wireBytes)} on the wire / ${formatSize(result.decodedBytes)} after decompression`
-                  : undefined
-              }
-            >
-              <span
-                className="font-mono text-xs text-muted-foreground"
-                data-testid="body-size"
-              >
-                {result.decodedBytes != null
-                  ? `${formatSize(result.wireBytes)} / ${formatSize(result.decodedBytes)}`
-                  : formatSize(result.wireBytes)}
-              </span>
-            </SimpleTooltip>
-          )}
+          {result != null &&
+            (() => {
+              // Shared size/encoding model — same wire/decoded figure, encoding
+              // tag, and tooltip wording as the list rows and inspector facts.
+              const view = buildSizeView(
+                result.wireBytes,
+                result.decodedBytes,
+                result.contentEncoding,
+              );
+              return (
+                <SimpleTooltip content={view.tooltip}>
+                  <span
+                    className="font-mono text-xs text-muted-foreground"
+                    data-testid="body-size"
+                  >
+                    {sizeText(view)}
+                    {view.encoding && ` (${view.encoding})`}
+                  </span>
+                </SimpleTooltip>
+              );
+            })()}
           {result != null && (
             <SimpleTooltip content="Download body">
               <Button
@@ -375,7 +380,7 @@ export function BodyPane({
 
         {!loading && body != null && !body.atEnd && errorMessage == null && (
           <LifecycleState busy>
-            Streaming… ({formatSize(body.wireBytes)} received)
+            Streaming… ({fmtBytes(body.wireBytes)} received)
           </LifecycleState>
         )}
 
@@ -383,7 +388,7 @@ export function BodyPane({
           <ErrorPanel
             title="Response interrupted"
             message={errorMessage}
-            detail={`${formatSize(body.wireBytes)} received before error`}
+            detail={`${fmtBytes(body.wireBytes)} received before error`}
           />
         )}
 
