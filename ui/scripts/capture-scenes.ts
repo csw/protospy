@@ -36,98 +36,30 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-import { setTheme, waitForStore } from "../browser/helpers/inject";
+import {
+  getResolvedTheme,
+  setTheme,
+  waitForStore,
+} from "../browser/helpers/inject";
 import {
   applyScene,
   listScenes,
   waitForSceneHarness,
 } from "../browser/helpers/scenes";
 import { waitForContentSettled } from "./screenshot-helpers";
+import {
+  HEIGHT,
+  WIDTH,
+  parseArgs,
+  planCells,
+  runPool,
+  type Cell,
+} from "./capture-scenes-lib";
 
 // ─── Paths ──────────────────────────────────────────────────────────────────
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const UI_DIR = path.resolve(__dirname, "..");
-
-// ─── Matrix ─────────────────────────────────────────────────────────────────
-
-/** Canonical capture width. The app is desktop-only; 1280 is the review width. */
-const WIDTH = 1280;
-const HEIGHT = 900;
-
-/**
- * Scenes also captured in light mode. The full matrix is captured in dark; this
- * curated subset adds light-mode coverage for the surfaces whose light treatment
- * matters most, keeping the baseline lean. Extend this list to widen light-mode
- * coverage. IDs must exist in `src/test/scenes.ts` (verified at runtime against
- * the live harness — an unknown id fails the capture loudly).
- */
-const LIGHT_SCENES = new Set<string>([
-  "selected", // list + inspector, the primary surface
-  "empty", // empty state
-  "table-mode", // table view
-  "body-text", // a rendered body pane
-  "cmdk-open", // command palette overlay
-  "help-open", // keyboard-shortcuts dialog
-]);
-
-type Theme = "light" | "dark";
-interface Cell {
-  scene: string;
-  theme: Theme;
-}
-
-// ─── CLI args ───────────────────────────────────────────────────────────────
-
-interface Args {
-  out: string;
-  concurrency: number;
-  port: number;
-  baseUrl: string | null;
-  build: boolean;
-}
-
-function parseArgs(argv: string[]): Args {
-  let out = "";
-  let concurrency = Number(process.env.CAPTURE_CONCURRENCY ?? 6);
-  let port = Number(process.env.CAPTURE_PORT ?? 4180);
-  let baseUrl: string | null = null;
-  let build = true;
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    switch (arg) {
-      case "--out":
-        out = argv[++i];
-        break;
-      case "--concurrency":
-        concurrency = Number(argv[++i]);
-        break;
-      case "--port":
-        port = Number(argv[++i]);
-        break;
-      case "--base-url":
-        // Attach to an already-running server; skips build + preview spawn.
-        baseUrl = argv[++i];
-        break;
-      case "--no-build":
-        build = false;
-        break;
-      default:
-        throw new Error(`capture-scenes: unknown argument: ${arg}`);
-    }
-  }
-
-  if (!out) {
-    throw new Error(
-      "usage: capture-scenes --out <dir> [--concurrency <n>] [--port <p>] [--base-url <url>] [--no-build]",
-    );
-  }
-  if (!Number.isInteger(concurrency) || concurrency < 1) {
-    throw new Error(`capture-scenes: invalid --concurrency: ${concurrency}`);
-  }
-  return { out, concurrency, port, baseUrl, build };
-}
 
 // ─── Process lifecycle ──────────────────────────────────────────────────────
 
@@ -209,6 +141,16 @@ async function captureCell(
 
     await applyScene(page, cell.scene);
     await setTheme(page, cell.theme);
+    // Guard the resolved theme against the filename. setTheme waits for the
+    // preference to take, but the shot is named by theme, so assert the resolved
+    // `.dark`/light class actually landed before capturing — the ticket's
+    // "enforce theme activation" intent: a label must never run ahead of the DOM.
+    const resolved = await getResolvedTheme(page);
+    if (resolved !== cell.theme) {
+      throw new Error(
+        `theme did not activate for "${cell.scene}": wanted ${cell.theme}, resolved ${resolved}`,
+      );
+    }
     // Best-effort settle: most scenes clear their aria-busy regions promptly.
     // A few (e.g. the "awaiting response" body state) are deliberately and
     // permanently busy — those must be captured as-is, not waited out. With
@@ -233,28 +175,6 @@ async function captureCell(
   } finally {
     await ctx.close();
   }
-}
-
-/** Run `cells` through `worker` with at most `concurrency` in flight. */
-async function runPool(
-  cells: Cell[],
-  concurrency: number,
-  worker: (cell: Cell) => Promise<string>,
-): Promise<void> {
-  let next = 0;
-  let done = 0;
-  const total = cells.length;
-  async function pump(): Promise<void> {
-    while (next < cells.length) {
-      const cell = cells[next++];
-      const filename = await worker(cell);
-      done++;
-      console.log(`  [${done}/${total}] ${filename}`);
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, cells.length) }, () => pump()),
-  );
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -310,22 +230,9 @@ async function main(): Promise<void> {
     );
   }
 
-  // Verify the light allowlist references real scenes — a typo there would
-  // silently drop light coverage otherwise.
-  const known = new Set(sceneIds);
-  const unknownLight = [...LIGHT_SCENES].filter((id) => !known.has(id));
-  if (unknownLight.length > 0) {
-    throw new Error(
-      `LIGHT_SCENES references unknown scene id(s): ${unknownLight.join(", ")}`,
-    );
-  }
-
-  const cells: Cell[] = [
-    ...sceneIds.map((scene): Cell => ({ scene, theme: "dark" })),
-    ...sceneIds
-      .filter((scene) => LIGHT_SCENES.has(scene))
-      .map((scene): Cell => ({ scene, theme: "light" })),
-  ];
+  // planCells validates the light allowlist against the live scenes and builds
+  // the dark + light cell list.
+  const cells = planCells(sceneIds);
 
   console.log(
     `Capturing ${cells.length} cells (${sceneIds.length} dark + ${

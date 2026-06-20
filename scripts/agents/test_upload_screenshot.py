@@ -243,14 +243,20 @@ class MainTests(unittest.TestCase):
 
     def test_main_neither_flag_exits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(SystemExit) as cm:
-                upload_screenshot.main([tmp])
+            # argparse prints its usage error to stderr; capture it so it doesn't
+            # leak into the test runner's output.
+            with patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as cm:
+                    upload_screenshot.main([tmp])
             self.assertNotEqual(cm.exception.code, 0)
 
     def test_main_both_flags_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(SystemExit) as cm:
-                upload_screenshot.main([tmp, "--branch", "main", "--prefix", "reviews/x"])
+            with patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as cm:
+                    upload_screenshot.main(
+                        [tmp, "--branch", "main", "--prefix", "reviews/x"]
+                    )
             self.assertNotEqual(cm.exception.code, 0)
 
 
@@ -538,8 +544,13 @@ class MatrixFlagMainTests(unittest.TestCase):
     def _run(self, argv: list[str]):
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value = MagicMock()
+        # Capture stdout too: main() prints the Markdown embeds there, so without
+        # this they leak into the test runner's output.
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
-            with patch("sys.stderr", new_callable=io.StringIO) as mock_err:
+            with (
+                patch("sys.stderr", new_callable=io.StringIO) as mock_err,
+                patch("sys.stdout", new_callable=io.StringIO),
+            ):
                 result = upload_screenshot.main(argv)
         return result, mock_err.getvalue()
 

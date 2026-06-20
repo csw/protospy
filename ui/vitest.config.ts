@@ -102,7 +102,9 @@ export default defineConfig({
         test: {
           name: "node",
           environment: "node",
-          include: ["src/__tests__/**/*.test.ts"],
+          // Node-environment unit tests: app code under src/__tests__, plus the
+          // pure helpers of the ui/scripts infrastructure scripts.
+          include: ["src/__tests__/**/*.test.ts", "scripts/**/*.test.ts"],
           typecheck: {
             tsconfig: "./tsconfig.test.json",
           },
