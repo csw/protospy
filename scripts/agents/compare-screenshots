@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+#
+# Compare a before/after screenshot pair and emit the PR "## Visual diff" section
+# — the whole compare-and-report step in one command, so the PR wiring isn't a
+# multi-case recipe to assemble by hand.
+#
+# Built for the full-set flow: before/ and after/ each hold a whole app version's
+# scene set (dozens of shots), so this does NOT embed every shot — that would
+# bury the PR. It classifies the set with `screenshot-diff` (changed / new /
+# removed / identical), builds the interactive `visual-diff-report` (which carries
+# ALL shots, with differences highlighted), and inline-embeds ONLY the scenes that
+# actually changed — the after image for a changed or new scene, the before image
+# for a removed one. The result is a ready-to-paste Markdown section:
+#
+#   ## Visual diff
+#
+#   **Screenshot comparison:** 2/45 differ: shot-1280-dark.png (0.3% changed)
+#   [Visual diff report](https://…/index.html)
+#
+#   <details><summary>Changed scenes (2)</summary>
+#   …embeds…
+#   </details>
+#
+# Optionally takes the agent's expectation (`--expected changed|unchanged`). When
+# the actual result disagrees, it prepends a `> [!CAUTION]` block and exits 3, so
+# a mismatch (expected changes but none found, or changes found but none expected)
+# stops the flow instead of slipping into the PR unflagged.
+#
+# Usage:
+#   compare-screenshots <before-dir> <after-dir> --branch <branch>
+#     [--expected changed|unchanged] [--threshold F] [--pixel-tolerance N]
+#
+# Exit: 0 normally; 3 on an expectation mismatch; 2 on a tooling error.
+set -euo pipefail
+
+before="" after="" branch="" expected=""
+diffopts=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --branch) branch="$2"; shift 2 ;;
+    --expected) expected="$2"; shift 2 ;;
+    --threshold) diffopts+=(--threshold "$2"); shift 2 ;;
+    --pixel-tolerance) diffopts+=(--pixel-tolerance "$2"); shift 2 ;;
+    -*) echo "compare-screenshots: unknown argument: $1" >&2; exit 2 ;;
+    *)
+      if [[ -z "$before" ]]; then before="$1"
+      elif [[ -z "$after" ]]; then after="$1"
+      else echo "compare-screenshots: unexpected argument: $1" >&2; exit 2
+      fi
+      shift ;;
+  esac
+done
+
+usage() {
+  echo "usage: $(basename "$0") <before-dir> <after-dir> --branch <branch> [--expected changed|unchanged]" >&2
+  exit 2
+}
+
+[[ -n "$before" && -n "$after" && -n "$branch" ]] || usage
+case "$expected" in "" | changed | unchanged) ;; *) usage ;; esac
+
+here="$(cd "$(dirname "$0")" && pwd)"
+
+# Classify the pair once (the pixel diff is the expensive step). JSON gives the
+# exact changed/new/removed sets to act on; exit 1 means "a pair differs or
+# errored" (not a failure), exit ≥2 is a real tooling error we propagate.
+diff_json="$("$here/screenshot-diff" "$before" "$after" "${diffopts[@]}" --json)" && rc=0 || rc=$?
+if (( rc >= 2 )); then
+  echo "compare-screenshots: screenshot-diff failed" >&2
+  exit 2
+fi
+
+# Human one-line summary, built from the classification (1-decimal percents).
+summary="$(jq -r '
+  (.identical | length) as $i |
+  (.changed | length) as $c |
+  ($i + $c) as $n |
+  ([
+    (if $n == 0 then "0 paired"
+     elif $c == 0 then "\($n)/\($n) identical"
+     else "\($c)/\($n) differ: "
+       + ([.changed[] | "\(.name) (\(((.percent*10)|round)/10)% changed)"] | join(", "))
+     end),
+    (if (.new|length)     > 0 then "\(.new|length) new: "         + (.new     | join(", ")) else empty end),
+    (if (.removed|length) > 0 then "\(.removed|length) removed: " + (.removed | join(", ")) else empty end)
+  ] | join("; "))
+' <<<"$diff_json")"
+
+# A visual change is any paired difference/error (rc 1) or any new/removed scene.
+changed=false
+(( rc == 1 )) && changed=true
+if (( $(jq -r '(.new|length)+(.removed|length)' <<<"$diff_json") > 0 )); then
+  changed=true
+fi
+
+report_url=""
+embeds=""
+if [[ "$changed" == true ]]; then
+  report_line="$("$here/visual-diff-report" "$before" "$after" --branch "$branch")" || {
+    echo "compare-screenshots: visual-diff-report failed" >&2
+    exit 2
+  }
+  report_url="${report_line#Report: }"
+
+  # Stage only the scenes that changed for inline embedding: the after image for a
+  # changed or new scene (its current state), the before image for a removed one
+  # (what's going away). Far fewer than the full set, so the PR stays readable.
+  stage="$(mktemp -d "${TMPDIR:-/tmp}/protospy-diff.XXXXXX")"
+  trap 'rm -rf "$stage"' EXIT
+  shots="$stage/changed"
+  mkdir -p "$shots"
+  while IFS= read -r name; do
+    [[ -n "$name" && -f "$after/$name" ]] && cp "$after/$name" "$shots/"
+  done < <(jq -r '(.changed[].name), (.new[])' <<<"$diff_json")
+  while IFS= read -r name; do
+    [[ -n "$name" && -f "$before/$name" ]] && cp "$before/$name" "$shots/"
+  done < <(jq -r '.removed[]' <<<"$diff_json")
+
+  if compgen -G "$shots/*" >/dev/null 2>&1; then
+    embeds="$("$here/upload-screenshot" "$shots" --branch "$branch")" || {
+      echo "compare-screenshots: uploading changed scenes failed" >&2
+      exit 2
+    }
+  fi
+fi
+
+# Optional expectation check.
+caution=""
+mismatch=false
+if [[ "$expected" == changed && "$changed" == false ]]; then
+  caution="> [!CAUTION]
+> Visual changes were expected but none were detected — verify the implementation."
+  mismatch=true
+elif [[ "$expected" == unchanged && "$changed" == true ]]; then
+  caution="> [!CAUTION]
+> Unexpected visual changes detected — review before merging."
+  mismatch=true
+fi
+
+# Emit the section.
+printf '## Visual diff\n\n'
+if [[ -n "$caution" ]]; then
+  printf '%s\n\n' "$caution"
+fi
+printf '**Screenshot comparison:** %s\n' "$summary"
+if [[ -n "$report_url" ]]; then
+  printf '[Visual diff report](%s)\n' "$report_url"
+fi
+if [[ -n "$embeds" ]]; then
+  count="$(grep -c . <<<"$embeds")"
+  printf '\n<details><summary>Changed scenes (%s)</summary>\n\n%s\n\n</details>\n' \
+    "$count" "$embeds"
+fi
+
+if [[ "$mismatch" == true ]]; then
+  exit 3
+fi

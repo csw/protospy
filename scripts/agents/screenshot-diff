@@ -25,21 +25,34 @@ Usage:
                        sub-pixel rendering variance without masking real
                        changes.
 
-Pairs images from before-dir and after-dir by filename. Files present in
-before-dir but not after-dir are reported as warnings and excluded from the
-pass/fail count. Files present only in after-dir are ignored silently.
+Pairs images from before-dir and after-dir by filename and classifies every
+file into one of three buckets:
+
+  - paired   present in both — compared pixel-by-pixel
+  - new      present only in after-dir — a scene the change adds (after-only)
+  - removed  present only in before-dir — a scene the change removes (before-only)
+
+new/removed are expected outcomes (a new or removed view), so they are reported
+but never on their own flip the exit code — only a paired difference does. The
+interactive reg-cli report (visual-diff-report) renders new/removed visually;
+this names them in the one-line summary that lands in the PR description.
 
 Outputs a one-line summary to stdout:
 
     4/4 identical
     2/4 differ: light-1280.png (0.3% changed), dark-1280.png (1.2% changed)
+    3/3 identical; 1 new: timeline-1280-dark.png; 1 removed: legacy-1280-dark.png
+    0 paired; 2 new: timeline-1280-dark.png, timeline-1440-dark.png
 
-Exits 0 if all pairs are within the threshold, 1 otherwise.
+Exits 0 when every compared pair is within the threshold (new/removed alone are
+fine), 1 when a pair exceeds the threshold or errors, 2 on bad arguments or when
+neither directory contains any images.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -96,6 +109,36 @@ def collect_images(directory: Path) -> list[Path]:
     )
 
 
+def format_summary(
+    ok_results: list[dict],
+    failing: list[dict],
+    new: list[str],
+    removed: list[str],
+) -> str:
+    """Build the one-line stdout summary from compared pairs and unpaired files.
+
+    ok_results are the pairs that compared cleanly; failing is the subset over
+    threshold (sorted worst-first). new/removed are after-only/before-only names.
+    """
+    n_pairs = len(ok_results)
+    if n_pairs == 0:
+        paired_part = "0 paired"
+    elif not failing:
+        paired_part = f"{n_pairs}/{n_pairs} identical"
+    else:
+        details = ", ".join(
+            f"{r['name']} ({r['percent']:.1f}% changed)" for r in failing
+        )
+        paired_part = f"{len(failing)}/{n_pairs} differ: {details}"
+
+    parts = [paired_part]
+    if new:
+        parts.append(f"{len(new)} new: {', '.join(new)}")
+    if removed:
+        parts.append(f"{len(removed)} removed: {', '.join(removed)}")
+    return "; ".join(parts)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compare before/after screenshot directories pixel-by-pixel."
@@ -116,6 +159,14 @@ def main(argv: list[str] | None = None) -> int:
         metavar="N",
         dest="pixel_tolerance",
         help="per-channel difference to ignore for sub-pixel rendering (default: 2)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="emit a machine-readable classification "
+        "({identical, changed, new, removed, errors}) instead of the one-line "
+        "summary — so a caller can act on exactly the scenes that differ",
     )
     args = parser.parse_args(argv)
 
@@ -147,29 +198,25 @@ def main(argv: list[str] | None = None) -> int:
     before_images = {p.name: p for p in collect_images(before_dir)}
     after_images = {p.name: p for p in collect_images(after_dir)}
 
-    if not before_images:
-        print(f"error: no images found in {before_dir}", file=sys.stderr)
+    if not before_images and not after_images:
+        print(
+            f"error: no images found in {before_dir} or {after_dir}",
+            file=sys.stderr,
+        )
         return 2
 
-    # Warn about unpaired before-images
-    for name in sorted(before_images):
-        if name not in after_images:
-            print(
-                f"warning: {name} present in before/ but not after/ — skipping",
-                file=sys.stderr,
-            )
-
-    # Compare paired images
-    pairs = [(name, before_images[name]) for name in sorted(before_images) if name in after_images]
-
-    if not pairs:
-        print("error: no paired images to compare", file=sys.stderr)
-        return 2
+    # Classify every file structurally: paired (both), new (after-only), removed
+    # (before-only). A pure new-view ticket has an empty before-dir and reports
+    # all-new; a pure removal reports all-removed.
+    paired = [name for name in sorted(before_images) if name in after_images]
+    new = [name for name in sorted(after_images) if name not in before_images]
+    removed = [name for name in sorted(before_images) if name not in after_images]
 
     results: list[dict[str, object]] = []
-    for name, before_path in pairs:
-        after_path = after_images[name]
-        result = compare_pair(before_path, after_path, args.pixel_tolerance)
+    for name in paired:
+        result = compare_pair(
+            before_images[name], after_images[name], args.pixel_tolerance
+        )
         result["name"] = name
         results.append(result)
 
@@ -178,20 +225,35 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {r['name']}: {r['error']}", file=sys.stderr)
 
     ok_results = [r for r in results if r["ok"]]
-    n_pairs = len(ok_results)
     failing = sorted(
         [r for r in ok_results if r["percent"] / 100 > args.threshold],
         key=lambda r: -r["percent"],
     )
+    failing_names = {r["name"] for r in failing}
 
-    if not failing:
-        print(f"{n_pairs}/{n_pairs} identical")
-    else:
-        details = ", ".join(
-            f"{r['name']} ({r['percent']:.1f}% changed)" for r in failing
+    if args.as_json:
+        print(
+            json.dumps(
+                {
+                    "identical": [
+                        r["name"] for r in ok_results if r["name"] not in failing_names
+                    ],
+                    "changed": [
+                        {"name": r["name"], "percent": round(r["percent"], 4)}
+                        for r in failing
+                    ],
+                    "new": new,
+                    "removed": removed,
+                    "errors": [
+                        {"name": r["name"], "error": r["error"]} for r in errors
+                    ],
+                }
+            )
         )
-        print(f"{len(failing)}/{n_pairs} differ: {details}")
+    else:
+        print(format_summary(ok_results, failing, new, removed))
 
+    # new/removed are expected and do not fail the run; only paired diffs/errors do.
     if errors or failing:
         return 1
 

@@ -28,22 +28,16 @@ case "$theme" in
     ;;
 esac
 
-# Wait for the bridge to mount, set the preference, wait for it to settle, then
-# confirm the resolved `.dark` class for an explicit target. (For 'system' the
-# resolved theme depends on the emulated color scheme, so only the preference is
-# waited on, not the class.) Any failure — a `waitFor` timeout or the explicit
-# mismatch throw — surfaces as `--json` `isError: true`; a clean run omits it.
-# `run-code` always exits 0, so that boolean (checked below) is the enforcement.
-# (A returned sentinel won't do: the CLI double-stringifies return values, e.g.
-# 'ok' comes back as "\"ok\"", so `isError` is the robust signal.)
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/agents/_screenshot-js.sh
+source "$here/_screenshot-js.sh"
+
+# The theme-activation JS is shared with `capture-shot` (see _screenshot-js.sh).
+# Any failure — a `waitFor` timeout or the explicit mismatch throw — surfaces as
+# `--json` `isError: true`; a clean run omits it. `run-code` always exits 0, so
+# that boolean (checked below) is the enforcement.
 result="$(playwright-cli run-code --json "async page => {
-  await page.waitForFunction(() => window.__test_theme != null, { timeout: 10000 });
-  await page.evaluate(() => window.__test_theme.setTheme('$theme'));
-  await page.waitForFunction(() => window.__test_theme.theme === '$theme', { timeout: 10000 });
-  if ('$theme' !== 'system') {
-    const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
-    if (isDark !== ('$theme' === 'dark')) throw new Error('resolved theme is not $theme');
-  }
+$(js_set_theme "$theme")
 }")"
 
 if ! jq -e '.isError != true' <<<"$result" >/dev/null 2>&1; then

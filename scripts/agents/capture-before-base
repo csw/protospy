@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+#
+# Capture the "before" screenshot pass against the BASE app — the merge-base of
+# this branch with main — into a directory, so the before set reflects the
+# pre-change UI no matter how late in the work it is captured. The whole base-app
+# lifecycle is scripted so the agent never hand-manages a throwaway checkout, a
+# second dev server, or its teardown.
+#
+# It checks out the base commit into a throwaway git worktree, runs that app on
+# its own dev server, points the current `playwright-cli` session at it, and runs
+# `capture-matrix` (into the before/ dir) using THIS branch's capture tooling
+# (the scripts are app-version-agnostic, so the base app's older scripts never
+# run). With no --spec it captures the base app's FULL scene set; a view this
+# branch adds is simply absent there, so the before set omits it and
+# `screenshot-diff` reports it as new (and vice-versa for a removed view) — no
+# delta bookkeeping needed.
+#
+# The result is CACHED by base commit (the before set depends only on the base
+# app's code): a second run for the same base — a later review cycle, a fresh
+# session — restores the cached PNGs and skips the worktree, install, server, and
+# capture entirely. `--refresh-cache` forces a recapture. Cache root:
+# $PROTOSPY_SCREENSHOT_CACHE (default ~/.cache/protospy-screenshots).
+#
+# Everything (worktree, server) is torn down on exit, success or failure. This
+# script only CAPTURES (and caches) — uploads/diffing are `compare-screenshots`'s
+# job, so the before set isn't uploaded here.
+#
+# Usage:
+#   capture-before-base --out <dir>
+#     [--spec <spec-file>]     # explicit dimensions instead of the full set
+#     [--base-ref <ref>]       # default: main
+#     [--port <port>]          # default: a free port
+#     [--refresh-cache]        # ignore any cached set and recapture
+#
+# All progress goes to stderr. Run it from this branch's worktree, with a
+# `playwright-cli` available. See the `protospy-screenshot` skill.
+set -euo pipefail
+
+spec="" out="" base_ref="main" port="" refresh_cache=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --spec) spec="$2"; shift 2 ;;
+    --out) out="$2"; shift 2 ;;
+    --base-ref) base_ref="$2"; shift 2 ;;
+    --port) port="$2"; shift 2 ;;
+    --refresh-cache) refresh_cache=true; shift ;;
+    *) echo "capture-before-base: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+usage() {
+  echo "usage: $(basename "$0") --out <dir> [--spec <spec-file>] [--base-ref <ref>] [--port <port>] [--refresh-cache]" >&2
+  exit 2
+}
+
+[[ -n "$out" ]] || usage
+if [[ -n "$spec" && ! -f "$spec" ]]; then
+  echo "capture-before-base: spec file not found: $spec" >&2
+  exit 2
+fi
+
+here="$(cd "$(dirname "$0")" && pwd)"
+
+# Resolve the base commit: the point this branch diverged from base_ref.
+base_commit="$(git merge-base HEAD "$base_ref")" || {
+  echo "capture-before-base: could not find merge-base of HEAD and '$base_ref'" >&2
+  exit 1
+}
+base_short="$(git rev-parse --short "$base_commit")"
+echo "capture-before-base: base commit $base_short (merge-base with $base_ref)" >&2
+
+# Cache key: the before set depends only on the base app's code (the base commit)
+# and the capture dimensions. Dims tag is the spec's content hash, or "full" for
+# the default full-set capture. Bump CACHE_VERSION if the capture format changes.
+CACHE_VERSION="v1"
+if [[ -n "$spec" ]]; then
+  spec_hash="$(sha256sum "$spec" | cut -c1-16)"
+  dims_tag="spec-$spec_hash"
+else
+  dims_tag="full"
+fi
+cache_root="${PROTOSPY_SCREENSHOT_CACHE:-$HOME/.cache/protospy-screenshots}"
+cache_dir="$cache_root/before/$CACHE_VERSION/$base_commit/$dims_tag"
+
+mkdir -p "$out"
+
+# Cache hit: restore the cached PNGs and skip the whole base-app lifecycle.
+if [[ "$refresh_cache" != true ]] && compgen -G "$cache_dir/*.png" >/dev/null 2>&1; then
+  echo "capture-before-base: cache hit ($cache_dir) — restoring before set, skipping base build" >&2
+  rm -rf "$out"
+  mkdir -p "$out"
+  cp "$cache_dir"/*.png "$out"/
+  n="$(find "$out" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')"
+  echo "capture-before-base: restored $n cached before shot(s) into $out" >&2
+  exit 0
+fi
+[[ "$refresh_cache" == true ]] && echo "capture-before-base: --refresh-cache: ignoring any cached set" >&2
+
+# A free port unless one was named (--strictPort below makes the dev server fail
+# rather than silently drift to another port, so readiness polling is reliable).
+if [[ -z "$port" ]]; then
+  # Bind on all interfaces to pick a number free on both IPv4 and IPv6 — the dev
+  # server (vite) binds IPv6 localhost (::1), so a 127.0.0.1-only probe can miss.
+  port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')"
+fi
+# Use `localhost` (not 127.0.0.1): vite binds ::1, and `localhost` resolves to
+# both stacks so curl and playwright reach it regardless of which it listens on.
+url="http://localhost:$port/"
+
+# `git worktree add` requires its target path NOT to exist, so make a temp parent
+# and point the worktree at a fresh subdir of it.
+tmp_parent="$(mktemp -d "${TMPDIR:-/tmp}/protospy-base.XXXXXX")"
+wt="$tmp_parent/app"
+dev_pgid=""
+
+cleanup() {
+  if [[ -n "$dev_pgid" ]]; then
+    kill -- "-$dev_pgid" 2>/dev/null || true
+  fi
+  git worktree remove --force "$wt" 2>/dev/null || true
+  rm -rf "$tmp_parent" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+echo "capture-before-base: checking out base app into $wt" >&2
+git worktree add --detach "$wt" "$base_commit" >&2
+
+echo "capture-before-base: installing base app dependencies (this can take a moment)" >&2
+( cd "$wt/ui" && pnpm install ) >&2
+
+echo "capture-before-base: starting base dev server on port $port" >&2
+# Own a fresh process group so teardown kills vite and its children, not just the
+# pnpm wrapper.
+setsid bash -c "cd '$wt/ui' && exec pnpm dev --port '$port' --strictPort" >/dev/null 2>&1 &
+dev_pgid=$!
+
+# Wait for the dev server to answer before driving it.
+ready=false
+for _ in $(seq 1 120); do
+  if curl -sf -o /dev/null "$url"; then ready=true; break; fi
+  sleep 0.5
+done
+if [[ "$ready" != true ]]; then
+  echo "capture-before-base: base dev server did not come up on $url within 60s" >&2
+  exit 1
+fi
+
+echo "capture-before-base: pointing playwright-cli at the base app" >&2
+playwright-cli open "$url" >/dev/null 2>&1 || playwright-cli goto "$url" >/dev/null
+
+# Capture the before pass against the base app, with this branch's tooling. No
+# --spec captures the base app's full scene set.
+matrix_opts=()
+[[ -n "$spec" ]] && matrix_opts+=(--spec "$spec")
+"$here/capture-matrix" --out "$out" "${matrix_opts[@]}" >&2
+
+# Populate the cache from the freshly captured set (best-effort — a cache write
+# failure must not fail the capture).
+if compgen -G "$out/*.png" >/dev/null 2>&1; then
+  if rm -rf "$cache_dir" 2>/dev/null && mkdir -p "$cache_dir" 2>/dev/null; then
+    cp "$out"/*.png "$cache_dir"/ 2>/dev/null \
+      && echo "capture-before-base: cached before set at $cache_dir" >&2 \
+      || echo "capture-before-base: warning: could not populate cache at $cache_dir" >&2
+  fi
+fi

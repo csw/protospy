@@ -159,29 +159,31 @@ class BehavioralInvariantTests(unittest.TestCase):
                 f"{label} skill missing explicit 'do not enter step 10'",
             )
 
-    def test_matrix_manifest_in_both_skills(self) -> None:
-        """Both skills must instruct the agent to record the shot matrix to
-        scratch/matrix.txt before taking before screenshots."""
+    def test_before_after_capture_in_both_skills(self) -> None:
+        """Both skills must wire the before/after capture flow: the base-app
+        before pass and the HEAD after pass into the conventional dirs."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
-            self.assertIn(
-                "scratch/matrix.txt",
-                generated,
-                f"{label} skill missing scratch/matrix.txt manifest reference",
-            )
+            for token in ("capture-before-base", "scratch/before", "scratch/after"):
+                self.assertIn(
+                    token,
+                    generated,
+                    f"{label} skill missing before/after capture token {token!r}",
+                )
 
-    def test_screenshot_diff_in_both_skills(self) -> None:
-        """Both skills must reference screenshot-diff for the pixel self-check."""
+    def test_compare_screenshots_in_both_skills(self) -> None:
+        """Both skills must reference compare-screenshots for the pixel self-check
+        (it wraps screenshot-diff + visual-diff-report and emits the PR section)."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
             self.assertIn(
-                "screenshot-diff",
+                "compare-screenshots",
                 generated,
-                f"{label} skill missing screenshot-diff reference",
+                f"{label} skill missing compare-screenshots reference",
             )
 
     def test_selfcheck_stop_before_pushing(self) -> None:

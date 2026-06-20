@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#
+# Capture one pass of a screenshot matrix and upload it — the whole "capture a set
+# and get its Markdown embeds" step in one command, so the before/after flow isn't
+# a multi-step recipe to follow by hand.
+#
+# Runs `capture-matrix` against the running app (which cleans the output dir and,
+# by default, captures every scene the app exposes — no spec to write), then
+# `upload-screenshot` on the result, printing one Markdown image embed per
+# uploaded shot to stdout. Capture filenames and the capture-matrix summary go to
+# stderr.
+#
+# The output dir's basename is the upload subdir (`before/` vs `after/`), so the
+# two passes don't collide — pass `--out scratch/before` for the before pass and
+# `--out scratch/after` for the after pass. Each pass captures its own app
+# version's full scene set; `screenshot-diff` derives added/removed from the two.
+#
+# `--spec <spec-file>` is an optional override forwarded to capture-matrix, for a
+# ticket that needs specific dimensions (a non-default width or light theme)
+# instead of the full set.
+#
+# A pass that legitimately captures nothing leaves an empty dir and uploads
+# nothing — not an error.
+#
+# Usage:
+#   capture-pass --out <dir> --branch <branch> [--spec <spec-file>]
+#   capture-pass --out <dir> --prefix <prefix> [--spec <spec-file>]
+#
+# Requires a `playwright-cli` session already pointed at the running UI. See the
+# `protospy-screenshot` skill.
+set -euo pipefail
+
+spec="" out="" branch="" prefix=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --spec) spec="$2"; shift 2 ;;
+    --out) out="$2"; shift 2 ;;
+    --branch) branch="$2"; shift 2 ;;
+    --prefix) prefix="$2"; shift 2 ;;
+    *) echo "capture-pass: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+usage() {
+  echo "usage: $(basename "$0") --out <dir> (--branch <branch> | --prefix <prefix>) [--spec <spec-file>]" >&2
+  exit 2
+}
+
+[[ -n "$out" ]] || usage
+if [[ -n "$branch" && -n "$prefix" ]] || [[ -z "$branch" && -z "$prefix" ]]; then
+  usage  # exactly one of --branch / --prefix
+fi
+
+here="$(cd "$(dirname "$0")" && pwd)"
+
+matrix_opts=()
+[[ -n "$spec" ]] && matrix_opts+=(--spec "$spec")
+
+# Capture the matrix. Filenames and summary are informational here, so send them
+# to stderr; stdout is reserved for the upload embeds (the artifact for the PR
+# body).
+"$here/capture-matrix" --out "$out" "${matrix_opts[@]}" >&2
+
+shopt -s nullglob
+images=("$out"/*.png "$out"/*.jpg "$out"/*.jpeg "$out"/*.webp)
+if (( ${#images[@]} == 0 )); then
+  echo "capture-pass: $(basename "$out") captured no shots — nothing to upload" >&2
+  exit 0
+fi
+
+if [[ -n "$branch" ]]; then
+  "$here/upload-screenshot" "$out" --branch "$branch"
+else
+  "$here/upload-screenshot" "$out" --prefix "$prefix"
+fi

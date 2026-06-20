@@ -137,30 +137,6 @@ a `general-purpose` subagent via the Agent tool for a fresh perspective.
 Use the Opus model at high effort.
 Brief it on what you've tried and what's not working.
 
-### 3a — Capture before screenshots (UI-touching tickets)
-
-Check whether the ticket has a `UI` label:
-
-```bash
-linear issues get $ticket --output json \
-  | jq -r '.labels[].name' \
-  | grep -qi '^ui$' && echo yes || echo no
-```
-
-(`linear issues get --output json` includes labels natively under `.labels[].name`.)
-
-If yes, capture baseline screenshots **before any implementation begins**,
-following the **`protospy-screenshot`** skill's before/after procedure: write a
-matrix spec (`scene width theme` cells) to `scratch/matrix.txt` for the views the
-ticket changes, run `capture-matrix --spec scratch/matrix.txt --out
-scratch/before`, and upload. The skill owns the mechanics (scene injection, theme
-activation, content wait, filenames). Step 4 reuses the same spec, so the before
-and after sets pair by construction.
-
-If the ticket has no `UI` label, skip this sub-step.
-
-### 3b — Implement
-
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
 Run the subproject's quality checks as listed in its `CLAUDE.md`. Any
@@ -169,7 +145,7 @@ manually before proceeding.
 
 ---
 
-## 4 — Visually verify UI changes
+## 4 — Visually verify and capture UI changes
 
 **Trigger.** Run this step only when the branch diff touches UI source:
 
@@ -177,24 +153,41 @@ manually before proceeding.
 git diff main...HEAD --name-only -- 'ui/src/**'
 ```
 
-If no files listed, skip to step 5.
+If no files listed, skip to step 5. Otherwise follow the **`protospy-screenshot`**
+skill, which owns the capture procedure; the steps below wire it into this flow.
+The flow captures the **whole** scene set for each app version and diffs them —
+there is **no spec to author** and nothing to scope by hand. Added/removed views
+fall out of the two full sets automatically.
 
-Start a dev server on a non-default port for the subagent to drive:
+**Start the HEAD dev server** on a non-default port:
 
 ```bash
 cd ui && pnpm dev --port <port> &
 ```
 
+**Capture the before set from the base app:**
+
+```bash
+scripts/agents/capture-before-base --out scratch/before
+```
+
+It checks out the merge-base into a throwaway worktree, runs that app, captures
+its full scene set with this branch's tooling, and tears everything down — then
+**caches the result by base commit**, so a later review cycle or a fresh session
+restores it instantly instead of rebuilding the base app.
+
+**Capture the after set from HEAD and verify.**
 Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
 `playwright-cli` natively. Do **not** use `general-purpose` for this.
 Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
-> `http://localhost:<port>/`; the change touched <components/views>. Capture the
-> "after" set against the **same spec** as the before set: `scripts/agents/`
-> `capture-matrix --spec scratch/matrix.txt --out scratch/after` (see the
-> **`protospy-screenshot`** skill). Identical spec ⇒ the two sets pair. While
-> driving the app, check:
+> `http://localhost:<port>/`; the change touched <components/views>. Capturing the
+> before set above repointed playwright at a now-stopped server, so first re-open
+> HEAD, then capture the full "after" set (see the **`protospy-screenshot`** skill):
+> `playwright-cli open "http://localhost:<port>/"` then
+> `scripts/agents/capture-matrix --out scratch/after`.
+> The before/after sets pair by filename. While driving the app, check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
 > - **Widths and themes.** Spot-check 1280 and 1440, and both themes, where the
@@ -203,47 +196,25 @@ Give it this prompt (substitute components and port):
 >
 > Report briefly: what you checked, what looks right, any issues.
 
-If step 3a did not run (no UI label), there is no `scratch/matrix.txt` to reuse;
-have the subagent write a spec for representative cells per the skill, then
-`capture-matrix` against it.
-
 If the subagent reports problems, fix them, re-run quality checks, and
 re-verify. Capture a one-line summary for the PR description.
 
-Upload the subagent's screenshots as the "after" set:
+**Compare and assemble the visual diff.** Decide whether visual changes are
+**expected** — new feature, redesign, styling update → `changed`; refactor, code
+cleanup, internal rewiring → `unchanged` — then:
 
 ```bash
-scripts/agents/upload-screenshot scratch/after/ \
-  --branch "$(git branch --show-current)"
+scripts/agents/compare-screenshots scratch/before scratch/after \
+  --branch "$(git branch --show-current)" --expected <changed|unchanged>
 ```
 
-**Screenshot comparison.** After the after upload, always run:
-
-```bash
-scripts/agents/screenshot-diff scratch/before/ scratch/after/
-```
-
-Capture the printed summary line (e.g. `4/4 identical` or
-`2/4 differ: shot-1280-dark.png (0.3% changed)`). Store it for step 6.
-
-Determine whether visual changes were **expected** (new feature, redesign,
-styling update → yes; refactor, code cleanup, internal rewiring → no) and
-whether changes were **found** (screenshot-diff exits 1 → yes, exits 0 → no).
-
-- **Expected and found**: generate the visual-diff report and store the URL:
-
-  ```bash
-  scripts/agents/visual-diff-report scratch/before/ scratch/after/ \
-    --branch "$(git branch --show-current)"
-  ```
-
-- **Not expected and not found**: no further action needed.
-
-- **Mismatch** — expected but not found, or found but not expected:
-  - If changes were found, generate the visual-diff report and store the URL.
-  - **Stop before pushing.** Surface the mismatch to the user immediately and
-    wait for explicit direction before proceeding. The PR description will
-    flag the discrepancy with a caution block (step 6).
+It prints the ready-to-paste `## Visual diff` section: the comparison summary, an
+interactive report link when anything changed (carrying every shot, differences
+highlighted), and inline embeds of **only** the scenes that changed (so the full
+set doesn't flood the PR). **Save its stdout for step 6.** If it exits 3 — the
+actual result disagreed with `--expected` — **stop before pushing**: surface the
+mismatch to the user and wait for explicit direction. (The printed section already
+carries the caution block, so it still goes into the PR.)
 
 ---
 
@@ -273,52 +244,11 @@ ticket ID unless the user names them.
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
-If screenshots were taken (steps 3a / 4), append a `## Visual diff` section to
-the PR body.
-
-**If a mismatch was detected in step 4**, open the section with a caution
-block (use the appropriate message):
-
-```markdown
-> [!CAUTION]
-> Visual changes were expected but none were detected — verify the implementation.
-```
-
-```markdown
-> [!CAUTION]
-> Unexpected visual changes detected — review before merging.
-```
-
-Then always include the screenshot-diff summary line:
-
-```
-**Screenshot comparison:** <summary from step 4>
-```
-
-If a visual-diff report URL was produced (changes were found):
-
-```
-[Visual diff report](<URL from step 4>)
-```
-
-Full example — expected change with report:
-
-```markdown
-## Visual diff
-
-**Screenshot comparison:** 2/4 differ: shot-1280-dark.png (0.3% changed)
-[Visual diff report](https://protospy-dev-data.s3.amazonaws.com/...)
-```
-
-Full example — clean refactor, no changes:
-
-```markdown
-## Visual diff
-
-**Screenshot comparison:** 4/4 identical
-```
-
-Omit the section entirely if no screenshots were taken.
+If screenshots were taken (step 4), append the `## Visual diff` section
+that `compare-screenshots` printed in step 4 to the PR body **verbatim**. It
+already contains the comparison summary, the report link when anything changed,
+and a `> [!CAUTION]` block if the result mismatched expectations. Omit the
+section entirely if no screenshots were taken.
 
 ---
 
@@ -508,21 +438,20 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 
 ### Update after screenshots
 
-If this ticket has before/after screenshots (step 3a / step 4) and the fixes
-changed anything visually (UI code, styles, layout):
+If this ticket has before/after screenshots (step 4) and the fixes changed
+anything visually (UI code, styles, layout), with a dev server + `playwright-cli`
+session running as in step 4:
 
-1. Clean and retake the "after" screenshots — setting the theme before each
-   shot as in step 4 — then re-upload, passing the manifest so stale or missing
-   files are flagged:
-   `rm -rf scratch/after && mkdir -p scratch/after` (recapture), then
-   `scripts/agents/upload-screenshot scratch/after/ --prefix $ticket/after --matrix scratch/matrix.txt`
-2. Re-run `scripts/agents/screenshot-diff scratch/before/ scratch/after/` and
-   update the `**Screenshot comparison:**` line in the PR description.
-3. If there are visual changes, re-run:
-   `scripts/agents/visual-diff-report scratch/before/ scratch/after/ --branch "$(git branch --show-current)"`
-   and update the `[Visual diff report]` link in the PR description.
+1. Recapture the after set against HEAD (this cleans and re-captures it):
+   `playwright-cli open "http://localhost:<port>/"` then
+   `scripts/agents/capture-matrix --out scratch/after`
+2. Re-run `scripts/agents/compare-screenshots scratch/before scratch/after --branch "$(git branch --show-current)" --expected <changed|unchanged>`
+   and replace the `## Visual diff` section in the PR description with its output.
 
-Do this after every push that changes visual output — not just the first one.
+The before set comes from the unchanged base app and is cached by base commit, so
+it does not need recapturing — `scratch/before` may even be repopulated for free
+by re-running `capture-before-base` if the directory was cleaned. Do this after
+every push that changes visual output — not just the first one.
 
 ### Run another review round
 

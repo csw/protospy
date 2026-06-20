@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -158,15 +159,45 @@ class MainTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("1/2 differ", out)
 
-    def test_unpaired_before_image_warns_and_is_excluded(self) -> None:
+    def test_before_only_reported_as_removed(self) -> None:
         _make_png(self.before_dir / "paired-1280-dark.png", (0, 0, 0))
         _make_png(self.after_dir / "paired-1280-dark.png", (0, 0, 0))
         _make_png(self.before_dir / "orphan-1280-dark.png", (1, 2, 3))
-        code, out, err = self._run()
+        code, out, _ = self._run()
+        # A before-only file is an expected "removed" scene, not a failure.
         self.assertEqual(code, 0)
-        self.assertIn("orphan-1280-dark.png", err)
-        self.assertIn("warning", err)
-        self.assertIn("1/1", out)
+        self.assertIn("1/1 identical", out)
+        self.assertIn("1 removed: orphan-1280-dark.png", out)
+
+    def test_after_only_reported_as_new(self) -> None:
+        _make_png(self.before_dir / "paired-1280-dark.png", (0, 0, 0))
+        _make_png(self.after_dir / "paired-1280-dark.png", (0, 0, 0))
+        _make_png(self.after_dir / "fresh-1280-dark.png", (1, 2, 3))
+        code, out, _ = self._run()
+        # An after-only file is an expected "new" scene, not a failure.
+        self.assertEqual(code, 0)
+        self.assertIn("1/1 identical", out)
+        self.assertIn("1 new: fresh-1280-dark.png", out)
+
+    def test_pure_new_view_empty_before(self) -> None:
+        # A ticket whose only scene is after-only leaves before/ empty.
+        _make_png(self.after_dir / "timeline-1280-dark.png", (1, 2, 3))
+        _make_png(self.after_dir / "timeline-1440-dark.png", (1, 2, 3))
+        code, out, _ = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("0 paired", out)
+        self.assertIn("2 new:", out)
+
+    def test_paired_diff_still_fails_with_new_and_removed(self) -> None:
+        _make_png(self.before_dir / "p-1280-dark.png", (0, 0, 0))
+        _make_png(self.after_dir / "p-1280-dark.png", (255, 255, 255))
+        _make_png(self.after_dir / "new-1280-dark.png", (1, 2, 3))
+        _make_png(self.before_dir / "gone-1280-dark.png", (4, 5, 6))
+        code, out, _ = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("1/1 differ", out)
+        self.assertIn("1 new: new-1280-dark.png", out)
+        self.assertIn("1 removed: gone-1280-dark.png", out)
 
     def test_within_threshold_exits_zero(self) -> None:
         _make_png_1px_diff(
@@ -189,18 +220,20 @@ class MainTests(unittest.TestCase):
         code, _, _ = self._run("--threshold", "0.00001")
         self.assertEqual(code, 1)
 
-    def test_empty_before_dir_exits_two(self) -> None:
+    def test_both_dirs_empty_exits_two(self) -> None:
         code, _, err = self._run()
         self.assertEqual(code, 2)
         self.assertIn("no images found", err)
 
-    def test_no_paired_images_exits_two(self) -> None:
+    def test_no_paired_images_reports_new_and_removed(self) -> None:
         _make_png(self.before_dir / "shot-1280-dark.png", (0, 0, 0))
-        # after/ has a different file
+        # after/ has a different file — one removed, one new, nothing paired.
         _make_png(self.after_dir / "other-1280-dark.png", (0, 0, 0))
-        code, _, err = self._run()
-        self.assertEqual(code, 2)
-        self.assertIn("no paired images", err)
+        code, out, _ = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("0 paired", out)
+        self.assertIn("1 new: other-1280-dark.png", out)
+        self.assertIn("1 removed: shot-1280-dark.png", out)
 
     def test_invalid_threshold_exits_two(self) -> None:
         _make_png(self.before_dir / "shot-1280-dark.png", (0, 0, 0))
@@ -216,6 +249,65 @@ class MainTests(unittest.TestCase):
             code = screenshot_diff.main(argv)
         self.assertEqual(code, 2)
         self.assertIn("does not exist", err.getvalue())
+
+
+class JsonOutputTests(unittest.TestCase):
+    """--json: machine-readable classification for compare-screenshots to act on."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp.name)
+        self.before_dir = self.tmp_path / "before"
+        self.after_dir = self.tmp_path / "after"
+        self.before_dir.mkdir()
+        self.after_dir.mkdir()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _run_json(self, *extra_args: str) -> tuple[int, dict]:
+        argv = [str(self.before_dir), str(self.after_dir), "--json", *extra_args]
+        out, err = io.StringIO(), io.StringIO()
+        with patch("sys.stdout", out), patch("sys.stderr", err):
+            code = screenshot_diff.main(argv)
+        return code, json.loads(out.getvalue())
+
+    def test_classifies_changed_new_removed_identical(self) -> None:
+        # identical pair
+        _make_png(self.before_dir / "same-1280-dark.png", (10, 20, 30))
+        _make_png(self.after_dir / "same-1280-dark.png", (10, 20, 30))
+        # changed pair
+        _make_png(self.before_dir / "diff-1280-dark.png", (0, 0, 0))
+        _make_png(self.after_dir / "diff-1280-dark.png", (255, 255, 255))
+        # new (after only) and removed (before only)
+        _make_png(self.after_dir / "added-1280-dark.png", (1, 2, 3))
+        _make_png(self.before_dir / "gone-1280-dark.png", (4, 5, 6))
+
+        code, data = self._run_json()
+        self.assertEqual(code, 1)  # a paired diff flips the exit code
+        self.assertEqual(data["identical"], ["same-1280-dark.png"])
+        self.assertEqual([c["name"] for c in data["changed"]], ["diff-1280-dark.png"])
+        self.assertIsInstance(data["changed"][0]["percent"], (int, float))
+        self.assertEqual(data["new"], ["added-1280-dark.png"])
+        self.assertEqual(data["removed"], ["gone-1280-dark.png"])
+        self.assertEqual(data["errors"], [])
+
+    def test_all_identical_exits_zero(self) -> None:
+        _make_png(self.before_dir / "a-1280-dark.png", (9, 9, 9))
+        _make_png(self.after_dir / "a-1280-dark.png", (9, 9, 9))
+        code, data = self._run_json()
+        self.assertEqual(code, 0)
+        self.assertEqual(data["changed"], [])
+        self.assertEqual(data["identical"], ["a-1280-dark.png"])
+
+    def test_new_and_removed_alone_exit_zero(self) -> None:
+        # No paired diff → exit 0 even though there are new/removed scenes.
+        _make_png(self.after_dir / "added-1280-dark.png", (1, 2, 3))
+        _make_png(self.before_dir / "gone-1280-dark.png", (4, 5, 6))
+        code, data = self._run_json()
+        self.assertEqual(code, 0)
+        self.assertEqual(data["new"], ["added-1280-dark.png"])
+        self.assertEqual(data["removed"], ["gone-1280-dark.png"])
 
 
 class CollectImagesTests(unittest.TestCase):
@@ -236,6 +328,35 @@ class CollectImagesTests(unittest.TestCase):
             (p / "shot.json").touch()
             images = screenshot_diff.collect_images(p)
             self.assertEqual(images, [])
+
+
+class FormatSummaryTests(unittest.TestCase):
+    @staticmethod
+    def _ok(name: str, percent: float = 0.0) -> dict:
+        return {"ok": True, "error": None, "percent": percent, "name": name}
+
+    def test_all_identical(self) -> None:
+        ok = [self._ok("a"), self._ok("b")]
+        self.assertEqual(screenshot_diff.format_summary(ok, [], [], []), "2/2 identical")
+
+    def test_failing_pairs(self) -> None:
+        ok = [self._ok("a"), self._ok("b", 1.2)]
+        failing = [self._ok("b", 1.2)]
+        self.assertEqual(
+            screenshot_diff.format_summary(ok, failing, [], []),
+            "1/2 differ: b (1.2% changed)",
+        )
+
+    def test_new_and_removed_appended(self) -> None:
+        ok = [self._ok("a")]
+        summary = screenshot_diff.format_summary(ok, [], ["new.png"], ["gone.png"])
+        self.assertEqual(
+            summary, "1/1 identical; 1 new: new.png; 1 removed: gone.png"
+        )
+
+    def test_no_pairs_only_new(self) -> None:
+        summary = screenshot_diff.format_summary([], [], ["x.png", "y.png"], [])
+        self.assertEqual(summary, "0 paired; 2 new: x.png, y.png")
 
 
 if __name__ == "__main__":
