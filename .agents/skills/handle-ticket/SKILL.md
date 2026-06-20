@@ -198,18 +198,16 @@ pick a scene that puts data in the view the ticket changes.
 
 **Set the theme explicitly before each shot — the filename does not set it.** A
 `-dark`/`-light` suffix is just a label; the active theme is whatever was last
-applied. Theme is owned by next-themes via the dev-only `window.__test_theme`
-bridge (not the Zustand store). The bridge mounts in a React effect and
-next-themes applies the `.dark` class in another effect, so you must wait for
-the bridge, then wait for the preference to settle, before asserting the
-resolved class:
+applied. `scripts/agents/set-theme` drives the next-themes test bridge and
+verifies the theme took (it handles the bridge-mount and effect-settle waits the
+direct call needs, and exits non-zero if the theme does not activate):
 
 ```bash
 # For a *-dark.png shot (use 'light' for a *-light.png shot):
-playwright-cli run-code "async page => { await page.waitForFunction(() => window.__test_theme != null, { timeout: 10000 }); await page.evaluate(() => window.__test_theme.setTheme('dark')); await page.waitForFunction(() => window.__test_theme.theme === 'dark', { timeout: 10000 }); const ok = await page.evaluate(() => document.documentElement.classList.contains('dark')); if (!ok) throw new Error('theme not active: expected dark'); }"
+scripts/agents/set-theme dark
 ```
 
-Only after the verify passes do you capture. **Save screenshots with the exact
+Only after `set-theme` succeeds do you capture. **Save screenshots with the exact
 filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then upload,
 passing the manifest so the script flags any stale or missing files:
 
@@ -277,23 +275,15 @@ Give it this prompt (substitute components, port, and the filenames from
 > Inject fixture state via
 > `window.__test_scenes.apply('<scene-id>')` where helpful.
 >
-> **Set the theme before each shot — the filename does not set it.** Theme is
-> owned by next-themes via the dev-only `window.__test_theme` bridge (not the
-> Zustand store). The bridge and the `.dark` class are each applied by a React
-> effect, so wait for both: `await page.waitForFunction(() =>
-window.__test_theme != null)`, then
-> `window.__test_theme.setTheme('dark')` (`'light'` for a `-light` shot), then
-> `await page.waitForFunction(() => window.__test_theme.theme === 'dark')`.
-> Only then verify before saving:
-> `document.documentElement.classList.contains('dark')` must be `true` for a
-> dark shot (`false` for a light shot). If it does not match, fix the theme and
-> re-check before capturing — never save a shot whose active theme disagrees
-> with its filename. Check:
+> **Set the theme before each shot — the filename does not set it.** Run
+> `scripts/agents/set-theme dark` (`light` for a `-light` shot) before
+> capturing; it drives the next-themes test bridge, waits for the theme to
+> settle, verifies it activated, and exits non-zero if it did not. Never save a
+> shot whose active theme disagrees with its filename. Check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
 > - **Reasonable widths?** Spot-check 1280 and 1440 (`playwright-cli resize`).
-> - **Both themes.** Toggle via
->   `window.__test_theme.setTheme('dark')` / `'light'` (wait as above).
+> - **Both themes.** Toggle via `scripts/agents/set-theme dark` / `light`.
 > - **No new console errors** (`playwright-cli console`).
 >
 > Report briefly: what you checked, what looks right, any issues.

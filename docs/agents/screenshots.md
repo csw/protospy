@@ -90,17 +90,15 @@ The `handle-ticket` skill wires this automatically for UI-touching tickets:
    (default dark) unless theme-specific styling is touched. Record the list in
    `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
    Clean `scratch/before/`, start a dev server, then for each scene **set the
-   theme explicitly** via the next-themes test bridge — wait for
-   `window.__test_theme`, call `window.__test_theme.setTheme('dark'|'light')`,
-   wait for `window.__test_theme.theme` to settle, then verify
-   `document.documentElement.classList.contains('dark')` — before capturing.
-   The `-dark`/`-light` filename is a label, not the active theme. Save with the
-   exact manifest filenames to `scratch/before/`, then upload with
-   `--matrix scratch/matrix.txt`.
+   theme explicitly** with `scripts/agents/set-theme dark|light` before
+   capturing — it drives the next-themes test bridge, waits for the theme to
+   settle, and verifies it activated (the `-dark`/`-light` filename is a label,
+   not the active theme). Save with the exact manifest filenames to
+   `scratch/before/`, then upload with `--matrix scratch/matrix.txt`.
 
 2. **After (step 4)** — clean `scratch/after/`; the qa-explorer subagent
-   receives the manifest filenames, sets the theme before each shot the same
-   way, and saves screenshots with the same names to `scratch/after/`. Upload
+   receives the manifest filenames, sets the theme with `set-theme` before each
+   shot, and saves screenshots with the same names to `scratch/after/`. Upload
    those with `--matrix scratch/matrix.txt`.
 
 3. **Screenshot comparison (step 4, always)** — run `screenshot-diff` on every
@@ -156,6 +154,25 @@ and exits 0 (all within threshold) or 1 (at least one pair exceeds threshold).
 - `--pixel-tolerance` (default 2) — per-channel RGB tolerance suppressing
   sub-pixel rendering noise; pixels differing by ≤ N in every channel count
   as identical.
+
+## set-theme
+
+`scripts/agents/set-theme <light|dark|system>` activates a theme through the
+next-themes test bridge in the current `playwright-cli` session and verifies it
+took, so a shot is never captured under the wrong theme:
+
+```bash
+scripts/agents/set-theme dark   # then capture a *-dark.png shot
+```
+
+Theme moved out of the Zustand store with the v2.3 next-themes swap (PRO-345):
+`window.__test_theme` owns it, and both the bridge and the `.dark` class on
+`<html>` are applied by React effects. The script waits for the bridge to mount,
+sets the preference, waits for it to settle, then (for an explicit `light`/`dark`
+target) asserts the resolved `.dark` class — exiting non-zero if the theme never
+activates. For `system` it verifies the preference only, since the resolved
+theme depends on the emulated color scheme. It needs a `playwright-cli` session
+already pointed at the running UI.
 
 ## Scoping
 
