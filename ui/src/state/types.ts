@@ -2,6 +2,24 @@ import type { BodyChunk } from "@bindings/BodyChunk";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 import type { SSEStreamState } from "@ui/body/sse-stream";
 
+/**
+ * Decoded UI-side view of a single request or response body, accumulated by the
+ * pure reducer (`state/reducer.ts`) from the proxy's `InitialBody` + streamed
+ * `BodyData` events. One `BodyState` hangs off `Exchange.requestBody` /
+ * `Exchange.responseBody`; it stays `undefined` when the leg carries no body.
+ *
+ * Two storage shapes share this one type, keyed on `sseState`:
+ * - **Raw bodies** accumulate wire `chunks` (concatenated and decoded lazily by
+ *   the body pipeline — `body/decode.ts`, `hooks/useDecodeBody.ts`); `sseState`
+ *   is absent.
+ * - **`text/event-stream` bodies** parse incrementally into `sseState` (via
+ *   `body/sse-stream.ts`) and keep `chunks` empty — the parsed events are the
+ *   canonical representation, avoiding double-storage.
+ *
+ * The reducer rebuilds this object immutably on every event, so identity-based
+ * memoization tracks streaming updates. See the field docs below for the
+ * wire-vs-decoded byte-count distinction.
+ */
 export interface BodyState {
   chunks: BodyChunk[];
   atEnd: boolean;
@@ -57,6 +75,25 @@ export interface ExchangeError {
   message: string;
 }
 
+/**
+ * The UI's canonical model of one proxied HTTP exchange — a request/response
+ * pair keyed by the proxy's `exchange_id`. This is the central domain entity the
+ * list and inspector render; the store holds a `Map<number, Exchange>` and the
+ * pure reducer (`state/reducer.ts`) folds each `EventMessage` into it.
+ *
+ * Fields populate incrementally as events arrive, so most are optional: a fresh
+ * exchange has only `id` + `timestamp` until its `Request` event lands, and the
+ * response fields stay absent until the `Response` event (or never, for a
+ * request that fails or is still in flight). The shape is flat and string-typed
+ * (`status` is the full status line, e.g. `"200 OK"`) — deliberately close to
+ * the wire rather than an idealized model; see `lib/exchange.ts` for the
+ * consumed-interface read helpers components use.
+ *
+ * `error` (an {@link ExchangeError}) and `status` are mutually exclusive in
+ * practice: a transport failure sets `error` with no `status`, while an HTTP
+ * response — including a 5xx — sets `status` with no `error`. `traceId` is
+ * extracted from the request's `traceparent` header when present.
+ */
 export interface Exchange {
   id: number;
   timestamp: string;
