@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+#
+# Capture one canonical protospy screenshot, with the naming, theming, and
+# skeleton-wait rules baked in — so callers don't restate them on every shot.
+#
+# Given a fixture scene, theme, and width, this: resizes the viewport, applies
+# the scene through `window.__test_scenes` (which resets the store and waits for
+# React to settle), activates the theme via `set-theme` (next-themes bridge +
+# verify), waits for body content to finish decoding (no `aria-busy` region
+# remains — see the `protospy-screenshot` skill for why), and saves to the
+# conventional `{scene}-{width}-{theme}.png` filename in the output directory. It
+# prints the filename it produced, so a caller can build a matrix manifest from
+# the captured set.
+#
+# Usage: capture-shot --scene <id> --theme <light|dark> --width <px> --out <dir>
+#
+# Requires a `playwright-cli` session already pointed at the running UI (the same
+# session for every shot in a pass). See the `protospy-screenshot` skill.
+set -euo pipefail
+
+scene="" theme="" width="" out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scene) scene="$2"; shift 2 ;;
+    --theme) theme="$2"; shift 2 ;;
+    --width) width="$2"; shift 2 ;;
+    --out) out="$2"; shift 2 ;;
+    *) echo "capture-shot: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+usage() {
+  echo "usage: $(basename "$0") --scene <id> --theme <light|dark> --width <px> --out <dir>" >&2
+  exit 2
+}
+
+[[ -n "$scene" && -n "$theme" && -n "$width" && -n "$out" ]] || usage
+case "$theme" in light | dark) ;; *) usage ;; esac
+[[ "$width" =~ ^[0-9]+$ ]] || usage
+
+here="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "$out"
+filename="$scene-$width-$theme.png"
+
+# 1. Viewport width (height is fixed; protospy is a desktop layout).
+playwright-cli resize "$width" 900 >/dev/null
+
+# 2. Apply the scene and enforce that it took. applyAndSettle resets the store,
+#    applies the cell, waits for React to settle, and resolves to false for an
+#    unknown scene id, which throws here and surfaces as `--json` `isError: true`
+#    (`run-code` itself always exits 0). Failing before the capture avoids writing
+#    a bogus file under a stale scene.
+result="$(playwright-cli run-code --json "async page => {
+  const ok = await page.evaluate(id => window.__test_scenes.applyAndSettle(id), '$scene');
+  if (!ok) throw new Error('unknown scene: $scene');
+}")"
+if ! jq -e '.isError != true' <<<"$result" >/dev/null 2>&1; then
+  echo "capture-shot: scene '$scene' did not apply (is it a valid scene id?): $result" >&2
+  exit 1
+fi
+
+# 3. Activate and verify the theme (the shared helper enforces it and exits
+#    non-zero if the theme does not take, which aborts this script under set -e).
+"$here/set-theme" "$theme" >/dev/null
+
+# 4. Wait for body content to finish decoding before capturing — every loading
+#    region marks itself aria-busy, so one check covers them all. Best-effort:
+#    a stale skeleton is a soft defect, not a wrong-theme correctness failure.
+playwright-cli run-code "async page => {
+  await page.locator('[aria-busy=\"true\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+}" >/dev/null 2>&1 || true
+
+# 5. Final guard: gate the file-write on the live theme still matching the name.
+#    set-theme already verified activation and nothing above mutates theme, so
+#    this is belt-and-suspenders — but it ties the capture to the filename's theme
+#    token directly, so the shot's pixels can never disagree with its name even if
+#    a future step is inserted between theme activation and capture.
+want_dark=$([[ "$theme" == dark ]] && echo true || echo false)
+guard="$(playwright-cli run-code --json "async page => {
+  const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+  if (isDark !== $want_dark) throw new Error('active theme is not $theme');
+}")"
+if ! jq -e '.isError != true' <<<"$guard" >/dev/null 2>&1; then
+  echo "capture-shot: active theme disagrees with filename '$filename': $guard" >&2
+  exit 1
+fi
+
+# 6. Capture to the canonical filename.
+playwright-cli screenshot --filename="$out/$filename" >/dev/null
+echo "$filename"

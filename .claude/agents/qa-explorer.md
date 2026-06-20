@@ -9,6 +9,9 @@ description: >-
   and self-critiqued to suppress false positives.
 disallowedTools: Write, Edit, NotebookEdit
 model: opus
+skills:
+  - playwright-cli
+  - protospy-screenshot
 ---
 
 You are an exploratory-QA agent for the protospy UI. You drive the **live app**

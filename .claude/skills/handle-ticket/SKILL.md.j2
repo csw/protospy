@@ -156,75 +156,13 @@ linear issues get $ticket --output json \
 
 (`linear issues get --output json` includes labels natively under `.labels[].name`.)
 
-If yes, you must capture baseline screenshots **before any implementation
-begins**. From the ticket description, identify the views and scenes that will
-change.
-
-**Decide the shot matrix first.** Before starting the dev server, choose the
-minimal set of shots:
-- **Width**: default to 1280 unless the ticket explicitly touches horizontal
-  layout across widths; add 1440 only when necessary.
-- **Theme**: default to dark unless the ticket touches theme-specific styling;
-  add light only when necessary.
-
-Record the matrix in `scratch/matrix.txt` — one filename per line, following
-the `{scene}-{width}-{theme}.png` convention:
-
-```
-exchanges-active-1280-dark.png
-detail-panel-1280-dark.png
-```
-
-This manifest drives both the before and after steps — the after step (step 4)
-uses the same filenames so the two sets pair cleanly for pixel comparison.
-
-Pick a free port (default is 5173; use a different one) and start a dev server:
-
-```bash
-cd ui && pnpm dev --port <port> &
-```
-
-**Clean the output directory first** so stale artifacts from a prior attempt
-don't get mixed into this pass:
-
-```bash
-rm -rf scratch/before && mkdir -p scratch/before
-```
-
-Use `playwright-cli` to screenshot the affected views. Follow the
-**`protospy-screenshot`** skill when you capture — it covers the protospy-specific
-wait that keeps a shot from landing on a loading skeleton instead of rendered
-body content. Inject fixture state first if needed to make the changed area
-visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs the
-visual-verify step uses). An empty-state screenshot rarely shows anything useful;
-pick a scene that puts data in the view the ticket changes.
-
-**Set the theme explicitly before each shot — the filename does not set it.** A
-`-dark`/`-light` suffix is just a label; the active theme is whatever was last
-applied. `scripts/agents/set-theme` drives the next-themes test bridge and
-verifies the theme took (it handles the bridge-mount and effect-settle waits the
-direct call needs, and exits non-zero if the theme does not activate):
-
-```bash
-# For a *-dark.png shot (use 'light' for a *-light.png shot):
-scripts/agents/set-theme dark
-```
-
-Only after `set-theme` succeeds do you capture. **Save screenshots with the exact
-filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then upload,
-passing the manifest so the script flags any stale or missing files:
-
-```bash
-scripts/agents/upload-screenshot scratch/before/ \
-  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
-```
-
-If `upload-screenshot` warns that a file is not in the manifest (likely a stale
-artifact) or that an expected file is missing, resolve it — delete the stale
-file or capture the missing one — before moving on.
-
-Kill the dev server after capture
-(`kill %1` or `pkill -f 'pnpm dev'`).
+If yes, capture baseline screenshots **before any implementation begins**,
+following the **`protospy-screenshot`** skill's before/after procedure: write a
+matrix spec (`scene width theme` cells) to `scratch/matrix.txt` for the views the
+ticket changes, run `capture-matrix --spec scratch/matrix.txt --out
+scratch/before`, and upload. The skill owns the mechanics (scene injection, theme
+activation, content wait, filenames). Step 4 reuses the same spec, so the before
+and after sets pair by construction.
 
 If the ticket has no `UI` label, skip this sub-step.
 
@@ -254,13 +192,6 @@ Start a dev server on a non-default port for the subagent to drive:
 cd ui && pnpm dev --port <port> &
 ```
 
-**Clean the output directory first** so stale shots from a prior pass don't
-survive into this one:
-
-```bash
-rm -rf scratch/after && mkdir -p scratch/after
-```
-
 {% if harness == 'claude' %}
 Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
 `playwright-cli` natively. Do **not** use `general-purpose` for this.
@@ -268,51 +199,35 @@ Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
 Spawn a **`general-purpose`** subagent. In Codex, use `model: gpt-5.4-mini`
 with medium reasoning. Never pass Claude model names.
 {% endif %}
-Give it this prompt (substitute components, port, and the filenames from
-`scratch/matrix.txt` if step 3a ran):
+Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
-> `http://localhost:<port>/`. The change touched <components/views>. Use
-> `playwright-cli` to drive the app, following the **`protospy-screenshot`**
-> skill so each shot captures rendered body content, not a loading skeleton.
-> **Save screenshots to `scratch/after/`**
-> — pass `--filename scratch/after/<name>.png` for each shot.
-> **Never pass a bare relative `--filename`** like `--filename=after.png`.
-> **Use exactly these filenames** (from `scratch/matrix.txt`):
-> `<list filenames from matrix.txt, one per line>`
-> Inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where helpful.
->
-> **Set the theme before each shot — the filename does not set it.** Run
-> `scripts/agents/set-theme dark` (`light` for a `-light` shot) before
-> capturing; it drives the next-themes test bridge, waits for the theme to
-> settle, verifies it activated, and exits non-zero if it did not. Never save a
-> shot whose active theme disagrees with its filename. Check:
+> `http://localhost:<port>/`; the change touched <components/views>. Capture the
+> "after" set against the **same spec** as the before set: `scripts/agents/`
+> `capture-matrix --spec scratch/matrix.txt --out scratch/after` (see the
+> **`protospy-screenshot`** skill). Identical spec ⇒ the two sets pair. While
+> driving the app, check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
-> - **Reasonable widths?** Spot-check 1280 and 1440 (`playwright-cli resize`).
-> - **Both themes.** Toggle via `scripts/agents/set-theme dark` / `light`.
+> - **Widths and themes.** Spot-check 1280 and 1440, and both themes, where the
+>   change is layout- or theme-sensitive.
 > - **No new console errors** (`playwright-cli console`).
 >
 > Report briefly: what you checked, what looks right, any issues.
 
-If step 3a did not run (no UI label), the matrix isn't constrained — use the
-standard spot-check widths and themes from the subagent prompt above.
+If step 3a did not run (no UI label), there is no `scratch/matrix.txt` to reuse;
+have the subagent write a spec for representative cells per the skill, then
+`capture-matrix` against it.
 
 If the subagent reports problems, fix them, re-run quality checks, and
 re-verify. Capture a one-line summary for the PR description.
 
-Upload the subagent's screenshots as the "after" set, passing the manifest so
-the script flags any stale or missing files:
+Upload the subagent's screenshots as the "after" set:
 
 ```bash
 scripts/agents/upload-screenshot scratch/after/ \
-  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
+  --branch "$(git branch --show-current)"
 ```
-
-If `upload-screenshot` warns about a file not in the manifest (likely a stale
-artifact) or an expected file that is missing, resolve it — delete the stale
-file or re-capture the missing one — before continuing.
 
 **Screenshot comparison.** After the after upload, always run:
 

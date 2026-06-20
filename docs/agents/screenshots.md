@@ -43,15 +43,17 @@ scripts/agents/upload-screenshot <bestiary-dir> \
 ```
 
 **`--matrix PATH`** (optional, works with both modes) — checks the uploaded set
-against a matrix manifest (one filename per line; blank and `#` lines ignored)
-and prints advisory warnings to stderr: a file not in the manifest is likely a
-stale artifact, and a manifest entry not present was expected but never
+against a manifest of expected **filenames** (one per line; blank and `#` lines
+ignored) and prints advisory warnings to stderr: a file not in the manifest is
+likely a stale artifact, and a manifest entry not present was expected but never
 captured. The warnings are for agent self-correction, not a gate — the upload
-still proceeds. The before/after PR flow passes `--matrix scratch/matrix.txt`.
+still proceeds. This is a **backstop for hand-assembled uploads**; the structural
+before/after flow uses `capture-matrix` (below), which produces exactly the
+spec'd set, so a stale/missing mismatch can't arise there.
 
 ```bash
-scripts/agents/upload-screenshot scratch/after/ \
-  --branch "$(git branch --show-current)" --matrix scratch/matrix.txt
+scripts/agents/upload-screenshot some-dir/ \
+  --branch "$(git branch --show-current)" --matrix expected-files.txt
 ```
 
 **`--catalog`** (optional, works with both modes) — after uploading images,
@@ -83,35 +85,76 @@ public access settings.
 
 ## Before / after workflow
 
-The `handle-ticket` skill wires this automatically for UI-touching tickets:
+The capture procedure itself — choosing the matrix, injecting scenes, activating
+themes, waiting for content, naming files — lives in the **`protospy-screenshot`**
+skill, which `handle-ticket` invokes for UI-labelled tickets. `capture-matrix`
+and `capture-shot` (below) bake the mechanics in. This doc covers the surrounding
+scripts and the PR-description wiring:
 
-1. **Matrix (step 3a, before implementation)** — decide the minimal shot list:
-   one width (default 1280) unless horizontal layout is affected; one theme
-   (default dark) unless theme-specific styling is touched. Record the list in
-   `scratch/matrix.txt` — one `{scene}-{width}-{theme}.png` filename per line.
-   Clean `scratch/before/`, start a dev server, then for each scene **set the
-   theme explicitly** with `scripts/agents/set-theme dark|light` before
-   capturing — it drives the next-themes test bridge, waits for the theme to
-   settle, and verifies it activated (the `-dark`/`-light` filename is a label,
-   not the active theme). Save with the exact manifest filenames to
-   `scratch/before/`, then upload with `--matrix scratch/matrix.txt`.
+1. **Before (step 3a)** and **after (step 4)** — write one matrix spec
+   (`scratch/matrix.txt`, `scene width theme` per line), then `capture-matrix
+   --spec scratch/matrix.txt --out scratch/before` and `… --out scratch/after`,
+   uploading each. The same spec drives both passes, so the sets pair by
+   filename by construction — no manifest reconciliation needed.
 
-2. **After (step 4)** — clean `scratch/after/`; the qa-explorer subagent
-   receives the manifest filenames, sets the theme with `set-theme` before each
-   shot, and saves screenshots with the same names to `scratch/after/`. Upload
-   those with `--matrix scratch/matrix.txt`.
-
-3. **Screenshot comparison (step 4, always)** — run `screenshot-diff` on every
+2. **Screenshot comparison (step 4, always)** — run `screenshot-diff` on every
    UI ticket. Store the summary line for the PR description. If the expected vs.
    found result mismatch, surface immediately and do not push yet.
 
-4. **Visual-diff report (step 4, whenever changes are found)** — if
+3. **Visual-diff report (step 4, whenever changes are found)** — if
    `screenshot-diff` finds differences, run `visual-diff-report` and store the
    URL for the PR description.
 
-5. **PR description (step 6)** — always a `**Screenshot comparison:**` summary
+4. **PR description (step 6)** — always a `**Screenshot comparison:**` summary
    line. Add a `[Visual diff report](<URL>)` link when changes were found. Add a
    `> [!CAUTION]` block when the expected vs. found result mismatched.
+
+## capture-matrix
+
+`scripts/agents/capture-matrix` captures a whole matrix from a spec, so the
+captured set *is* the spec — derived filenames, no stale artifacts, and
+before/after passes that pair by construction:
+
+```bash
+scripts/agents/capture-matrix --spec scratch/matrix.txt --out scratch/before
+```
+
+The spec is one `scene width theme` cell per line (whitespace-separated; `#`
+comments and blank lines ignored):
+
+```
+# scene            width  theme
+exchanges-active   1280   dark
+detail-panel       1280   dark
+```
+
+It cleans `--out`, then runs `capture-shot` once per cell. A malformed line or an
+unknown scene fails the whole pass (no partial set). It prints each produced
+filename to stdout. Running it twice with the same spec into `before`/`after`
+guarantees identical filenames, so `screenshot-diff` pairs them. Needs a
+`playwright-cli` session pointed at the running UI.
+
+## capture-shot
+
+`scripts/agents/capture-shot` is the single-shot primitive `capture-matrix` loops
+over — it captures one canonical screenshot with the naming, theming, and
+skeleton-wait rules baked in:
+
+```bash
+scripts/agents/capture-shot --scene exchanges-active --theme dark --width 1280 \
+  --out scratch/before
+# prints: exchanges-active-1280-dark.png
+```
+
+It resizes the viewport, applies the fixture scene via `window.__test_scenes`,
+activates the theme with `set-theme`, waits for body content to settle (no
+`aria-busy` region remains), then — as a final guard — confirms the live `.dark`
+class still matches the filename's theme token before saving to
+`{scene}-{width}-{theme}.png`. It needs a `playwright-cli` session already
+pointed at the running UI. `--theme` is `light` or `dark` (an explicit shot
+always has a definite theme). Use it directly for a one-off shot; use
+`capture-matrix` for a before/after set. See the `protospy-screenshot` skill for
+the full procedure.
 
 ## visual-diff-report
 
