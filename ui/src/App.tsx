@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { AppShell } from "./components/app-shell";
-import type { Exchange } from "./state/reducer";
+import type { Exchange } from "./state/types";
 import type { Protocol } from "@bindings/Protocol";
 import { BodySplit } from "./components/body-split";
 import { EmptyState } from "./components/ui/empty-state";

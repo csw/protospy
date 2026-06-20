@@ -3,7 +3,7 @@ import {
   computeBodySplitPercent,
   BODY_SPLIT_MIN_PCT,
 } from "@ui/body/split-sizing";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 
 function makeBody(text: string, contentType = "application/json"): BodyState {
   return {

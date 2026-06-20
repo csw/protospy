@@ -8,9 +8,9 @@ import type { ConnectionStatus } from "@ui/api/sse";
 import type { TimeZone } from "@ui/lib/utils";
 import { matchesFilter } from "@ui/lib/utils";
 import { apply } from "./reducer";
-import type { Exchange } from "./reducer";
+import type { Exchange } from "./types";
 import type { ViewMode } from "@ui/body/view-modes";
-export type { Exchange, BodyState } from "./reducer";
+export type { Exchange, BodyState } from "./types";
 export type { ViewMode } from "@ui/body/view-modes";
 
 interface PersistedPrefs {
@@ -24,7 +24,7 @@ interface PersistedPrefs {
 }
 
 export interface StoreState extends PersistedPrefs {
-  exchanges: Map<number, import("./reducer").Exchange>;
+  exchanges: Map<number, import("./types").Exchange>;
   ids: number[];
   connection: ConnectionStatus;
   service: string | null;

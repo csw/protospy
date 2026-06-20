@@ -5,7 +5,7 @@
 // arrives, so the initial layout is deterministic and never races against body
 // data that streams in asynchronously after the panel group mounts.
 
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 
 /** Minimum pane size as a percentage. Neither pane can be smaller than this. */
 export const BODY_SPLIT_MIN_PCT = 15;

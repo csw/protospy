@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { AlertTriangle, Download } from "lucide-react";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { useDecodeBody } from "@ui/hooks/useDecodeBody";
 import type { DecodeResult } from "@ui/body/decode";
 import {

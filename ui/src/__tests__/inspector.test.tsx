@@ -3,7 +3,7 @@ import { useState } from "react";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { Inspector } from "@ui/components/inspector";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 
 function makeExchange(overrides: Partial<Exchange> = {}): Exchange {
   return {

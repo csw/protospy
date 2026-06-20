@@ -4,7 +4,7 @@ import { render } from "@ui/test/render";
 import { StreamView } from "@ui/components/stream-view";
 import { ChatStreamView } from "@ui/components/anthropic/chat-stream-view";
 import { BodySplit } from "@ui/components/body-split";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { createSSEStreamState, feedChunk } from "@ui/body/sse-stream";
 
 function makeSSEExchange(

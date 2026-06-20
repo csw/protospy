@@ -19,7 +19,7 @@ import {
   responseSizeView,
   sizeView,
 } from "@ui/lib/exchange";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { Badge } from "@ui/components/ui/badge";

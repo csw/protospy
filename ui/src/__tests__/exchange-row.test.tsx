@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { ExchangeRow } from "@ui/components/exchange-row";
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 
 function body(partial: Partial<BodyState>): BodyState {
   return { chunks: [], atEnd: true, wireBytes: 0, ...partial };

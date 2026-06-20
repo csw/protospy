@@ -22,7 +22,7 @@ import { formatAbsoluteTime, splitUri } from "@ui/lib/utils";
 import type { TimeZone } from "@ui/lib/utils";
 import { fmtBytes, fmtMs } from "@ui/lib/format";
 import { isSSEExchange } from "@ui/lib/exchange";
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 import { MethodBadge } from "./method-badge";
 import { StatusCode } from "./status-code";
 import { TraceTag } from "./trace-tag";

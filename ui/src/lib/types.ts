@@ -1,6 +1,6 @@
 // src/lib/types.ts — small presentation-layer vocabulary enums shared by
 // several components. The runtime domain model (Exchange / BodyState /
-// ExchangeError) lives in state/reducer.ts, built from the @bindings wire
+// ExchangeError) lives in state/types.ts, built from the @bindings wire
 // types; keep entity shapes there and only the cross-component UI
 // classifications here.
 

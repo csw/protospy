@@ -16,7 +16,7 @@
 
 import { useState } from "react";
 import { Pause, Play } from "lucide-react";
-import type { Exchange } from "@ui/state/reducer";
+import type { Exchange } from "@ui/state/types";
 import type { SSEEvent } from "@ui/body/sse";
 import { Button } from "@ui/components/ui/button";
 import {
