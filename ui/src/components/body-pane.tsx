@@ -262,6 +262,17 @@ export function BodyPane({
   const mediaTypeDisplay =
     result != null ? mediaTypeSlug(result.mediaType) : null;
 
+  // Shared size/encoding model — same wire/decoded figure, encoding tag, and
+  // tooltip wording as the list rows and inspector facts.
+  const bodySizeView =
+    result != null
+      ? buildSizeView(
+          result.wireBytes,
+          result.decodedBytes,
+          result.contentEncoding,
+        )
+      : null;
+
   // Resolve the active mode against this body's content kind: a stored mode
   // that isn't available here silently falls back to the kind's default.
   const modes =
@@ -334,27 +345,17 @@ export function BodyPane({
               onSelect={(m) => onViewModeChange?.(m)}
             />
           )}
-          {result != null &&
-            (() => {
-              // Shared size/encoding model — same wire/decoded figure, encoding
-              // tag, and tooltip wording as the list rows and inspector facts.
-              const view = buildSizeView(
-                result.wireBytes,
-                result.decodedBytes,
-                result.contentEncoding,
-              );
-              return (
-                <SimpleTooltip content={view.tooltip}>
-                  <span
-                    className="font-mono text-xs text-muted-foreground"
-                    data-testid="body-size"
-                  >
-                    {sizeText(view)}
-                    {view.encoding && ` (${view.encoding})`}
-                  </span>
-                </SimpleTooltip>
-              );
-            })()}
+          {bodySizeView != null && (
+            <SimpleTooltip content={bodySizeView.tooltip}>
+              <span
+                className="font-mono text-xs text-muted-foreground"
+                data-testid="body-size"
+              >
+                {sizeText(bodySizeView)}
+                {bodySizeView.encoding && ` (${bodySizeView.encoding})`}
+              </span>
+            </SimpleTooltip>
+          )}
           {result != null && (
             <SimpleTooltip content="Download body">
               <Button

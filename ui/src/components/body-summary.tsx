@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 
 import { buildSizeView, sizeText } from "@ui/lib/exchange";
 import { Button } from "@ui/components/ui/button";
+import { SimpleTooltip } from "@ui/components/ui/simple-tooltip";
 
 interface Props {
   mediaType: string;
@@ -35,13 +36,12 @@ export function BodySummary({
         <span className="font-mono text-xs text-muted-foreground">
           {mediaType}
         </span>
-        <span
-          className="font-mono text-xs text-muted-foreground"
-          title={view.tooltip}
-        >
-          {sizeText(view)}
-          {view.encoding && ` (${view.encoding})`}
-        </span>
+        <SimpleTooltip content={view.tooltip}>
+          <span className="font-mono text-xs text-muted-foreground">
+            {sizeText(view)}
+            {view.encoding && ` (${view.encoding})`}
+          </span>
+        </SimpleTooltip>
       </div>
       <Button size="sm" variant="secondary" onClick={onDownload}>
         <Download />

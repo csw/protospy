@@ -96,10 +96,6 @@ export function buildSizeView(
       tooltip: undefined,
     };
   const encoding = shortEncoding(contentEncoding);
-  // A decoded size is only a distinct fact when it's known and differs from the
-  // wire size — equal sizes mean no real compression delta to show.
-  const decoded =
-    decodedBytes != null && decodedBytes !== wireBytes ? decodedBytes : null;
   if (encoding == null)
     return {
       wireBytes,
@@ -107,6 +103,10 @@ export function buildSizeView(
       encoding: null,
       tooltip: undefined,
     };
+  // A decoded size is only a distinct fact when it's known and differs from the
+  // wire size — equal sizes mean no real compression delta to show.
+  const decoded =
+    decodedBytes != null && decodedBytes !== wireBytes ? decodedBytes : null;
   const tooltip =
     decoded != null
       ? `${fmtBytes(wireBytes)} on the wire / ${fmtBytes(decoded)} after decompression (${encoding})`

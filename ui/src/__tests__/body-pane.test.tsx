@@ -147,6 +147,9 @@ describe("BodyPane error display (PRO-220)", () => {
     );
     const region = screen.getByRole("status");
     expect(region).toHaveTextContent("Streaming…");
+    // The streaming byte counter uses the canonical spaced fmtBytes format
+    // (PRO-266); 500 wire bytes renders "500 B", not the retired "500B".
+    expect(region).toHaveTextContent("500 B received");
     expect(region).toHaveAttribute("aria-busy", "true");
   });
 
