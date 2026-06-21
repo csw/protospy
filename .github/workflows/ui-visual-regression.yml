@@ -145,9 +145,12 @@ jobs:
           github.event_name == 'workflow_dispatch'
         run: pnpm exec reg-suit run
 
-      - uses: actions/upload-artifact@v4
+      # At-a-glance result on the run page: the new/changed/deleted/passed counts
+      # and a link to the published diff report, parsed from reg-suit's out.json.
+      # This is the durable in-CI surface (the PR comment is the reviewer surface).
+      # We do NOT upload .reg/ as an artifact: the report is already published to
+      # S3 (public, linked above), and .reg is a dotdir that upload-artifact@v4
+      # silently skips by default anyway.
+      - name: Visual regression summary
         if: always()
-        with:
-          name: reg-report
-          path: ui/.reg/
-          retention-days: 14
+        run: node scripts/reg-summary.mjs "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"

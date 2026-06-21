@@ -122,6 +122,11 @@ comment after the workflow finishes (watch it with `scripts/agents/ci-watch`):
 There is nothing to paste into the PR body by hand — the App comment is the
 surface.
 
+The workflow also writes a **job summary** (the new/changed/deleted/passed counts
+and a link to the published report, from `scripts/reg-summary.mjs` parsing
+reg-suit's `out.json`) to the Actions run page — handy on `push`-to-`main`
+baseline runs, which have no PR to comment on.
+
 ## Baseline lifecycle
 
 Baselines live in S3 keyed by commit. When a PR merges to `main`, the main run
