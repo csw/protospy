@@ -1,7 +1,7 @@
 import { cn } from "@ui/lib/utils";
 
 /**
- * The shared empty-state text treatment — colour, font, transform, tracking.
+ * The shared empty-state text treatment — color, font, transform, tracking.
  * Size is applied per call (default `text-xs`). This base is the single
  * source of truth for how empty-state copy looks, so non-cmdk regions
  * (`EmptyState` below) and cmdk's `CommandEmpty` can share the *look* without

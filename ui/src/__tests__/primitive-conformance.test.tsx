@@ -24,7 +24,7 @@ import { Command, CommandItem, CommandList } from "@ui/components/ui/command";
  * key off protospy elevation tokens, and `accent` is reserved for
  * brand-structural use only (never a neutral hover/selected surface).
  *
- * These guard the token MAPPING at the class layer. The computed-colour and
+ * These guard the token MAPPING at the class layer. The computed-color and
  * real-interaction behaviour live in browser/design-tokens.spec.ts (which
  * exercises the rendered CSS the way the suite can't in jsdom).
  */

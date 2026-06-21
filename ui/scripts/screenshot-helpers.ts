@@ -43,3 +43,21 @@ export async function waitForContentSettled(
     timeout: timeoutMs,
   });
 }
+
+/**
+ * Wait until a loading (`aria-busy`) region is *present* in `target`, the
+ * inverse of {@link waitForContentSettled}. Some states are intentionally and
+ * permanently busy — the "Awaiting response…" body pane is `aria-busy` with no
+ * resolution (see `components/body-pane.tsx`). For those the busy state is the
+ * subject, so the readiness signal is its appearance, not its clearance: this
+ * lets the bestiary shoot them deterministically instead of waiting — and
+ * timing out — for a settle that never comes.
+ */
+export async function waitForBusyPresent(
+  target: Page | Locator,
+  { timeoutMs = 15_000 }: { timeoutMs?: number } = {},
+): Promise<void> {
+  await expect(target.locator(BUSY_SELECTOR)).not.toHaveCount(0, {
+    timeout: timeoutMs,
+  });
+}

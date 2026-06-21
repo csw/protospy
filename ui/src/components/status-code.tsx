@@ -2,7 +2,7 @@
 // Network/transport failures and HTTP errors are DISTINCT states (handoff):
 //  - transport error, no status   → "Error" in --error, plus the row's net-error treatment
 //  - transport error, mid-stream   → "500 ✕": the status that DID arrive + an error mark
-//  - HTTP status                   → coloured code (table) or full status line (rows)
+//  - HTTP status                   → colored code (table) or full status line (rows)
 //  - pending                       → muted ··· with a pulsing dot
 // Exact error copy is owned by app code; this component only fixes the treatment.
 //

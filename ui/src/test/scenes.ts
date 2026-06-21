@@ -27,7 +27,7 @@
 //            headers tab, timing tab
 //   - cross: view × data combinations (table/compact crossed with a data
 //            extreme) that stress column-width allocation
-//   - trace: traceparent grouping (colour bars, trace rail, trace filter chip)
+//   - trace: traceparent grouping (color bars, trace rail, trace filter chip)
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
@@ -118,6 +118,23 @@ export interface SceneConfig {
   responseViewMode?: ViewMode | null;
 }
 
+/**
+ * A bestiary-only clipped close-up for a scene. The fixture matrix and reg-suit
+ * (`capture-scenes.ts`) capture full-viewport and ignore this field; only the
+ * screenshot bestiary (`scripts/take-bestiary.ts`) reads it, taking an extra
+ * shot clipped to `componentSelector` for scenes whose point is one element — a
+ * body-pane size indicator, an inline image, a stream view's status — that the
+ * full-viewport capture doesn't convey.
+ */
+export interface SceneCloseup {
+  /** Filename-suffix slug, unique within the scene (e.g. "body-pane"). */
+  slug: string;
+  /** Caption rendered under the close-up in the catalog. */
+  description?: string;
+  /** Element the close-up is clipped to. */
+  componentSelector: string;
+}
+
 export interface Scene {
   /** Stable kebab-case identifier — the documented injection key. */
   id: string;
@@ -135,6 +152,29 @@ export interface Scene {
   interact?: (page: Page) => Promise<void>;
   messages: Msg[];
   config?: SceneConfig;
+  /**
+   * Bestiary-only catalog close-ups (see `SceneCloseup`). Ignored by the matrix
+   * tests, reg-suit, and visual review; only `scripts/take-bestiary.ts` reads it.
+   */
+  bestiaryCloseups?: SceneCloseup[];
+  /**
+   * Bestiary-only: this scene's `aria-busy` loading state is its subject and
+   * never resolves (e.g. "Awaiting response…"). The bestiary's default
+   * readiness check waits for busy regions to clear; for these it instead waits
+   * for the busy region to *appear*, then captures it — so an intentionally-busy
+   * scene is shot deterministically rather than via a settle timeout. Ignored by
+   * the matrix tests and reg-suit.
+   */
+  bestiaryBusyTerminal?: boolean;
+  /**
+   * Documented in the screenshot bestiary but NOT part of the test matrix: a
+   * diagnostic-interest visual state whose behavior is already covered elsewhere
+   * (unit/browser tests), so it's not worth a deterministic matrix cell. These
+   * are excluded from the `window.__test_scenes` harness `list()` — so reg-suit
+   * and the visual-review breadth skip them — while `apply()`/`getScene` still
+   * resolve them by id, which is how the bestiary renders them.
+   */
+  bestiaryOnly?: boolean;
 }
 
 // A small, realistic set of complete exchanges used as the backdrop for
@@ -168,7 +208,7 @@ const TRACE_B = "0af7651916cd43dd8448eb211c80319c";
 
 // Heterogeneous traffic where some exchanges share a `traceparent` trace-id and
 // others carry none. Trace A spans three hops (ids 1, 3, 5), trace B spans two
-// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows coloured trace
+// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows colored trace
 // bars, the trace rail, and (with a trace member selected) the context bar's
 // "next in trace" jump. Deterministic ids 1..7.
 function tracedTraffic(): Msg[] {
@@ -199,6 +239,14 @@ function tracedTraffic(): Msg[] {
     }),
   ];
 }
+
+// Selectors the bestiary clips close-ups to (see `SceneCloseup`).
+// The inspector's active tab panel (body pane, stream view, headers, timing):
+const ACTIVE_TABPANEL = '[role="tabpanel"][data-state="active"]';
+// The request list (rows or table mode both carry this label):
+const REQUESTS_LIST = '[aria-label="Requests"]';
+// A modal overlay (⌘K palette, keyboard-shortcuts dialog):
+const OVERLAY_DIALOG = '[role="dialog"]';
 
 export const SCENES: Scene[] = [
   // ---- state axis ---------------------------------------------------------
@@ -231,6 +279,13 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Request", "connection refused (os error 111)"),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — proxy error message.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "error-midstream",
@@ -244,6 +299,14 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description:
+          "Body pane close-up — status with mid-stream error detail.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "selected",
@@ -286,6 +349,13 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Request", LONG_ERROR_MESSAGE),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — verbose error chain.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "many-rows",
@@ -309,6 +379,13 @@ export const SCENES: Scene[] = [
         { id: 1, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
       ],
     },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — wire/decoded dual-size indicator.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- view axis ----------------------------------------------------------
@@ -365,6 +442,13 @@ export const SCENES: Scene[] = [
         { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
       ],
     },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description: "Table close-up — Size column compression marker.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
   {
     id: "table-long-uri",
@@ -374,6 +458,14 @@ export const SCENES: Scene[] = [
       "Table mode with one deep-path + long-query row among normal rows. Verify the Path column truncates/ellipsises and holds its width instead of pushing Elapsed/Size/Time off-screen.",
     messages: [...backdrop(), makeLongUriRequest(5), makeResponse(5, "200 OK")],
     config: { listMode: "table", selectedId: 5 },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description:
+          "Table close-up — Path column truncation holding column widths.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
   {
     id: "compact-table-long-uri",
@@ -403,6 +495,13 @@ export const SCENES: Scene[] = [
         { id: 5, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
       ],
     },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description: "Compact rows close-up — compound dual-size label.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
   {
     id: "mixed-table",
@@ -438,11 +537,18 @@ export const SCENES: Scene[] = [
         { id: 3, direction: "response", bytes: GZIP_JSON_DECODED_BYTES },
       ],
     },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description: "Table close-up — mixed columns under realistic traffic.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
 
   // ---- trace axis (traceparent grouping) ----------------------------------
   // Distributed-trace correlation: exchanges sharing a `traceparent` trace-id
-  // render a coloured trace bar + rail, the inspector's trace pill gains a "next
+  // render a colored trace bar + rail, the inspector's trace pill gains a "next
   // in trace" jump, and the trace-id surfaces in the inspector's Timing facts and
   // (when filtered) the FilterBar chip. No single-axis scene set a traceId, so
   // none of this was in the matrix (PRO-250).
@@ -451,20 +557,35 @@ export const SCENES: Scene[] = [
     title: "Trace grouping",
     axis: "data",
     description:
-      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the inspector trace pill's 'next in trace' jump and the inspector Timing 'Trace ID' row.",
+      "Two distinct traces (different colors) interleaved with untraced rows. Verify the left trace color bars, the trace rail, and — a trace member is selected — the inspector trace pill's 'next in trace' jump and the inspector Timing 'Trace ID' row.",
     messages: tracedTraffic(),
     // Newest-first order displays trace A as [5, 3, 1]; selecting id 5 (the
     // newest hop) guarantees a forward "next in trace" target (id 3).
     config: { selectedId: 5 },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description:
+          "Request list close-up — two trace color rails among untraced rows.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
   {
     id: "trace-filtered",
     title: "Trace filter active",
     axis: "data",
     description:
-      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (coloured dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
+      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (colored dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
     messages: tracedTraffic(),
     config: { traceFilter: TRACE_A, selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description: "Request list close-up — list narrowed to one trace.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
 
   // ---- state axis: SSE stream scenes --------------------------------------
@@ -484,6 +605,13 @@ export const SCENES: Scene[] = [
       ),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description: "Stream view close-up — complete indicator and events.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-live",
@@ -507,6 +635,13 @@ export const SCENES: Scene[] = [
       ),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description: "Stream view close-up — live indicator and events.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-paused",
@@ -532,6 +667,14 @@ export const SCENES: Scene[] = [
       ),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description:
+          "Stream view close-up — paused indicator and frozen events.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-anthropic",
@@ -554,6 +697,13 @@ export const SCENES: Scene[] = [
       ),
     ],
     config: { selectedId: 1, protocol: "Anthropic" },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description: "Stream view close-up — Anthropic chat stream (events).",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-anthropic-transcript",
@@ -577,6 +727,13 @@ export const SCENES: Scene[] = [
       ),
     ],
     config: { selectedId: 1, protocol: "Anthropic" },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description: "Stream view close-up — Anthropic transcript output.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-error",
@@ -595,6 +752,14 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description:
+          "Stream view close-up — disconnected indicator and error banner.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "stream-anthropic-error",
@@ -616,6 +781,14 @@ export const SCENES: Scene[] = [
       makeProxyError(1, "Response", "connection reset by peer (os error 104)"),
     ],
     config: { selectedId: 1, protocol: "Anthropic" },
+    bestiaryCloseups: [
+      {
+        slug: "stream-view",
+        description:
+          "Stream view close-up — Anthropic disconnect and error banner.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- body-pane terminal modes -------------------------------------------
@@ -630,6 +803,14 @@ export const SCENES: Scene[] = [
       'A request that has not yet received a response. The status badge in the context bar shows the pulsing ··· placeholder and the response body pane shows "Awaiting response…".',
     messages: [makeGetRequest(1, "/api/slow")],
     config: { selectedId: 1 },
+    bestiaryBusyTerminal: true,
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — awaiting-response state.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-no-body",
@@ -642,6 +823,13 @@ export const SCENES: Scene[] = [
       makeResponse(1, "204 No Content"),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — empty (no body) state.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-text",
@@ -651,6 +839,13 @@ export const SCENES: Scene[] = [
       "A text/plain response body. BodyPane renders the content in a <pre> block (the text render branch, distinct from JSON tree and binary).",
     messages: [makeGetRequest(1, "/api/health"), makeTextResponse(1)],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — plain text rendering.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-html",
@@ -660,6 +855,13 @@ export const SCENES: Scene[] = [
       "A text/html response. BodyPane's formatted view re-indents the minified markup and syntax-highlights it (PRO-414), virtualized line-by-line.",
     messages: [makeGetRequest(1, "/index.html"), makeHtmlResponse(1)],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — formatted, highlighted HTML.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-xml",
@@ -669,6 +871,13 @@ export const SCENES: Scene[] = [
       "An application/xml SOAP response. BodyPane's formatted view re-indents and syntax-highlights the XML (PRO-414), virtualized line-by-line.",
     messages: [makeGetRequest(1, "/service.xml"), makeXmlResponse(1)],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — formatted, highlighted XML.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-binary",
@@ -681,6 +890,13 @@ export const SCENES: Scene[] = [
       makeBinaryResponse(1, "AAECAwQFBgcICQoLDA0ODw==", 12),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — binary lifecycle state.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-image",
@@ -693,6 +909,13 @@ export const SCENES: Scene[] = [
       makeImageResponse(1, UTAH_TEAPOT_BASE64, UTAH_TEAPOT_WIRE_BYTES),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — inline image rendering.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-charset-text",
@@ -705,6 +928,13 @@ export const SCENES: Scene[] = [
       makeCharsetTextResponse(1),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — ISO-8859-1 decoded text.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-decode-failed",
@@ -717,6 +947,13 @@ export const SCENES: Scene[] = [
       makeEncodedJsonResponse(1, "AAAA", 3, "gzip"),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — decode failure state.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- NDJSON / JSONL view ------------------------------------------------
@@ -728,6 +965,13 @@ export const SCENES: Scene[] = [
       "An application/x-ndjson response with several JSON lines. Renders as a forest of independently-collapsible document trees in one virtualized stream — each line is its own collapsed tree with a numbered gutter and count badge. Expand a document to drill into it.",
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — NDJSON document forest.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "ndjson-text",
@@ -737,6 +981,13 @@ export const SCENES: Scene[] = [
       "The same NDJSON body as 'ndjson' but with the response view-mode set to 'text'. Body pane renders the raw newline-delimited text in TextView instead of the parsed tree forest. Verify the text block, the Tree/Text/Hex mode selector tabs, and that the Text tab is active. Exercises the view-mode selector and text rendering path at all widths, including 1024.",
     messages: [makeGetRequest(1, "/api/events/stream"), makeNDJsonResponse(1)],
     config: { selectedId: 1, responseViewMode: "text" },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description: "Body pane close-up — NDJSON raw text view.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- Truncated body -----------------------------------------------------
@@ -748,6 +999,14 @@ export const SCENES: Scene[] = [
       "An application/json response whose body was cut off mid-structure. The viewer recovers the valid prefix (best-effort-json-parser), shows the amber truncation banner above the tree, and marks the cut point in-tree with a 'truncated here' annotation on the last parsed node. Verify the banner and marker in both themes.",
     messages: [makeGetRequest(1, "/_search"), makeTruncatedJsonResponse(1)],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description:
+          "Body pane close-up — truncation banner and in-tree marker.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "body-truncated-ndjson",
@@ -760,6 +1019,14 @@ export const SCENES: Scene[] = [
       makeTruncatedNdjsonResponse(1),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "body-pane",
+        description:
+          "Body pane close-up — NDJSON truncation banner and marker.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- view axis: compact inspector + headers/timing isolated scenes -------
@@ -828,6 +1095,13 @@ export const SCENES: Scene[] = [
       ]),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "headers",
+        description: "Headers tab close-up — request/response columns.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
   {
     id: "timing-selected",
@@ -844,6 +1118,13 @@ export const SCENES: Scene[] = [
       }),
     ],
     config: { selectedId: 1 },
+    bestiaryCloseups: [
+      {
+        slug: "timing",
+        description: "Timing tab close-up — timing facts and Trace ID.",
+        componentSelector: ACTIVE_TABPANEL,
+      },
+    ],
   },
 
   // ---- overlay / dialog states --------------------------------------------
@@ -860,6 +1141,13 @@ export const SCENES: Scene[] = [
       "The ⌘K command palette rendered over the main layout. The backdrop carries two distinct traces so the 'Jump to trace' command group is populated. Verify the dialog frame, input, command list (View / Filter / Jump to trace / Theme / Help groups), and the overlay backdrop.",
     messages: tracedTraffic(),
     config: { cmdKOpen: true, selectedId: 5 },
+    bestiaryCloseups: [
+      {
+        slug: "dialog",
+        description: "Command palette close-up — command groups.",
+        componentSelector: OVERLAY_DIALOG,
+      },
+    ],
   },
   {
     id: "help-open",
@@ -869,6 +1157,42 @@ export const SCENES: Scene[] = [
       "The `?` keyboard-shortcuts Dialog rendered over the main layout. Verify the dialog frame, title ('Keyboard shortcuts'), the three shortcut groups (Navigate / Search & filter / View), the <kbd> key chips, and the overlay backdrop.",
     messages: backdrop(),
     config: { helpOpen: true, selectedId: 2 },
+    bestiaryCloseups: [
+      {
+        slug: "dialog",
+        description: "Keyboard-shortcuts dialog close-up.",
+        componentSelector: OVERLAY_DIALOG,
+      },
+    ],
+  },
+
+  // ---- bestiary-only (not part of the test matrix) ------------------------
+  // Diagnostic-interest visual states documented in the screenshot bestiary but
+  // excluded from the matrix (see `Scene.bestiaryOnly`): their behavior is
+  // already covered by tests, so they don't earn a deterministic matrix cell.
+  {
+    id: "status-mixed",
+    title: "Mixed 2xx / 4xx / 5xx status colors",
+    axis: "view",
+    bestiaryOnly: true,
+    description:
+      "Three rows side by side so the `statusTextClass` color treatment for 200 / 404 / 500 is directly comparable in one shot. Not a matrix cell — the mapping is unit-tested (`statusTextClass`) and these statuses already render across matrix cells; this is a focused catalog comparison only.",
+    messages: [
+      makeGetRequest(1, "/api/healthz"),
+      makeResponse(1, "200 OK", '{"ok":true}'),
+      makeGetRequest(2, "/api/users/missing"),
+      makeResponse(2, "404 Not Found", '{"error":"not found"}'),
+      makeGetRequest(3, "/api/crash"),
+      makeResponse(3, "500 Internal Server Error", '{"error":"boom"}'),
+    ],
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description:
+          "Request list close-up — status color treatment for 200 / 404 / 500.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
   },
 ];
 
@@ -985,7 +1309,11 @@ declare global {
 export function installSceneHarness(store: AppStore): void {
   if (typeof window === "undefined") return;
   window.__test_scenes = {
-    list: () => SCENES.map(toMeta),
+    // The harness exposes the test matrix, so bestiary-only scenes are excluded
+    // from enumeration (reg-suit and the visual-review breadth walk this list).
+    // `apply`/`getScene` still resolve them by id — that's how the bestiary,
+    // which iterates `SCENES` directly, renders them.
+    list: () => SCENES.filter((s) => !s.bestiaryOnly).map(toMeta),
     widths: SUPPORTED_WIDTHS,
     apply: (id: string) => {
       const scene = getScene(id);

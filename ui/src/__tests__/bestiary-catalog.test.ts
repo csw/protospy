@@ -1,9 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   captureFilename,
+  matrixSceneToMeta,
+  orderBestiaryScenes,
+  orderScenesByAxis,
   renderCatalog,
+  type MatrixSceneInput,
   type ScenarioMeta,
 } from "../../scripts/bestiary-catalog";
+import { SCENES } from "../test/scenes";
 
 describe("captureFilename", () => {
   it("joins scenario and capture slugs with a hyphen and .png suffix", () => {
@@ -116,5 +121,125 @@ describe("renderCatalog", () => {
       intro: "Snapshot taken on a particular weekday.",
     });
     expect(withIntro).toContain("Snapshot taken on a particular weekday.");
+  });
+});
+
+describe("matrixSceneToMeta", () => {
+  it("maps a matrix scene to a single full-viewport catalog entry", () => {
+    const scene: MatrixSceneInput = {
+      id: "body-text",
+      title: "Plain text body",
+      axis: "state",
+      description: "A text/plain response body.",
+    };
+    expect(matrixSceneToMeta(scene)).toEqual({
+      family: "Matrix — state axis",
+      slug: "body-text",
+      title: "Plain text body",
+      description: "A text/plain response body.",
+      captures: [{ slug: "view", filename: "body-text-view.png" }],
+    });
+  });
+
+  it("files each axis under its own family heading", () => {
+    const families = (["state", "data", "view"] as const).map(
+      (axis) =>
+        matrixSceneToMeta({ id: "x", title: "X", axis, description: "" })
+          .family,
+    );
+    expect(families).toEqual([
+      "Matrix — state axis",
+      "Matrix — data axis",
+      "Matrix — view axis",
+    ]);
+  });
+
+  it("appends declared close-ups after the full-viewport view", () => {
+    const scene: MatrixSceneInput = {
+      id: "dual-size",
+      title: "Dual size",
+      axis: "data",
+      description: "x",
+      bestiaryCloseups: [
+        { slug: "body-pane", description: "close", componentSelector: "sel" },
+      ],
+    };
+    expect(matrixSceneToMeta(scene).captures).toEqual([
+      { slug: "view", filename: "dual-size-view.png" },
+      {
+        slug: "body-pane",
+        description: "close",
+        filename: "dual-size-body-pane.png",
+      },
+    ]);
+  });
+
+  it("files bestiary-only scenes under their own family, not an axis", () => {
+    const meta = matrixSceneToMeta({
+      id: "status-mixed",
+      title: "Status colors",
+      axis: "view",
+      description: "x",
+      bestiaryOnly: true,
+    });
+    expect(meta.family).toBe("Bestiary-only (not in the fixture matrix)");
+  });
+});
+
+describe("live matrix close-ups", () => {
+  it("declare slugs that are unique per scene and never shadow the view shot", () => {
+    for (const scene of SCENES) {
+      const slugs = (scene.bestiaryCloseups ?? []).map((c) => c.slug);
+      // "view" is the reserved full-viewport slug; a close-up using it would
+      // overwrite that capture's file.
+      expect(slugs).not.toContain("view");
+      expect(new Set(slugs).size).toBe(slugs.length);
+    }
+  });
+});
+
+describe("orderScenesByAxis", () => {
+  it("groups scenes by axis order without dropping or duplicating any", () => {
+    const input = [
+      { axis: "view" as const, id: "v1" },
+      { axis: "state" as const, id: "s1" },
+      { axis: "data" as const, id: "d1" },
+      { axis: "state" as const, id: "s2" },
+    ];
+    const ordered = orderScenesByAxis(input);
+    expect(ordered.map((s) => s.id)).toEqual(["s1", "s2", "d1", "v1"]);
+    expect(ordered).toHaveLength(input.length);
+  });
+});
+
+describe("orderBestiaryScenes", () => {
+  it("orders matrix scenes by axis, then bestiary-only scenes last", () => {
+    const input = [
+      { axis: "view" as const, id: "v1" },
+      { axis: "state" as const, id: "bo", bestiaryOnly: true },
+      { axis: "state" as const, id: "s1" },
+      { axis: "data" as const, id: "d1" },
+    ];
+    expect(orderBestiaryScenes(input).map((s) => s.id)).toEqual([
+      "s1",
+      "d1",
+      "v1",
+      "bo",
+    ]);
+  });
+
+  it("renders the live catalog as axis sections then a bestiary-only section", () => {
+    const metas = orderBestiaryScenes(SCENES).map(matrixSceneToMeta);
+    const out = renderCatalog(metas, { date: "2026-06-21" });
+    const familyHeadings = out.split("\n").filter((l) => l.startsWith("## "));
+    expect(familyHeadings).toEqual([
+      "## Matrix — state axis",
+      "## Matrix — data axis",
+      "## Matrix — view axis",
+      "## Bestiary-only (not in the fixture matrix)",
+    ]);
+    // Every scene becomes exactly one catalog entry.
+    const sceneHeadings = out.split("\n").filter((l) => l.startsWith("### "));
+    expect(sceneHeadings).toHaveLength(SCENES.length);
   });
 });
