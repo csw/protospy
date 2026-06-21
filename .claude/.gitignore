@@ -10,6 +10,8 @@
 /skills/*
 !/skills/design-sweep/
 !/skills/design-sweep/**
+!/skills/github-actions-docs/
+!/skills/github-actions-docs/**
 !/skills/handle-ticket/
 !/skills/handle-ticket/**
 !/skills/shadcn

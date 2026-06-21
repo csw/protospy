@@ -17,6 +17,8 @@ docker-compose.override.*
 /.agents/*
 !/.agents/skills/
 /.agents/skills/*
+!/.agents/skills/github-actions-docs/
+!/.agents/skills/github-actions-docs/**
 !/.agents/skills/handle-ticket/
 !/.agents/skills/handle-ticket/**
 !/.agents/skills/linear-cli/
