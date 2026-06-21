@@ -77,8 +77,9 @@ pnpm capture:scenes --out /tmp/shots --base-url http://localhost:4173  # attach 
 - **`reg-publish-s3-plugin`** — stores snapshots in `s3://protospy-dev-data`
   under `visual-regression/<commit-sha>/<file>` (default `public-read` ACL,
   matching the existing public bucket). It uses the default AWS SDK credential
-  chain — the workflow provides `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
-  `AWS_REGION` from GitHub Actions secrets.
+  chain — the workflow provides `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+  from GitHub Actions secrets, and `AWS_REGION` from a repo variable (the region
+  is not sensitive).
 - **`reg-notify-github-plugin`** — the reg-viz GitHub App. Posts the PR comment
   and commit status; no PAT needed. Its `clientId` (not a secret) is read from
   `$REG_NOTIFY_CLIENT_ID`, which the workflow sets from the
@@ -117,10 +118,10 @@ nothing and reg-suit reports the whole set as **new** (not a failure).
 
 These are outside an agent's reach and gate the live flow:
 
-1. **AWS** — add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` as
-   GitHub Actions **secrets**. IAM needs `s3:GetObject`, `PutObject`,
-   `GetObjectAcl`, `PutObjectAcl`, `ListBucket`, `DeleteObject` on
-   `protospy-dev-data`.
+1. **AWS** — add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as GitHub
+   Actions **secrets**, and `AWS_REGION` as a repo **variable** (the region is
+   not sensitive). IAM needs `s3:GetObject`, `PutObject`, `GetObjectAcl`,
+   `PutObjectAcl`, `ListBucket`, `DeleteObject` on `protospy-dev-data`.
 2. **GitHub App** — install <https://github.com/apps/reg-suit> on the repo, get
    the `clientId` from <https://reg-viz.github.io/gh-app/>, and set it as the
    `REG_NOTIFY_CLIENT_ID` repo **variable** (it is not a secret).

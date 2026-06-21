@@ -38,7 +38,9 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      # Region is not sensitive (e.g. us-east-1), so it lives in a repo variable,
+      # not a secret. Only the access keys above need secret masking.
+      AWS_REGION: ${{ vars.AWS_REGION }}
       # reg-notify-github-plugin clientId (NOT a secret — App client id). Set as
       # a repo variable; regconfig.json interpolates it via $REG_NOTIFY_CLIENT_ID.
       REG_NOTIFY_CLIENT_ID: ${{ vars.REG_NOTIFY_CLIENT_ID }}
