@@ -13,6 +13,19 @@ name: ui-visual-regression
 # which iterates on a draft PR. So this workflow OMITS the draft guard.
 
 on:
+  # Manual trigger (Actions tab / `gh workflow run`). Runs against any ref —
+  # pass a branch, tag, or commit SHA via `ref` to capture and compare an
+  # arbitrary commit; leave it blank to use the branch the workflow is dispatched
+  # on. A manual run always does the compare+notify path, never the baseline
+  # publish, so it can't clobber the main baseline. NB: workflow_dispatch is only
+  # dispatchable once the workflow exists on the default branch — this lever is
+  # available after this lands on main, not for the introducing PR.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to capture (blank = dispatched branch)"
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -47,13 +60,19 @@ jobs:
     steps:
       # reg-keygen-git-hash-plugin walks git history to resolve the expected
       # baseline, so it needs full history (fetch-depth: 0) and an attached HEAD.
-      # Checking out github.head_ref (the PR source branch) avoids the detached
-      # merge commit; for push events head_ref is empty and checkout falls back
-      # to the pushed ref (main), also attached.
+      # Ref precedence: an explicit workflow_dispatch `ref` input (any branch/tag/
+      # SHA) wins; otherwise the PR source branch (avoids the detached merge
+      # commit); otherwise empty, so checkout falls back to the pushed/dispatched
+      # ref (main on push), also attached.
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
+          ref: ${{ inputs.ref || github.head_ref }}
+      # A dispatched commit SHA leaves HEAD detached, which the keygen plugin
+      # rejects. Reattach to a throwaway local branch so it has an attached HEAD;
+      # a no-op when checkout already landed on a branch (PR / push / branch ref).
+      - name: Ensure attached HEAD (keygen requirement)
+        run: git symbolic-ref -q HEAD || git switch -c "vr-dispatch-${{ github.run_id }}"
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: ui/package.json
@@ -73,9 +92,10 @@ jobs:
       - name: Capture fixture matrix
         run: pnpm run capture:scenes --out .reg-actual
 
-      # Push to main: seed/refresh the baseline. sync-expected + compare produce
-      # a main-over-main report; publish uploads the new actual as the baseline
-      # for descendant commits. No notify (there is no PR to comment on).
+      # Baseline publish: push to main only. sync-expected + compare produce a
+      # main-over-main report; publish uploads the new actual as the baseline for
+      # descendant commits. No notify (there is no PR). A manual dispatch never
+      # takes this path, so it can't overwrite the main baseline.
       - name: Publish baseline (main)
         if: github.event_name == 'push'
         run: |
@@ -83,16 +103,20 @@ jobs:
           pnpm exec reg-suit compare
           pnpm exec reg-suit publish
 
-      # Pull request (including drafts): full cycle — sync-expected, compare,
-      # publish the diff report under the PR head, and notify via the GitHub App.
+      # Pull request (incl. drafts), or any manual dispatch: full cycle —
+      # sync-expected, compare, publish the diff report under the head commit, and
+      # notify via the GitHub App (commit status on the SHA always; PR comment
+      # when a PR exists for the ref).
       #
       # NB: reg-suit exits 0 even when images differ — a visual difference is
       # surfaced through the GitHub App's PR comment and commit status, not by
       # failing this job. So a green job here does NOT mean "no visual change";
       # read the commit status / App comment for the actual result. (A non-zero
       # exit means a real tooling/credential failure.)
-      - name: Compare and notify (pull request)
-        if: github.event_name == 'pull_request'
+      - name: Compare and notify (pull request / manual dispatch)
+        if: >-
+          github.event_name == 'pull_request' ||
+          github.event_name == 'workflow_dispatch'
         run: pnpm exec reg-suit run
 
       - uses: actions/upload-artifact@v4

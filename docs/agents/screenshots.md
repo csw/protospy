@@ -37,6 +37,12 @@ push to main (ui/** changed)         pull request incl. DRAFT (ui/**)
 - **Trigger:** the workflow's path filter (`ui/**`, `bindings/**`). It runs on
   `push` to `main` and on `pull_request` (`opened`, `synchronize`, `reopened`,
   `ready_for_review`) with **no draft guard**.
+- **Manual run:** a `workflow_dispatch` lets you run it on demand against any
+  ref — `gh workflow run ui-visual-regression.yml --ref <branch>`, or pass a
+  specific commit with `-f ref=<branch|tag|sha>` (a bare SHA is reattached to a
+  throwaway branch so the keygen plugin is happy). A manual run always does the
+  compare+notify path, never the baseline publish, so it can't overwrite the main
+  baseline. (Dispatch only appears once the workflow is on the default branch.)
 
 ## What's captured
 
