@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { useStore } from "@ui/state/store";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
 

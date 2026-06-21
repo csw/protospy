@@ -2,6 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+import { flushFocusScopeTeardown } from "./flush-focus-scope-teardown";
+
 // @tanstack/react-virtual's built-in observeElementRect uses
 // ResizeObserver to track scroll-container dimensions. jsdom does not
 // provide ResizeObserver, so we polyfill a no-op stub. The actual
@@ -41,4 +43,11 @@ if (typeof Element.prototype.scrollIntoView === "undefined") {
   Element.prototype.scrollIntoView = () => {};
 }
 
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  // cleanup() unmounts synchronously, which schedules Radix FocusScope's
+  // deferred refocus timer but does not run it. Flush that pending macrotask
+  // now so it fires while the jsdom realm is still alive — see
+  // flushFocusScopeTeardown for the full failure mode (PRO-350).
+  await flushFocusScopeTeardown();
+});

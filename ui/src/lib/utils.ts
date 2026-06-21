@@ -27,23 +27,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
 /**
- * Bounded, spaced size format for the table SIZE column, which renders a single
- * size in a fixed-width track that must never truncate. Unlike `formatSize`
- * (which caps at MB and so grows unboundedly for large bodies, e.g.
- * `5120.0MB`), this scales through GB/TB so the value stays at most ~3 integer
- * digits + 1 decimal — a known maximum width (`1023.9 GB`) the column can size
- * to. One decimal place; a space before the unit (`1.5 KB`, `58 B`, `5.0 GB`).
+ * Bounded, spaced size format for body sizes — the table SIZE column (a
+ * fixed-width track that must never truncate), the list rows, the inspector
+ * facts, and the body pane / summary header. Scales through GB/TB so the value
+ * stays at most ~3 integer digits + 1 decimal — a known maximum width
+ * (`1023.9 GB`). One decimal place; a space before the unit (`1.5 KB`, `58 B`,
+ * `5.0 GB`).
  *
  * This is the legacy name for the canonical `fmtBytes` (lib/format.ts); the live
  * components import it under this name. Same function — there is no second
- * implementation (PRO-346).
+ * implementation (PRO-346). The old unbounded `formatSize` (capped at MB,
+ * no space) was retired in PRO-266 when all size-display sites converged here.
  */
 export const formatSizeShort = fmtBytes;
 

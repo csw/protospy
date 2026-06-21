@@ -7,7 +7,9 @@
  * Output: a directory containing PNG screenshots and a markdown catalog
  * document that embeds them with explanatory context.
  *
- * Default output:  $HOME/obsidian/protospy/Claude/screenshots/bestiary/
+ * Default output:  $VAULT_BASE/screenshots/bestiary/
+ *                   (falls back to $HOME/obsidian/protospy/Claude/screenshots/bestiary/
+ *                    when VAULT_BASE is unset)
  * Override:        BESTIARY_OUT=/some/dir tsx scripts/take-bestiary.ts
  *
  * Run via:         pnpm run screenshots:bestiary
@@ -15,7 +17,7 @@
  *
  * See:
  *   - PRO-219 — ticket
- *   - ~/obsidian/protospy/Claude/UI-screenshot-recipes.md — seed recipes
+ *   - $VAULT_BASE/UI-screenshot-recipes.md — seed recipes
  *   - ui/scripts/take-screenshots.ts — sibling hero-screenshot pipeline
  */
 
@@ -60,14 +62,13 @@ const UPLOAD_SCRIPT = path.join(
   "upload-screenshot",
 );
 
-const DEFAULT_OUT = path.join(
-  os.homedir(),
-  "obsidian",
-  "protospy",
-  "Claude",
-  "screenshots",
-  "bestiary",
-);
+// Default to the agent workspace in the Obsidian vault ($VAULT_BASE) when it is
+// configured, falling back to the maintainer's conventional vault layout so the
+// script still works without configuration. Override either with BESTIARY_OUT.
+const VAULT_BASE =
+  process.env.VAULT_BASE ||
+  path.join(os.homedir(), "obsidian", "protospy", "Claude");
+const DEFAULT_OUT = path.join(VAULT_BASE, "screenshots", "bestiary");
 const OUT_DIR = process.env.BESTIARY_OUT || DEFAULT_OUT;
 
 // ─── Window/store typing ──────────────────────────────────────────────────────

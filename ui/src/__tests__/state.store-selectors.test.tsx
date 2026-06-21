@@ -172,6 +172,40 @@ describe("state/store selectors (PRO-363)", () => {
     });
   });
 
+  describe("memoization (PRO-436)", () => {
+    it("returns a cached reference when inputs are unchanged", () => {
+      apply(makeGetRequest(1, "/api/alpha"));
+      apply(makeGetRequest(2, "/api/beta"));
+
+      const first = selectVisibleIds(useStore.getState());
+      const second = selectVisibleIds(useStore.getState());
+      expect(second).toBe(first);
+    });
+
+    it("recomputes when an input changes", () => {
+      apply(makeGetRequest(1, "/api/alpha"));
+      apply(makeGetRequest(2, "/api/beta"));
+
+      const before = selectVisibleIds(useStore.getState());
+      useStore.getState().setFilter("beta");
+      const after = selectVisibleIds(useStore.getState());
+      expect(after).not.toBe(before);
+      expect(after).toEqual([2]);
+    });
+
+    it("keeps useVisibleExchanges reference-stable across renders", () => {
+      act(() => {
+        apply(makeGetRequest(1, "/api/alpha"));
+        apply(makeGetRequest(2, "/api/beta"));
+      });
+
+      const { result, rerender } = renderHook(() => useVisibleExchanges());
+      const first = result.current;
+      rerender();
+      expect(result.current).toBe(first);
+    });
+  });
+
   describe("connDotStatus (live SSE → design dot vocabulary)", () => {
     it("passes open/connecting through and maps reconnecting → connecting", () => {
       expect(connDotStatus("open")).toBe("open");

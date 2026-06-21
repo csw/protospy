@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { render } from "@ui/test/render";
 import { BodyPane } from "@ui/components/body-pane";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { decodeBody, type DecodeResult } from "@ui/body/decode";
 
 // Stub decodeBody so the test can drive the dual-size display logic
@@ -44,20 +44,21 @@ describe("BodyPane size display", () => {
     render(<BodyPane title="Response" body={makeBody({ wireBytes: 11 })} />);
 
     const sizeEl = await screen.findByTestId("body-size");
-    await waitFor(() => expect(sizeEl).toHaveTextContent("11B"));
+    await waitFor(() => expect(sizeEl).toHaveTextContent("11 B"));
     expect(sizeEl).not.toHaveTextContent("/");
     // No tooltip when there's only one size to show — SimpleTooltip renders
     // children unwrapped when content is falsy, so no Radix data-state attr.
     expect(sizeEl).not.toHaveAttribute("data-state");
   });
 
-  it("renders wire / decoded with a tooltip for a compressed body", async () => {
+  it("renders wire / decoded with the encoding and a tooltip for a compressed body", async () => {
     const result: DecodeResult = {
       kind: "json",
       text: '{"ok":true}',
       mediaType: "application/json",
       wireBytes: 28,
       decodedBytes: 24, // bytes after decompression
+      contentEncoding: "gzip", // decode only reports decodedBytes for a real encoding
       rawText: '{"ok":true}',
       bytes: new TextEncoder().encode('{"ok":true}'),
     };
@@ -66,7 +67,8 @@ describe("BodyPane size display", () => {
     render(<BodyPane title="Response" body={makeBody({ wireBytes: 28 })} />);
 
     const sizeEl = await screen.findByTestId("body-size");
-    await waitFor(() => expect(sizeEl).toHaveTextContent("28B / 24B"));
+    // Spaced fmtBytes + normalized encoding tag, matching the list and inspector.
+    await waitFor(() => expect(sizeEl).toHaveTextContent("28 B / 24 B (gzip)"));
     // Radix Tooltip adds data-state to the trigger when a tooltip is wired up.
     // This confirms SimpleTooltip received truthy content (the decompression detail).
     expect(sizeEl).toHaveAttribute("data-state");
@@ -145,6 +147,9 @@ describe("BodyPane error display (PRO-220)", () => {
     );
     const region = screen.getByRole("status");
     expect(region).toHaveTextContent("Streaming…");
+    // The streaming byte counter uses the canonical spaced fmtBytes format
+    // (PRO-266); 500 wire bytes renders "500 B", not the retired "500B".
+    expect(region).toHaveTextContent("500 B received");
     expect(region).toHaveAttribute("aria-busy", "true");
   });
 
@@ -190,7 +195,7 @@ describe("BodyPane error display (PRO-220)", () => {
     );
     expect(screen.getByText("Response interrupted")).toBeInTheDocument();
     expect(screen.getByText("connection reset by peer")).toBeInTheDocument();
-    expect(screen.getByText("500B received before error")).toBeInTheDocument();
+    expect(screen.getByText("500 B received before error")).toBeInTheDocument();
   });
 
   it("applies wrap-anywhere to error message text so long URLs do not clip (PRO-383)", () => {

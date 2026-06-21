@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import { decodeBody } from "@ui/body/decode";
 import type { JsonParseResult } from "@ui/body/json-parse";
 import {
@@ -206,6 +206,9 @@ describe("decodeBody", () => {
     // a decompression step ran. The decompressed Elasticsearch cluster
     // info response is 540 bytes of UTF-8 JSON.
     expect(result.decodedBytes).toBe(540);
+    // The raw Content-Encoding is passed through so the body-pane size header
+    // can render the same normalized encoding tag as the list/inspector.
+    expect(result.contentEncoding).toBe("gzip");
     // The decompressed content is an Elasticsearch cluster info response
     expect(result.text).toContain("docker-cluster");
     expect(result.text).toContain("You Know, for Search");

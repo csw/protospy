@@ -46,7 +46,7 @@ run-ext $RUST_LOG="info,protospy=debug" $PRINT_MESSAGES="1" $TOKIO_CONSOLE="1":
 screenshots: build ui::screenshots
 
 # Generate the UI screenshot bestiary — catalog of edge-case display states
-# Output: $HOME/obsidian/protospy/Claude/screenshots/bestiary/ (override with BESTIARY_OUT)
+# Output: $VAULT_BASE/screenshots/bestiary/ (override with BESTIARY_OUT)
 # No Rust backend needed; runs against Vite + headless Chromium with store injection.
 screenshots-bestiary: ui::screenshots-bestiary
 

@@ -1,4 +1,4 @@
-import type { BodyState } from "@ui/state/reducer";
+import type { BodyState } from "@ui/state/types";
 import type { BodyChunk } from "@bindings/BodyChunk";
 import { parseJson, parseNdjson } from "./json-parse";
 import { formatMarkup } from "./markup-format";
@@ -33,6 +33,14 @@ export interface DecodeResult {
    * a dual-size display ("wire → decoded") rather than just `wireBytes`.
    */
   decodedBytes?: number;
+  /**
+   * Raw `Content-Encoding` header, passed through from `BodyState` unchanged
+   * (`undefined` when absent). Lets the body-pane / summary size header route
+   * through the shared `buildSizeView` helper and show the same normalized
+   * encoding tag + tooltip the list and inspector do. Normalization (suppressing
+   * `identity`/empty) happens in the helper, not here.
+   */
+  contentEncoding?: string;
   /**
    * For `json` kind: the already-parsed JSON value, available for lazy
    * tree rebuild when the user expands/collapses nodes. `undefined` for
@@ -362,6 +370,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         mediaType,
         wireBytes,
         decodedBytes,
+        contentEncoding,
         rawText: text,
         bytes,
       };
@@ -388,6 +397,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         mediaType,
         wireBytes,
         decodedBytes,
+        contentEncoding,
         rawText: text,
         bytes,
       };
@@ -419,6 +429,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         mediaType,
         wireBytes,
         decodedBytes,
+        contentEncoding,
         rawText: text,
         bytes,
       };
@@ -431,6 +442,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
         mediaType,
         wireBytes,
         decodedBytes,
+        contentEncoding,
         rawText: text,
         bytes,
       };
@@ -449,6 +461,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       mediaType,
       wireBytes,
       decodedBytes,
+      contentEncoding,
       rawText: text,
       bytes,
     };
@@ -462,6 +475,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       mediaType,
       wireBytes,
       decodedBytes,
+      contentEncoding,
       rawText: text,
       bytes,
     };
@@ -476,6 +490,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
       mediaType,
       wireBytes,
       decodedBytes,
+      contentEncoding,
       rawText: text,
       bytes,
     };
@@ -489,6 +504,7 @@ export async function decodeBody(body: BodyState): Promise<DecodeResult> {
     mediaType,
     wireBytes,
     decodedBytes,
+    contentEncoding,
     rawText: text,
     bytes,
   };

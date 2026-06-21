@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import type { BodyState, Exchange } from "@ui/state/reducer";
+import type { BodyState, Exchange } from "@ui/state/types";
 import {
   statusKind,
   statusCodeOnly,
+  buildSizeView,
   sizeView,
+  sizeText,
   responseSizeView,
   isSSEExchange,
   isMsearchExchange,
@@ -60,65 +62,112 @@ describe("statusCodeOnly", () => {
   });
 });
 
+describe("buildSizeView", () => {
+  it("returns a fully-null view when there is no wire size", () => {
+    expect(buildSizeView(null, null, undefined)).toEqual({
+      wireBytes: null,
+      decodedBytes: null,
+      encoding: null,
+      tooltip: undefined,
+    });
+  });
+
+  it("reports the wire size with no decoded/encoding/tooltip when uncompressed", () => {
+    expect(buildSizeView(503, undefined, undefined)).toEqual({
+      wireBytes: 503,
+      decodedBytes: null,
+      encoding: null,
+      tooltip: undefined,
+    });
+  });
+
+  it("suppresses an identity content-encoding via shortEncoding", () => {
+    expect(buildSizeView(100, undefined, "identity")).toEqual({
+      wireBytes: 100,
+      decodedBytes: null,
+      encoding: null,
+      tooltip: undefined,
+    });
+  });
+
+  it("exposes the decoded size and a dual tooltip when it is known and differs", () => {
+    expect(buildSizeView(1024, 4096, "gzip")).toEqual({
+      wireBytes: 1024,
+      decodedBytes: 4096,
+      encoding: "gzip",
+      tooltip: "1.0 KB on the wire / 4.0 KB after decompression (gzip)",
+    });
+  });
+
+  it("notes the decoded size is unknown until opened when only the wire size is held", () => {
+    const v = buildSizeView(1024, undefined, "br");
+    expect(v.encoding).toBe("br");
+    expect(v.decodedBytes).toBeNull();
+    expect(v.tooltip).toBe(
+      "1.0 KB on the wire (br; decoded size unknown until the body is opened)",
+    );
+  });
+
+  it("omits the dual breakdown when decoded equals wire (no real compression delta)", () => {
+    const v = buildSizeView(1024, 1024, "gzip");
+    expect(v.decodedBytes).toBeNull();
+    expect(v.tooltip).toBe(
+      "1.0 KB on the wire (gzip; decoded size unknown until the body is opened)",
+    );
+  });
+});
+
 describe("sizeView", () => {
   it("returns a null wire size when there is no body", () => {
     expect(sizeView(undefined)).toEqual({
       wireBytes: null,
+      decodedBytes: null,
       encoding: null,
       tooltip: undefined,
     });
   });
 
-  it("reports the wire size with no tooltip for an uncompressed body", () => {
-    expect(sizeView(makeBody({ wireBytes: 503 }))).toEqual({
-      wireBytes: 503,
-      encoding: null,
-      tooltip: undefined,
+  it("reads the size facts off a BodyState", () => {
+    expect(
+      sizeView(
+        makeBody({
+          wireBytes: 1024,
+          decodedBytes: 4096,
+          contentEncoding: "gzip",
+        }),
+      ),
+    ).toEqual({
+      wireBytes: 1024,
+      decodedBytes: 4096,
+      encoding: "gzip",
+      tooltip: "1.0 KB on the wire / 4.0 KB after decompression (gzip)",
     });
   });
 
-  it("treats identity encoding as uncompressed", () => {
+  it("treats an identity-encoded body as uncompressed", () => {
     const v = sizeView(
       makeBody({ wireBytes: 100, contentEncoding: "identity" }),
     );
     expect(v.encoding).toBeNull();
     expect(v.tooltip).toBeUndefined();
   });
+});
 
-  it("builds a dual wire/decoded tooltip when the decoded size is known", () => {
-    const v = sizeView(
-      makeBody({
-        wireBytes: 1024,
-        decodedBytes: 4096,
-        contentEncoding: "gzip",
-      }),
-    );
-    expect(v.encoding).toBe("gzip");
-    expect(v.wireBytes).toBe(1024);
-    expect(v.tooltip).toBe(
-      "1.0KB on the wire / 4.0KB after decompression (gzip)",
-    );
+describe("sizeText", () => {
+  it("renders an em dash when there is no body", () => {
+    expect(sizeText(sizeView(undefined))).toBe("—");
   });
 
-  it("notes the decoded size is unknown until opened when only the wire size is held", () => {
-    const v = sizeView(makeBody({ wireBytes: 1024, contentEncoding: "br" }));
-    expect(v.encoding).toBe("br");
-    expect(v.tooltip).toBe(
-      "1.0KB on the wire (br; decoded size unknown until the body is opened)",
-    );
+  it("renders the wire size alone when uncompressed", () => {
+    expect(sizeText(buildSizeView(503, undefined, undefined))).toBe("503 B");
   });
 
-  it("omits the dual breakdown when decoded equals wire (no real compression delta)", () => {
-    const v = sizeView(
-      makeBody({
-        wireBytes: 1024,
-        decodedBytes: 1024,
-        contentEncoding: "gzip",
-      }),
-    );
-    expect(v.tooltip).toBe(
-      "1.0KB on the wire (gzip; decoded size unknown until the body is opened)",
-    );
+  it("renders the dual wire/decoded figure when the decoded size differs", () => {
+    expect(sizeText(buildSizeView(1024, 4096, "gzip"))).toBe("1.0 KB / 4.0 KB");
+  });
+
+  it("renders the wire size alone when the decoded size is unknown", () => {
+    expect(sizeText(buildSizeView(1024, undefined, "br"))).toBe("1.0 KB");
   });
 });
 
