@@ -24,7 +24,7 @@ Run the dev server (`pnpm dev`) and inject a scene by id from the page:
 
 ```js
 window.__test_scenes.apply("dual-size"); // resets the store, then applies the cell
-window.__test_scenes.list(); // metadata for every scene, in matrix order
+window.__test_scenes.list(); // metadata for every matrix scene, in order (bestiary-only scenes excluded)
 window.__test_scenes.widths; // [1024, 1280, 1440, 1920]
 ```
 
