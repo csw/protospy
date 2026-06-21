@@ -121,7 +121,8 @@ These are outside an agent's reach and gate the live flow:
 1. **AWS** — add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as GitHub
    Actions **secrets**, and `AWS_REGION` as a repo **variable** (the region is
    not sensitive). IAM needs `s3:GetObject`, `PutObject`, `GetObjectAcl`,
-   `PutObjectAcl`, `ListBucket`, `DeleteObject` on `protospy-dev-data`.
+   `PutObjectAcl`, and `ListBucket` on `protospy-dev-data`. (No `DeleteObject` —
+   snapshots are commit-keyed and only ever written or read, never deleted.)
 2. **GitHub App** — install <https://github.com/apps/reg-suit> on the repo, get
    the `clientId` from <https://reg-viz.github.io/gh-app/>, and set it as the
    `REG_NOTIFY_CLIENT_ID` repo **variable** (it is not a secret).
