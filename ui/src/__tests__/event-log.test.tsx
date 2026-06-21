@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { useRef } from "react";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { render } from "@ui/test/render";
@@ -17,24 +17,11 @@ const ev = (index: number, type: string, data = ""): SSEEvent => ({
  * views wire it. An explicit act() flush lets the virtualizer settle its first
  * visible range (see StreamView tests for the same pattern).
  */
-function Harness({
-  events,
-  selectedIndex,
-  onSelect,
-}: {
-  events: SSEEvent[];
-  selectedIndex?: number | null;
-  onSelect?: (index: number) => void;
-}) {
+function Harness({ events }: { events: SSEEvent[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   return (
     <div ref={scrollRef} data-testid="scroll" className="h-40 overflow-auto">
-      <EventLog
-        events={events}
-        scrollRef={scrollRef}
-        selectedIndex={selectedIndex}
-        onSelect={onSelect}
-      />
+      <EventLog events={events} scrollRef={scrollRef} />
     </div>
   );
 }
@@ -105,33 +92,22 @@ describe("EventLog", () => {
     expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
   });
 
-  it("marks the selected row and calls onSelect with the event index", async () => {
-    const onSelect = vi.fn();
-    await renderAndSettle(
-      <Harness
-        events={[ev(0, "ping", "x"), ev(1, "message", "y")]}
-        selectedIndex={1}
-        onSelect={onSelect}
-      />,
-    );
-    // The selected row carries data-selected.
-    const selectedRow = screen.getByText("message").closest("[data-kind]");
-    expect(selectedRow).toHaveAttribute("data-selected");
-
-    // Selection is driven by the row's stretched overlay button, not by the
-    // row container itself (which is a <div>, so the inner expand toggle is
-    // never nested inside a <button>).
-    fireEvent.click(screen.getByRole("button", { name: /select ping event/i }));
-    expect(onSelect).toHaveBeenCalledWith(0);
+  it("renders rows as non-interactive containers (no row <button>)", async () => {
+    // The row is a plain <div>; its only control is the expand toggle. This is
+    // what keeps that toggle's <button> from nesting inside a row <button>.
+    await renderAndSettle(<Harness events={[ev(0, "ping", "x")]} />);
+    const row = screen.getByText("ping").closest("[data-kind]");
+    expect(row).not.toBeNull();
+    expect(row?.tagName).toBe("DIV");
   });
 
   it("never nests a <button> inside another <button>", async () => {
-    // Long data renders the expand toggle; with onSelect, the row also renders
-    // its select overlay button. Neither must be a descendant of the other —
-    // nested buttons are invalid DOM and trigger a React validation error.
+    // Long data renders the expand toggle. It must never be a descendant of
+    // another <button> — nested buttons are invalid DOM and trigger a React
+    // validation error (the PRO-440 regression).
     const long = "a".repeat(120);
     const { container } = await renderAndSettle(
-      <Harness events={[ev(0, "message", long)]} onSelect={vi.fn()} />,
+      <Harness events={[ev(0, "message", long)]} />,
     );
     for (const button of container.querySelectorAll("button")) {
       expect(button.querySelector("button")).toBeNull();
@@ -179,19 +155,6 @@ describe("EventLog", () => {
       // Collapsed again.
       expect(screen.getByText(`${"a".repeat(80)}…`)).toBeInTheDocument();
       expect(expandBtn).toHaveAttribute("aria-expanded", "false");
-    });
-
-    it("expand click does not trigger row selection", async () => {
-      const onSelect = vi.fn();
-      const long = "b".repeat(100);
-      await renderAndSettle(
-        <Harness events={[ev(0, "message", long)]} onSelect={onSelect} />,
-      );
-
-      fireEvent.click(
-        screen.getByRole("button", { name: /expand event data/i }),
-      );
-      expect(onSelect).not.toHaveBeenCalled();
     });
   });
 });

@@ -54,33 +54,26 @@ function EventDataSummary({ data }: { data: string }) {
   const isTruncated = data.length > 80;
 
   if (!isTruncated) {
-    return (
-      <span className="pointer-events-none truncate text-secondary-foreground">
-        {data}
-      </span>
-    );
+    return <span className="truncate text-secondary-foreground">{data}</span>;
   }
 
   return (
     <div className="flex min-w-0 items-start gap-1">
       <span
         className={cn(
-          "pointer-events-none text-secondary-foreground",
+          "text-secondary-foreground",
           expanded ? "break-all" : "truncate",
         )}
       >
         {expanded ? data : data.slice(0, 80) + "…"}
       </span>
-      {/* Sits above the row's absolutely-positioned select overlay (relative +
-          later in DOM), so it stays its own click target without nesting inside
-          a <button>. */}
       <Button
         variant="ghost"
         size="icon-xs"
         aria-label={expanded ? "Collapse event data" : "Expand event data"}
         aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
-        className="relative -my-1 shrink-0 text-muted-foreground"
+        className="-my-1 shrink-0 text-muted-foreground"
       >
         <ChevronDown
           className={cn("transition-transform", expanded && "rotate-180")}
@@ -94,17 +87,9 @@ interface EventLogProps {
   events: SSEEvent[];
   /** Scroll container ref from the parent stream view — drives the virtualizer. */
   scrollRef: RefObject<HTMLDivElement | null>;
-  /** `index` of the selected row, if any. */
-  selectedIndex?: number | null;
-  onSelect?: (index: number) => void;
 }
 
-export function EventLog({
-  events,
-  scrollRef,
-  selectedIndex,
-  onSelect,
-}: EventLogProps) {
+export function EventLog({ events, scrollRef }: EventLogProps) {
   // The scroll container ref lives in the parent. React attaches refs and runs
   // layout effects child-first, so on the initial commit the parent's ref is
   // still null when the virtualizer's _willUpdate runs. Force one render after
@@ -147,7 +132,6 @@ export function EventLog({
         // extensible without touching the live SSEEvent shape. Surfaced as
         // `data-kind` so future per-kind row rendering has a live hook.
         const { kind } = classifyEvent(event);
-        const selected = selectedIndex === event.index;
         return (
           <div
             key={virtualItem.key}
@@ -161,27 +145,18 @@ export function EventLog({
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
+            {/* The row is a non-interactive container: its only control is the
+                expand toggle inside EventDataSummary. Keeping the row a plain
+                <div> (not a <button>) is what avoids nesting that toggle's
+                <button> inside another <button> — invalid DOM that triggered a
+                React validation error in the Anthropic stream scenes (PRO-440). */}
             <div
-              data-selected={selected || undefined}
               data-kind={kind}
-              className="relative grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
+              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left"
             >
-              {/* Stretched select target: an overlay button spanning the row,
-                  so the inner expand toggle is a sibling rather than a nested
-                  <button> (invalid DOM). The label/data spans use
-                  pointer-events-none so row clicks fall through to this overlay,
-                  while the expand button (relative) stays on top. */}
-              {onSelect && (
-                <button
-                  type="button"
-                  aria-label={`Select ${event.type} event`}
-                  onClick={() => onSelect(event.index)}
-                  className="absolute inset-0 rounded-none focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
-                />
-              )}
               <span
                 className={cn(
-                  "pointer-events-none truncate text-xs font-medium uppercase tracking-wide",
+                  "truncate text-xs font-medium uppercase tracking-wide",
                   eventTypeClass(event.type),
                 )}
               >
