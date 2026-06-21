@@ -24,7 +24,7 @@ push to main (ui/** changed)         pull request incl. DRAFT (ui/**)
                                        ↳ App posts a PR comment (no commit status)
 ```
 
-- **Workflow:** `.github/workflows/ui-visual-regression.yml`. It is a
+- **Workflow:** `.github/workflows/ui-snapshots.yml`. It is a
   **dedicated** workflow, separate from `ui-ci.yml`, precisely so it runs on
   **draft** PRs — the rest of UI CI skips drafts, but the visual diff must be
   available throughout the review cycle, which iterates on a draft PR.
@@ -45,7 +45,7 @@ push to main (ui/** changed)         pull request incl. DRAFT (ui/**)
   (`opened`, `synchronize`, `reopened`, `ready_for_review`) with **no draft
   guard**.
 - **Manual run:** a `workflow_dispatch` lets you run it on demand against any
-  ref — `gh workflow run ui-visual-regression.yml --ref <branch>`, or pass a
+  ref — `gh workflow run ui-snapshots.yml --ref <branch>`, or pass a
   specific commit with `-f ref=<branch|tag|sha>` (a bare SHA is reattached to a
   throwaway branch so the keygen plugin is happy). A manual run always does the
   compare+notify path, never the baseline publish, so it can't overwrite the main
@@ -89,7 +89,7 @@ pnpm capture:scenes --out /tmp/shots --base-url http://localhost:4173  # attach 
   canonical run is CI.)
 - **`reg-publish-s3-plugin`** — stores snapshots in `s3://protospy-dev-data`
   under `visual-regression/<commit-sha>/<file>`. `enableACL` is **false**: the
-  bucket has Object Ownership set to *bucket-owner-enforced* (ACLs disabled, the
+  bucket has Object Ownership set to _bucket-owner-enforced_ (ACLs disabled, the
   modern S3 default), so a `PutObject` carrying any ACL is rejected with
   `AccessControlListNotSupported`. Public read is provided by the bucket
   **policy**, not per-object ACLs, so the plugin sends no ACL at all. It uses the
@@ -159,6 +159,32 @@ These are outside an agent's reach and gate the live flow:
 
 Until 1–2 are configured, the workflow's S3/notify steps fail; that is a setup
 gap, not a regression in the change under review.
+
+## Bestiary publishing (push to main)
+
+The same workflow also publishes the **bestiary** — the browsable
+screenshot-plus-description catalog of fixture-matrix display states
+(`ui/scripts/take-bestiary.ts`). It runs **only on the push-to-main path**, after
+the VR baseline publish, reusing the workflow's Playwright/Chromium setup
+(take-bestiary boots its own dev server and stubs the backend, so it needs no
+preview build or cargo build of its own). It uploads the captured set to S3 twice
+via `scripts/agents/upload-screenshot --catalog`:
+
+- a **datestamped archive** prefix, `bestiary/YYYY-MM-DD/` — an accumulating
+  archive (no cleanup near-term; an S3 lifecycle rule is the eventual answer), and
+- a fixed **`bestiary/current/`** prefix that overwrites each run.
+
+The current catalog is therefore always at a stable, bookmarkable URL:
+
+```
+https://protospy-dev-data.s3.amazonaws.com/bestiary/current/index.html
+```
+
+The bestiary step does **not** run on PRs (only the VR compare+notify does), so a
+PR never republishes `current`. A maintainer's local `pnpm run screenshots:bestiary`
+publishes only the datestamped prefix and never touches `current` — that fixed URL
+is owned exclusively by the main-push CI path. The run's job summary links both the
+datestamped and current catalog URLs.
 
 ## Ad-hoc capture scripts
 
