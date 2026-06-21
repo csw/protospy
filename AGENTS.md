@@ -82,7 +82,7 @@ same parent, and open any sibling whose title suggests it bears on your work.
 Use the Linear CLI for implementer workflows. Get the parent and children with:
 
 ```bash
-linear issues get PRO-NNN --output json
+linear issues get PRO-NNN --output json --format full
 ```
 
 Inspect `.parent.identifier` and `.children[].identifier`; see
