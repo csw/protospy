@@ -325,10 +325,22 @@ Separate the matched paths into **skill files** (under `.claude/skills/` or
 parallel message** as the other reviews:
 
 **Skills** (if any matched): spawn **`plugin-dev:skill-reviewer`**
-(`subagent_type: "plugin-dev:skill-reviewer"`). Prompt:
+(`subagent_type: "plugin-dev:skill-reviewer"`).
+
+Before prompting, check whether any matched skill path is a **Jinja2 template**
+(`.j2` extension). If so, pass **only the `.j2` file** to the reviewer — drop
+its generated outputs (e.g. the rendered `SKILL.md` files under `.claude/skills/`
+and `.agents/skills/`) from the file list. The template is the source of truth;
+the generated files are mechanically rendered from it, and sync is enforced by a
+pre-commit hook — reviewing them individually or checking whether they match the
+template is wasted work. Non-templated skill files in the same diff are still
+reviewed normally.
+
+Prompt:
 
 > Review the skills modified in this PR for $ticket ("<title>"). The changed
-> skill files are: <list the matched skill paths>. Check description quality
+> skill files are: <list the matched skill paths, `.j2` templates only when
+> generated outputs were dropped per above>. Check description quality
 > and trigger phrases, content organization and progressive disclosure,
 > writing style, and whether referenced files exist. Return a prioritized
 > findings report.
