@@ -27,7 +27,7 @@
 //            headers tab, timing tab
 //   - cross: view × data combinations (table/compact crossed with a data
 //            extreme) that stress column-width allocation
-//   - trace: traceparent grouping (colour bars, trace rail, trace filter chip)
+//   - trace: traceparent grouping (color bars, trace rail, trace filter chip)
 // The list-pane min/wide axis is an interaction (separator drag), not store
 // state — see `browser/helpers/scenes.ts` and the matrix doc.
 
@@ -166,6 +166,15 @@ export interface Scene {
    * the matrix tests and reg-suit.
    */
   bestiaryBusyTerminal?: boolean;
+  /**
+   * Documented in the screenshot bestiary but NOT part of the test matrix: a
+   * diagnostic-interest visual state whose behavior is already covered elsewhere
+   * (unit/browser tests), so it's not worth a deterministic matrix cell. These
+   * are excluded from the `window.__test_scenes` harness `list()` — so reg-suit
+   * and the visual-review breadth skip them — while `apply()`/`getScene` still
+   * resolve them by id, which is how the bestiary renders them.
+   */
+  bestiaryOnly?: boolean;
 }
 
 // A small, realistic set of complete exchanges used as the backdrop for
@@ -199,7 +208,7 @@ const TRACE_B = "0af7651916cd43dd8448eb211c80319c";
 
 // Heterogeneous traffic where some exchanges share a `traceparent` trace-id and
 // others carry none. Trace A spans three hops (ids 1, 3, 5), trace B spans two
-// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows coloured trace
+// (ids 4, 6), and ids 2 + 7 are untraced — so the list shows colored trace
 // bars, the trace rail, and (with a trace member selected) the context bar's
 // "next in trace" jump. Deterministic ids 1..7.
 function tracedTraffic(): Msg[] {
@@ -539,7 +548,7 @@ export const SCENES: Scene[] = [
 
   // ---- trace axis (traceparent grouping) ----------------------------------
   // Distributed-trace correlation: exchanges sharing a `traceparent` trace-id
-  // render a coloured trace bar + rail, the inspector's trace pill gains a "next
+  // render a colored trace bar + rail, the inspector's trace pill gains a "next
   // in trace" jump, and the trace-id surfaces in the inspector's Timing facts and
   // (when filtered) the FilterBar chip. No single-axis scene set a traceId, so
   // none of this was in the matrix (PRO-250).
@@ -548,7 +557,7 @@ export const SCENES: Scene[] = [
     title: "Trace grouping",
     axis: "data",
     description:
-      "Two distinct traces (different colours) interleaved with untraced rows. Verify the left trace colour bars, the trace rail, and — a trace member is selected — the inspector trace pill's 'next in trace' jump and the inspector Timing 'Trace ID' row.",
+      "Two distinct traces (different colors) interleaved with untraced rows. Verify the left trace color bars, the trace rail, and — a trace member is selected — the inspector trace pill's 'next in trace' jump and the inspector Timing 'Trace ID' row.",
     messages: tracedTraffic(),
     // Newest-first order displays trace A as [5, 3, 1]; selecting id 5 (the
     // newest hop) guarantees a forward "next in trace" target (id 3).
@@ -557,7 +566,7 @@ export const SCENES: Scene[] = [
       {
         slug: "list",
         description:
-          "Request list close-up — two trace colour rails among untraced rows.",
+          "Request list close-up — two trace color rails among untraced rows.",
         componentSelector: REQUESTS_LIST,
       },
     ],
@@ -567,7 +576,7 @@ export const SCENES: Scene[] = [
     title: "Trace filter active",
     axis: "data",
     description:
-      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (coloured dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
+      "The same traffic narrowed to trace A via an active trace filter. Verify the FilterBar trace chip (colored dot + shortened id + clear button), the `N of M` count, and that only trace-A rows remain.",
     messages: tracedTraffic(),
     config: { traceFilter: TRACE_A, selectedId: 1 },
     bestiaryCloseups: [
@@ -1156,6 +1165,35 @@ export const SCENES: Scene[] = [
       },
     ],
   },
+
+  // ---- bestiary-only (not part of the test matrix) ------------------------
+  // Diagnostic-interest visual states documented in the screenshot bestiary but
+  // excluded from the matrix (see `Scene.bestiaryOnly`): their behavior is
+  // already covered by tests, so they don't earn a deterministic matrix cell.
+  {
+    id: "status-mixed",
+    title: "Mixed 2xx / 4xx / 5xx status colors",
+    axis: "view",
+    bestiaryOnly: true,
+    description:
+      "Three rows side by side so the `statusTextClass` color treatment for 200 / 404 / 500 is directly comparable in one shot. Not a matrix cell — the mapping is unit-tested (`statusTextClass`) and these statuses already render across matrix cells; this is a focused catalog comparison only.",
+    messages: [
+      makeGetRequest(1, "/api/healthz"),
+      makeResponse(1, "200 OK", '{"ok":true}'),
+      makeGetRequest(2, "/api/users/missing"),
+      makeResponse(2, "404 Not Found", '{"error":"not found"}'),
+      makeGetRequest(3, "/api/crash"),
+      makeResponse(3, "500 Internal Server Error", '{"error":"boom"}'),
+    ],
+    bestiaryCloseups: [
+      {
+        slug: "list",
+        description:
+          "Request list close-up — status color treatment for 200 / 404 / 500.",
+        componentSelector: REQUESTS_LIST,
+      },
+    ],
+  },
 ];
 
 /** A JSON response body for an existing exchange id (used by the selected cell). */
@@ -1271,7 +1309,11 @@ declare global {
 export function installSceneHarness(store: AppStore): void {
   if (typeof window === "undefined") return;
   window.__test_scenes = {
-    list: () => SCENES.map(toMeta),
+    // The harness exposes the test matrix, so bestiary-only scenes are excluded
+    // from enumeration (reg-suit and the visual-review breadth walk this list).
+    // `apply`/`getScene` still resolve them by id — that's how the bestiary,
+    // which iterates `SCENES` directly, renders them.
+    list: () => SCENES.filter((s) => !s.bestiaryOnly).map(toMeta),
     widths: SUPPORTED_WIDTHS,
     apply: (id: string) => {
       const scene = getScene(id);

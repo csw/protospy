@@ -590,7 +590,7 @@ test.describe("Edge cases", () => {
     ]);
 
     // Table view shows just the numeric code; look for "500" within a table
-    // row's status cell. v2.3 colours 5xx via text-server.
+    // row's status cell. v2.3 colors 5xx via text-server.
     const status = page
       .locator("button[role='option'] span", { hasText: /^500$/ })
       .first();

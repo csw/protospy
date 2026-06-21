@@ -50,16 +50,21 @@ function expectNoErrors(label: string) {
   expect(consoleErrors, `${label}: console errors`).toEqual([]);
 }
 
+// Bestiary-only scenes are documented in the screenshot catalog but excluded
+// from the test matrix, so the harness omits them and this breadth check skips
+// them too (see `Scene.bestiaryOnly`).
+const matrixScenes = SCENES.filter((s) => !s.bestiaryOnly);
+
 test.describe("Fixture matrix", () => {
-  test("harness exposes every scene in matrix order", async ({ page }) => {
+  test("harness exposes every matrix scene in order", async ({ page }) => {
     const live = (await listScenes(page)).map((s) => s.id);
-    expect(live).toEqual(SCENES.map((s) => s.id));
+    expect(live).toEqual(matrixScenes.map((s) => s.id));
   });
 
   // Every scene renders at every supported width with no console errors and
   // both panes present. This is the breadth check the review subagent relies
   // on; targeted visual assertions live in the per-feature specs.
-  for (const scene of SCENES) {
+  for (const scene of matrixScenes) {
     test(`scene "${scene.id}" renders at all supported widths`, async ({
       page,
     }) => {

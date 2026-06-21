@@ -48,6 +48,23 @@ describe("scene matrix integrity", () => {
     expect(getScene("empty")?.id).toBe("empty");
     expect(getScene("does-not-exist")).toBeUndefined();
   });
+
+  it("harness list() omits bestiary-only scenes but apply() still resolves them", () => {
+    installSceneHarness(useStore);
+    const harness = window.__test_scenes!;
+
+    const listed = new Set(harness.list().map((s) => s.id));
+    const bestiaryOnly = SCENES.filter((s) => s.bestiaryOnly);
+    // Guards the premise: there is at least one bestiary-only scene to exclude.
+    expect(bestiaryOnly.length).toBeGreaterThan(0);
+    for (const s of bestiaryOnly) expect(listed.has(s.id)).toBe(false);
+    // …and every matrix scene IS listed.
+    for (const s of SCENES.filter((s) => !s.bestiaryOnly)) {
+      expect(listed.has(s.id)).toBe(true);
+    }
+    // apply() resolves a bestiary-only scene by id — the bestiary's render path.
+    expect(harness.apply(bestiaryOnly[0].id)).toBe(true);
+  });
 });
 
 describe("applySceneToStore", () => {
@@ -311,7 +328,10 @@ describe("installSceneHarness", () => {
       apply: (id: string) => boolean;
     };
     expect(harness).toBeDefined();
-    expect(harness.list().map((s) => s.id)).toEqual(SCENES.map((s) => s.id));
+    // list() exposes the test matrix — bestiary-only scenes are excluded.
+    expect(harness.list().map((s) => s.id)).toEqual(
+      SCENES.filter((s) => !s.bestiaryOnly).map((s) => s.id),
+    );
     expect([...harness.widths]).toEqual([...SUPPORTED_WIDTHS]);
 
     expect(harness.apply("many-rows")).toBe(true);

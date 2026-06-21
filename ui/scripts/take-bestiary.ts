@@ -4,16 +4,12 @@
  * Generates a screenshot catalog of interesting UI display scenarios using
  * store injection — no Rust backend required.
  *
- * Two sources feed the catalog:
- *   1. The fixture matrix (`src/test/scenes.ts`, via `window.__test_scenes`) is
- *      the primary content — every matrix cell becomes a catalog entry, so a
- *      scene added to the matrix appears here automatically with no extra
- *      wiring. The bestiary adds the browsable screenshot + description catalog
- *      the matrix alone doesn't produce.
- *   2. A small, explicitly-justified list of supplementary scenarios
- *      (`SUPPLEMENTARY_SCENARIOS`) for diagnostic-interest states the matrix
- *      intentionally doesn't cover. Each entry exists because the matrix doesn't
- *      cover it and shouldn't (PRO-410).
+ * The catalog is the fixture matrix (`src/test/scenes.ts`): every scene becomes
+ * a catalog entry — a full-viewport shot plus any clipped close-ups it declares
+ * (`Scene.bestiaryCloseups`) — so a scene added to the matrix appears here
+ * automatically. Scenes flagged `bestiaryOnly` (documented here but not part of
+ * the test matrix) render in a trailing section. The bestiary adds the browsable
+ * screenshot + description catalog the matrix alone doesn't produce (PRO-410).
  *
  * Output: a directory containing PNG screenshots and a markdown catalog
  * document that embeds them with explanatory context.
@@ -48,7 +44,7 @@ import { fileURLToPath } from "node:url";
 import {
   captureFilename,
   matrixSceneToMeta,
-  orderScenesByAxis,
+  orderBestiaryScenes,
   renderCatalog,
   type ScenarioMeta,
 } from "./bestiary-catalog";
@@ -58,11 +54,6 @@ import {
   waitForContentSettled,
 } from "./screenshot-helpers";
 
-import {
-  makeEncodedJsonResponse,
-  makeGetRequest,
-  makeResponse,
-} from "../src/test/fixtures";
 import { SCENES, type Scene } from "../src/test/scenes";
 import { applyScene, waitForSceneHarness } from "../browser/helpers/scenes";
 
@@ -113,192 +104,6 @@ interface WindowWithStore extends Window {
 // (6220–6223) or a running dev server (5173).
 
 const UI_PORT = 6224;
-
-// ─── Fixture payloads ─────────────────────────────────────────────────────────
-
-// Helper: timestamp `s` seconds in the past, so "Xs ago" renders naturally.
-const t = (s: number) => new Date(Date.now() - s * 1000).toISOString();
-
-// Compressed JSON payloads for the supplementary compression scenarios. Same
-// source JSON: {"items":[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]}
-// Copied verbatim from browser/body-compressed.spec.ts — those base64 strings
-// round-trip through DecompressionStream / brotli-dec-wasm in the live
-// browser-test suite, so they're known-good. (The brotli payload looks
-// plaintext-ish because brotli encodes small inputs as literal blocks; this is
-// correct output, not a degraded one.) The matrix's dual-size cell already
-// covers gzip, so only deflate and brotli live here. Keep in sync if
-// regenerated.
-const DEFLATE_B64 =
-  "eJyrVsosSc0tVrKKrlbKTFGyMtRRykvMTVWyUkrMKchIVKrVgYgbwcWTUksSlWpjawEXOhIm";
-const DEFLATE_WIRE_BYTES = 54;
-const BROTLI_B64 =
-  "ixyAeyJpdGVtcyI6W3siaWQiOjEsIm5hbWUiOiJhbHBoYSJ9LHsiaWQiOjIsIm5hbWUiOiJiZXRhIn1dfQM=";
-const BROTLI_WIRE_BYTES = 62;
-
-// Build a moderately large JSON body — large enough to trigger the body pane's
-// virtualization path but not so large the script becomes slow.
-function makeLargeJson(items: number): string {
-  const arr = Array.from({ length: items }, (_, i) => ({
-    id: i,
-    name: `item-${i}`,
-    value: Math.round(Math.random() * 1_000_000),
-    tags: ["alpha", "beta", "gamma"],
-  }));
-  return JSON.stringify({ items: arr }, null, 2);
-}
-
-// ─── Supplementary scenario definitions ────────────────────────────────────────
-
-type Msg = Record<string, unknown>;
-
-type Capture = {
-  /** Filename suffix slug, e.g. "list", "selected", "headers". */
-  slug: string;
-  /** Caption rendered under the image. */
-  description?: string;
-  /** If set, screenshot is clipped to this element rather than full viewport. */
-  componentSelector?: string;
-  /**
-   * Set when the capture deliberately showcases a loading skeleton. Suppresses
-   * the wait-for-content-settled step that otherwise holds until skeletons
-   * clear, so an intentional loading-state scene isn't blocked waiting for
-   * itself.
-   */
-  showsLoadingState?: boolean;
-  /** Run before capturing — click a tab, hover something, etc. */
-  prepare?: (page: Page) => Promise<void>;
-};
-
-type Scenario = {
-  /** Family grouping shown as `##` heading in the catalog. */
-  family: string;
-  /** Scenario slug, used as filename prefix. */
-  slug: string;
-  /** Title shown in the catalog (`###`). */
-  title: string;
-  /** Markdown paragraph above the captures. */
-  description: string;
-  /** EventMessages to inject. */
-  messages: Msg[];
-  /** After injection, drive the UI (select rows, switch tabs). */
-  interact?: (page: Page) => Promise<void>;
-  /** Captures to take after interact runs. */
-  captures: Capture[];
-};
-
-const SUPPLEMENTARY_SCENARIOS: Scenario[] = [
-  // Each entry exists because the fixture matrix does not cover it and
-  // shouldn't (PRO-410). Keep this list small and justify every addition in
-  // the description's leading "Supplementary —" sentence.
-
-  // ── Compressed bodies (non-gzip encodings) ─────────────────────────────────
-  {
-    family: "Compressed bodies (supplementary)",
-    slug: "compression-deflate",
-    title: "deflate-compressed JSON",
-    description:
-      "Supplementary — the matrix covers only gzip (its dual-size cell). " +
-      "deflate is a distinct Content-Encoding whose wire/decoded sizes differ.",
-    messages: [
-      makeGetRequest(1, "/api/search", t(4)),
-      makeEncodedJsonResponse(
-        1,
-        DEFLATE_B64,
-        DEFLATE_WIRE_BYTES,
-        "deflate",
-        t(4),
-      ),
-    ],
-    interact: async (page) => {
-      await page.getByText("/api/search").first().click();
-    },
-    captures: [
-      {
-        slug: "body-pane",
-        description: "Body pane only — `(deflate)` indicator.",
-        componentSelector: '[role="tabpanel"][data-state="active"]',
-      },
-    ],
-  },
-  {
-    family: "Compressed bodies (supplementary)",
-    slug: "compression-brotli",
-    title: "brotli-compressed JSON",
-    description:
-      "Supplementary — the matrix has no brotli body. brotli decompression " +
-      "goes through `brotli-dec-wasm` (WASM, lazy-loaded), a distinct decode " +
-      "path worth documenting; a WASM load failure surfaces as a decode error.",
-    messages: [
-      makeGetRequest(1, "/api/brotli", t(4)),
-      makeEncodedJsonResponse(1, BROTLI_B64, BROTLI_WIRE_BYTES, "br", t(4)),
-    ],
-    interact: async (page) => {
-      await page.getByText("/api/brotli").first().click();
-    },
-    captures: [
-      {
-        slug: "body-pane",
-        description: "Body pane only — `(br)` indicator.",
-        componentSelector: '[role="tabpanel"][data-state="active"]',
-      },
-    ],
-  },
-
-  // ── Large JSON body ────────────────────────────────────────────────────────
-  {
-    family: "Large JSON bodies (supplementary)",
-    slug: "large-json",
-    title: "Large JSON response",
-    description:
-      "Supplementary — the matrix has no large well-formed JSON body (its " +
-      "many-rows cell stresses list virtualization, not the body viewer). A " +
-      "few-hundred-row JSON body exercises the JSON viewer's virtualization " +
-      "path: the body pane head shows the wire size; the viewer renders only " +
-      "what's on screen.",
-    messages: [
-      makeGetRequest(1, "/api/items", t(4)),
-      makeResponse(1, "200 OK", makeLargeJson(500), t(4)),
-    ],
-    interact: async (page) => {
-      await page.getByText("/api/items").first().click();
-    },
-    captures: [
-      {
-        slug: "body-pane",
-        description: "JSON viewer only — top of a 500-item document.",
-        componentSelector: '[role="tabpanel"][data-state="active"]',
-      },
-    ],
-  },
-
-  // ── HTTP status colour comparison (rows mode) ──────────────────────────────
-  {
-    family: "HTTP status colour (supplementary)",
-    slug: "status-mixed",
-    title: "Mixed 2xx / 4xx / 5xx",
-    description:
-      "Supplementary — the matrix's mixed-table cell shows mixed statuses in " +
-      "table mode, not a focused rows-mode comparison. Three rows side by " +
-      "side so the `statusTextClass` colour treatment for 200 / 404 / 500 is " +
-      "directly comparable.",
-    messages: [
-      makeGetRequest(1, "/api/healthz", t(8)),
-      makeResponse(1, "200 OK", '{"ok":true}', t(8)),
-      makeGetRequest(2, "/api/users/missing", t(6)),
-      makeResponse(2, "404 Not Found", '{"error":"not found"}', t(6)),
-      makeGetRequest(3, "/api/crash", t(4)),
-      makeResponse(3, "500 Internal Server Error", '{"error":"boom"}', t(4)),
-    ],
-    captures: [
-      {
-        slug: "list",
-        description:
-          "Exchange list only — status colour treatment for 200 / 404 / 500.",
-        componentSelector: '[aria-label="Requests"]',
-      },
-    ],
-  },
-];
 
 // ─── Process lifecycle ────────────────────────────────────────────────────────
 
@@ -414,60 +219,6 @@ async function setupPage(page: Page): Promise<void> {
   );
 }
 
-async function runScenario(
-  page: Page,
-  scenario: Scenario,
-): Promise<ScenarioMeta> {
-  // Fresh page per scenario — guarantees no residue between cases.
-  await setupPage(page);
-
-  await page.evaluate((msgs) => {
-    const { applyEvent } = (
-      window as unknown as WindowWithStore
-    ).__test_store.getState();
-    for (const m of msgs) applyEvent(m);
-  }, scenario.messages);
-
-  if (scenario.interact) {
-    await scenario.interact(page);
-    // Tiny settle — Radix tab activation has a frame of transition.
-    await sleep(150);
-  }
-
-  const captureMetas = [];
-  for (const capture of scenario.captures) {
-    if (capture.prepare) {
-      await capture.prepare(page);
-      await sleep(150);
-    }
-    const filename = captureFilename(scenario.slug, capture.slug);
-    const outPath = path.join(OUT_DIR, filename);
-
-    if (capture.componentSelector) {
-      const locator = page.locator(capture.componentSelector).first();
-      if (!capture.showsLoadingState) await waitForContentSettled(locator);
-      await locator.screenshot({ path: outPath });
-    } else {
-      if (!capture.showsLoadingState) await waitForContentSettled(page);
-      await page.screenshot({ path: outPath });
-    }
-    console.log(`  ✓ ${filename}`);
-    captureMetas.push({
-      slug: capture.slug,
-      description: capture.description,
-      filename,
-    });
-  }
-
-  return {
-    family: scenario.family,
-    slug: scenario.slug,
-    title: scenario.title,
-    description: scenario.description,
-    captures: captureMetas,
-  };
-}
-
 /**
  * Render one fixture-matrix scene as a catalog entry: apply it through the
  * `window.__test_scenes` harness, run its `interact` step if any, take the
@@ -554,27 +305,15 @@ async function runGenerate(doUpload: boolean): Promise<void> {
 
   const metas: ScenarioMeta[] = [];
 
-  // Primary content: every fixture-matrix cell, grouped by axis.
-  const matrixScenes = orderScenesByAxis(SCENES);
-  console.log(`\n▸ Fixture matrix — ${matrixScenes.length} scenes`);
-  for (const scene of matrixScenes) {
-    console.log(`\n▸ ${scene.axis} — ${scene.title}`);
+  // Every scene becomes a catalog entry: matrix cells grouped by axis, then any
+  // bestiary-only scenes as a trailing section (see orderBestiaryScenes).
+  const scenes = orderBestiaryScenes(SCENES);
+  console.log(`\n▸ ${scenes.length} scenes`);
+  for (const scene of scenes) {
+    const group = scene.bestiaryOnly ? "bestiary-only" : scene.axis;
+    console.log(`\n▸ ${group} — ${scene.title}`);
     try {
       metas.push(await runMatrixScene(page, scene));
-    } catch (err) {
-      console.error(`  ✗ Failed: ${(err as Error).message}`);
-      throw err;
-    }
-  }
-
-  // Supplementary: states the matrix intentionally doesn't cover.
-  console.log(
-    `\n▸ Supplementary — ${SUPPLEMENTARY_SCENARIOS.length} scenarios`,
-  );
-  for (const scenario of SUPPLEMENTARY_SCENARIOS) {
-    console.log(`\n▸ ${scenario.family} — ${scenario.title}`);
-    try {
-      metas.push(await runScenario(page, scenario));
     } catch (err) {
       console.error(`  ✗ Failed: ${(err as Error).message}`);
       throw err;
@@ -588,12 +327,11 @@ async function runGenerate(doUpload: boolean): Promise<void> {
   const md = renderCatalog(metas, {
     date: today,
     intro:
-      "The matrix sections below are generated from the fixture matrix " +
-      "(`src/test/scenes.ts`) — one entry per cell, so a scene added to the " +
-      "matrix appears here automatically. The trailing supplementary sections " +
-      "document diagnostic-interest states the matrix intentionally omits. " +
-      "Every entry resets the store before it renders, so sections are " +
-      "independent of one another.",
+      "Generated from the fixture matrix (`src/test/scenes.ts`) — one entry per " +
+      "scene, so a scene added to the matrix appears here automatically. The " +
+      "trailing bestiary-only section documents diagnostic-interest states that " +
+      "are covered by tests but kept out of the matrix. Every entry resets the " +
+      "store before it renders, so sections are independent of one another.",
   });
   const catalogPath = path.join(OUT_DIR, "bestiary.md");
   await writeFile(catalogPath, md, "utf8");

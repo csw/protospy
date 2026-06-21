@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   captureFilename,
   matrixSceneToMeta,
+  orderBestiaryScenes,
   orderScenesByAxis,
   renderCatalog,
   type MatrixSceneInput,
@@ -172,6 +173,17 @@ describe("matrixSceneToMeta", () => {
       },
     ]);
   });
+
+  it("files bestiary-only scenes under their own family, not an axis", () => {
+    const meta = matrixSceneToMeta({
+      id: "status-mixed",
+      title: "Status colors",
+      axis: "view",
+      description: "x",
+      bestiaryOnly: true,
+    });
+    expect(meta.family).toBe("Bestiary-only (not in the fixture matrix)");
+  });
 });
 
 describe("live matrix close-ups", () => {
@@ -198,17 +210,35 @@ describe("orderScenesByAxis", () => {
     expect(ordered.map((s) => s.id)).toEqual(["s1", "s2", "d1", "v1"]);
     expect(ordered).toHaveLength(input.length);
   });
+});
 
-  it("renders one catalog family heading per axis when fed the live matrix", () => {
-    const metas = orderScenesByAxis(SCENES).map(matrixSceneToMeta);
+describe("orderBestiaryScenes", () => {
+  it("orders matrix scenes by axis, then bestiary-only scenes last", () => {
+    const input = [
+      { axis: "view" as const, id: "v1" },
+      { axis: "state" as const, id: "bo", bestiaryOnly: true },
+      { axis: "state" as const, id: "s1" },
+      { axis: "data" as const, id: "d1" },
+    ];
+    expect(orderBestiaryScenes(input).map((s) => s.id)).toEqual([
+      "s1",
+      "d1",
+      "v1",
+      "bo",
+    ]);
+  });
+
+  it("renders the live catalog as axis sections then a bestiary-only section", () => {
+    const metas = orderBestiaryScenes(SCENES).map(matrixSceneToMeta);
     const out = renderCatalog(metas, { date: "2026-06-21" });
     const familyHeadings = out.split("\n").filter((l) => l.startsWith("## "));
     expect(familyHeadings).toEqual([
       "## Matrix — state axis",
       "## Matrix — data axis",
       "## Matrix — view axis",
+      "## Bestiary-only (not in the fixture matrix)",
     ]);
-    // Every matrix cell becomes exactly one catalog entry.
+    // Every scene becomes exactly one catalog entry.
     const sceneHeadings = out.split("\n").filter((l) => l.startsWith("### "));
     expect(sceneHeadings).toHaveLength(SCENES.length);
   });
