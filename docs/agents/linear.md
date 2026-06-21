@@ -104,9 +104,14 @@ For ad-hoc worktree creation, pass the result as the branch name to
 ## Getting issue details
 
 ```bash
-linear issues get PRO-NNN                 # token-efficient text (default)
-linear issues get PRO-NNN --output json   # machine-readable
+linear issues get PRO-NNN                              # token-efficient text (default)
+linear issues get PRO-NNN --output json                # machine-readable (may truncate long fields)
+linear issues get PRO-NNN --output json --format full  # complete — use when reading descriptions or comments
 ```
+
+**Use `--format full` whenever you need the ticket description or comments.**
+Without it, long descriptions and comments are truncated. Metadata-only queries
+(state, assignee, labels, parent/children) are fine without it.
 
 Useful fields and how to extract them with jq (from `--output json`):
 
@@ -133,7 +138,7 @@ linear issues get PRO-NNN --output json | jq -r '.children[].identifier'
 linear issues get PRO-NNN --output json | jq .priority
 ```
 
-Top-level fields present in the JSON: `identifier`, `title`, `description`, `url`, `state`, `assignee`, `creator`, `priority`, `estimate`, `dueDate`, `labels`, `project`, `cycle`, `parent`, `children`, `comments`, `attachments`, `createdAt`, `updatedAt`. The `--format` flag controls verbosity (`minimal|compact|detailed|full`); `detailed` is the default.
+Top-level fields present in the JSON: `identifier`, `title`, `description`, `url`, `state`, `assignee`, `creator`, `priority`, `estimate`, `dueDate`, `labels`, `project`, `cycle`, `parent`, `children`, `comments`, `attachments`, `createdAt`, `updatedAt`. The `--format` flag controls verbosity (`minimal|compact|detailed|full`); `detailed` is the default — `full` is needed for untruncated descriptions and comments.
 
 ### Semantic search
 
