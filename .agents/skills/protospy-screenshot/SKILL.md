@@ -30,7 +30,8 @@ The PR visual diff (the full fixture matrix, before vs after, pixel-compared)
 runs in **CI** via reg-suit, not from this skill. On a pull request — including a
 **draft** — the `ui-visual-regression` workflow captures every scene through the
 pinned Playwright Chromium, compares against the S3 baseline, and the reg-viz
-GitHub App posts a diff report (PR comment + commit status). You do **not**
+GitHub App posts a diff report (a PR comment; no commit status, so a visual
+change never reads as a failing check). You do **not**
 capture before/after sets or run a local diff for the PR. Read
 `docs/agents/screenshots.md` for how that flow works and how to read its result.
 

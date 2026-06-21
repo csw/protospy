@@ -21,7 +21,7 @@ push to main (ui/** changed)         pull request incl. DRAFT (ui/**)
   reg-suit publish                       → notify (GitHub App)
   (seed baseline @ commit sha;         ↳ expected = merge-base baseline (S3)
    no PR notification)                 ↳ publishes diff report under PR head sha
-                                       ↳ App posts PR comment + commit status
+                                       ↳ App posts a PR comment (no commit status)
 ```
 
 - **Workflow:** `.github/workflows/ui-visual-regression.yml`. It is a
@@ -86,8 +86,10 @@ pnpm capture:scenes --out /tmp/shots --base-url http://localhost:4173  # attach 
   chain — the workflow provides `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
   from GitHub Actions secrets, and `AWS_REGION` from a repo variable (the region
   is not sensitive).
-- **`reg-notify-github-plugin`** — the reg-viz GitHub App. Posts the PR comment
-  and commit status; no PAT needed. Its `clientId` (not a secret) is read from
+- **`reg-notify-github-plugin`** — the reg-viz GitHub App. Posts the PR comment;
+  no PAT needed. `setCommitStatus` is **false** so a visual diff never marks the
+  PR's checks failing (a UI change is expected to move pixels — the comment is the
+  record, not a gate). Its `clientId` (not a secret) is read from
   `$REG_NOTIFY_CLIENT_ID`, which the workflow sets from the
   `REG_NOTIFY_CLIENT_ID` repo variable.
 
@@ -96,9 +98,10 @@ gitignored — they are transient CI artifacts.
 
 ## Reading the result
 
-On a PR, the GitHub App posts a **comment** and a **commit status** linking the
-reg-suit report (the interactive diff carrying every shot, changes highlighted).
-Read them after the workflow finishes (watch it with `scripts/agents/ci-watch`):
+On a PR, the GitHub App posts a **comment** linking the reg-suit report (the
+interactive diff carrying every shot, changes highlighted). It does **not** set a
+commit status, so the diff never appears as a failing/pending check. Read the
+comment after the workflow finishes (watch it with `scripts/agents/ci-watch`):
 
 - **No changed items** → nothing visual moved; good for a refactor.
 - **Changed/new/deleted items** → open the report. If the changes are

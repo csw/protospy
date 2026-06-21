@@ -232,8 +232,9 @@ mid-review. Watch it to completion and read the result:
 scripts/agents/ci-watch
 ```
 
-Then read the reg-suit GitHub App comment and commit status on the PR (they link
-the diff report). If it flags **unexpected** visual changes — ones this ticket
+Then read the reg-suit GitHub App comment on the PR (it links the diff report;
+there is no commit status — a visual diff is never a failing check). If it flags
+**unexpected** visual changes — ones this ticket
 shouldn't have caused — treat that as a finding: investigate before close-out and
 surface it to the user. Expected changes (a feature or redesign) are fine; the
 App comment is the durable record reviewers see, so there is nothing to paste
@@ -436,8 +437,8 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 
 If this ticket touches UI source, every push to the (draft) PR re-runs the
 `ui-visual-regression` workflow. After pushing fixes that change visual output,
-watch it (`scripts/agents/ci-watch`) and re-read the reg-suit App comment and
-commit status, exactly as in step 6 — confirm the new diff matches what the fix
+watch it (`scripts/agents/ci-watch`) and re-read the reg-suit App comment,
+exactly as in step 6 — confirm the new diff matches what the fix
 intended. Do this after every push that changes the UI, not just the first.
 
 ### Run another review round

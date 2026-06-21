@@ -16,7 +16,7 @@
     "reg-notify-github-plugin": {
       "clientId": "$REG_NOTIFY_CLIENT_ID",
       "prComment": true,
-      "setCommitStatus": true
+      "setCommitStatus": false
     }
   }
 }
