@@ -101,3 +101,45 @@ If your PR causes `pnpm test:coverage` to fail the threshold check, that means c
 `coverage/`, `playwright-report/`, and `test-results/` are gitignored.
 
 shadcn primitives (`src/components/ui/**`), bootstrap files (`main.tsx`, `App.tsx`), CSS tokens (`theme/**`), and the `test/` and `__tests__/` directories are excluded from coverage — see the `exclude` list in the config before adding a new top-level src directory.
+
+## Browser-test coverage (Istanbul)
+
+The Vitest report above measures only the `node`/`jsdom` projects — it cannot see
+what the `browser/` Playwright suite exercises. To audit **browser** coverage,
+the suite can run against the Istanbul-instrumented Vite dev server (PRO-437).
+This is an **opt-in development-time audit, not a CI gate or a threshold** — its
+value is surfacing which component branches the browser tests actually hit (e.g.
+body view modes, scene interactions), so untested paths show up without a manual
+read.
+
+```bash
+pnpm test:browser:coverage     # instrumented run → writes Istanbul JSON to .nyc_output/
+pnpm coverage:browser:report   # nyc → per-file branch HTML at coverage-browser/index.html
+```
+
+How it wires together — all gated on the `COVERAGE` env var, **off by default** so
+`pnpm dev`, `pnpm build`, `pnpm build:test`, and an ordinary `pnpm test:browser`
+are never instrumented:
+
+- `vite.config.ts` adds `vite-plugin-istanbul` only when `COVERAGE=true`.
+- `playwright.config.ts` runs the **dev server** (`pnpm dev`) under coverage
+  instead of previewing the build, and forces a fresh server (no
+  `reuseExistingServer`). This matters: `vite-plugin-istanbul` runs
+  `enforce: "post"`, so against a production build oxc (`@vitejs/plugin-react`)
+  has already compiled JSX to `jsx(...)` calls before instrumentation — the
+  `{cond && <X/>}` branches inside a component's returned JSX are dropped, which
+  is exactly the per-branch detail this report exists to surface. In serve mode
+  it instruments per-module before the JSX transform, so JSX conditionals get
+  real branch counters. (This is the setup the canonical
+  [`playwright-test-coverage`](https://github.com/mxschmitt/playwright-test-coverage)
+  reference uses.) The dev server also exposes the `__test_store` /
+  `__test_scenes` harness hooks via `import.meta.env.DEV`, so no test-mode build
+  is needed.
+- `browser/fixtures/coverage.ts` overrides Playwright's `context` fixture to
+  drain `window.__coverage__` to `.nyc_output/` (one JSON per context, merged by
+  `nyc`). Every spec imports `test`/`expect` from this module instead of
+  `@playwright/test`; when `COVERAGE` is unset it transparently re-exports the
+  base test. New specs should import from `./fixtures/coverage` too, or they
+  won't contribute to the report.
+
+`.nyc_output/` and `coverage-browser/` are gitignored.

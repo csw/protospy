@@ -12,7 +12,7 @@
  *   zstd     → this file (uses @bokuweb/zstd-wasm WASM in real Chromium)
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
 import { makeGetRequest, makeEncodedJsonResponse } from "./fixtures/exchanges";
 

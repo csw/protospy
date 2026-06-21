@@ -7,7 +7,7 @@
  * the v2 design comparison.
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures/coverage";
 import {
   injectExchanges,
   resetStore,

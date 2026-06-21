@@ -10,7 +10,7 @@
  * display (Chrome DevTools convention).
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { injectExchanges, resetStore, waitForStore } from "./helpers/inject";
 import {
   makeGetRequest,

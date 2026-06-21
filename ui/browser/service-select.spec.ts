@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { getStoreState, waitForStore } from "./helpers/inject";
 
 test.describe("Service selection", () => {

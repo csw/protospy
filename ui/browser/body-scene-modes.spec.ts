@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { waitForStore } from "./helpers/inject";
 import { applyScene, waitForSceneHarness } from "./helpers/scenes";
 

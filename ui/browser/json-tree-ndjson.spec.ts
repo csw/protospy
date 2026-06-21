@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { collectErrors } from "./helpers/errors";
 
 // Drives the dev/test-only standalone harness (`#json-tree-harness`) so these

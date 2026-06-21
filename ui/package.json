@@ -20,6 +20,8 @@
     "test:coverage": "vitest run --coverage",
     "test:browser": "playwright test",
     "test:browser:headed": "playwright test --headed",
+    "test:browser:coverage": "rm -rf .nyc_output coverage-browser && COVERAGE=true playwright test",
+    "coverage:browser:report": "nyc report --reporter=html --reporter=text-summary --report-dir=coverage-browser --temp-dir=.nyc_output",
     "capture:scenes": "tsx scripts/capture-scenes.ts",
     "screenshots": "tsx scripts/take-screenshots.ts",
     "screenshots:bestiary": "tsx scripts/take-bestiary.ts generate --upload",
@@ -72,6 +74,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.5.0",
     "jsdom": "^29.1.1",
+    "nyc": "^18.0.0",
     "openai": "^6.39.0",
     "prettier": "^3.8.3",
     "reg-keygen-git-hash-plugin": "0.14.5",
@@ -85,6 +88,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.1",
     "vite": "^8.0.9",
+    "vite-plugin-istanbul": "^9.0.1",
     "vitest": "^4.1.6"
   }
 }
