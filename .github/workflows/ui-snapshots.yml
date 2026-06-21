@@ -1,13 +1,19 @@
-name: ui-visual-regression
+name: ui-snapshots
 
-# Visual regression via reg-suit. Captures the fixture matrix through the pinned
-# Playwright Chromium (the same renderer the browser suite uses), then:
-#   - on push to main: publishes the captured set to S3 as the new baseline
-#     (keyed by commit hash). No PR notification.
+# UI snapshot suite: visual regression (reg-suit) plus bestiary publishing. Both
+# render the fixture matrix through the pinned Playwright Chromium (the same
+# renderer the browser suite uses) and share this workflow's setup; they diverge
+# on output by event:
+#   - on push to main: publishes the captured set to S3 as the new visual-
+#     regression baseline (keyed by commit hash, no PR notification), then
+#     generates the bestiary catalog and publishes it to S3 under both a
+#     datestamped prefix (bestiary/YYYY-MM-DD/) and a fixed current prefix
+#     (bestiary/current/) that overwrites each run — a bookmarkable URL for the
+#     latest bestiary. The bestiary step runs ONLY on this push path.
 #   - on a pull request (INCLUDING drafts): syncs the baseline from S3, compares,
 #     publishes the diff report keyed by the PR head, and the reg-viz GitHub App
 #     posts a PR comment (commit status is disabled — a visual change must not
-#     read as a failing check).
+#     read as a failing check). No bestiary publish on PRs.
 #
 # This is a SEPARATE workflow from ui-ci.yml on purpose: ui-ci skips draft PRs,
 # but the visual diff must be available throughout handle-ticket's review cycle,
@@ -43,8 +49,14 @@ on:
       - "ui/scripts/capture-scenes.ts" # the capture renderer itself
       - "ui/scripts/capture-scenes-lib.ts"
       - "ui/scripts/screenshot-helpers.ts"
+      # The bestiary publish step (push to main only) renders through these, so a
+      # change to them should republish the current bestiary even when no VR
+      # pixels move. They are intentionally absent from the pull_request paths
+      # below — the bestiary does not run on PRs, so they would only burn a VR run.
+      - "ui/scripts/take-bestiary.ts"
+      - "ui/scripts/bestiary-catalog.ts"
       - "bindings/**" # generated wire types the UI renders
-      - ".github/workflows/ui-visual-regression.yml"
+      - ".github/workflows/ui-snapshots.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     # Only "substantive" UI changes — ones that can actually move rendered
@@ -62,7 +74,7 @@ on:
       - "ui/scripts/capture-scenes-lib.ts"
       - "ui/scripts/screenshot-helpers.ts"
       - "bindings/**" # generated wire types the UI renders
-      - ".github/workflows/ui-visual-regression.yml"
+      - ".github/workflows/ui-snapshots.yml"
 
 defaults:
   run:
@@ -127,6 +139,37 @@ jobs:
           pnpm exec reg-suit sync-expected
           pnpm exec reg-suit compare
           pnpm exec reg-suit publish
+
+      # Bestiary publish: push to main only, after the VR baseline. Renders the
+      # fixture-matrix bestiary catalog (take-bestiary.ts boots its own dev server
+      # and stubs the backend, so it needs only the dev deps + Chromium installed
+      # above) into a local dir, then uploads that set to S3 twice: a datestamped
+      # archive prefix and a fixed `current` prefix that overwrites each run. The
+      # `current` catalog URL is the bookmarkable link to the latest bestiary.
+      # upload-screenshot is a uv self-contained script (boto3), so set up uv and
+      # surface AWS creds/region to its default credential chain.
+      - name: Set up uv (bestiary upload)
+        if: github.event_name == 'push'
+        uses: astral-sh/setup-uv@v7
+      - name: Publish bestiary (main)
+        if: github.event_name == 'push'
+        env:
+          # boto3's default credential chain reads AWS_DEFAULT_REGION; the repo
+          # variable is exposed as AWS_REGION (which reg-suit's S3 plugin uses),
+          # so mirror it here. The access keys come from the job-level env above.
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+          # Capture into the worktree rather than the maintainer's vault default.
+          BESTIARY_OUT: ${{ github.workspace }}/ui/.bestiary
+        run: |
+          pnpm exec tsx scripts/take-bestiary.ts generate
+          date="$(date -u +%F)"
+          ../scripts/agents/upload-screenshot "$BESTIARY_OUT" --prefix "bestiary/$date" --catalog
+          ../scripts/agents/upload-screenshot "$BESTIARY_OUT" --prefix "bestiary/current" --catalog
+          {
+            echo "## Bestiary published"
+            echo "- Archive: https://protospy-dev-data.s3.amazonaws.com/bestiary/$date/index.html"
+            echo "- Current: https://protospy-dev-data.s3.amazonaws.com/bestiary/current/index.html"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Pull request (incl. drafts), or any manual dispatch: full cycle —
       # sync-expected, compare, publish the diff report under the head commit, and

@@ -204,7 +204,7 @@ Commit with a Conventional Commits message:
 - Implementation notes go in the body, not the subject
 
 Push the branch. Nothing runs on the bare branch push: the standard UI CI skips
-draft PRs, and the `ui-visual-regression` workflow triggers on the pull request,
+draft PRs, and the `ui-snapshots` workflow triggers on the pull request,
 which you open in step 6 (where it is watched). Full UI CI runs only when the PR
 is marked ready at close-out (step 10).
 
@@ -220,7 +220,7 @@ If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
 **Watch the visual regression (UI diffs only).** If step 4 ran, opening the draft
-PR triggers `ui-visual-regression` (it runs on drafts, unlike the rest of UI CI).
+PR triggers `ui-snapshots` (it runs on drafts, unlike the rest of UI CI).
 Watch it to completion:
 
 ```bash

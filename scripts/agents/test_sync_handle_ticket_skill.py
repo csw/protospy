@@ -159,17 +159,17 @@ class BehavioralInvariantTests(unittest.TestCase):
                 f"{label} skill missing explicit 'do not enter step 10'",
             )
 
-    def test_visual_regression_workflow_referenced(self) -> None:
+    def test_ui_snapshots_workflow_referenced(self) -> None:
         """The pixel diff is automated in CI (PRO-428): both skills must point
-        at the ui-visual-regression workflow, not a hand-run capture/compare."""
+        at the ui-snapshots workflow, not a hand-run capture/compare."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
             self.assertIn(
-                "ui-visual-regression",
+                "ui-snapshots",
                 generated,
-                f"{label} skill missing ui-visual-regression workflow reference",
+                f"{label} skill missing ui-snapshots workflow reference",
             )
 
     def test_visual_regression_watched_and_read(self) -> None:

@@ -122,6 +122,11 @@ cargo install cargo-tarpaulin --locked  # code coverage
 
 See [ui/README.md](ui/README.md) for setup and dev commands.
 
+The current UI **bestiary** — a browsable catalog of the UI's display states
+(the fixture matrix), republished automatically on every UI change merged to
+`main` — is always available at a fixed URL:
+[bestiary/current](https://protospy-dev-data.s3.amazonaws.com/bestiary/current/index.html).
+
 #### flix/ — ElasticFlix demo app
 
 - **Docker** with **Compose** plugin — for running the Elasticsearch container (same Docker Compose install as the root project)
