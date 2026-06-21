@@ -29,15 +29,39 @@ on:
         type: string
   push:
     branches: [main]
+    # Only "substantive" UI changes — ones that can actually move rendered
+    # pixels — trigger a capture+publish. Docs, agent-instruction files, lint/TS
+    # config, the browser/unit test harness, and the other ui/scripts/ tools are
+    # deliberately excluded so a non-visual change doesn't burn a full matrix run.
     paths:
-      - "ui/**"
-      - "bindings/**"
+      - "ui/src/**" # app source, globals.css tokens, fixtures + scene matrix
+      - "ui/index.html" # app shell
+      - "ui/package.json" # dependency set (a bump can change rendering)
+      - "ui/pnpm-lock.yaml"
+      - "ui/vite.config.ts" # build output
+      - "ui/regconfig.json" # reg-suit behavior
+      - "ui/scripts/capture-scenes.ts" # the capture renderer itself
+      - "ui/scripts/capture-scenes-lib.ts"
+      - "ui/scripts/screenshot-helpers.ts"
+      - "bindings/**" # generated wire types the UI renders
       - ".github/workflows/ui-visual-regression.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    # Only "substantive" UI changes — ones that can actually move rendered
+    # pixels — trigger a capture+publish. Docs, agent-instruction files, lint/TS
+    # config, the browser/unit test harness, and the other ui/scripts/ tools are
+    # deliberately excluded so a non-visual change doesn't burn a full matrix run.
     paths:
-      - "ui/**"
-      - "bindings/**"
+      - "ui/src/**" # app source, globals.css tokens, fixtures + scene matrix
+      - "ui/index.html" # app shell
+      - "ui/package.json" # dependency set (a bump can change rendering)
+      - "ui/pnpm-lock.yaml"
+      - "ui/vite.config.ts" # build output
+      - "ui/regconfig.json" # reg-suit behavior
+      - "ui/scripts/capture-scenes.ts" # the capture renderer itself
+      - "ui/scripts/capture-scenes-lib.ts"
+      - "ui/scripts/screenshot-helpers.ts"
+      - "bindings/**" # generated wire types the UI renders
       - ".github/workflows/ui-visual-regression.yml"
 
 defaults:

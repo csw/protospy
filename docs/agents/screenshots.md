@@ -34,9 +34,16 @@ push to main (ui/** changed)         pull request incl. DRAFT (ui/**)
   so a diff reflects a real UI change, not a renderer difference. (The
   `playwright-cli` daemon used for ad-hoc QA does not exist in CI and drives
   `pnpm dev`; it is deliberately not the regression renderer.)
-- **Trigger:** the workflow's path filter (`ui/**`, `bindings/**`). It runs on
-  `push` to `main` and on `pull_request` (`opened`, `synchronize`, `reopened`,
-  `ready_for_review`) with **no draft guard**.
+- **Trigger:** a path filter scoped to **substantive UI changes** — the inputs
+  that can actually move rendered pixels: `ui/src/**`, `ui/index.html`, the
+  dependency set (`ui/package.json` / `ui/pnpm-lock.yaml`), `ui/vite.config.ts`,
+  `ui/regconfig.json`, the capture renderer (`ui/scripts/capture-scenes*.ts` +
+  `screenshot-helpers.ts`), `bindings/**`, and the workflow file itself. Docs,
+  agent-instruction files, lint/TS config, the test harness, and the other
+  `ui/scripts/` tools are deliberately excluded so a non-visual change doesn't
+  burn a full matrix run. It runs on `push` to `main` and on `pull_request`
+  (`opened`, `synchronize`, `reopened`, `ready_for_review`) with **no draft
+  guard**.
 - **Manual run:** a `workflow_dispatch` lets you run it on demand against any
   ref — `gh workflow run ui-visual-regression.yml --ref <branch>`, or pass a
   specific commit with `-f ref=<branch|tag|sha>` (a bare SHA is reattached to a
@@ -81,11 +88,14 @@ pnpm capture:scenes --out /tmp/shots --base-url http://localhost:4173  # attach 
   because our worktrees use an attached branch, not detached HEAD — but the
   canonical run is CI.)
 - **`reg-publish-s3-plugin`** — stores snapshots in `s3://protospy-dev-data`
-  under `visual-regression/<commit-sha>/<file>` (default `public-read` ACL,
-  matching the existing public bucket). It uses the default AWS SDK credential
-  chain — the workflow provides `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-  from GitHub Actions secrets, and `AWS_REGION` from a repo variable (the region
-  is not sensitive).
+  under `visual-regression/<commit-sha>/<file>`. `enableACL` is **false**: the
+  bucket has Object Ownership set to *bucket-owner-enforced* (ACLs disabled, the
+  modern S3 default), so a `PutObject` carrying any ACL is rejected with
+  `AccessControlListNotSupported`. Public read is provided by the bucket
+  **policy**, not per-object ACLs, so the plugin sends no ACL at all. It uses the
+  default AWS SDK credential chain — the workflow provides `AWS_ACCESS_KEY_ID` and
+  `AWS_SECRET_ACCESS_KEY` from GitHub Actions secrets, and `AWS_REGION` from a
+  repo variable (the region is not sensitive).
 - **`reg-notify-github-plugin`** — the reg-viz GitHub App. Posts the PR comment;
   no PAT needed. `setCommitStatus` is **false** so a visual diff never marks the
   PR's checks failing (a UI change is expected to move pixels — the comment is the
@@ -129,9 +139,13 @@ These are outside an agent's reach and gate the live flow:
 
 1. **AWS** — add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as GitHub
    Actions **secrets**, and `AWS_REGION` as a repo **variable** (the region is
-   not sensitive). IAM needs `s3:GetObject`, `PutObject`, `GetObjectAcl`,
-   `PutObjectAcl`, and `ListBucket` on `protospy-dev-data`. (No `DeleteObject` —
-   snapshots are commit-keyed and only ever written or read, never deleted.)
+   not sensitive). IAM needs `s3:GetObject`, `PutObject`, and `ListBucket` on
+   `protospy-dev-data` — that's the whole set. No `DeleteObject` (snapshots are
+   commit-keyed, only ever written or read), and no ACL actions
+   (`GetObjectAcl` / `PutObjectAcl`): `enableACL` is false, so the plugin never
+   touches object ACLs. The bucket must have **ACLs disabled** (Object Ownership =
+   bucket-owner-enforced) and grant public read through its **bucket policy**, not
+   per-object ACLs.
 2. **GitHub App** — install <https://github.com/apps/reg-suit> on the repo, get
    the `clientId` from <https://reg-viz.github.io/gh-app/>, and set it as the
    `REG_NOTIFY_CLIENT_ID` repo **variable** (it is not a secret).
