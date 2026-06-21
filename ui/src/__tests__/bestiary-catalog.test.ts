@@ -152,6 +152,38 @@ describe("matrixSceneToMeta", () => {
       "Matrix — view axis",
     ]);
   });
+
+  it("appends declared close-ups after the full-viewport view", () => {
+    const scene: MatrixSceneInput = {
+      id: "dual-size",
+      title: "Dual size",
+      axis: "data",
+      description: "x",
+      bestiaryCloseups: [
+        { slug: "body-pane", description: "close", componentSelector: "sel" },
+      ],
+    };
+    expect(matrixSceneToMeta(scene).captures).toEqual([
+      { slug: "view", filename: "dual-size-view.png" },
+      {
+        slug: "body-pane",
+        description: "close",
+        filename: "dual-size-body-pane.png",
+      },
+    ]);
+  });
+});
+
+describe("live matrix close-ups", () => {
+  it("declare slugs that are unique per scene and never shadow the view shot", () => {
+    for (const scene of SCENES) {
+      const slugs = (scene.bestiaryCloseups ?? []).map((c) => c.slug);
+      // "view" is the reserved full-viewport slug; a close-up using it would
+      // overwrite that capture's file.
+      expect(slugs).not.toContain("view");
+      expect(new Set(slugs).size).toBe(slugs.length);
+    }
+  });
 });
 
 describe("orderScenesByAxis", () => {

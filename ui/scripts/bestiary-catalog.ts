@@ -6,7 +6,7 @@
  * Playwright orchestration so it's testable without spinning up Chromium.
  */
 
-import type { SceneAxis } from "../src/test/scenes";
+import type { SceneAxis, SceneCloseup } from "../src/test/scenes";
 
 export type CaptureMeta = {
   /** Slug used in the filename, e.g. "list-overview". */
@@ -116,9 +116,9 @@ export function captureFilename(
 //
 // The bestiary's primary content is the fixture matrix (`src/test/scenes.ts`):
 // every matrix cell becomes a catalog entry, so a scene added to the matrix
-// shows up in the bestiary with no extra wiring. Matrix scenes are full-viewport
-// single captures (they carry no component-level selectors), grouped in the
-// catalog by their declarative `axis`.
+// shows up in the bestiary with no extra wiring. Each scene yields one
+// full-viewport capture plus any bestiary-only clipped close-ups it declares
+// (`Scene.bestiaryCloseups`), grouped in the catalog by its declarative `axis`.
 
 /** The fields of a fixture-matrix `Scene` the catalog mapping reads. */
 export type MatrixSceneInput = {
@@ -126,6 +126,8 @@ export type MatrixSceneInput = {
   title: string;
   axis: SceneAxis;
   description: string;
+  /** Bestiary-only clipped close-ups; see `SceneCloseup` in scenes.ts. */
+  bestiaryCloseups?: readonly SceneCloseup[];
 };
 
 /** Catalog family heading per matrix axis. */
@@ -139,17 +141,26 @@ const AXIS_FAMILY: Record<SceneAxis, string> = {
 const AXIS_ORDER: SceneAxis[] = ["state", "data", "view"];
 
 /**
- * Map a fixture-matrix scene to a catalog scenario entry: one full-viewport
- * capture (`{id}-view.png`), filed under its axis family. The capture has no
- * caption of its own — the scene description carries the explanation.
+ * Map a fixture-matrix scene to a catalog scenario entry: the full-viewport
+ * capture (`{id}-view.png`, no caption — the scene description explains it),
+ * followed by one entry per declared `bestiaryCloseup` (`{id}-{slug}.png`).
+ * Filed under its axis family.
  */
 export function matrixSceneToMeta(scene: MatrixSceneInput): ScenarioMeta {
+  const closeups = scene.bestiaryCloseups ?? [];
   return {
     family: AXIS_FAMILY[scene.axis],
     slug: scene.id,
     title: scene.title,
     description: scene.description,
-    captures: [{ slug: "view", filename: captureFilename(scene.id, "view") }],
+    captures: [
+      { slug: "view", filename: captureFilename(scene.id, "view") },
+      ...closeups.map((c) => ({
+        slug: c.slug,
+        description: c.description,
+        filename: captureFilename(scene.id, c.slug),
+      })),
+    ],
   };
 }
 

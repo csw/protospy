@@ -15,7 +15,10 @@
 import { test, expect } from "@playwright/test";
 import { waitForStore, resetStore, injectExchanges } from "./helpers/inject";
 import { makeGetRequest, makeResponse } from "./fixtures/exchanges";
-import { waitForContentSettled } from "../scripts/screenshot-helpers";
+import {
+  waitForBusyPresent,
+  waitForContentSettled,
+} from "../scripts/screenshot-helpers";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/info", (route) =>
@@ -67,6 +70,35 @@ test.describe("waitForContentSettled — settled and never-busy states", () => {
     // rather than return — i.e. it genuinely blocked on this non-skeleton state.
     await expect(
       waitForContentSettled(page, { timeoutMs: 1_000 }),
+    ).rejects.toThrow();
+  });
+});
+
+test.describe("waitForBusyPresent — intentionally-busy states", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+    await waitForStore(page);
+    await resetStore(page);
+  });
+
+  test("resolves once a busy region appears (awaiting response)", async ({
+    page,
+  }) => {
+    // The bestiary uses this to shoot the permanently-busy "Awaiting response…"
+    // state: the readiness signal is the aria-busy region appearing, the inverse
+    // of waitForContentSettled. A request with no response renders that state.
+    await injectExchanges(page, [makeGetRequest(1, "/api/pending")]);
+    await page.getByText("/api/pending").first().click();
+
+    await waitForBusyPresent(page, { timeoutMs: 5_000 });
+    await expect(page.locator('[aria-busy="true"]')).not.toHaveCount(0);
+  });
+
+  test("times out when no busy region ever mounts", async ({ page }) => {
+    // Nothing selected → no body pane → no aria-busy region, so the positive
+    // wait genuinely blocks rather than returning early.
+    await expect(
+      waitForBusyPresent(page, { timeoutMs: 1_000 }),
     ).rejects.toThrow();
   });
 });

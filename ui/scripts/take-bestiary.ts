@@ -32,7 +32,12 @@
  *   - ui/scripts/take-screenshots.ts — sibling hero-screenshot pipeline
  */
 
-import { chromium, type Browser, type Page } from "@playwright/test";
+import {
+  chromium,
+  type Browser,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import * as os from "node:os";
@@ -48,7 +53,10 @@ import {
   type ScenarioMeta,
 } from "./bestiary-catalog";
 
-import { waitForContentSettled } from "./screenshot-helpers";
+import {
+  waitForBusyPresent,
+  waitForContentSettled,
+} from "./screenshot-helpers";
 
 import {
   makeEncodedJsonResponse,
@@ -462,8 +470,10 @@ async function runScenario(
 
 /**
  * Render one fixture-matrix scene as a catalog entry: apply it through the
- * `window.__test_scenes` harness (the same applier the visual review uses),
- * run its `interact` step if any, and take a single full-viewport capture.
+ * `window.__test_scenes` harness, run its `interact` step if any, take the
+ * full-viewport capture, then take any clipped close-ups the scene declares
+ * (`bestiaryCloseups`) — the focused element shots the full-viewport matrix
+ * capture alone doesn't convey.
  */
 async function runMatrixScene(page: Page, scene: Scene): Promise<ScenarioMeta> {
   // Fresh page per scene — guarantees no residue between cells.
@@ -477,21 +487,42 @@ async function runMatrixScene(page: Page, scene: Scene): Promise<ScenarioMeta> {
   }
 
   const meta = matrixSceneToMeta(scene);
-  const capture = meta.captures[0];
-  const outPath = path.join(OUT_DIR, capture.filename);
 
-  // Most scenes clear their aria-busy regions promptly; a few (e.g.
-  // "body-awaiting") are deliberately and permanently busy — capture those
-  // as-is rather than waiting them out. Mirrors capture-scenes.ts.
-  try {
-    await waitForContentSettled(page, { timeoutMs: 10_000 });
-  } catch {
-    console.log(`  (settle timed out — capturing busy state: ${scene.id})`);
+  // Full-viewport context shot, taken once the scene is ready (see captureReady).
+  const viewCapture = meta.captures[0];
+  await captureReady(page, scene);
+  await page.screenshot({ path: path.join(OUT_DIR, viewCapture.filename) });
+  console.log(`  ✓ ${viewCapture.filename}`);
+
+  // Clipped close-ups for the element this scene is really about.
+  for (const closeup of scene.bestiaryCloseups ?? []) {
+    const filename = captureFilename(scene.id, closeup.slug);
+    const locator = page.locator(closeup.componentSelector).first();
+    await captureReady(locator, scene);
+    await locator.screenshot({ path: path.join(OUT_DIR, filename) });
+    console.log(`  ✓ ${filename}`);
   }
-  await page.screenshot({ path: outPath });
-  console.log(`  ✓ ${capture.filename}`);
 
   return meta;
+}
+
+/**
+ * Wait until `target` is ready to capture. By default that means its loading
+ * (`aria-busy`) regions have cleared. A scene flagged `bestiaryBusyTerminal`
+ * is intentionally and permanently busy (e.g. "Awaiting response…"), so the
+ * readiness signal is the busy region *appearing* — waiting for it to clear
+ * would never resolve. Either way the wait is a positive condition, not a
+ * swallowed timeout.
+ */
+async function captureReady(
+  target: Page | Locator,
+  scene: Scene,
+): Promise<void> {
+  if (scene.bestiaryBusyTerminal) {
+    await waitForBusyPresent(target);
+  } else {
+    await waitForContentSettled(target);
+  }
 }
 
 // ─── Subcommands ──────────────────────────────────────────────────────────────
