@@ -54,29 +54,33 @@ function EventDataSummary({ data }: { data: string }) {
   const isTruncated = data.length > 80;
 
   if (!isTruncated) {
-    return <span className="truncate text-secondary-foreground">{data}</span>;
+    return (
+      <span className="pointer-events-none truncate text-secondary-foreground">
+        {data}
+      </span>
+    );
   }
 
   return (
     <div className="flex min-w-0 items-start gap-1">
       <span
         className={cn(
-          "text-secondary-foreground",
+          "pointer-events-none text-secondary-foreground",
           expanded ? "break-all" : "truncate",
         )}
       >
         {expanded ? data : data.slice(0, 80) + "…"}
       </span>
+      {/* Sits above the row's absolutely-positioned select overlay (relative +
+          later in DOM), so it stays its own click target without nesting inside
+          a <button>. */}
       <Button
         variant="ghost"
         size="icon-xs"
         aria-label={expanded ? "Collapse event data" : "Expand event data"}
         aria-expanded={expanded}
-        onClick={(e) => {
-          e.stopPropagation();
-          setExpanded((v) => !v);
-        }}
-        className="-my-1 shrink-0 text-muted-foreground"
+        onClick={() => setExpanded((v) => !v)}
+        className="relative -my-1 shrink-0 text-muted-foreground"
       >
         <ChevronDown
           className={cn("transition-transform", expanded && "rotate-180")}
@@ -157,23 +161,34 @@ export function EventLog({
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
-            <button
-              type="button"
-              onClick={() => onSelect?.(event.index)}
+            <div
               data-selected={selected || undefined}
               data-kind={kind}
-              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
+              className="relative grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
             >
+              {/* Stretched select target: an overlay button spanning the row,
+                  so the inner expand toggle is a sibling rather than a nested
+                  <button> (invalid DOM). The label/data spans use
+                  pointer-events-none so row clicks fall through to this overlay,
+                  while the expand button (relative) stays on top. */}
+              {onSelect && (
+                <button
+                  type="button"
+                  aria-label={`Select ${event.type} event`}
+                  onClick={() => onSelect(event.index)}
+                  className="absolute inset-0 rounded-none focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+                />
+              )}
               <span
                 className={cn(
-                  "truncate text-xs font-medium uppercase tracking-wide",
+                  "pointer-events-none truncate text-xs font-medium uppercase tracking-wide",
                   eventTypeClass(event.type),
                 )}
               >
                 {event.type}
               </span>
               <EventDataSummary data={event.data} />
-            </button>
+            </div>
           </div>
         );
       })}

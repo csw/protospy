@@ -88,7 +88,7 @@ describe("EventLog", () => {
   it("surfaces the classifyEvent kind on each row as data-kind", async () => {
     await renderAndSettle(<Harness events={[ev(0, "ping", "x")]} />);
     // The O2 classification seam is live — every variant is "generic" today.
-    expect(screen.getByText("ping").closest("button")).toHaveAttribute(
+    expect(screen.getByText("ping").closest("[data-kind]")).toHaveAttribute(
       "data-kind",
       "generic",
     );
@@ -115,11 +115,27 @@ describe("EventLog", () => {
       />,
     );
     // The selected row carries data-selected.
-    const selectedRow = screen.getByText("message").closest("button");
+    const selectedRow = screen.getByText("message").closest("[data-kind]");
     expect(selectedRow).toHaveAttribute("data-selected");
 
-    fireEvent.click(screen.getByText("ping").closest("button")!);
+    // Selection is driven by the row's stretched overlay button, not by the
+    // row container itself (which is a <div>, so the inner expand toggle is
+    // never nested inside a <button>).
+    fireEvent.click(screen.getByRole("button", { name: /select ping event/i }));
     expect(onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it("never nests a <button> inside another <button>", async () => {
+    // Long data renders the expand toggle; with onSelect, the row also renders
+    // its select overlay button. Neither must be a descendant of the other —
+    // nested buttons are invalid DOM and trigger a React validation error.
+    const long = "a".repeat(120);
+    const { container } = await renderAndSettle(
+      <Harness events={[ev(0, "message", long)]} onSelect={vi.fn()} />,
+    );
+    for (const button of container.querySelectorAll("button")) {
+      expect(button.querySelector("button")).toBeNull();
+    }
   });
 
   describe("expand affordance", () => {
