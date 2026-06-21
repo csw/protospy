@@ -1,10 +1,11 @@
-// src/components/protospy/event-log.tsx
+// src/components/event-log.tsx
 // Virtualized SSE event list — the v2.3 scaffold's event-row presentation.
 // Replaces the legacy EventsView: rows are plain semantic-token text labels
-// (no filled pills), with `data-selected` row state, keyed and selected off the
-// live `SSEEvent.index`. Shared by the generic stream view and the Anthropic
-// ChatStreamView. The scroll container lives in the parent stream view; this
-// component renders the sized, absolutely-positioned virtual rows inside it.
+// (no filled pills), keyed off the live `SSEEvent.index`. Rows are
+// non-interactive containers; the only control is the per-row expand toggle.
+// Shared by the generic stream view and the Anthropic ChatStreamView. The
+// scroll container lives in the parent stream view; this component renders the
+// sized, absolutely-positioned virtual rows inside it.
 
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
@@ -152,7 +153,7 @@ export function EventLog({ events, scrollRef }: EventLogProps) {
                 React validation error in the Anthropic stream scenes (PRO-440). */}
             <div
               data-kind={kind}
-              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left"
+              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1"
             >
               <span
                 className={cn(
