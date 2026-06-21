@@ -155,12 +155,9 @@ git diff main...HEAD --name-only -- 'ui/src/**'
 
 If no files listed, skip to step 5. Otherwise do a **live qualitative check** on
 the running app before you push. This is the human-eye pass — layout, theming,
-interaction, and console health — that the automated pixel regression can't
-replace. The pixel diff itself is **not** captured by hand here: the
-`ui-visual-regression` workflow renders the full fixture matrix in CI and posts a
-reg-suit diff on the (draft) PR (watched in step 6 and step 10). The
-**`protospy-screenshot`** skill covers the ad-hoc capture helpers if you want
-evidence shots for the PR.
+interaction, and console health — that the pixel regression can't replace. (The
+pixel diff runs automatically in CI; see step 6 and `docs/agents/screenshots.md`.)
+For ad-hoc evidence shots, use the **`protospy-screenshot`** skill.
 
 **Start the HEAD dev server** on a non-default port:
 
@@ -180,15 +177,14 @@ Give it this prompt (substitute components and port):
 > theme/settle helpers). While driving the app, check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
-> - **Widths and themes.** Spot-check 1280 and 1440, and both themes, where the
->   change is layout- or theme-sensitive.
+> - **Widths and themes.** Spot-check representative widths (e.g. 1280 and 1440)
+>   and both themes where the change is layout- or theme-sensitive.
 > - **No new console errors** (`playwright-cli console`).
 >
 > Report briefly: what you checked, what looks right, any issues.
 
 If the subagent reports problems, fix them, re-run quality checks, and
-re-verify. Capture a one-line summary for the PR description. Kill the dev server
-when done (`pkill -f 'pnpm dev'`).
+re-verify. Kill the dev server when done (`pkill -f 'pnpm dev'`).
 
 ---
 
@@ -220,22 +216,20 @@ ticket ID unless the user names them.
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
-**Watch the visual regression (UI diffs only).** If step 4 ran (the diff touches
-UI source), opening the draft PR triggers the `ui-visual-regression` workflow —
-unlike the rest of UI CI, it runs on drafts, so the diff is available now,
-mid-review. Watch it to completion and read the result:
+**Watch the visual regression (UI diffs only).** If step 4 ran, opening the draft
+PR triggers `ui-visual-regression` (it runs on drafts, unlike the rest of UI CI).
+Watch it to completion:
 
 ```bash
 scripts/agents/ci-watch
 ```
 
-Then read the reg-suit GitHub App comment on the PR (it links the diff report;
-there is no commit status — a visual diff is never a failing check). If it flags
-**unexpected** visual changes — ones this ticket
-shouldn't have caused — treat that as a finding: investigate before close-out and
-surface it to the user. Expected changes (a feature or redesign) are fine; the
-App comment is the durable record reviewers see, so there is nothing to paste
-into the PR body by hand.
+Then read the reg-suit GitHub App comment (it links the diff report — no commit
+status, so the diff never shows as a failing check). If it flags **unexpected**
+changes — ones this ticket shouldn't have caused — treat that as a finding:
+investigate before close-out and surface it to the user. Expected changes (a
+feature or redesign) are fine. See `docs/agents/screenshots.md` for how the CI
+diff works.
 
 ---
 
@@ -425,11 +419,9 @@ Make changes, commit, and push. The open PR picks up the commits automatically.
 
 ### Re-check the visual regression
 
-If this ticket touches UI source, every push to the (draft) PR re-runs the
-`ui-visual-regression` workflow. After pushing fixes that change visual output,
-watch it (`scripts/agents/ci-watch`) and re-read the reg-suit App comment,
-exactly as in step 6 — confirm the new diff matches what the fix
-intended. Do this after every push that changes the UI, not just the first.
+If the fix changes UI output, re-run the step-6 VR check (watch `ci-watch`,
+re-read the App comment, confirm the new diff matches intent) after **every** such
+push, not just the first.
 
 ### Run another review round
 

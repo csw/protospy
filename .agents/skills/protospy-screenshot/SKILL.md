@@ -3,15 +3,11 @@ name: protospy-screenshot
 description: >-
   Capture protospy UI screenshots correctly — fully-rendered content (not
   loading skeletons), the right theme actually active, and canonical filenames.
-  Use this whenever you drive the protospy UI with playwright-cli to take an
-  ad-hoc or exploratory screenshot: a one-off capture of a view, a qa/visual
-  evidence shot, or a state reached by interaction. It is especially important
-  when the shot includes a body pane (request/response body, JSON tree,
-  compressed or image body), which decodes asynchronously and screenshots far
-  too easily mid-skeleton, and whenever a shot's theme matters. Reach for it even
-  if the user just says "screenshot the inspector" or "grab a picture of the body
-  view". (The PR pixel-regression diff is automated in CI — see below — so this
-  skill is for the human-driven shots, not the regression baseline.)
+  Use whenever you drive the protospy UI with playwright-cli for an ad-hoc,
+  exploratory, or QA-evidence screenshot — a one-off view, a body-pane shot, a
+  theme-specific shot, or a state reached by interaction — even if the user just
+  says "screenshot the inspector". Not for the PR pixel-regression baseline,
+  which runs automatically in CI.
 ---
 
 # Capturing protospy UI screenshots
@@ -24,19 +20,13 @@ these in**, so drive them rather than re-implementing the rules. Every script
 needs a `playwright-cli` session already pointed at the running UI, reused across
 the whole pass.
 
-## The pixel regression is automated — not your job here
+## Not the PR pixel diff
 
-The PR visual diff (the full fixture matrix, before vs after, pixel-compared)
-runs in **CI** via reg-suit, not from this skill. On a pull request — including a
-**draft** — the `ui-visual-regression` workflow captures every scene through the
-pinned Playwright Chromium, compares against the S3 baseline, and the reg-viz
-GitHub App posts a diff report (a PR comment; no commit status, so a visual
-change never reads as a failing check). You do **not**
-capture before/after sets or run a local diff for the PR. Read
-`docs/agents/screenshots.md` for how that flow works and how to read its result.
-
-This skill covers the **human-driven** shots that automation doesn't: a one-off
-capture, an evidence shot during exploratory QA, a state reached by interaction.
+The PR visual regression (full fixture matrix, pixel-compared) runs automatically
+in CI via reg-suit — you do **not** capture before/after sets or diff by hand for
+a PR (see `docs/agents/screenshots.md`). This skill is only for **human-driven**
+shots: a one-off capture, exploratory-QA evidence, or a state reached by
+interaction.
 
 ## One shot: `capture-shot`
 
@@ -75,3 +65,9 @@ screenshot the skeleton that appears a moment later.
 To document the loading UX, screenshot the skeleton itself: skip `wait-settled`
 and capture directly with `playwright-cli screenshot`. This is the one case where
 capturing a skeleton is correct.
+
+## Sharing a shot
+
+To attach a shot to a PR or review comment, upload it with
+`scripts/agents/upload-screenshot` (prints a Markdown image embed) — see
+`docs/agents/screenshots.md`.
