@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   captureFilename,
+  matrixSceneToMeta,
+  orderScenesByAxis,
   renderCatalog,
+  type MatrixSceneInput,
   type ScenarioMeta,
 } from "../../scripts/bestiary-catalog";
+import { SCENES } from "../test/scenes";
 
 describe("captureFilename", () => {
   it("joins scenario and capture slugs with a hyphen and .png suffix", () => {
@@ -116,5 +120,64 @@ describe("renderCatalog", () => {
       intro: "Snapshot taken on a particular weekday.",
     });
     expect(withIntro).toContain("Snapshot taken on a particular weekday.");
+  });
+});
+
+describe("matrixSceneToMeta", () => {
+  it("maps a matrix scene to a single full-viewport catalog entry", () => {
+    const scene: MatrixSceneInput = {
+      id: "body-text",
+      title: "Plain text body",
+      axis: "state",
+      description: "A text/plain response body.",
+    };
+    expect(matrixSceneToMeta(scene)).toEqual({
+      family: "Matrix — state axis",
+      slug: "body-text",
+      title: "Plain text body",
+      description: "A text/plain response body.",
+      captures: [{ slug: "view", filename: "body-text-view.png" }],
+    });
+  });
+
+  it("files each axis under its own family heading", () => {
+    const families = (["state", "data", "view"] as const).map(
+      (axis) =>
+        matrixSceneToMeta({ id: "x", title: "X", axis, description: "" })
+          .family,
+    );
+    expect(families).toEqual([
+      "Matrix — state axis",
+      "Matrix — data axis",
+      "Matrix — view axis",
+    ]);
+  });
+});
+
+describe("orderScenesByAxis", () => {
+  it("groups scenes by axis order without dropping or duplicating any", () => {
+    const input = [
+      { axis: "view" as const, id: "v1" },
+      { axis: "state" as const, id: "s1" },
+      { axis: "data" as const, id: "d1" },
+      { axis: "state" as const, id: "s2" },
+    ];
+    const ordered = orderScenesByAxis(input);
+    expect(ordered.map((s) => s.id)).toEqual(["s1", "s2", "d1", "v1"]);
+    expect(ordered).toHaveLength(input.length);
+  });
+
+  it("renders one catalog family heading per axis when fed the live matrix", () => {
+    const metas = orderScenesByAxis(SCENES).map(matrixSceneToMeta);
+    const out = renderCatalog(metas, { date: "2026-06-21" });
+    const familyHeadings = out.split("\n").filter((l) => l.startsWith("## "));
+    expect(familyHeadings).toEqual([
+      "## Matrix — state axis",
+      "## Matrix — data axis",
+      "## Matrix — view axis",
+    ]);
+    // Every matrix cell becomes exactly one catalog entry.
+    const sceneHeadings = out.split("\n").filter((l) => l.startsWith("### "));
+    expect(sceneHeadings).toHaveLength(SCENES.length);
   });
 });
