@@ -83,7 +83,7 @@ Give it this prompt:
 > specify.
 
 If the scout fails to start, retry once. If it still fails, **fall back to
-fetching the ticket yourself** — `linear issues get $ticket --output json` (extract
+fetching the ticket yourself** — `linear issues get $ticket --output json --format full` (extract
 `title`, `description`, `url`), read the parent and any bearing siblings. This
 is the costlier path the scout exists to avoid; note in-session that you took it.
 Do not block the ticket on a missing scout.
@@ -253,7 +253,7 @@ partial reports or proceed to step 8 until all required reviews succeed.
 
 Check the ticket description for a `## Reviewer instructions` section (the
 step-2 brief reproduces it verbatim if present; re-fetch with
-`linear issues get $ticket --output json` to confirm). If present, append this block
+`linear issues get $ticket --output json --format full` to confirm). If present, append this block
 verbatim to each 7a/7b/7c prompt:
 
 > **Maintainer instructions for this review** (authoritative — context the diff
@@ -309,6 +309,42 @@ If the 7b diff check listed files, also spawn
 
 If no files matched, skip 7c.
 
+### 7d — Skill and agent-definition review (tooling diffs only)
+
+Check for changed skills and agent definitions with a three-dot diff:
+
+```bash
+git diff main...HEAD --name-only -- '.claude/skills/**' '.agents/skills/**' '.claude/agents/**' '.codex/agents/**'
+```
+
+If no files matched, skip 7d.
+
+Separate the matched paths into **skill files** (under `.claude/skills/` or
+`.agents/skills/`) and **agent definitions** (under `.claude/agents/` or
+`.codex/agents/`). Spawn the appropriate reviewer for each set — in the **same
+parallel message** as the other reviews:
+
+**Skills** (if any matched): spawn **`plugin-dev:skill-reviewer`**
+(`subagent_type: "plugin-dev:skill-reviewer"`). Prompt:
+
+> Review the skills modified in this PR for $ticket ("<title>"). The changed
+> skill files are: <list the matched skill paths>. Check description quality
+> and trigger phrases, content organization and progressive disclosure,
+> writing style, and whether referenced files exist. Return a prioritized
+> findings report.
+
+**Agent definitions** (if any matched): spawn a **general-purpose** subagent.
+Prompt:
+
+> Load the `plugin-dev:agent-development` skill, then review the agent
+> definitions modified in this PR for $ticket ("<title>"). The changed agent
+> files are: <list the matched agent paths>. Review each against the
+> agent-development best practices: frontmatter fields (name, description
+> with trigger scenarios, model, color, tools), system prompt design
+> (responsibilities, process, output format, edge cases), tool restriction
+> (least privilege), and description quality for triggering. Return a
+> prioritized findings report.
+
 Wait for all required subagents. Capture each output. Apply the startup-failure
 rule to any failed or empty result.
 
@@ -363,6 +399,9 @@ In a **single parallel message**, do all of:
   missing, then insert the links list.
 - **DS conformance review** (if 7c ran): write to `ds_review` path. Same merge
   logic as convention review.
+- **Skill/agent-definition review** (if 7d ran): write each 7d reviewer's
+  output to the `skill_review` path. If both ran, concatenate them under a
+  single report with `type: skill-review`. Prepend front matter.
 - **Synthesis** (if two or more reviews ran): spawn
   **`review-synthesis`** (`subagent_type: "review-synthesis"`) with the ticket
   ID, PR number, round `N`, which reviews ran, and **the full text of each

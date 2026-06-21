@@ -86,7 +86,7 @@ Give it this prompt:
 > specify.
 
 If the scout fails to start, retry once. If it still fails, **fall back to
-fetching the ticket yourself** — `linear issues get $ticket --output json` (extract
+fetching the ticket yourself** — `linear issues get $ticket --output json --format full` (extract
 `title`, `description`, `url`), read the parent and any bearing siblings. This
 is the costlier path the scout exists to avoid; note in-session that you took it.
 Do not block the ticket on a missing scout.
@@ -263,7 +263,7 @@ partial reports or proceed to step 8 until all required reviews succeed.
 
 Check the ticket description for a `## Reviewer instructions` section (the
 step-2 brief reproduces it verbatim if present; re-fetch with
-`linear issues get $ticket --output json` to confirm). If present, append this block
+`linear issues get $ticket --output json --format full` to confirm). If present, append this block
 verbatim to each 7a/7b/7c prompt:
 
 > **Maintainer instructions for this review** (authoritative — context the diff
@@ -319,6 +319,19 @@ If the 7b diff check listed files, also spawn
 
 If no files matched, skip 7c.
 
+### 7d — Skill and agent-definition review (tooling diffs only)
+
+Check for changed skills and agent definitions with a three-dot diff:
+
+```bash
+git diff main...HEAD --name-only -- '.claude/skills/**' '.agents/skills/**' '.claude/agents/**' '.codex/agents/**'
+```
+
+If no files matched, skip 7d.
+
+If any files listed, note that a skill/agent-definition review is recommended
+but the `plugin-dev:skill-reviewer` agent is not available in Codex. Skip 7d.
+
 Wait for all required subagents. Capture each output. Apply the startup-failure
 rule to any failed or empty result.
 
@@ -373,6 +386,9 @@ In a **single parallel message**, do all of:
   missing, then insert the links list.
 - **DS conformance review** (if 7c ran): write to `ds_review` path. Same merge
   logic as convention review.
+- **Skill/agent-definition review** (if 7d ran): write each 7d reviewer's
+  output to the `skill_review` path. If both ran, concatenate them under a
+  single report with `type: skill-review`. Prepend front matter.
 - **Synthesis** (if two or more reviews ran): spawn
   **`review-synthesis`** (`subagent_type: "review-synthesis"`) with the ticket
   ID, PR number, round `N`, which reviews ran, and **the full text of each

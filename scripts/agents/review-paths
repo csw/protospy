@@ -11,6 +11,7 @@
 #     visual-review-<N>.md
 #     convention-review-<N>.md
 #     design-system-conformance-review-<N>.md
+#     skill-review-<N>.md
 #     synthesis-<N>.md
 #
 # All report files in one review round share the same round number <N>. Round 1
@@ -42,6 +43,7 @@
 #   visual_review=<abs path>
 #   convention_review=<abs path>
 #   ds_review=<abs path>
+#   skill_review=<abs path>
 #   synthesis=<abs path>
 #   screenshots=<abs ticket screenshots dir>
 #
@@ -114,6 +116,7 @@ emit_round() {
 	printf 'visual_review=%s/visual-review-%s.md\n' "$dir" "$round"
 	printf 'convention_review=%s/convention-review-%s.md\n' "$dir" "$round"
 	printf 'ds_review=%s/design-system-conformance-review-%s.md\n' "$dir" "$round"
+	printf 'skill_review=%s/skill-review-%s.md\n' "$dir" "$round"
 	printf 'synthesis=%s/synthesis-%s.md\n' "$dir" "$round"
 	printf 'screenshots=%s\n' "$(screenshots_dir "$ticket")"
 }
