@@ -1,83 +1,73 @@
 ---
 name: protospy-screenshot
 description: >-
-  Capture protospy UI screenshots that show fully-rendered content instead of
-  loading skeletons. Use this whenever you drive the protospy UI with
-  playwright-cli to take a screenshot — before/after shots for a PR, a one-off
-  capture of a view, or any qa/visual check — especially when the shot includes
-  a body pane (request/response body, JSON tree, compressed or image body),
-  since those decode asynchronously and screenshot far too easily mid-skeleton.
-  Reach for it even if the user just says "screenshot the inspector" or "grab a
-  picture of the body view" without mentioning skeletons or loading.
+  Capture protospy UI screenshots correctly — fully-rendered content (not
+  loading skeletons), the right theme actually active, and canonical filenames.
+  Use whenever you drive the protospy UI with playwright-cli for an ad-hoc,
+  exploratory, or QA-evidence screenshot — a one-off view, a body-pane shot, a
+  theme-specific shot, or a state reached by interaction — even if the user just
+  says "screenshot the inspector". Not for the PR pixel-regression baseline,
+  which runs automatically in CI.
 ---
 
 # Capturing protospy UI screenshots
 
-The protospy body pane decodes asynchronously — JSON parses in a Web Worker,
-compressed bodies run through WASM decoders, images load as `<img>`. While that
-work is in flight the pane shows a **loading skeleton**. A screenshot taken in
-that window captures the skeleton instead of the content, which is the most
-common defect in protospy captures. This skill exists to make that defect
-impossible: wait for content before you shoot.
+A correct protospy screenshot needs three things that are each easy to get wrong
+by hand: rendered content (not a loading skeleton), the intended theme actually
+active, and — for a named scene — the canonical filename
+`{scene}-{width}-{theme}.png`. **The bundled scripts in `scripts/agents/` bake
+these in**, so drive them rather than re-implementing the rules. Every script
+needs a `playwright-cli` session already pointed at the running UI, reused across
+the whole pass.
 
-This covers **ad-hoc, playwright-cli-driven** captures. The scripted pipelines
-(`just screenshots`, `just screenshots-bestiary`) already wait via the shared
-`waitForContentSettled` helper in `ui/scripts/screenshot-helpers.ts` — you don't
-need this skill for those.
+## Not the PR pixel diff
 
-## The one rule: wait for `aria-busy` to clear
+The PR visual regression (full fixture matrix, pixel-compared) runs automatically
+in CI via reg-suit — you do **not** capture before/after sets or diff by hand for
+a PR (see `docs/agents/screenshots.md`). This skill is only for **human-driven**
+shots: a one-off capture, exploratory-QA evidence, or a state reached by
+interaction.
 
-Every loading state in the UI marks its region with `aria-busy="true"` — the
-standard "this region is still resolving" signal (design-system §4.5). So a
-single content-presence check covers the body pane's decode skeleton, the
-lifecycle spinner, the "Awaiting response…" / "Streaming…" states, and any
-future loading indicator without enumerating them — and it stays correct as
-those indicators change shape:
+## One shot: `capture-shot`
 
 ```bash
-# Wait until no loading region remains, THEN screenshot.
-playwright-cli run-code "async page => { await page.locator('[aria-busy=\"true\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
-playwright-cli screenshot --filename=scratch/after/inspector-1280-dark.png
+scripts/agents/capture-shot --scene exchanges-active --theme dark --width 1280 \
+  --out scratch/shots
+# prints: exchanges-active-1280-dark.png
 ```
 
-Why `aria-busy` and not "the skeleton" or "anything animating": keying on a
-particular loading _form_ misses the others (a skeleton selector won't catch a
-spinner). Terminal states (no body, undecodable) and the UI's _intentional_
-animations (the live-stream dot, the connecting indicator, the streaming-text
-cursor) are not busy regions, so `aria-busy` waits for real content and never
-hangs on them.
+It applies the fixture scene, activates and verifies the theme, waits for body
+content to settle, guards that the live theme matches the filename, and saves the
+canonical name — all in a single `playwright-cli` call. `--theme` is `light` or
+`dark`. List scene ids with `scripts/agents/scene-list` (or see
+`ui/docs/fixture-matrix.md`).
 
-`{ state: 'detached' }` resolves the instant the busy region is replaced by
-content, and resolves immediately when nothing was loading — the
-`.catch(() => {})` keeps a never-present marker from throwing. It is
-content-presence based, not a fixed `sleep`; do not substitute a timeout.
+## Ad-hoc and exploratory captures
 
-## Order matters
-
-Run the wait **after** the surface that owns the body has mounted — i.e. after
-you have selected the exchange and the inspector tabpanel is visible. If you wait
-before the body pane mounts, the skeleton isn't in the DOM yet, the check passes
-instantly, and you screenshot the skeleton that appears a moment later.
+For a shot a named scene doesn't fit — an evidence shot during exploratory QA, a
+state reached by interaction rather than a named scene — drive the two rules with
+the same helpers:
 
 ```bash
-# 1. Select an exchange so the inspector (and its body pane) mounts.
-playwright-cli click "<exchange row>"
-# 2. Confirm the body surface is up, then wait for content.
-playwright-cli run-code "async page => { await page.getByRole('tabpanel').first().waitFor({ state: 'visible' }); await page.locator('[aria-busy=\"true\"]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {}); }"
-# 3. Now capture.
-playwright-cli screenshot --filename=scratch/after/body-1280-dark.png
+scripts/agents/set-theme dark        # activate + verify a theme
+# ... select an exchange / reach the state you want ...
+scripts/agents/wait-settled          # wait for body content to finish loading
+playwright-cli screenshot --filename=scratch/inspector.png
 ```
+
+`set-theme <light|dark|system>` and `wait-settled` each verify/wait in the
+current session. Order matters: run `wait-settled` **after** the surface owning
+the body has mounted — run it before and the wait passes instantly, then you
+screenshot the skeleton that appears a moment later.
 
 ## Deliberately capturing a loading state
 
-If you actually want a screenshot of the skeleton (documenting the loading UX),
-skip the wait — that's the one case where capturing the skeleton is correct.
+To document the loading UX, screenshot the skeleton itself: skip `wait-settled`
+and capture directly with `playwright-cli screenshot`. This is the one case where
+capturing a skeleton is correct.
 
-## Fitting into the standard capture flow
+## Sharing a shot
 
-This skill is the "wait for content" step, not a replacement for the rest of the
-capture workflow (forcing theme, choosing widths, filenames, upload). For the
-full before/after PR flow — shot matrix, `scratch/before` and `scratch/after`,
-`upload-screenshot`, `screenshot-diff` — see `docs/agents/screenshots.md` and the
-`handle-ticket` skill. Apply the wait above before each shot that includes a body
-pane.
+To attach a shot to a PR or review comment, upload it with
+`scripts/agents/upload-screenshot` (prints a Markdown image embed) — see
+`docs/agents/screenshots.md`.

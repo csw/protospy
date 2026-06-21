@@ -42,12 +42,24 @@ class CodexAgentGenerationTests(unittest.TestCase):
         self.assertNotIn('model = "sonnet"', generated)
 
     def test_all_implementer_agents_generate_with_codex_model_names(self) -> None:
+        # Agents may pin different Claude tiers (e.g. qa-explorer on opus); every
+        # generated TOML must carry a mapped Codex model, never a Claude name.
+        codex_models = {"gpt-5.4-mini", "gpt-5.5"}
         for name in sync_codex_agents.IMPLEMENTER_AGENT_NAMES:
             with self.subTest(name=name):
                 generated = sync_codex_agents.generate_agent(name)
 
-                self.assertIn('model = "gpt-5.4-mini"', generated)
+                self.assertTrue(
+                    any(f'model = "{m}"' in generated for m in codex_models),
+                    f"{name} did not generate a known Codex model line",
+                )
                 self.assertNotIn('model = "sonnet"', generated)
+                self.assertNotIn('model = "opus"', generated)
+
+    def test_qa_explorer_pins_opus_to_codex_gpt_5_5(self) -> None:
+        generated = sync_codex_agents.generate_agent("qa-explorer")
+
+        self.assertIn('model = "gpt-5.5"', generated)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+#
+# Set the protospy UI theme through the next-themes test bridge and verify it
+# took — so callers don't have to repeat the bridge-wait / settle / verify dance
+# before every screenshot.
+#
+# Theme moved out of the Zustand store with the v2.3 next-themes swap (PRO-345):
+# the dev/test-only `window.__test_theme` bridge owns it, and both the bridge and
+# the `.dark` class on <html> are applied by React effects. So this waits for the
+# bridge to mount, sets the preference, waits for it to settle, then — for an
+# explicit light/dark target — asserts the resolved `.dark` class. It exits
+# non-zero if the theme never takes, so a shot is never captured under the wrong
+# theme. (For `system` the resolved theme depends on the emulated color scheme,
+# so only the preference is verified, not the class.)
+#
+# Usage: set-theme <light|dark|system>
+#
+# Requires a `playwright-cli` session already pointed at the running UI (the same
+# session you capture from). See the `protospy-screenshot` skill.
+set -euo pipefail
+
+theme="${1:-}"
+case "$theme" in
+  light | dark | system) ;;
+  *)
+    echo "usage: $(basename "$0") <light|dark|system>" >&2
+    exit 2
+    ;;
+esac
+
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/agents/_screenshot-js.sh
+source "$here/_screenshot-js.sh"
+
+# The theme-activation JS is shared with `capture-shot` (see _screenshot-js.sh).
+# Any failure — a `waitFor` timeout or the explicit mismatch throw — surfaces as
+# `--json` `isError: true`; a clean run omits it. `run-code` always exits 0, so
+# that boolean (checked below) is the enforcement.
+result="$(playwright-cli run-code --json "async page => {
+$(js_set_theme "$theme")
+}")"
+
+if ! jq -e '.isError != true' <<<"$result" >/dev/null 2>&1; then
+  echo "set-theme: theme '$theme' did not activate: $result" >&2
+  exit 1
+fi

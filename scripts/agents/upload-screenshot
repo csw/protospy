@@ -24,6 +24,11 @@ image files (*.png, *.jpg, *.jpeg, *.webp) directly inside it are uploaded
 --catalog         After uploading images, also generate and upload a self-
                   contained HTML catalog page to '<prefix>/index.html'.
                   Prints 'Catalog: <url>' after the per-file embed strings.
+--matrix PATH     Check the uploaded set against a matrix manifest (one
+                  filename per line). Prints advisory warnings to stderr for
+                  files not in the manifest (likely stale artifacts) and
+                  manifest entries that were not captured. Advisory only —
+                  the upload still proceeds.
 
 Prints one Markdown image embed string per file:
     ![filename](https://protospy-dev-data.s3.amazonaws.com/<key>)
@@ -275,6 +280,45 @@ def parse_screenshot_meta(filename: str) -> dict:
     return {"type": "other", "label": Path(filename).stem}
 
 
+def read_matrix(matrix_path: Path) -> list[str]:
+    """Read expected screenshot filenames from a matrix manifest, one per line.
+
+    Blank lines and '#' comment lines are ignored so the manifest can carry
+    notes without being mistaken for filenames.
+    """
+    names = []
+    for line in matrix_path.read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        names.append(stripped)
+    return names
+
+
+def matrix_warnings(image_names: list[str], expected: list[str]) -> list[str]:
+    """Agent-facing warnings for mismatches between captured images and the
+    manifest.
+
+    Extra files (present but not in the manifest) are likely stale artifacts
+    from a prior capture pass; missing files (in the manifest but not captured)
+    were expected but never produced. These are advisory, not gates — the
+    caller still uploads and the agent decides how to self-correct.
+    """
+    present = set(image_names)
+    want = set(expected)
+    warnings = []
+    for name in sorted(present - want):
+        warnings.append(
+            f"warning: {name} is not in the matrix manifest "
+            "(likely a stale artifact — delete it or add it to the matrix)"
+        )
+    for name in sorted(want - present):
+        warnings.append(
+            f"warning: {name} is in the matrix manifest but was not captured"
+        )
+    return warnings
+
+
 def image_key(prefix: str, subdir: str | None, filename: str) -> str:
     parts = [prefix]
     if subdir:
@@ -367,6 +411,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also generate and upload an HTML catalog page to '<prefix>/index.html'",
     )
+    parser.add_argument(
+        "--matrix",
+        help="matrix manifest to check the uploaded set against; prints advisory "
+        "warnings for stale (extra) or missing files before uploading",
+    )
     args = parser.parse_args(argv)
 
     path = Path(args.path)
@@ -374,6 +423,18 @@ def main(argv: list[str] | None = None) -> int:
     if not images:
         print("no images found", file=sys.stderr)
         return 1
+
+    if args.matrix:
+        matrix_path = Path(args.matrix)
+        if not matrix_path.is_file():
+            print(
+                f"warning: matrix file {matrix_path} not found; skipping matrix check",
+                file=sys.stderr,
+            )
+        else:
+            expected = read_matrix(matrix_path)
+            for warning in matrix_warnings([img.name for img in images], expected):
+                print(warning, file=sys.stderr)
 
     if args.prefix:
         prefix = args.prefix

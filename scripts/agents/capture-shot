@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# Capture one canonical protospy screenshot, with the naming, theming, and
+# skeleton-wait rules baked in — so callers don't restate them on every shot.
+#
+# Given a fixture scene, theme, and width, this resizes the viewport, applies the
+# scene through `window.__test_scenes` (which resets the store and waits for React
+# to settle), activates the theme through the next-themes bridge (and verifies
+# it), waits for body content to finish decoding (no `aria-busy` region remains —
+# see the `protospy-screenshot` skill for why), guards that the live theme matches
+# the filename, and saves to the conventional `{scene}-{width}-{theme}.png`
+# filename in the output directory. It prints the filename it produced, so a
+# caller can build a matrix manifest from the captured set.
+#
+# All of those page steps run in ONE merged `playwright-cli run-code` call (then
+# one `screenshot` call) rather than a separate process per step — each
+# `playwright-cli` invocation is a fresh Node process plus a daemon round-trip, so
+# the per-shot cost is dominated by call COUNT, not the work. The step JS is
+# shared with the standalone `set-theme`/`wait-settled` helpers via
+# `_screenshot-js.sh` so the rules still live in one place.
+#
+# Usage: capture-shot --scene <id> --theme <light|dark> --width <px> --out <dir>
+#
+# Exit codes: 0 on success; 2 on a usage error; 3 when the scene id is unknown to
+# the running app (a distinct code so a matrix run can SKIP a scene the running
+# app version doesn't have — e.g. capturing `before` against the base app, which
+# lacks a scene this branch adds — rather than aborting); 1 on any other failure
+# (harness never mounted, theme didn't activate, screenshot failed, etc.).
+#
+# Requires a `playwright-cli` session already pointed at the running UI (the same
+# session for every shot in a pass). See the `protospy-screenshot` skill.
+set -euo pipefail
+
+scene="" theme="" width="" out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scene) scene="$2"; shift 2 ;;
+    --theme) theme="$2"; shift 2 ;;
+    --width) width="$2"; shift 2 ;;
+    --out) out="$2"; shift 2 ;;
+    *) echo "capture-shot: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+usage() {
+  echo "usage: $(basename "$0") --scene <id> --theme <light|dark> --width <px> --out <dir>" >&2
+  exit 2
+}
+
+[[ -n "$scene" && -n "$theme" && -n "$width" && -n "$out" ]] || usage
+case "$theme" in light | dark) ;; *) usage ;; esac
+[[ "$width" =~ ^[0-9]+$ ]] || usage
+
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/agents/_screenshot-js.sh
+source "$here/_screenshot-js.sh"
+mkdir -p "$out"
+filename="$scene-$width-$theme.png"
+
+# 1. Prepare the page in ONE call: resize the viewport, wait for the harness to
+#    mount, apply the scene, activate + verify the theme, wait for content to
+#    settle, then guard the theme against the filename. The shared snippets throw
+#    for hard failures (harness never mounted, theme didn't take) and `return` a
+#    structured { stage } for the cases this script maps to a distinct exit code.
+#    `run-code` itself always exits 0; the result JSON carries the outcome.
+prep="$(playwright-cli run-code --json "async page => {
+  await page.setViewportSize({ width: $width, height: 900 });
+$(js_wait_harness)
+$(js_apply_scene "$scene")
+$(js_set_theme "$theme")
+$(js_wait_settled)
+$(js_theme_guard "$theme")
+  return { stage: 'ok' };
+}")"
+
+# A thrown error (harness absent, theme failed, etc.) is a hard failure: abort so
+# the matrix doesn't leave a partial set. `.error` carries the detail.
+if jq -e '.isError == true' <<<"$prep" >/dev/null 2>&1; then
+  echo "capture-shot: preparing scene '$scene' failed: $(jq -r '.error // .' <<<"$prep")" >&2
+  exit 1
+fi
+
+# Otherwise the structured stage decides: an unknown scene exits 3 (distinct) so a
+# matrix run can SKIP it rather than abort; anything but a clean 'ok' is a failure.
+stage="$(jq -r '.result | fromjson | .stage' <<<"$prep" 2>/dev/null || true)"
+case "$stage" in
+  ok) ;;
+  unknown-scene)
+    echo "capture-shot: scene '$scene' is not a known scene id in the running app" >&2
+    exit 3
+    ;;
+  theme-mismatch)
+    echo "capture-shot: active theme disagrees with filename '$filename'" >&2
+    exit 1
+    ;;
+  *)
+    echo "capture-shot: unexpected capture result: $prep" >&2
+    exit 1
+    ;;
+esac
+
+# 2. Capture to the canonical filename.
+playwright-cli screenshot --filename="$out/$filename" >/dev/null
+echo "$filename"

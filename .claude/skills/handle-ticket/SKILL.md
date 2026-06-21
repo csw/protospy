@@ -137,69 +137,6 @@ a `general-purpose` subagent via the Agent tool for a fresh perspective.
 Use the Opus model at high effort.
 Brief it on what you've tried and what's not working.
 
-### 3a — Capture before screenshots (UI-touching tickets)
-
-Check whether the ticket has a `UI` label:
-
-```bash
-linear issues get $ticket --output json \
-  | jq -r '.labels[].name' \
-  | grep -qi '^ui$' && echo yes || echo no
-```
-
-(`linear issues get --output json` includes labels natively under `.labels[].name`.)
-
-If yes, you must capture baseline screenshots **before any implementation
-begins**. From the ticket description, identify the views and scenes that will
-change.
-
-**Decide the shot matrix first.** Before starting the dev server, choose the
-minimal set of shots:
-
-- **Width**: default to 1280 unless the ticket explicitly touches horizontal
-  layout across widths; add 1440 only when necessary.
-- **Theme**: default to dark unless the ticket touches theme-specific styling;
-  add light only when necessary.
-
-Record the matrix in `scratch/matrix.txt` — one filename per line, following
-the `{scene}-{width}-{theme}.png` convention:
-
-```
-exchanges-active-1280-dark.png
-detail-panel-1280-dark.png
-```
-
-This manifest drives both the before and after steps — the after step (step 4)
-uses the same filenames so the two sets pair cleanly for pixel comparison.
-
-Pick a free port (default is 5173; use a different one) and start a dev server:
-
-```bash
-cd ui && pnpm dev --port <port> &
-```
-
-Use `playwright-cli` to screenshot the affected views. Follow the
-**`protospy-screenshot`** skill when you capture — it covers the protospy-specific
-wait that keeps a shot from landing on a loading skeleton instead of rendered
-body content. Inject fixture state first if needed to make the changed area
-visible — use `window.__test_scenes.apply('<scene-id>')` (same scene IDs the
-visual-verify step uses). An empty-state screenshot rarely shows anything useful;
-pick a scene that puts data in the view the ticket changes. **Save screenshots
-with the exact filenames from `scratch/matrix.txt`**, to `scratch/before/`. Then
-upload:
-
-```bash
-scripts/agents/upload-screenshot scratch/before/ \
-  --branch "$(git branch --show-current)"
-```
-
-Kill the dev server after capture
-(`kill %1` or `pkill -f 'pnpm dev'`).
-
-If the ticket has no `UI` label, skip this sub-step.
-
-### 3b — Implement
-
 Implement what the ticket calls for. Do **not** touch any Rust code.
 
 Run the subproject's quality checks as listed in its `CLAUDE.md`. Any
@@ -216,79 +153,38 @@ manually before proceeding.
 git diff main...HEAD --name-only -- 'ui/src/**'
 ```
 
-If no files listed, skip to step 5.
+If no files listed, skip to step 5. Otherwise do a **live qualitative check** on
+the running app before you push. This is the human-eye pass — layout, theming,
+interaction, and console health — that the pixel regression can't replace. (The
+pixel diff runs automatically in CI; see step 6 and `docs/agents/screenshots.md`.)
+For ad-hoc evidence shots, use the **`protospy-screenshot`** skill.
 
-Start a dev server on a non-default port for the subagent to drive:
+**Start the HEAD dev server** on a non-default port:
 
 ```bash
 cd ui && pnpm dev --port <port> &
 ```
 
+**Verify with a subagent.**
 Spawn a **`qa-explorer`** subagent (`subagent_type: "qa-explorer"`). It knows
 `playwright-cli` natively. Do **not** use `general-purpose` for this.
-Give it this prompt (substitute components, port, and the filenames from
-`scratch/matrix.txt` if step 3a ran):
+Give it this prompt (substitute components and port):
 
 > Visually verify the UI changes for $ticket ("<title>"). The dev server is at
-> `http://localhost:<port>/`. The change touched <components/views>. Use
-> `playwright-cli` to drive the app, following the **`protospy-screenshot`**
-> skill so each shot captures rendered body content, not a loading skeleton.
-> **Save screenshots to `scratch/after/`**
-> — pass `--filename scratch/after/<name>.png` for each shot.
-> **Never pass a bare relative `--filename`** like `--filename=after.png`.
-> **Use exactly these filenames** (from `scratch/matrix.txt`):
-> `<list filenames from matrix.txt, one per line>`
-> Inject fixture state via
-> `window.__test_scenes.apply('<scene-id>')` where helpful. Check:
+> `http://localhost:<port>/`; the change touched <components/views>. Open it
+> (`playwright-cli open "http://localhost:<port>/"`) and drive the affected
+> surfaces as a user would (see the **`protospy-screenshot`** skill for the
+> theme/settle helpers). While driving the app, check:
 >
 > - **Does it look right?** Layout holds; nothing overlaps, clips, or misaligns.
-> - **Reasonable widths?** Spot-check 1280 and 1440 (`playwright-cli resize`).
-> - **Both themes.** Toggle via
->   `window.__test_store.getState().setTheme('dark')` / `'light'`.
+> - **Widths and themes.** Spot-check representative widths (e.g. 1280 and 1440)
+>   and both themes where the change is layout- or theme-sensitive.
 > - **No new console errors** (`playwright-cli console`).
 >
 > Report briefly: what you checked, what looks right, any issues.
 
-If step 3a did not run (no UI label), the matrix isn't constrained — use the
-standard spot-check widths and themes from the subagent prompt above.
-
 If the subagent reports problems, fix them, re-run quality checks, and
-re-verify. Capture a one-line summary for the PR description.
-
-Upload the subagent's screenshots as the "after" set:
-
-```bash
-scripts/agents/upload-screenshot scratch/after/ \
-  --branch "$(git branch --show-current)"
-```
-
-**Screenshot comparison.** After the after upload, always run:
-
-```bash
-scripts/agents/screenshot-diff scratch/before/ scratch/after/
-```
-
-Capture the printed summary line (e.g. `4/4 identical` or
-`2/4 differ: shot-1280-dark.png (0.3% changed)`). Store it for step 6.
-
-Determine whether visual changes were **expected** (new feature, redesign,
-styling update → yes; refactor, code cleanup, internal rewiring → no) and
-whether changes were **found** (screenshot-diff exits 1 → yes, exits 0 → no).
-
-- **Expected and found**: generate the visual-diff report and store the URL:
-
-  ```bash
-  scripts/agents/visual-diff-report scratch/before/ scratch/after/ \
-    --branch "$(git branch --show-current)"
-  ```
-
-- **Not expected and not found**: no further action needed.
-
-- **Mismatch** — expected but not found, or found but not expected:
-  - If changes were found, generate the visual-diff report and store the URL.
-  - **Stop before pushing.** Surface the mismatch to the user immediately and
-    wait for explicit direction before proceeding. The PR description will
-    flag the discrepancy with a caution block (step 6).
+re-verify. Kill the dev server when done (`pkill -f 'pnpm dev'`).
 
 ---
 
@@ -304,8 +200,10 @@ Commit with a Conventional Commits message:
 - Keep under 72 characters; trim the description if needed, not the ticket ID
 - Implementation notes go in the body, not the subject
 
-Push the branch. CI does not run on draft PRs, so there is nothing to watch
-here — CI triggers only when the PR is marked ready at close-out (step 10).
+Push the branch. Nothing runs on the bare branch push: the standard UI CI skips
+draft PRs, and the `ui-visual-regression` workflow triggers on the pull request,
+which you open in step 6 (where it is watched). Full UI CI runs only when the PR
+is marked ready at close-out (step 10).
 
 ---
 
@@ -318,52 +216,20 @@ ticket ID unless the user names them.
 If no PR exists, create one **as a draft**: `gh pr create --draft ...`. Include
 the ticket ID at the end of the title. Note the PR number.
 
-If screenshots were taken (steps 3a / 4), append a `## Visual diff` section to
-the PR body.
+**Watch the visual regression (UI diffs only).** If step 4 ran, opening the draft
+PR triggers `ui-visual-regression` (it runs on drafts, unlike the rest of UI CI).
+Watch it to completion:
 
-**If a mismatch was detected in step 4**, open the section with a caution
-block (use the appropriate message):
-
-```markdown
-> [!CAUTION]
-> Visual changes were expected but none were detected — verify the implementation.
+```bash
+scripts/agents/ci-watch
 ```
 
-```markdown
-> [!CAUTION]
-> Unexpected visual changes detected — review before merging.
-```
-
-Then always include the screenshot-diff summary line:
-
-```
-**Screenshot comparison:** <summary from step 4>
-```
-
-If a visual-diff report URL was produced (changes were found):
-
-```
-[Visual diff report](<URL from step 4>)
-```
-
-Full example — expected change with report:
-
-```markdown
-## Visual diff
-
-**Screenshot comparison:** 2/4 differ: shot-1280-dark.png (0.3% changed)
-[Visual diff report](https://protospy-dev-data.s3.amazonaws.com/...)
-```
-
-Full example — clean refactor, no changes:
-
-```markdown
-## Visual diff
-
-**Screenshot comparison:** 4/4 identical
-```
-
-Omit the section entirely if no screenshots were taken.
+Then read the reg-suit GitHub App comment (it links the diff report — no commit
+status, so the diff never shows as a failing check). If it flags **unexpected**
+changes — ones this ticket shouldn't have caused — treat that as a finding:
+investigate before close-out and surface it to the user. Expected changes (a
+feature or redesign) are fine. See `docs/agents/screenshots.md` for how the CI
+diff works.
 
 ---
 
@@ -551,20 +417,11 @@ ready, or run another round until the user says what to do.
 Start only after the user has responded to step 9 with explicit direction.
 Make changes, commit, and push. The open PR picks up the commits automatically.
 
-### Update after screenshots
+### Re-check the visual regression
 
-If this ticket has before/after screenshots (step 3a / step 4) and the fixes
-changed anything visually (UI code, styles, layout):
-
-1. Retake the "after" screenshots and re-upload:
-   `scripts/agents/upload-screenshot scratch/after/ --prefix $ticket/after`
-2. Re-run `scripts/agents/screenshot-diff scratch/before/ scratch/after/` and
-   update the `**Screenshot comparison:**` line in the PR description.
-3. If there are visual changes, re-run:
-   `scripts/agents/visual-diff-report scratch/before/ scratch/after/ --branch "$(git branch --show-current)"`
-   and update the `[Visual diff report]` link in the PR description.
-
-Do this after every push that changes visual output — not just the first one.
+If the fix changes UI output, re-run the step-6 VR check (watch `ci-watch`,
+re-read the App comment, confirm the new diff matches intent) after **every** such
+push, not just the first.
 
 ### Run another review round
 

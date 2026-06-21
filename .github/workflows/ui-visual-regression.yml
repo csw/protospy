@@ -1,0 +1,156 @@
+name: ui-visual-regression
+
+# Visual regression via reg-suit. Captures the fixture matrix through the pinned
+# Playwright Chromium (the same renderer the browser suite uses), then:
+#   - on push to main: publishes the captured set to S3 as the new baseline
+#     (keyed by commit hash). No PR notification.
+#   - on a pull request (INCLUDING drafts): syncs the baseline from S3, compares,
+#     publishes the diff report keyed by the PR head, and the reg-viz GitHub App
+#     posts a PR comment (commit status is disabled — a visual change must not
+#     read as a failing check).
+#
+# This is a SEPARATE workflow from ui-ci.yml on purpose: ui-ci skips draft PRs,
+# but the visual diff must be available throughout handle-ticket's review cycle,
+# which iterates on a draft PR. So this workflow OMITS the draft guard.
+
+on:
+  # Manual trigger (Actions tab / `gh workflow run`). Runs against any ref —
+  # pass a branch, tag, or commit SHA via `ref` to capture and compare an
+  # arbitrary commit; leave it blank to use the branch the workflow is dispatched
+  # on. A manual run always does the compare+notify path, never the baseline
+  # publish, so it can't clobber the main baseline. NB: workflow_dispatch is only
+  # dispatchable once the workflow exists on the default branch — this lever is
+  # available after this lands on main, not for the introducing PR.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to capture (blank = dispatched branch)"
+        required: false
+        type: string
+  push:
+    branches: [main]
+    # Only "substantive" UI changes — ones that can actually move rendered
+    # pixels — trigger a capture+publish. Docs, agent-instruction files, lint/TS
+    # config, the browser/unit test harness, and the other ui/scripts/ tools are
+    # deliberately excluded so a non-visual change doesn't burn a full matrix run.
+    paths:
+      - "ui/src/**" # app source, globals.css tokens, fixtures + scene matrix
+      - "ui/index.html" # app shell
+      - "ui/package.json" # dependency set (a bump can change rendering)
+      - "ui/pnpm-lock.yaml"
+      - "ui/vite.config.ts" # build output
+      - "ui/regconfig.json" # reg-suit behavior
+      - "ui/scripts/capture-scenes.ts" # the capture renderer itself
+      - "ui/scripts/capture-scenes-lib.ts"
+      - "ui/scripts/screenshot-helpers.ts"
+      - "bindings/**" # generated wire types the UI renders
+      - ".github/workflows/ui-visual-regression.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Only "substantive" UI changes — ones that can actually move rendered
+    # pixels — trigger a capture+publish. Docs, agent-instruction files, lint/TS
+    # config, the browser/unit test harness, and the other ui/scripts/ tools are
+    # deliberately excluded so a non-visual change doesn't burn a full matrix run.
+    paths:
+      - "ui/src/**" # app source, globals.css tokens, fixtures + scene matrix
+      - "ui/index.html" # app shell
+      - "ui/package.json" # dependency set (a bump can change rendering)
+      - "ui/pnpm-lock.yaml"
+      - "ui/vite.config.ts" # build output
+      - "ui/regconfig.json" # reg-suit behavior
+      - "ui/scripts/capture-scenes.ts" # the capture renderer itself
+      - "ui/scripts/capture-scenes-lib.ts"
+      - "ui/scripts/screenshot-helpers.ts"
+      - "bindings/**" # generated wire types the UI renders
+      - ".github/workflows/ui-visual-regression.yml"
+
+defaults:
+  run:
+    working-directory: ui
+
+jobs:
+  visual-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # NB: no draft guard — this job runs on draft PRs by design.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # Region is not sensitive (e.g. us-east-1), so it lives in a repo variable,
+      # not a secret. Only the access keys above need secret masking.
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      # reg-notify-github-plugin clientId (NOT a secret — App client id). Set as
+      # a repo variable; regconfig.json interpolates it via $REG_NOTIFY_CLIENT_ID.
+      REG_NOTIFY_CLIENT_ID: ${{ vars.REG_NOTIFY_CLIENT_ID }}
+    steps:
+      # reg-keygen-git-hash-plugin walks git history to resolve the expected
+      # baseline, so it needs full history (fetch-depth: 0) and an attached HEAD.
+      # Ref precedence: an explicit workflow_dispatch `ref` input (any branch/tag/
+      # SHA) wins; otherwise the PR source branch (avoids the detached merge
+      # commit); otherwise empty, so checkout falls back to the pushed/dispatched
+      # ref (main on push), also attached.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.head_ref }}
+      # A dispatched commit SHA leaves HEAD detached, which the keygen plugin
+      # rejects. Reattach to a throwaway local branch so it has an attached HEAD;
+      # a no-op when checkout already landed on a branch (PR / push / branch ref).
+      - name: Ensure attached HEAD (keygen requirement)
+        run: git symbolic-ref -q HEAD || git switch -c "vr-dispatch-${{ github.run_id }}"
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ui/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ui/package.json
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('ui/pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Capture fixture matrix
+        run: pnpm run capture:scenes --out .reg-actual
+
+      # Baseline publish: push to main only. sync-expected + compare produce a
+      # main-over-main report; publish uploads the new actual as the baseline for
+      # descendant commits. No notify (there is no PR). A manual dispatch never
+      # takes this path, so it can't overwrite the main baseline.
+      - name: Publish baseline (main)
+        if: github.event_name == 'push'
+        run: |
+          pnpm exec reg-suit sync-expected
+          pnpm exec reg-suit compare
+          pnpm exec reg-suit publish
+
+      # Pull request (incl. drafts), or any manual dispatch: full cycle —
+      # sync-expected, compare, publish the diff report under the head commit, and
+      # notify via the GitHub App (a PR comment when a PR exists for the ref).
+      # Commit status is disabled (setCommitStatus: false in regconfig.json) so a
+      # visual change never marks the PR's checks as failing.
+      #
+      # NB: reg-suit exits 0 even when images differ — a visual difference is
+      # surfaced through the GitHub App's PR comment, not by failing this job. So a
+      # green job here does NOT mean "no visual change"; read the App comment for
+      # the actual result. (A non-zero exit means a real tooling/credential
+      # failure.)
+      - name: Compare and notify (pull request / manual dispatch)
+        if: >-
+          github.event_name == 'pull_request' ||
+          github.event_name == 'workflow_dispatch'
+        run: pnpm exec reg-suit run
+
+      # At-a-glance result on the run page: the new/changed/deleted/passed counts
+      # and a link to the published diff report, parsed from reg-suit's out.json.
+      # This is the durable in-CI surface (the PR comment is the reviewer surface).
+      # We do NOT upload .reg/ as an artifact: the report is already published to
+      # S3 (public, linked above), and .reg is a dotdir that upload-artifact@v4
+      # silently skips by default anyway.
+      - name: Visual regression summary
+        if: always()
+        run: node scripts/reg-summary.mjs "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"

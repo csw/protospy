@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "test:browser": "playwright test",
     "test:browser:headed": "playwright test --headed",
+    "capture:scenes": "tsx scripts/capture-scenes.ts",
     "screenshots": "tsx scripts/take-screenshots.ts",
     "screenshots:bestiary": "tsx scripts/take-bestiary.ts generate --upload",
     "coverage:ratchet": "tsx scripts/ratchet-coverage.ts"
@@ -73,6 +74,10 @@
     "jsdom": "^29.1.1",
     "openai": "^6.39.0",
     "prettier": "^3.8.3",
+    "reg-keygen-git-hash-plugin": "0.14.5",
+    "reg-notify-github-plugin": "0.14.5",
+    "reg-publish-s3-plugin": "0.14.4",
+    "reg-suit": "0.14.5",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.22.3",

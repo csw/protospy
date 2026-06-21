@@ -243,14 +243,20 @@ class MainTests(unittest.TestCase):
 
     def test_main_neither_flag_exits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(SystemExit) as cm:
-                upload_screenshot.main([tmp])
+            # argparse prints its usage error to stderr; capture it so it doesn't
+            # leak into the test runner's output.
+            with patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as cm:
+                    upload_screenshot.main([tmp])
             self.assertNotEqual(cm.exception.code, 0)
 
     def test_main_both_flags_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(SystemExit) as cm:
-                upload_screenshot.main([tmp, "--branch", "main", "--prefix", "reviews/x"])
+            with patch("sys.stderr", new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as cm:
+                    upload_screenshot.main(
+                        [tmp, "--branch", "main", "--prefix", "reviews/x"]
+                    )
             self.assertNotEqual(cm.exception.code, 0)
 
 
@@ -463,6 +469,126 @@ class MainCatalogTests(unittest.TestCase):
                 "/bestiary/2026-06-15/index.html",
                 output,
             )
+
+
+class ReadMatrixTests(unittest.TestCase):
+    def test_reads_filenames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            m = Path(tmp) / "matrix.txt"
+            m.write_text("a-1280-dark.png\nb-1280-dark.png\n")
+            self.assertEqual(
+                upload_screenshot.read_matrix(m),
+                ["a-1280-dark.png", "b-1280-dark.png"],
+            )
+
+    def test_ignores_blank_and_comment_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            m = Path(tmp) / "matrix.txt"
+            m.write_text("# header\n\na-1280-dark.png\n  \n# note\nb-1280-dark.png\n")
+            self.assertEqual(
+                upload_screenshot.read_matrix(m),
+                ["a-1280-dark.png", "b-1280-dark.png"],
+            )
+
+    def test_strips_whitespace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            m = Path(tmp) / "matrix.txt"
+            m.write_text("  a-1280-dark.png  \n")
+            self.assertEqual(upload_screenshot.read_matrix(m), ["a-1280-dark.png"])
+
+
+class MatrixWarningsTests(unittest.TestCase):
+    def test_no_warnings_when_set_matches(self) -> None:
+        names = ["a-1280-dark.png", "b-1280-dark.png"]
+        self.assertEqual(upload_screenshot.matrix_warnings(names, names), [])
+
+    def test_extra_file_warned_as_stale(self) -> None:
+        warnings = upload_screenshot.matrix_warnings(
+            ["a-1280-dark.png", "stale-1280-dark.png"],
+            ["a-1280-dark.png"],
+        )
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("stale-1280-dark.png", warnings[0])
+        self.assertIn("not in the matrix manifest", warnings[0])
+
+    def test_missing_file_warned(self) -> None:
+        warnings = upload_screenshot.matrix_warnings(
+            ["a-1280-dark.png"],
+            ["a-1280-dark.png", "b-1280-dark.png"],
+        )
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("b-1280-dark.png", warnings[0])
+        self.assertIn("was not captured", warnings[0])
+
+    def test_extra_and_missing_both_warned(self) -> None:
+        warnings = upload_screenshot.matrix_warnings(
+            ["a-1280-dark.png", "stale-1280-dark.png"],
+            ["a-1280-dark.png", "b-1280-dark.png"],
+        )
+        self.assertEqual(len(warnings), 2)
+        joined = "\n".join(warnings)
+        self.assertIn("stale-1280-dark.png", joined)
+        self.assertIn("b-1280-dark.png", joined)
+
+    def test_warnings_sorted(self) -> None:
+        warnings = upload_screenshot.matrix_warnings(
+            ["z-1280-dark.png", "a-1280-dark.png"],
+            [],
+        )
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("a-1280-dark.png", warnings[0])
+        self.assertIn("z-1280-dark.png", warnings[1])
+
+
+class MatrixFlagMainTests(unittest.TestCase):
+    def _run(self, argv: list[str]):
+        mock_boto3 = MagicMock()
+        mock_boto3.client.return_value = MagicMock()
+        # Capture stdout too: main() prints the Markdown embeds there, so without
+        # this they leak into the test runner's output.
+        with patch.dict("sys.modules", {"boto3": mock_boto3}):
+            with (
+                patch("sys.stderr", new_callable=io.StringIO) as mock_err,
+                patch("sys.stdout", new_callable=io.StringIO),
+            ):
+                result = upload_screenshot.main(argv)
+        return result, mock_err.getvalue()
+
+    def test_matrix_mismatch_warns_but_still_uploads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "after"
+            d.mkdir()
+            (d / "a-1280-dark.png").write_bytes(b"")
+            (d / "stale-1280-dark.png").write_bytes(b"")
+            m = Path(tmp) / "matrix.txt"
+            m.write_text("a-1280-dark.png\nb-1280-dark.png\n")
+            result, err = self._run([str(d), "--branch", "feat", "--matrix", str(m)])
+            self.assertEqual(result, 0)
+            self.assertIn("stale-1280-dark.png", err)
+            self.assertIn("b-1280-dark.png", err)
+
+    def test_matrix_match_no_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "after"
+            d.mkdir()
+            (d / "a-1280-dark.png").write_bytes(b"")
+            m = Path(tmp) / "matrix.txt"
+            m.write_text("a-1280-dark.png\n")
+            result, err = self._run([str(d), "--branch", "feat", "--matrix", str(m)])
+            self.assertEqual(result, 0)
+            self.assertNotIn("warning:", err)
+
+    def test_missing_matrix_file_warns_and_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "after"
+            d.mkdir()
+            (d / "a-1280-dark.png").write_bytes(b"")
+            result, err = self._run(
+                [str(d), "--branch", "feat", "--matrix", str(Path(tmp) / "nope.txt")]
+            )
+            self.assertEqual(result, 0)
+            self.assertIn("matrix file", err)
+            self.assertIn("skipping matrix check", err)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# Dump the running app's fixture scene ids, one per line (sorted, deduped) — the
+# single home for the `window.__test_scenes.list()` incantation. Used to compare
+# the base app's scenes against HEAD's so added/removed views can be detected
+# instead of hand-listed.
+#
+# Usage: scene-list
+#
+# Requires a `playwright-cli` session already pointed at the running UI. Exits 0
+# with the ids on stdout; exits 1 if the app doesn't expose the scene harness
+# (e.g. a production build, or a base commit old enough to predate it).
+set -euo pipefail
+
+# Wait for the SPA to mount the harness — `playwright-cli open` returns before the
+# app boots, so an immediate eval can race the install of `window.__test_scenes`.
+# `--raw eval` already serializes the return value as JSON — return the array
+# directly (wrapping in JSON.stringify would double-encode it to a quoted string).
+for _ in $(seq 1 30); do
+  json="$(playwright-cli --raw eval "(window.__test_scenes && typeof window.__test_scenes.list === 'function') ? window.__test_scenes.list().map(s => s.id) : null" 2>/dev/null || true)"
+  if [[ -n "$json" ]] && jq -e 'type == "array"' <<<"$json" >/dev/null 2>&1; then
+    jq -r '.[]' <<<"$json" | sort -u
+    exit 0
+  fi
+  sleep 0.5
+done
+
+echo "scene-list: window.__test_scenes.list() is unavailable in the running app (waited 15s)" >&2
+exit 1

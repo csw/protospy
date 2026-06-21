@@ -1,0 +1,23 @@
+{
+  "core": {
+    "workingDir": ".reg",
+    "actualDir": ".reg-actual",
+    "thresholdRate": 0,
+    "ximgdiff": {
+      "invocationType": "none"
+    }
+  },
+  "plugins": {
+    "reg-keygen-git-hash-plugin": {},
+    "reg-publish-s3-plugin": {
+      "bucketName": "protospy-dev-data",
+      "pathPrefix": "visual-regression",
+      "enableACL": false
+    },
+    "reg-notify-github-plugin": {
+      "clientId": "$REG_NOTIFY_CLIENT_ID",
+      "prComment": true,
+      "setCommitStatus": false
+    }
+  }
+}

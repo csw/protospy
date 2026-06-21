@@ -159,44 +159,57 @@ class BehavioralInvariantTests(unittest.TestCase):
                 f"{label} skill missing explicit 'do not enter step 10'",
             )
 
-    def test_matrix_manifest_in_both_skills(self) -> None:
-        """Both skills must instruct the agent to record the shot matrix to
-        scratch/matrix.txt before taking before screenshots."""
+    def test_visual_regression_workflow_referenced(self) -> None:
+        """The pixel diff is automated in CI (PRO-428): both skills must point
+        at the ui-visual-regression workflow, not a hand-run capture/compare."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
             self.assertIn(
-                "scratch/matrix.txt",
+                "ui-visual-regression",
                 generated,
-                f"{label} skill missing scratch/matrix.txt manifest reference",
+                f"{label} skill missing ui-visual-regression workflow reference",
             )
 
-    def test_screenshot_diff_in_both_skills(self) -> None:
-        """Both skills must reference screenshot-diff for the pixel self-check."""
+    def test_visual_regression_watched_and_read(self) -> None:
+        """The visual-regression run posts the reg-suit diff on the (draft) PR;
+        both skills must tell the agent to watch it (ci-watch) and read the
+        reg-suit result."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
             self.assertIn(
-                "screenshot-diff",
+                "ci-watch",
                 generated,
-                f"{label} skill missing screenshot-diff reference",
+                f"{label} skill missing ci-watch for the visual regression",
+            )
+            self.assertIn(
+                "reg-suit",
+                generated,
+                f"{label} skill missing reg-suit result reference",
             )
 
-    def test_selfcheck_stop_before_pushing(self) -> None:
-        """Both skills must tell agents to stop before pushing when the pixel
-        self-check detects unexpected differences."""
+    def test_no_deleted_screenshot_scripts_referenced(self) -> None:
+        """The bespoke before/after diff pipeline was removed (PRO-428); neither
+        skill should resurrect its scripts or scratch dirs."""
         for label, generated in [
             ("claude", sync_handle_ticket_skill.generate_claude_skill()),
             ("codex", sync_handle_ticket_skill.generate_codex_skill()),
         ]:
-            normalized = " ".join(generated.split())
-            self.assertRegex(
-                normalized,
-                re.compile(r"stop before pushing", re.IGNORECASE),
-                f"{label} skill missing 'stop before pushing' directive for self-check",
-            )
+            for token in (
+                "capture-before-base",
+                "capture-matrix",
+                "compare-screenshots",
+                "scratch/before",
+                "scratch/after",
+            ):
+                self.assertNotIn(
+                    token,
+                    generated,
+                    f"{label} skill references removed screenshot token {token!r}",
+                )
 
 
 if __name__ == "__main__":
