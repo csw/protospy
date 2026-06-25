@@ -10,9 +10,30 @@ import {
 } from "@ui/body/sse-stream";
 import type { BodyState, Exchange } from "@ui/state/types";
 
+/**
+ * Hard cap on the number of exchanges retained in the store. Beyond this,
+ * oldest-first FIFO eviction (see {@link evict}) drops the least-recent
+ * exchanges so a long session can't grow the store unboundedly (PRO-97).
+ */
+export const MAX_EXCHANGES = 1024;
+
+/**
+ * Hard cap on total retained body payload, in bytes (512 MB). Accounted from
+ * each body's wire size (`BodyState.wireBytes`) — the bytes the store actually
+ * holds long-term as `chunks` — which is a close-enough guardrail without exact
+ * byte-level accounting. The decompressed copy is produced on demand and held
+ * only while an exchange is selected, so it is intentionally not counted.
+ */
+export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
+
 function getHeader(headers: ProxyHeaders, name: string): string | undefined {
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
     ?.value;
+}
+
+/** Retained wire-byte footprint of one exchange (request + response bodies). */
+function exchangeBytes(ex: Exchange): number {
+  return (ex.requestBody?.wireBytes ?? 0) + (ex.responseBody?.wireBytes ?? 0);
 }
 
 function isSSEContentType(ct: string | undefined): boolean {
@@ -177,4 +198,52 @@ export function apply(
     ids.push(id);
   }
   exchanges.set(id, ex);
+}
+
+/**
+ * Oldest-first FIFO eviction to keep the store within its hard caps
+ * ({@link MAX_EXCHANGES} and {@link MAX_PAYLOAD_BYTES}). Mutates `exchanges` and
+ * `ids` in place, exactly like {@link apply} — the store's `applyEvent` passes
+ * in the fresh copies it owns. Runs after every applied event because a body's
+ * `wireBytes` grows as streaming `BodyData` events arrive, so the payload cap
+ * can be crossed without a new exchange being added.
+ *
+ * `protectedId` (the currently selected exchange) is never evicted, so a user
+ * inspecting an old exchange doesn't have it vanish mid-view. At most one id is
+ * protected, so the count cap is still always reachable. The store is never
+ * emptied: eviction stops once a single exchange remains, so a lone exchange
+ * whose body alone exceeds the payload cap is retained rather than dropped.
+ */
+export function evict(
+  exchanges: Map<number, Exchange>,
+  ids: number[],
+  protectedId?: number | null,
+): void {
+  // Index of the oldest evictable (non-protected) id, or -1 if none.
+  const oldestEvictable = (): number =>
+    ids.findIndex((id) => id !== protectedId);
+
+  // Count cap: drop oldest non-protected exchanges down to MAX_EXCHANGES.
+  while (ids.length > MAX_EXCHANGES) {
+    const i = oldestEvictable();
+    if (i === -1) break;
+    exchanges.delete(ids[i]);
+    ids.splice(i, 1);
+  }
+
+  // Payload cap: drop oldest non-protected exchanges until total wire bytes are
+  // within MAX_PAYLOAD_BYTES, always keeping at least one exchange.
+  let total = 0;
+  for (const id of ids) {
+    const ex = exchanges.get(id);
+    if (ex != null) total += exchangeBytes(ex);
+  }
+  while (total > MAX_PAYLOAD_BYTES && ids.length > 1) {
+    const i = oldestEvictable();
+    if (i === -1) break;
+    const ex = exchanges.get(ids[i]);
+    if (ex != null) total -= exchangeBytes(ex);
+    exchanges.delete(ids[i]);
+    ids.splice(i, 1);
+  }
 }

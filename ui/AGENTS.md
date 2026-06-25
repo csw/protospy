@@ -25,6 +25,7 @@ For the deep reference (exact `EventMessage` shape, reducer per-event-type rules
 - `window.__test_scenes`, installed by `main.tsx` from `src/test/scenes.ts` under the same gate as `__test_store`, is the **fixture matrix** used by the visual-review workflow (PRO-229). Each `SCENES` cell is an injectable UI state; `browser/fixture-matrix.spec.ts` walks them. See `docs/fixture-matrix.md`.
 - Persisted prefs `localStorage` key is `protospy-ui-prefs`; the `partialize` list in `state/store.ts` defines which UI prefs persist. `listWidth` values are scaffold pixel widths; the shell caps only the first-render applied width on narrow viewports and does not persist that cap unless the divider is manually dragged.
 - `state/reducer.ts` is pure on purpose so it can be unit-tested in the `node` project. Do not import React, the store, or anything with side effects into it.
+- The store is **capped** (PRO-97): after each `apply`, `applyEvent` calls `evict(exchanges, ids, selectedId)` (pure, in `state/reducer.ts`) to drop oldest exchanges past `MAX_EXCHANGES` (1024) or `MAX_PAYLOAD_BYTES` (512 MB, summed from body `wireBytes`). The selected exchange is never evicted; at least one is always kept; there is no eviction affordance. See `ARCHITECTURE.md` §4.
 
 **Directory map (compressed; full annotations in `ARCHITECTURE.md`):**
 

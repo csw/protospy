@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { EventMessage } from "@bindings/EventMessage";
 import { useStore } from "@ui/state/store";
+import { MAX_EXCHANGES } from "@ui/state/reducer";
 import { makeGetRequest } from "@ui/test/fixtures";
 
 describe("state/store", () => {
@@ -170,6 +171,33 @@ describe("state/store", () => {
       const ex = state.exchanges.get(1);
       expect(ex?.method).toBe("GET");
       expect(ex?.uri).toBe("/api/test");
+    });
+
+    it("evicts oldest exchanges past the count cap (PRO-97)", () => {
+      const apply = useStore.getState().applyEvent;
+      for (let id = 1; id <= MAX_EXCHANGES + 3; id++) {
+        apply(makeGetRequest(id) as unknown as EventMessage);
+      }
+      const state = useStore.getState();
+      expect(state.ids).toHaveLength(MAX_EXCHANGES);
+      expect(state.exchanges.size).toBe(MAX_EXCHANGES);
+      // The three oldest were dropped; the newest survives.
+      expect(state.exchanges.has(1)).toBe(false);
+      expect(state.exchanges.has(3)).toBe(false);
+      expect(state.exchanges.has(MAX_EXCHANGES + 3)).toBe(true);
+    });
+
+    it("does not evict the currently selected exchange (PRO-97)", () => {
+      const { applyEvent, setSelectedId } = useStore.getState();
+      applyEvent(makeGetRequest(1) as unknown as EventMessage);
+      setSelectedId(1); // pin the oldest exchange
+      for (let id = 2; id <= MAX_EXCHANGES + 3; id++) {
+        applyEvent(makeGetRequest(id) as unknown as EventMessage);
+      }
+      const state = useStore.getState();
+      expect(state.ids).toHaveLength(MAX_EXCHANGES);
+      expect(state.exchanges.has(1)).toBe(true); // selected survived
+      expect(state.exchanges.has(2)).toBe(false); // next-oldest evicted instead
     });
   });
 
