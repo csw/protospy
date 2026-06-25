@@ -185,7 +185,10 @@ def harness_cli_args(args: argparse.Namespace) -> list[str]:
     """CLI args passed to the harness binary, before the worktree/prompt args.
 
     `--model` is shared by both harnesses. `--effort` maps to
-    `-c model_reasoning_effort` for Codex and `--effort` for Claude Code.
+    `-c model_reasoning_effort` for Codex and `--effort` for Claude Code. `--yolo`
+    expands to each harness's sandbox-bypass flags (Claude:
+    `--dangerously-skip-permissions`, or the `--allow-` variant under `--plan` so plan
+    mode isn't overridden; Codex: bypass approvals/sandbox + hook trust).
     Anything in `--harness-arg`
     (or its Codex alias `--codex-arg`) and after `--` is passed through verbatim.
     """
@@ -198,6 +201,23 @@ def harness_cli_args(args: argparse.Namespace) -> list[str]:
                 "different approval paradigm, not pre-execution plan review)"
             )
         result.extend(["--permission-mode", "plan"])
+    if args.yolo:
+        if args.harness == "codex":
+            result.extend(
+                [
+                    "--dangerously-bypass-approvals-and-sandbox",
+                    "--dangerously-bypass-hook-trust",
+                ]
+            )
+        else:  # claude
+            # --dangerously-skip-permissions == bypassPermissions, which overrides
+            # --permission-mode plan, so in plan mode use the --allow- variant: it
+            # only makes bypass *available* (Shift+Tab) and lets plan mode win.
+            result.append(
+                "--allow-dangerously-skip-permissions"
+                if args.plan
+                else "--dangerously-skip-permissions"
+            )
     if args.model:
         result.extend(["--model", args.model])
     if args.effort:
@@ -347,6 +367,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--yolo",
+        action="store_true",
+        help=(
+            "bypass all harness approval/sandbox prompts (the container is the "
+            "sandbox); translated per harness — Claude: "
+            "--dangerously-skip-permissions (or --allow- variant under --plan); "
+            "Codex: --dangerously-bypass-approvals-and-sandbox + bypass-hook-trust"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="print the worktree and launch command without launching",
@@ -377,7 +407,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--harness-arg",
         "--codex-arg",
     }
-    recognized_flags = {"--plan", "--dry-run", "-h", "--help"}
+    recognized_flags = {"--plan", "--yolo", "--dry-run", "-h", "--help"}
 
     if "--" in argv:
         delimiter_index = argv.index("--")
