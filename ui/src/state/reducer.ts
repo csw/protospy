@@ -233,6 +233,12 @@ export function evict(
 
   // Payload cap: drop oldest non-protected exchanges until total wire bytes are
   // within MAX_PAYLOAD_BYTES, always keeping at least one exchange.
+  //
+  // The total is recomputed from scratch on every applied event rather than
+  // carried as a running delta. That is an O(n) scan (n <= MAX_EXCHANGES) per
+  // event — including each streaming BodyData chunk — but it sidesteps the bug
+  // surface of reconciling a delta against cumulative `total_bytes`. Deliberate
+  // trade-off; revisit only if `applyEvent` ever profiles hot (PRO-97 review).
   let total = 0;
   for (const id of ids) {
     const ex = exchanges.get(id);

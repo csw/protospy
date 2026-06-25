@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { EventMessage } from "@bindings/EventMessage";
 import { useStore } from "@ui/state/store";
 import { MAX_EXCHANGES } from "@ui/state/reducer";
-import { makeGetRequest } from "@ui/test/fixtures";
+import { makeGetRequest, makeBinaryResponse } from "@ui/test/fixtures";
 
 describe("state/store", () => {
   beforeEach(() => {
@@ -198,6 +198,24 @@ describe("state/store", () => {
       expect(state.ids).toHaveLength(MAX_EXCHANGES);
       expect(state.exchanges.has(1)).toBe(true); // selected survived
       expect(state.exchanges.has(2)).toBe(false); // next-oldest evicted instead
+    });
+
+    it("evicts by the payload cap through applyEvent (PRO-97)", () => {
+      // Two exchanges each declaring 300 MB of wire bytes exceed the 512 MB
+      // payload cap, so adding the second evicts the first — exercising the
+      // payload cap through the real applyEvent -> apply -> evict wiring (the
+      // unit tests cover evict() directly; this closes the count/payload
+      // symmetry at the store level).
+      const apply = useStore.getState().applyEvent;
+      const bytes = 300 * 1024 * 1024;
+      apply(makeGetRequest(1) as unknown as EventMessage);
+      apply(makeBinaryResponse(1, "AA==", bytes) as unknown as EventMessage);
+      apply(makeGetRequest(2) as unknown as EventMessage);
+      apply(makeBinaryResponse(2, "AA==", bytes) as unknown as EventMessage);
+      const state = useStore.getState();
+      expect(state.ids).toEqual([2]); // oldest dropped under the byte cap
+      expect(state.exchanges.has(1)).toBe(false);
+      expect(state.exchanges.has(2)).toBe(true);
     });
   });
 
