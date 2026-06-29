@@ -7,7 +7,7 @@ import type { Protocol } from "@bindings/Protocol";
 import type { ConnectionStatus } from "@ui/api/sse";
 import type { TimeZone } from "@ui/lib/utils";
 import { matchesFilter } from "@ui/lib/utils";
-import { apply } from "./reducer";
+import { apply, evict } from "./reducer";
 import type { Exchange } from "./types";
 import type { ViewMode } from "@ui/body/view-modes";
 export type { Exchange, BodyState } from "./types";
@@ -116,6 +116,9 @@ export const useStore = create<StoreState>()(
             const exchanges = new Map(state.exchanges);
             const ids = [...state.ids];
             apply(exchanges, ids, msg);
+            // Evict oldest exchanges past the hard caps, protecting the
+            // currently selected one (PRO-97).
+            evict(exchanges, ids, state.selectedId);
             return { exchanges, ids };
           }),
 

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { Exchange, BodyState } from "../state/types";
-import { apply } from "../state/reducer";
+import {
+  apply,
+  evict,
+  MAX_EXCHANGES,
+  MAX_PAYLOAD_BYTES,
+} from "../state/reducer";
 import type { EventMessage } from "@bindings/EventMessage";
 import type { ProxyHeaders } from "@bindings/ProxyHeaders";
 
@@ -1263,5 +1268,123 @@ describe("SSE stream support", () => {
     expect(body.sseState).toBeUndefined();
     expect(body.chunks).toEqual([{ text: "data" }]);
     expect(body.atEnd).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Eviction (PRO-97): oldest-first FIFO under the count and payload caps
+// ---------------------------------------------------------------------------
+
+describe("evict", () => {
+  // Seed the store directly with `n` exchanges (ids 1..n in insertion order),
+  // each carrying `bytesPerExchange` of response wire payload. Bypasses `apply`
+  // so the eviction logic can be exercised on hand-built state.
+  function seed(n: number, bytesPerExchange = 0) {
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    for (let id = 1; id <= n; id++) {
+      const ex: Exchange = { id, timestamp: "2024-01-01T00:00:00Z" };
+      if (bytesPerExchange > 0) {
+        ex.responseBody = {
+          chunks: [],
+          atEnd: true,
+          wireBytes: bytesPerExchange,
+        };
+      }
+      exchanges.set(id, ex);
+      ids.push(id);
+    }
+    return { exchanges, ids };
+  }
+
+  it("is a no-op when both caps are satisfied", () => {
+    const { exchanges, ids } = seed(10, 1000);
+    evict(exchanges, ids);
+    expect(ids).toHaveLength(10);
+    expect(exchanges.size).toBe(10);
+    expect(ids[0]).toBe(1);
+  });
+
+  it("drops oldest exchanges down to the count cap", () => {
+    const { exchanges, ids } = seed(MAX_EXCHANGES + 5);
+    evict(exchanges, ids);
+
+    expect(ids).toHaveLength(MAX_EXCHANGES);
+    expect(exchanges.size).toBe(MAX_EXCHANGES);
+    // The 5 oldest (ids 1..5) were evicted; the newest is retained.
+    expect(exchanges.has(1)).toBe(false);
+    expect(exchanges.has(5)).toBe(false);
+    expect(exchanges.has(6)).toBe(true);
+    expect(ids[0]).toBe(6);
+    expect(ids[ids.length - 1]).toBe(MAX_EXCHANGES + 5);
+  });
+
+  it("drops oldest exchanges until under the payload cap", () => {
+    // 4 exchanges each holding 200 MB → 800 MB total, over the 512 MB cap.
+    // Evicting the two oldest leaves 400 MB across ids 3 and 4.
+    const bytes = 200 * 1024 * 1024;
+    const { exchanges, ids } = seed(4, bytes);
+    expect(4 * bytes).toBeGreaterThan(MAX_PAYLOAD_BYTES);
+
+    evict(exchanges, ids);
+
+    expect(ids).toEqual([3, 4]);
+    expect(exchanges.has(1)).toBe(false);
+    expect(exchanges.has(2)).toBe(false);
+  });
+
+  it("counts both request and response body bytes", () => {
+    const half = 300 * 1024 * 1024;
+    const exchanges = makeExchanges();
+    const ids = makeIds();
+    for (let id = 1; id <= 2; id++) {
+      exchanges.set(id, {
+        id,
+        timestamp: "2024-01-01T00:00:00Z",
+        requestBody: { chunks: [], atEnd: true, wireBytes: half },
+        responseBody: { chunks: [], atEnd: true, wireBytes: half },
+      });
+      ids.push(id);
+    }
+    // Each exchange is 600 MB on its own → over the cap even singly.
+    evict(exchanges, ids);
+    // Oldest dropped; newest retained (store never empties — see below).
+    expect(ids).toEqual([2]);
+  });
+
+  it("never evicts the currently selected exchange (count cap)", () => {
+    const { exchanges, ids } = seed(MAX_EXCHANGES + 3);
+    // Select the oldest exchange — it must survive eviction.
+    evict(exchanges, ids, 1);
+
+    expect(ids).toHaveLength(MAX_EXCHANGES);
+    expect(exchanges.has(1)).toBe(true);
+    // The next-oldest non-selected ids absorbed the eviction instead.
+    expect(exchanges.has(2)).toBe(false);
+    expect(exchanges.has(3)).toBe(false);
+    expect(exchanges.has(4)).toBe(false);
+    expect(ids[0]).toBe(1);
+  });
+
+  it("never evicts the currently selected exchange (payload cap)", () => {
+    const bytes = 200 * 1024 * 1024; // 4 × 200 MB = 800 MB
+    const { exchanges, ids } = seed(4, bytes);
+    // Select the oldest; it is retained while the next-oldest is dropped.
+    evict(exchanges, ids, 1);
+
+    expect(exchanges.has(1)).toBe(true);
+    expect(exchanges.has(2)).toBe(false);
+    // Total back under cap: id 1 (selected) + the newest survivors.
+    let total = 0;
+    for (const id of ids) total += exchanges.get(id)!.responseBody!.wireBytes;
+    expect(total).toBeLessThanOrEqual(MAX_PAYLOAD_BYTES);
+  });
+
+  it("keeps at least one exchange even if it alone exceeds the payload cap", () => {
+    const bytes = MAX_PAYLOAD_BYTES + 1;
+    const { exchanges, ids } = seed(1, bytes);
+    evict(exchanges, ids);
+    expect(ids).toEqual([1]);
+    expect(exchanges.size).toBe(1);
   });
 });
