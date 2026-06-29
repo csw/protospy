@@ -39,7 +39,7 @@ futures = "0.3.32"
 uid = "0.1.8"
 chrono = { version = "0.4.44", features = ["serde"] }
 thiserror = "2.0.18"
-mockall = "0.14.0"
+mockall = "0.15.0"
 ts-rs = { version = "12.0.1", features = [
     "bytes-impl",
     "chrono-impl",
@@ -68,7 +68,7 @@ http-serde = "2.1.1"
 panic = "abort"
 
 [dev-dependencies]
-mockall = "0.14.0"
+mockall = "0.15.0"
 tokio-test = "0.4.5"
 rstest = "0.26.1"
 ts-rs = "12.0.1"
