@@ -1,10 +1,11 @@
-// src/components/protospy/event-log.tsx
+// src/components/event-log.tsx
 // Virtualized SSE event list — the v2.3 scaffold's event-row presentation.
 // Replaces the legacy EventsView: rows are plain semantic-token text labels
-// (no filled pills), with `data-selected` row state, keyed and selected off the
-// live `SSEEvent.index`. Shared by the generic stream view and the Anthropic
-// ChatStreamView. The scroll container lives in the parent stream view; this
-// component renders the sized, absolutely-positioned virtual rows inside it.
+// (no filled pills), keyed off the live `SSEEvent.index`. Rows are
+// non-interactive containers; the only control is the per-row expand toggle.
+// Shared by the generic stream view and the Anthropic ChatStreamView. The
+// scroll container lives in the parent stream view; this component renders the
+// sized, absolutely-positioned virtual rows inside it.
 
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
@@ -72,10 +73,7 @@ function EventDataSummary({ data }: { data: string }) {
         size="icon-xs"
         aria-label={expanded ? "Collapse event data" : "Expand event data"}
         aria-expanded={expanded}
-        onClick={(e) => {
-          e.stopPropagation();
-          setExpanded((v) => !v);
-        }}
+        onClick={() => setExpanded((v) => !v)}
         className="-my-1 shrink-0 text-muted-foreground"
       >
         <ChevronDown
@@ -90,17 +88,9 @@ interface EventLogProps {
   events: SSEEvent[];
   /** Scroll container ref from the parent stream view — drives the virtualizer. */
   scrollRef: RefObject<HTMLDivElement | null>;
-  /** `index` of the selected row, if any. */
-  selectedIndex?: number | null;
-  onSelect?: (index: number) => void;
 }
 
-export function EventLog({
-  events,
-  scrollRef,
-  selectedIndex,
-  onSelect,
-}: EventLogProps) {
+export function EventLog({ events, scrollRef }: EventLogProps) {
   // The scroll container ref lives in the parent. React attaches refs and runs
   // layout effects child-first, so on the initial commit the parent's ref is
   // still null when the virtualizer's _willUpdate runs. Force one render after
@@ -143,7 +133,6 @@ export function EventLog({
         // extensible without touching the live SSEEvent shape. Surfaced as
         // `data-kind` so future per-kind row rendering has a live hook.
         const { kind } = classifyEvent(event);
-        const selected = selectedIndex === event.index;
         return (
           <div
             key={virtualItem.key}
@@ -157,12 +146,14 @@ export function EventLog({
               transform: `translateY(${virtualItem.start}px)`,
             }}
           >
-            <button
-              type="button"
-              onClick={() => onSelect?.(event.index)}
-              data-selected={selected || undefined}
+            {/* The row is a non-interactive container: its only control is the
+                expand toggle inside EventDataSummary. Keeping the row a plain
+                <div> (not a <button>) is what avoids nesting that toggle's
+                <button> inside another <button> — invalid DOM that triggered a
+                React validation error in the Anthropic stream scenes (PRO-440). */}
+            <div
               data-kind={kind}
-              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1 text-left hover:bg-hover data-[selected]:bg-accent"
+              className="grid w-full grid-cols-[150px_1fr] items-baseline gap-2.5 border-b px-3 py-1"
             >
               <span
                 className={cn(
@@ -173,7 +164,7 @@ export function EventLog({
                 {event.type}
               </span>
               <EventDataSummary data={event.data} />
-            </button>
+            </div>
           </div>
         );
       })}
