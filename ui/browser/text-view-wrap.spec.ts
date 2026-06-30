@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { injectExchanges, waitForStore } from "./helpers/inject";
 import { makeGetRequest, makeTextResponse } from "./fixtures/exchanges";
 

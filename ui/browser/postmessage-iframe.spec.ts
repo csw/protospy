@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 
 // Verifies that the Protospy UI emits proxy_connected / proxy_disconnected
 // postMessages to window.parent when embedded in an iframe.

@@ -6,6 +6,10 @@ dist-ssr/
 test-results/
 playwright-report/
 coverage/
+# Browser-test coverage (PRO-437): Istanbul JSON drain dir + nyc HTML report.
+# Development-time audit artifacts, never committed.
+.nyc_output/
+coverage-browser/
 /stats.html
 
 # Backstop against stray visual-verify / ad-hoc screenshots (handle-ticket step 4).

@@ -12,7 +12,7 @@
  * `aria-busy` contract, not on one particular loading form.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { waitForStore, resetStore, injectExchanges } from "./helpers/inject";
 import { makeGetRequest, makeResponse } from "./fixtures/exchanges";
 import {

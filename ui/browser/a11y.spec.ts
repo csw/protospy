@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "./fixtures/coverage";
 import type { TestInfo } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { Result } from "axe-core";

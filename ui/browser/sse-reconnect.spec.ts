@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { waitForStore } from "./helpers/inject";
 
 // Drives the connection-status pill through its full lifecycle by using

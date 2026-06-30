@@ -11,7 +11,7 @@
  * within a defined wall-clock budget with the UI thread remaining responsive.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/coverage";
 import { waitForStore, resetStore, injectExchanges } from "./helpers/inject";
 import { collectErrors } from "./helpers/errors";
 import { makeGetRequest, makeResponse } from "./fixtures/exchanges";
