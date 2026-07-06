@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Passes GITHUB_TOKEN to the checkout action so it configures git
           # credentials for the push step. Write access is granted by
