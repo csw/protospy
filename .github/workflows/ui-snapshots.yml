@@ -79,7 +79,7 @@ jobs:
       # SHA) wins; otherwise the PR source branch (avoids the detached merge
       # commit); otherwise empty, so checkout falls back to the pushed/dispatched
       # ref (main on push), also attached.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.head_ref }}
